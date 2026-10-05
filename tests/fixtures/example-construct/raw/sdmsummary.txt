@@ -1,0 +1,2 @@
+ID	Description	Fwd Primer ID	Fwd Primer Seq	Length	Tm Fwd	Rev Primer ID	Rev Primer Seq	Length	Tm Rev	Ta
+D404N	Replace gat between bases 1209-1213 with AAC in SID-1 (D404N) 	D404N:1_F	CGTTGAGCAAaacTTCGGGGCGC	23	74	D404N:1_R	AGCGGATTGAGCAGTTTTCCGTC	23	70	71

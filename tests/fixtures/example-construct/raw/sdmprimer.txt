@@ -1,0 +1,2 @@
+D404N1_fwd	cgttgagcaaaacttcggggcgc	Tm=74 Ta=71
+D404N1_rev	agcggattgagcagttttccgtc	Tm=70 Ta=71
