@@ -30,9 +30,7 @@ used directly:
 
 - The summary description in `raw/sdmsummary.txt` reads
   `Replace gat between bases 1209-1213 with AAC in SID-1 (D404N)`.
-  **1209 and 1213 are exclusive anchors**: they are the wild-type bases
-  flanking the edit (`A` at 1209, `T` at 1213), and the replaced bases are
-  strictly between them.
+  The description says “between bases 1209-1213,” while the final FASTA header explicitly says “replaced 1210 to 1212.” Therefore the latter defines the actual replacement interval for this fixture.
 - The final FASTA header in `raw/sdmfinalseq.fa` states the inclusive form
   directly: `... replaced 1210 to 1212 with AAC`.
 - Replaced codon: **1210–1212**, 1-indexed and inclusive (`GAT` in the wild
