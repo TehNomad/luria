@@ -1,0 +1,2 @@
+;seq-d  linear, 18 bases, ends with a stop codon
+ATGGCTTGGAATTTTTAA

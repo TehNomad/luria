@@ -1,0 +1,2 @@
+;seq-g  linear, 12 characters, one outside the DNA alphabet
+ATGGCTTGGA#T

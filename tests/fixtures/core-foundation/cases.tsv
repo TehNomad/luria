@@ -1,0 +1,42 @@
+case_id	kind	sequence_file	topology	reference	interval_reference	intervals	strand	completeness	genetic_code	numbering	expected	category	note
+seq_a_digest	sequence	seq-a.txt	linear	seq-a	none	none	none	none	none	none	hash:a83f6d825c144cef563438c085821ecbd8986cdaf0f65c75f7994ed616a2fd80	none	canonical text: 30 bases
+seq_b_digest	sequence	seq-b.txt	linear	seq-b	none	none	none	none	none	none	hash:748c00c04185e923b15fdd4033b3c76f9374ed7ac5728b9024311da1c76a06fa	none	canonical text: 30 bases
+seq_c_digest	sequence	seq-c.txt	circular	seq-c	none	none	none	none	none	none	hash:46ff16f41b721953db78b03c231e5e5dee9cbd82cf85b2eca20dc9236dcfc81a	none	canonical text: 24 bases
+seq_d_digest	sequence	seq-d.txt	linear	seq-d	none	none	none	none	none	none	hash:d4e4418df44cfd4e44157b02cf3eb66535a32a603d43b0159c8acb0424942daf	none	canonical text: 18 bases
+seq_e_digest	sequence	seq-e.txt	linear	seq-e	none	none	none	none	none	none	hash:92daabb494d4ef48b447bf24aabafcae5f1f0d254f00f54cb0487e6e345711a5	none	canonical text: 12 bases
+seq_f_digest	sequence	seq-f.txt	linear	seq-f	none	none	none	none	none	none	hash:8ba0b33bc46a5721b5efcdbf5034cc3c053341489a09f68d7f0ccb70003b1f7e	none	canonical text: 12 bases, one IUPAC N
+seq_g_invalid_character	sequence	seq-g.txt	linear	seq-g	none	none	none	none	none	none	error:InvalidSequenceCharacters	MalformedInput	'#' is not a DNA IUPAC letter
+seq_h_empty_content	sequence	seq-h.txt	linear	seq-h	none	none	none	none	none	none	error:EmptySequenceContent	MalformedInput	a record with a comment line and no bases
+seq_i_non_ascii_fold	sequence	seq-i.txt	linear	seq-i	none	none	none	none	none	none	error:InvalidSequenceCharacters	MalformedInput	U+00DF would Unicode-fold to S; ASCII-only normalization rejects it
+seq_a_bad_identifier	sequence	seq-a.txt	linear	seq a	none	none	none	none	none	none	error:InvalidIdentifierCharacters	MalformedInput	an identifier must be a single printable ASCII token
+feat_a_first12	feature	seq-a.txt	linear	seq-a	same	0:12	+	none	none	none	extracted:ATGGCTTGGAAT	none	half-open selection of the first 12 bases
+feat_a_first12_minus	feature	seq-a.txt	linear	seq-a	same	0:12	-	none	none	none	extracted:ATTCCAAGCCAT	none	the minus strand comes from the Feature, not from the caller
+feat_b_first12	feature	seq-b.txt	linear	seq-b	same	0:12	+	none	none	none	extracted:ATTCCAAGCCAT	none	same text as feat_a_first12_minus, written forwards
+feat_c_wrap	feature	seq-c.txt	circular	seq-c	same	21:24;0:6	+	none	none	none	extracted:ATGGCTTGG	none	the only legal origin crossing: [21,24) ends at 24, [0,6) starts at 0
+feat_c_wrap_minus	feature	seq-c.txt	circular	seq-c	same	21:24;0:6	-	none	none	none	extracted:CCAAGCCAT	none	reverse complement of ATGGCTTGG
+feat_c_slice	feature	seq-c.txt	circular	seq-c	same	3:12	+	none	none	none	extracted:TGGAACGAA	none	a single interval that does not cross the origin
+feat_negative_coordinate	feature	seq-a.txt	linear	seq-a	same	-1:12	+	none	none	none	error:NegativeCoordinate	MalformedInput	a coordinate below zero
+feat_reversed	feature	seq-a.txt	linear	seq-a	same	8:4	+	none	none	none	error:ReversedInterval	MalformedInput	end before start is not a strand encoding
+feat_empty_interval	feature	seq-a.txt	linear	seq-a	same	4:4	+	none	none	none	error:EmptyInterval	MalformedInput	the interval selects nothing
+feat_overlapping	feature	seq-a.txt	linear	seq-a	same	0:6;4:10	+	none	none	none	error:OverlappingIntervals	MalformedInput	the same nucleotides selected twice
+feat_out_of_order	feature	seq-a.txt	linear	seq-a	same	10:14;0:4	+	none	none	none	error:IntervalsOutOfOrder	MalformedInput	intervals not listed in increasing order
+feat_without_intervals	feature	seq-a.txt	linear	seq-a	same	none	+	none	none	none	error:FeatureWithoutIntervals	MalformedInput	a feature needs at least one interval
+feat_out_of_bounds	feature	seq-a.txt	linear	seq-a	same	0:31	+	none	none	none	error:CoordinateOutOfBounds	BiologicalValidation	seq-a has 30 bases, [0,31) asks for 31
+feat_wrong_reference	feature	seq-a.txt	linear	seq-a	seq-b:seq-b.txt	0:12	+	none	none	none	error:SequenceReferenceMismatch	BiologicalValidation	the intervals point at another sequence
+feat_same_name_other_content	feature	seq-a.txt	linear	seq-a	seq-a:seq-b.txt	0:12	+	none	none	none	error:SequenceReferenceMismatch	BiologicalValidation	same display name, different content digest
+feat_linear_multi	feature	seq-a.txt	linear	seq-a	same	0:4;6:10	+	none	none	none	error:UnsupportedFeatureStructure	Unsupported	a linear feature is a single interval
+feat_circular_gap	feature	seq-c.txt	circular	seq-c	same	3:6;10:14	+	none	none	none	error:UnsupportedFeatureStructure	Unsupported	3:6;10:14 is not contiguous
+feat_circular_out_of_order	feature	seq-c.txt	circular	seq-c	same	21:24;1:6	+	none	none	none	error:IntervalsOutOfOrder	MalformedInput	decreasing start without an origin crossing
+cds_a_first12	cds	seq-a.txt	linear	seq-a	same	0:12	+	complete	standard	from-cds-start	residues:MAWN	none	ATG GCT TGG AAT
+cds_a_first12_minus	cds	seq-a.txt	linear	seq-a	same	0:12	-	complete	standard	from-cds-start	residues:IPSH	none	ATT CCA AGC CAT
+cds_c_wrap	cds	seq-c.txt	circular	seq-c	same	21:24;0:6	+	complete	standard	from-cds-start	residues:MAW	none	ATG GCT TGG
+cds_c_wrap_minus	cds	seq-c.txt	circular	seq-c	same	21:24;0:6	-	complete	standard	from-cds-start	residues:PSH	none	CCA AGC CAT
+cds_d_terminal_stop	cds	seq-d.txt	linear	seq-d	same	0:18	+	complete	standard	from-cds-start	residues:MAWNF+stop	none	final TAA is a stop, not a residue
+cds_d_missing_strand	cds	seq-d.txt	linear	seq-d	same	0:12	none	complete	standard	from-cds-start	error:MissingCdsAttribute	MalformedInput	strand is mandatory, there is no default
+cds_a_length_not_multiple	cds	seq-a.txt	linear	seq-a	same	0:11	+	complete	standard	from-cds-start	error:CdsLengthNotDivisibleByThree	BiologicalValidation	11 nucleotides cannot form codons
+cds_e_internal_stop	cds	seq-e.txt	linear	seq-e	same	0:12	+	complete	standard	from-cds-start	error:InternalStopCodon	BiologicalValidation	ATG TAA GCT TGG: stop at codon 2 of 4
+cds_f_ambiguous_codon	cds	seq-f.txt	linear	seq-f	same	0:12	+	complete	standard	from-cds-start	error:AmbiguousCodon	BiologicalValidation	NGG stands for AGG, CGG, GGG or TGG
+cds_d_incomplete	cds	seq-d.txt	linear	seq-d	same	0:18	+	incomplete	standard	from-cds-start	error:IncompleteCds	Unsupported	only explicitly complete CDSs are translated
+cds_d_iso_code	cds	seq-d.txt	linear	seq-d	same	0:18	+	complete	iso1557	from-cds-start	error:UnsupportedGeneticCode	Unsupported	only the standard genetic code is supported
+cds_d_explicit_numbering	cds	seq-d.txt	linear	seq-d	same	0:18	+	complete	standard	explicit	error:UnsupportedNumberingScheme	Unsupported	this milestone refuses an explicit residue numbering mapping
+cds_a_wrong_reference	cds	seq-a.txt	linear	seq-a	seq-a:seq-b.txt	0:12	+	complete	standard	from-cds-start	error:SequenceReferenceMismatch	BiologicalValidation	a CDS built for another artifact with the same display name

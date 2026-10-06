@@ -1,0 +1,2 @@
+;seq-c  circular, 24 bases
+GCTTGGAACGAACGAACGAACATG
