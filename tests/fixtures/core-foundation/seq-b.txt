@@ -1,0 +1,2 @@
+;seq-b  linear, 30 bases; the first 12 bases are the reverse complement of seq-a's first 12
+ATTCCAAGCCATCAGCAGCAGCAGCAGCAG

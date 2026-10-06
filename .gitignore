@@ -1,0 +1,3 @@
+nvim.log
+target/
+.ruff_cache/

@@ -1,0 +1,7 @@
+# luria: molecular-biology toolbox.
+# First milestone: crates/core owns the canonical sequence/feature/CDS
+# domain semantics (decisions D002, D006, D007, D008, D009, D010).
+
+[workspace]
+members = ["crates/core"]
+resolver = "2"

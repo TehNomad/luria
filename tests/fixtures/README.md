@@ -1,3 +1,12 @@
+# Fixture index
+
+| Set | Purpose |
+| --- | --- |
+| [`core-foundation/`](./core-foundation/) | Synthetic sequences, features, and CDSs: canonical text, content hashing, coordinates, circular features, CDS extraction, translation. Drives the integration tests in `crates/core/tests/core_foundation.rs`. |
+| [`example-construct/`](./example-construct/) | The real *C. elegans* SID-1 construct and captured NEBaseChanger output. |
+
+---
+
 # Fixture: SID-1 D404N Mutagenesis (NEBaseChanger)
 
 ## Purpose

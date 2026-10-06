@@ -1,0 +1,7 @@
+[package]
+name = "luria-core"
+description = "Canonical sequence, feature, CDS, coordinate, and translation domain model for luria."
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]

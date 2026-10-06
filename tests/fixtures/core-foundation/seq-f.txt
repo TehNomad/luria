@@ -1,0 +1,2 @@
+;seq-f  linear, 12 bases, third codon is ambiguous
+ATGGCTNGGAAT
