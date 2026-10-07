@@ -1,0 +1,2 @@
+;mut-e  linear, 30 bases, one ambiguous codon (N at coordinate 6)
+ATGGCTNGGAATCAGCAGCAGCAGCAGCAG
