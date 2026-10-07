@@ -234,6 +234,13 @@ fn variant_name(error: &DomainError) -> String {
         DomainError::ResiduePositionOutsideCds(_) => "ResiduePositionOutsideCds",
         DomainError::ResiduePositionWrongCds(_) => "ResiduePositionWrongCds",
         DomainError::UnsupportedNumberingScheme(_) => "UnsupportedNumberingScheme",
+        DomainError::InvalidMutationRequest(_) => "InvalidMutationRequest",
+        DomainError::UnspecifiedCodonPolicy(_) => "UnspecifiedCodonPolicy",
+        DomainError::UnsupportedMutationPolicy(_) => "UnsupportedMutationPolicy",
+        DomainError::ExpectedNucleotideMismatch(_) => "ExpectedNucleotideMismatch",
+        DomainError::ExpectedResidueMismatch(_) => "ExpectedResidueMismatch",
+        DomainError::TargetOutsideFeature(_) => "TargetOutsideFeature",
+        DomainError::MutationVerificationFailure(_) => "MutationVerificationFailure",
     }
     .to_string()
 }

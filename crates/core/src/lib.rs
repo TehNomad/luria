@@ -7,6 +7,7 @@ pub mod feature;
 pub mod genetic_code;
 pub mod identity;
 pub mod interval;
+pub mod mutation;
 pub mod sequence;
 pub mod strand;
 pub mod translation;

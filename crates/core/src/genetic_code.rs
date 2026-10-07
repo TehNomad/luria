@@ -148,7 +148,10 @@ pub fn base_place(ch: char) -> usize {
 }
 
 /// Residue for a table symbol, or `None` for anything that is not a residue.
-fn residue_for_symbol(symbol: char) -> Option<Residue> {
+///
+/// Public so a residue letter in a mutation request parses into this same
+/// enum rather than into a second residue representation.
+pub fn residue_for_symbol(symbol: char) -> Option<Residue> {
     match symbol {
         'A' => Some(Residue::A),
         'R' => Some(Residue::R),

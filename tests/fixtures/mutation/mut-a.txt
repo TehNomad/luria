@@ -1,0 +1,2 @@
+;mut-a  linear, 30 bases, no stop codon
+ATGGCTTGGAATCAGCAGCAGCAGCAGCAG

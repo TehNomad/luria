@@ -1,0 +1,2 @@
+;mut-b  linear, 30 bases; the decoy content for the display name mut-a
+ATTCCAAGCCATCAGCAGCAGCAGCAGCAG

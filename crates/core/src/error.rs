@@ -204,6 +204,60 @@ pub struct InternalStopCodonProblem {
     pub codon: String,
 }
 
+/// Payload: a mutation request that cannot be represented.
+#[derive(Clone, Debug, PartialEq)]
+pub struct InvalidMutationRequestProblem {
+    pub request: String,
+    pub reason: String,
+}
+
+/// Payload: a residue mutation that did not say how to choose the codon.
+#[derive(Clone, Debug, PartialEq)]
+pub struct UnspecifiedCodonPolicyProblem {
+    pub cds: String,
+}
+
+/// Payload: a codon-selection policy this milestone refuses to apply.
+#[derive(Clone, Debug, PartialEq)]
+pub struct UnsupportedMutationPolicyProblem {
+    pub cds: String,
+    pub policy: String,
+}
+
+/// Payload: the nucleotide at the target is not the expected original.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ExpectedNucleotideMismatchProblem {
+    pub sequence: String,
+    pub position: u64,
+    pub expected: String,
+    pub actual: String,
+}
+
+/// Payload: the translated residue is not the expected original residue.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ExpectedResidueMismatchProblem {
+    pub cds: String,
+    pub number: u64,
+    pub expected: String,
+    pub actual: String,
+}
+
+/// Payload: the target coordinate lies outside the scoped feature or CDS.
+#[derive(Clone, Debug, PartialEq)]
+pub struct TargetOutsideFeatureProblem {
+    pub feature: String,
+    pub sequence: String,
+    pub start: u64,
+    pub end: u64,
+}
+
+/// Payload: a claimed mutation result does not follow from its source.
+#[derive(Clone, Debug, PartialEq)]
+pub struct MutationVerificationFailureProblem {
+    pub result: String,
+    pub reason: String,
+}
+
 /// A structured domain failure.
 #[derive(Clone, Debug, PartialEq)]
 pub enum DomainError {
@@ -231,6 +285,13 @@ pub enum DomainError {
     ResiduePositionOutsideCds(ResiduePositionRangeProblem),
     ResiduePositionWrongCds(CdsMismatchProblem),
     UnsupportedNumberingScheme(UnsupportedNumberingProblem),
+    InvalidMutationRequest(InvalidMutationRequestProblem),
+    UnspecifiedCodonPolicy(UnspecifiedCodonPolicyProblem),
+    UnsupportedMutationPolicy(UnsupportedMutationPolicyProblem),
+    ExpectedNucleotideMismatch(ExpectedNucleotideMismatchProblem),
+    ExpectedResidueMismatch(ExpectedResidueMismatchProblem),
+    TargetOutsideFeature(TargetOutsideFeatureProblem),
+    MutationVerificationFailure(MutationVerificationFailureProblem),
 }
 
 impl ErrorCategory {
@@ -262,7 +323,9 @@ impl DomainError {
             | DomainError::IntervalsOutOfOrder(_)
             | DomainError::OverlappingIntervals(_)
             | DomainError::MissingCdsAttribute(_)
-            | DomainError::InvalidResiduePosition(_) => ErrorCategory::MalformedInput,
+            | DomainError::InvalidResiduePosition(_)
+            | DomainError::InvalidMutationRequest(_)
+            | DomainError::UnspecifiedCodonPolicy(_) => ErrorCategory::MalformedInput,
             DomainError::CoordinateOutOfBounds(_)
             | DomainError::SequenceReferenceMismatch(_)
             | DomainError::CdsLengthNotDivisibleByThree(_)
@@ -270,11 +333,16 @@ impl DomainError {
             | DomainError::InternalStopCodon(_)
             | DomainError::InvalidCodon(_)
             | DomainError::ResiduePositionOutsideCds(_)
-            | DomainError::ResiduePositionWrongCds(_) => ErrorCategory::BiologicalValidation,
+            | DomainError::ResiduePositionWrongCds(_)
+            | DomainError::ExpectedNucleotideMismatch(_)
+            | DomainError::ExpectedResidueMismatch(_)
+            | DomainError::TargetOutsideFeature(_)
+            | DomainError::MutationVerificationFailure(_) => ErrorCategory::BiologicalValidation,
             DomainError::UnsupportedFeatureStructure(_)
             | DomainError::IncompleteCds(_)
             | DomainError::UnsupportedGeneticCode(_)
-            | DomainError::UnsupportedNumberingScheme(_) => ErrorCategory::Unsupported,
+            | DomainError::UnsupportedNumberingScheme(_)
+            | DomainError::UnsupportedMutationPolicy(_) => ErrorCategory::Unsupported,
         }
     }
 
@@ -350,6 +418,25 @@ impl DomainError {
             DomainError::InternalStopCodon(problem) =>
                 format!("codon {} ('{}') of CDS '{}' is a stop codon but is not the final codon",
                     problem.codon_number, problem.codon, problem.cds),
+            DomainError::InvalidMutationRequest(problem) =>
+                format!("mutation request '{}' is not representable: {}", problem.request, problem.reason),
+            DomainError::UnspecifiedCodonPolicy(problem) =>
+                format!("the residue mutation on CDS '{}' does not say how to choose the replacement codon",
+                    problem.cds),
+            DomainError::UnsupportedMutationPolicy(problem) =>
+                format!("the residue mutation on CDS '{}' requests codon policy {}; only default and supplied are supported",
+                    problem.cds, problem.policy),
+            DomainError::ExpectedNucleotideMismatch(problem) =>
+                format!("the nucleotide at position {} of '{}' is {}, but the mutation expected {}",
+                    problem.position, problem.sequence, problem.actual, problem.expected),
+            DomainError::ExpectedResidueMismatch(problem) =>
+                format!("residue {} of CDS '{}' is {}, but the mutation expected {}",
+                    problem.number, problem.cds, problem.actual, problem.expected),
+            DomainError::TargetOutsideFeature(problem) =>
+                format!("interval [{}, {}) on '{}' lies outside feature '{}'",
+                    problem.start, problem.end, problem.sequence, problem.feature),
+            DomainError::MutationVerificationFailure(problem) =>
+                format!("mutation result '{}' does not follow from its source: {}", problem.result, problem.reason),
         }
     }
 }
@@ -473,5 +560,62 @@ mod tests {
         assert!(name_differs.category() == ErrorCategory::BiologicalValidation);
         assert!(content_differs.category() == ErrorCategory::BiologicalValidation);
         assert!(name_differs != content_differs);
+    }
+
+    // A missing codon policy is something the caller can supply; an
+    // unrecognised one is out of scope. They must not share a category.
+    #[test]
+    fn mutation_failures_are_classified_by_meaning() {
+        let missing_policy = DomainError::UnspecifiedCodonPolicy(UnspecifiedCodonPolicyProblem {
+            cds: "cds-1".to_string(),
+        });
+        let out_of_scope =
+            DomainError::UnsupportedMutationPolicy(UnsupportedMutationPolicyProblem {
+                cds: "cds-1".to_string(),
+                policy: "minimal-edit".to_string(),
+            });
+        assert!(missing_policy.category() == ErrorCategory::MalformedInput);
+        assert!(out_of_scope.category() == ErrorCategory::Unsupported);
+
+        // The request is well-formed; the artifact disagrees with it.
+        let residue_mismatch =
+            DomainError::ExpectedResidueMismatch(ExpectedResidueMismatchProblem {
+                cds: "cds-1".to_string(),
+                number: 42,
+                expected: "N".to_string(),
+                actual: "D".to_string(),
+            });
+        assert!(residue_mismatch.category() == ErrorCategory::BiologicalValidation);
+
+        let nucleotide_mismatch =
+            DomainError::ExpectedNucleotideMismatch(ExpectedNucleotideMismatchProblem {
+                sequence: "seq-a".to_string(),
+                position: 1209,
+                expected: "G".to_string(),
+                actual: "A".to_string(),
+            });
+        assert!(nucleotide_mismatch.category() == ErrorCategory::BiologicalValidation);
+
+        let outside_scope = DomainError::TargetOutsideFeature(TargetOutsideFeatureProblem {
+            feature: "cds-1".to_string(),
+            sequence: "seq-a".to_string(),
+            start: 12,
+            end: 13,
+        });
+        assert!(outside_scope.category() == ErrorCategory::BiologicalValidation);
+
+        let verification =
+            DomainError::MutationVerificationFailure(MutationVerificationFailureProblem {
+                result: "mut-1".to_string(),
+                reason: "the edited artifact differs at 2 positions, not 1".to_string(),
+            });
+        assert!(verification.category() == ErrorCategory::BiologicalValidation);
+
+        // A bad replacement letter is malformed input, not a world disagreement.
+        let bad_request = DomainError::InvalidMutationRequest(InvalidMutationRequestProblem {
+            request: "nucleotide".to_string(),
+            reason: "the replacement is not a DNA letter".to_string(),
+        });
+        assert!(bad_request.category() == ErrorCategory::MalformedInput);
     }
 }
