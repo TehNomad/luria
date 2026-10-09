@@ -1,0 +1,73 @@
+# Exact E. coli K-12 codon table extracted from the NEBaseChanger v2.5.0
+# front-end bundle index.fc8d957d.js (function t.cut.Ecoli_K12).
+# Source: Arquivo.pt snapshot 2024-06-11.
+# aa3 = three-letter amino acid, aa1 = one-letter, fraction = NEBC usage fraction.
+# max_usage = highest-fraction codon for that amino acid in this table.
+# This is the table NEBaseChanger uses for "maximum codon usage".
+aa3	aa1	codon	fraction	max_usage
+Ala	A	GCG	0.36	yes
+Ala	A	GCC	0.27	no
+Ala	A	GCA	0.21	no
+Ala	A	GCT	0.16	no
+Arg	R	CGC	0.40	yes
+Arg	R	CGT	0.38	no
+Arg	R	CGG	0.10	no
+Arg	R	CGA	0.06	no
+Arg	R	AGA	0.04	no
+Arg	R	AGG	0.02	no
+Asn	N	AAC	0.55	yes
+Asn	N	AAT	0.45	no
+Asp	D	GAT	0.63	yes
+Asp	D	GAC	0.37	no
+Cys	C	TGC	0.55	yes
+Cys	C	TGT	0.45	no
+Gln	Q	CAG	0.65	yes
+Gln	Q	CAA	0.35	no
+Glu	E	GAA	0.69	yes
+Glu	E	GAG	0.31	no
+Gly	G	GGC	0.40	yes
+Gly	G	GGT	0.34	no
+Gly	G	GGG	0.15	no
+Gly	G	GGA	0.11	no
+His	H	CAT	0.57	yes
+His	H	CAC	0.43	no
+Ile	I	ATT	0.51	yes
+Ile	I	ATC	0.42	no
+Ile	I	ATA	0.07	no
+Leu	L	CTG	0.50	yes
+Leu	L	TTG	0.13	no
+Leu	L	TTA	0.13	no
+Leu	L	CTT	0.10	no
+Leu	L	CTC	0.10	no
+Leu	L	CTA	0.04	no
+Lys	K	AAA	0.77	yes
+Lys	K	AAG	0.23	no
+Met	M	ATG	1.00	yes
+Phe	F	TTT	0.57	yes
+Phe	F	TTC	0.43	no
+Pro	P	CCG	0.52	yes
+Pro	P	CCA	0.19	no
+Pro	P	CCT	0.16	no
+Pro	P	CCC	0.12	no
+Ser	S	AGC	0.28	yes
+Ser	S	AGT	0.15	no
+Ser	S	TCG	0.15	no
+Ser	S	TCT	0.15	no
+Ser	S	TCC	0.15	no
+Ser	S	TCA	0.12	no
+Thr	T	ACC	0.44	yes
+Thr	T	ACG	0.27	no
+Thr	T	ACT	0.17	no
+Thr	T	ACA	0.13	no
+Trp	W	TGG	1.00	yes
+Tyr	Y	TAT	0.57	yes
+Tyr	Y	TAC	0.43	no
+Val	V	GTG	0.37	yes
+Val	V	GTT	0.26	no
+Val	V	GTC	0.22	no
+Val	V	GTA	0.15	no
+Ter	*	TAA	0.64	yes
+Ter	*	TGA	0.29	no
+Ter	*	TAG	0.07	no
+All	X	NNK	1.00	yes
+# Optional explicit codon specifier in NEBC: "[old][pos][new]:[codon]".

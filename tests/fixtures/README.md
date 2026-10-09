@@ -4,6 +4,7 @@
 | --- | --- |
 | [`core-foundation/`](./core-foundation/) | Synthetic sequences, features, and CDSs: canonical text, content hashing, coordinates, circular features, CDS extraction, translation. Drives the integration tests in `crates/core/tests/core_foundation.rs`. |
 | [`example-construct/`](./example-construct/) | The real *C. elegans* SID-1 construct and captured NEBaseChanger output. |
+| [`nebasechanger-research/`](./nebasechanger-research/) | **Research evidence, not final Q5 fixtures.** Reconstructed NEBaseChanger SDM algorithm, E. coli K-12 codon table from the NEBaseChanger v2.5.0 bundle, and a controlled `polymerase-tm` comparison. See `docs/research/nebasechanger-polymerase-tm.md`. |
 
 ---
 

@@ -1,0 +1,54 @@
+{
+  "_note": "Research evidence, not a Luria Q5 fixture. Reconstructed from the NEBaseChanger v2.5.0 front-end bundle and validated against the captured D404N output. See docs/research/nebasechanger-polymerase-tm.md.",
+  "case": "SID-1 D404N",
+  "construct": "tests/fixtures/example-construct/input/sid-1_cDNA.fa",
+  "construct_length": 3153,
+  "mutation": {
+    "type": "amino-acid substitution",
+    "old_aa": "D",
+    "residue_position": 404,
+    "new_aa": "N",
+    "orf_start_1based": 1,
+    "original_codon": "GAT",
+    "codon_start_1based_inclusive": [1210, 1212],
+    "codon_interval_0based_half_open": [1209, 1212]
+  },
+  "codon_selection": {
+    "mode": "maximum codon usage (E. coli K-12)",
+    "selected": "AAC",
+    "source": "NEBC-JS-2.5.0; NEBC-OBS",
+    "parsimony_would_select": "AAT",
+    "parsimony_distance": {"AAC": 2, "AAT": 1}
+  },
+  "nebasechanger_captured": {
+    "source": "tests/fixtures/example-construct/raw/sdmsummary.txt (NEBC-OBS)",
+    "forward": {"sequence": "CGTTGAGCAAaacTTCGGGGCGC", "length": 23, "tm": 74},
+    "reverse": {"sequence": "AGCGGATTGAGCAGTTTTCCGTC", "length": 23, "tm": 70},
+    "ta": 71
+  },
+  "nebasechanger_reconstruction": {
+    "method": "RECON (independent Python reimplementation of ge.calcSDMPrimers + Tm method 4)",
+    "tm_method": "SantaLucia1998 NN, init dS=-5.7 dH=200, terminal A/T +6.9/+2200, Owczarzy salt at 150 mM monovalent, 500 nM primer, R=1.987",
+    "builder": "pad=10, minLen=15, minTm=55, GC extension threshold 63, Tm balance tolerance 5",
+    "forward": {"sequence": "CGTTGAGCAAAACTTCGGGGCGC", "length": 23, "tm_raw": 74.1763, "tm_display": 74},
+    "reverse": {"sequence": "AGCGGATTGAGCAGTTTTCCGTC", "length": 23, "tm_raw": 69.9367, "tm_display": 70},
+    "ta": 71,
+    "matches_captured": true
+  },
+  "polymerase_tm_output": {
+    "source": "PTM-CODE: BaseChanger(wt, orf_start=1).point_mutation('D404N')",
+    "build": "polymerase-tm 2.3.2 source",
+    "forward": {"sequence": "CGTTGAGCAAaacTTCGGGGCGC", "length": 23, "reported_tm": 62, "tm_computed_region": "right 13-mer AACTTCGGGGCGC", "right_region_tm_raw": 61.98},
+    "reverse": {"sequence": "AGCGGATTGAGCAGTTTTC", "length": 19, "reported_tm": 64, "tm_raw": 63.05},
+    "ta": 63
+  },
+  "comparison": {
+    "forward_sequence": "exact match",
+    "forward_tm": "clearly different (62 vs 74); polymerase-tm uses a sub-region",
+    "reverse_sequence": "clearly different (19 nt vs 23 nt)",
+    "reverse_tm": "clearly different (64 vs 70)",
+    "ta": "clearly different (63 vs 71)",
+    "conclusion": "polymerase-tm does not reproduce NEBaseChanger for this case"
+  },
+  "confidence": "high for the reconstruction of this single captured case; the reconstruction is v2.5.0, not the v2.7.2 claimed by polymerase-tm"
+}

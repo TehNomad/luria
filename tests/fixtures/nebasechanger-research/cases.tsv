@@ -1,0 +1,24 @@
+case	description	mutation	template	settings	nebc_output	recon_output	ptm_output	comparison	evidence	confidence
+1	SID-1 D404N inline substitution	GAT>AAC (D404N)	example-construct/input/sid-1_cDNA.fa	Q5 defaults; min_len 15; min_tm 55	FWD CGTTGAGCAAaacTTCGGGGCGC (23, Tm 74); REV AGCGGATTGAGCAGTTTTCCGTC (23, Tm 70); Ta 71	FWD CGTTGAGCAAAACTTCGGGGCGC (23, Tm 74.18->74); REV AGCGGATTGAGCAGTTTTCCGTC (23, Tm 69.94->70); Ta 71	FWD same seq (23, reported Tm 62); REV AGCGGATTGAGCAGTTTTC (19, Tm 64); Ta 63	FWD seq exact; FWD Tm differs; REV differs; Ta differs	NEBC-OBS, NEBC-JS-2.5.0, RECON, PTM-CODE	high
+2	SID-1 D404N parsimony	GAT>AAT (D404N, parsimony)	example-construct/input/sid-1_cDNA.fa	codon_mode=parsimony	not captured	AAT (1 base change)	AAT (usage tie-break not needed)	codon equal; primers not compared	NEBC-DOC, RECON, PTM-CODE	medium
+3	1-base-change substitution (usage vs parsimony)	GAT>AAT or GAT>GAC	any	inspect selected codon	GAT->GAC (usage: GAC .37) vs GAT->AAT (parsimony: 1 change)	usage GAC; parsimony AAT	usage GAC; parsimony AAT	parsimony vs usage diverge as expected	NEBC-JS-2.5.0, PTM-CODE	high
+4	2-base-change substitution	GAT>AAC	any	usage AAT? no: usage AAC (.55)	usage AAC; parsimony AAT (1)	usage AAC; parsimony AAT	usage AAC; parsimony AAT	matches	NEBC-JS-2.5.0, PTM-CODE	high
+5	3-base-change substitution	GAT>NNC (Asn, 3 changes?)	any	inspect	depends on residue	depends	depends	needs NEBC capture	UNKNOWN	low
+6	Synonymous re-expression	AAA>AAA (K->K)	any	zero-change contract	not captured	selects best codon; may change bases	selects best codon	contract decision needed	INFERENCE	unknown
+7	GC-rich flank	any	any	GC clamp / balance	not captured	not captured	not captured	needs live NEBC observation	UNKNOWN	none
+8	AT-rich flank	any	any	min-Tm growth	not captured	not captured	not captured	needs live NEBC observation	UNKNOWN	none
+9	Mutation near origin	any	circular	wrap-around	not captured	not captured	not captured	needs live NEBC observation	UNKNOWN	none
+10	Partial/linear substrate	any	linear	partial checkbox	not captured	not captured	not captured	needs live NEBC observation	UNKNOWN	none
+11	Legacy min length 18	any	any	Legacy mode	documented 18 nt	not captured	18 not implemented	needs live NEBC observation	NEB-DOC	medium
+12	Adjusted min Tm	any	any	min Tm != 55	not captured	not captured	not captured	needs live NEBC observation	NEB-DOC	medium
+13	Confine to 5' tails	small substitution	any	confine on	replacement as 5' tail	not captured	tail mode implemented	needs live NEBC capture	NEB-DOC, PTM-CODE	medium
+14	Insertion <= 6 nt	ins	any	default	single 5' tail	not captured	whole insert on FWD tail	needs live NEBC capture	NEB-DOC, PTM-CODE	medium
+15	Insertion > 6 nt	ins	any	default	split between FWD/REV tails	not captured	half-split	concept matches; exact split unverified	NEB-DOC, PTM-CODE	medium
+16	Deletion	del N nt	any	default	back-to-back	not captured	uses _balance_primers	needs live NEBC capture	UNKNOWN	low
+17	Multiple point mutations	2+ residues	any	default	per-site or combined	not captured	independent pairs	needs contract + capture	NEB-DOC	low
+18	Ambiguous replacement NS	NS	any	default	8 primer pairs (AC CC GC TC AG CG GG TG)	not captured	not expanded	needs live NEBC capture	NEB-DOC, NEBC-JS-2.5.0	medium
+19	Preserve degenerate codes	any	any	preserve on	kept in primers	not implemented	accepts but breaks Tm growth	needs live NEBC capture	NEB-DOC, PTM-CODE	medium
+20	Stop-codon introduction	Q10*	any	default	Ter codon (TAA .64)	not captured	TAA (ECOLI usage max)	matches table	NEBC-JS-2.5.0, PTM-CODE	high
+21	Unsupported residue / X	X	any	default	NNK	not captured	raises ValueError	diverges	NEBC-JS-2.5.0, PTM-CODE	high
+22	Expected-residue mismatch	old AA wrong	any	default	warning, processing continues	not captured	warns then discards warning (bug)	diverges	NEB-DOC, PTM-CODE	medium
+23	Tm regression vectors	FWD/REV seqs from case 1	-	method 4; 150 mM; 500 nM	74 / 70	74.18 / 69.94	62 / 64	recon matches NEBC; ptm does not	NEBC-OBS, NEBC-JS-2.5.0, RECON	high
