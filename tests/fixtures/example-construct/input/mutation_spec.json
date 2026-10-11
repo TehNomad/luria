@@ -1,8 +1,0 @@
-{
-  "type": "substitution",
-  "target_position": 1210,
-  "original_sequence": "GAT",
-  "desired_sequence": "AAC",
-  "polymerase": "Q5",
-  "minimum_overlap_bp": 15
-}
