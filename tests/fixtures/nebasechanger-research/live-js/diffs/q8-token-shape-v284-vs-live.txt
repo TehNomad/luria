@@ -1,0 +1,24 @@
+builds: {'v2.8.4': ('/home/timw/Projects/luria/tests/fixtures/nebasechanger-research/app-js/index.a5da1636.v2.8.4.js', 395491), 'live': ('/home/timw/Projects/luria/tests/fixtures/nebasechanger-research/live-capture/004eae75971a-index.4330b0c7.js', 401373)}
+          expandDNASeq  v2.8.4:1  live:1  SAME
+           DEGENERATES  v2.8.4:1  live:1  DIFFERENT
+        alignDNAglobal  v2.8.4:1  live:1  DIFFERENT
+         alignDNAlocal  v2.8.4:1  live:1  DIFFERENT
+          createTmCalc  v2.8.4:1  live:1  DIFFERENT
+                calcTm  v2.8.4:1  live:0  DIFFERENT
+      calculatePrimers  v2.8.4:1  live:1  DIFFERENT
+   calculateSDMPrimers  v2.8.4:1  live:0  DIFFERENT
+        calcSDMPrimers  v2.8.4:1  live:1  DIFFERENT
+        autogenPrimers  v2.8.4:1  live:1  DIFFERENT
+     autogenSDMPrimers  v2.8.4:1  live:1  DIFFERENT
+    terminalOverlapLen  v2.8.4:1  live:1  DIFFERENT
+              simpleTm  v2.8.4:1  live:1  SAME
+      createTmFunction  v2.8.4:1  live:1  SAME
+               revcomp  v2.8.4:4  live:4  DIFFERENT
+             translate  v2.8.4:2  live:2  DIFFERENT
+                   cut  v2.8.4:1  live:1  SAME
+          matchesIUPAC  v2.8.4:0  live:1  DIFFERENT
+              verifyOp  v2.8.4:0  live:1  DIFFERENT
+
+same: ['expandDNASeq', 'simpleTm', 'createTmFunction', 'cut']
+different: ['DEGENERATES', 'alignDNAglobal', 'alignDNAlocal', 'createTmCalc', 'calcTm', 'calculatePrimers', 'calculateSDMPrimers', 'calcSDMPrimers', 'autogenPrimers', 'autogenSDMPrimers', 'terminalOverlapLen', 'revcomp', 'translate', 'matchesIUPAC', 'verifyOp']
+missing: [('live', 'calcTm'), ('live', 'calculateSDMPrimers'), ('v2.8.4', 'matchesIUPAC'), ('v2.8.4', 'verifyOp')]

@@ -1,0 +1,210 @@
+[p] Site-directed mutagenesis (SDM) can be a challenging experiment even in the hands of experienced users. Even if you have used the same template sequence, but now incorporate new mutations, success is not guaranteed. In our experience troubleshooting with our customers over the years, most SDM issues arise from the PCR step or the competent cells used. This troubleshooting flow chart is intended to help enable you with information about corrective actions to overcome undesired results.
+[p] Home Page 
+[p] The core workflow for using NEBaseChanger is:
+[p] enter the target DNA sequence, 
+ define the range of the mutation region, 
+ specify the mutation (deletion/insertion/substitution), 
+ and view/save the results. 
+[p] Specification of the mutation target and action varies with the specific application mode: "AA Point Mutation", "Indel/Substitution", "Batch", or "Legacy". Each mode is intended to add convenience for the task at hand, but most operations can be specified in any selected mode. AA Point mutation mode is most convenient if the mutagenesis is limited to one or more single codons, whereas the general Indel/Substitution mode works with larger (and smaller) single insertions and substitutions and also allows deletions. Batch mode is designed for a longer list of mutations and allows mixing of point and indel styles of entry.
+[p] Legacy mode is intended to emulate NEBaseChanger V1 and produce results that are consistent with the parameters used in V1. Principally, the minimum primer length is reset to 18 nt and insertions are always in the 5' tails. Legacy mode has a simpler interface that will be
+ familiar to users of V1, but it is limited in functionality.
+[p] Enter a DNA sequence by copying and pasting it into the sequence text area or uploading a file from your computer. Acceptable formats for the DNA sequence are raw (plain text without IDs and descriptions), FASTA (first line consisting of ">ID optional description"), or GenBank. For convenience, a list of common vectors is provided, accessible from the dropdown menus above the sequence entry area. Selecting the "Use Reverse Complement" checkbox instructs NEBaseChanger to use the reverse complement of the sequence entered in the sequence text area. Selecting the "Partial" checkbox tells NEBaseChanger that it should not assume a complete circular sequence, allowing the entry of a much shorter sequence. However, partial sequences will need to include sufficient sequence flanking the mutation site, currently set at a minimum of 35 nt 5' and 25 nt 3'. Mutations will be prohibited from being too close to the ends of the provided partial sequence fragment and cannot span the ends of the fragment.
+[p] AA Point Mutation mode is intended to facilitate the specification of one or more point mutations (single codon changes). 
+ This mode only supports sequence replacements of exactly 3 bases (1 codon), and it does not support deletions or insertions.
+ Multiple single point mutations can be entered at one time. A Merge mutations option is also available to combine adjacent point mutations in a single primer. If multiple point mutations are specified, the "Generate primers for NEBuilder HiFi" option is posible, where NEBaseChanger will generate primer pairs compatible with the NEBuilder HiFi DNA Assembly Master Mix to simplify the execution of multiple
+ site-directed mutagenesis in a single reaction. The option is only displayed when multiple mutations are specified in point mutation mode.
+[p] First, enter the start position of the ORF, either directly by entering the coordinate or by clicking in the DNA sequence row of the codon view. Setting the ORF start position will highlight the ORF. ORF start position can be set arbitrarily and is not checked for validity. Use the Next and Prev buttons to locate and highlight the next or previous ORF.
+[p] Next, enter one or more mutations of the form [old AA][codon #][new AA],
+ for example, M2A, F32H, C45Y, etc., separated by spaces, commas or semicolons. The codon # is relative to the selected 
+ ORF start. Optionally, specify the exact triplet replacement by appending 
+ a colon followed by the triplet, for example, M2G:GGG, A34F:TTC. Exact triplets, 
+ will override automatic selection.
+[p] Clicking on an amino acid in the codon view will initiate a dialog to select the replacement
+ amino acid, including the exact triplet, and will add it to the list of mutations.
+ The old AA identity is checked, but processing is not halted if the old AA does not match
+ the indicated codon #. The codon number takes presidence.
+[p] Select a codon selection strategy, either maximum codon usage or maximum parsimony. For the former, codon usage is obtained from E. coli K12 . For maximum parsimony, a simple sequence distance is calculated as the required number of base changes to go from the original codon to the replacement codon, and the triplet is chosen to minimize the changes.
+[p] Normally, for substitutions like AA point mutations, where the target region encompasses just 3 nucleotides, the replacement sequence 
+ will be placed in the forward primer with 10 or more bases of annealing sequence flanking the inserted bases. If the "Confine mutations to primer 5' tails" option is selected, the replacement sequence will always be attached to the 5' end of the primers. The "5' tails" option is incompatible with NEBuilder HiFi primer option (see below).
+[p] If multiple mutations are entered and cluster together closely (ideally adjacent), the "merge mutations" option can be selected. This option combines point mutations to keep them within a single primer pair, when possible. Mutations are entered normally in the form [old AA][codon #][new AA]:[triplet], 
+ for example, M1A, D3H, C4F:TTT, etc., separated by spaces, commas or semicolons.
+ If the mutations are close together, generally not separated by more than 6 bases, 
+ the mutations are merged and treated as a single sequence replacement operation. 
+ In the example above, all 3 mutations would be embedded in a single primer pair.
+ This option is currently only compatible with mutations confined to the 5' primer tail.
+[p] If the &quot;Generate primers for NEBuilder HiFi&quot; option is selected, NEBaseChanger will generate primer pairs compatible with
+ the NEBuilder HiFi DNA Assembly Master Mix to simplify the execution of multiple
+ site-directed mutagenesis in a single reaction. 
+ NEBuilder HiFi primers cannot be generated if mutations are confined to the 5 ' tails, and the option will not be displayed, nor is it compatible with merged mutations. Individual mutations need to be sufficiently spaced apart
+ to avoid overlap clashes between adjacent forward and reverse primers.
+[p] Details on using NEBuilder HiFi for multiple site mutations are available here .
+[p] Indel/Substitution Mutation Mode
+[p] Indel/Substitution mode is a general mode that facilitates the specification of mutations of arbitrary length on the input sequence.
+ Substitution and insertion sequences of up to 100 bp are allowed.
+
+[p] Insert/delete/substitute (indel) operations require a 5&#39; flanking position (start), a
+ 3&#39; flanking position (end), and a replacement sequence. The target sequence to be 
+ replaced is between the start and end positions. First, enter the start and end coordinates.
+ Optionally, click and drag (text select) over the target sequence in either of the DNA sequence rows.
+ The target and flanking bases will be highlighted and the start/end coordinates filled in.
+ For insertions, clicking between two bases will select the proper flanking bases.
+[p] To delete a sequence, leave the replacement sequence blank.
+ To insert a sequence, the start and end should be consecutive positions. 
+ The replacement sequence will be inserted between them.
+[p] For example, if start/end is 234/239 and the replacement sequence is ACGT, 
+ the operation will substitute the sequence between bases 234 and 239 with ACGT.
+ This release of NEBaseChanger will design primers 
+ accommodating inserts up to a maximum of 100 nucleotides.
+ Note that multiple mutations can be included within a single
+ replacement sequence as long as the sequence uses only non-ambiguous base codes. For example, 
+ if two amino acids need to be changed using a single primer pair, the start/end is
+ set to flank the targeted codons, and the replacement sequence (designed manually) contains 
+ the required substitutions at each codon.
+[p] Ambiguous base codes can be entered in the replacement sequence (N,Y,S,W, etc) 
+ and will be expanded combinatorialy over multiple primers. 
+ For example, a replacement sequence containing NS will be expanded to 8 sequences 
+ containing: AC, CC, GC, TC, AG, CG, GG, and TG, generating 8 primer pairs.
+[p] If the "Confine mutations to primer 5' tails" option is selected, the replacement sequence will always be attached to the 5' end of the primers, regardless of the length of the substitution. This option is incompatible with NEBuilder HiFi primer option (see below).
+[p] Normally, for substitutions, if the target region is longer than 6 nucleotides, 
+ the substitution sequence will be split between the two primers, attached 
+ to the 5' end of the primers as non-annealing tails. The 5' ends 
+ of the annealing portions of the primers align with the edges of the target region. 
+ If the target region encompasses 6 or fewer nucleotides, the replacement sequence 
+ will be placed in the forward primer with 10 or more bases of annealing sequence 
+ flanking the inserted bases.
+[p] Batch input mode allows multiple command line style operations to be applied
+ to the currently loaded sequence. It is intended to facilitate the entry
+ of large numbers of mutations on a single input sequence.
+[p] Batch commands can be loaded from a text file, pasted into the text area, or typed in directly.
+[p] All batch input operates on the currently loaded sequence. Each batch command 
+ should be on a separate line. The following commands are supported in Batch mode:
+ 
+[p] ORF: [start] 
+ [old AA][codon #][new AA]:[triplet] 
+ [ID] [start] [end] [replacement] 
+[p] Specifies the coordinate of the first base of the ORF. Required for subsequent AA point mutations. 
+ 
+ Examples: 
+ ORF: 1256 
+ ORF: 2 
+ 
+ [start] must be a positive number in the range 1 to sequence length. 
+ All subsequent point mutation commands will be relative to the specified ORF start. 
+ 
+[p] [old AA][codon #][new AA]:[triplet]
+[p] Specifies an AA point mutation at a specific codon. 
+ 
+ Examples: 
+ A2F 
+ A2F:TTT 
+ 
+ [Old AA] and [new AA] are single letter codes for the current and mutated AA, respectively. 
+ [codon #] counts triplets from the last specified ORF start coordinate. 
+ The :[triplet] specifier is optional. If provided, it should consist of 
+ a colon followed immediately by the triplet replacement sequence. If not specified, 
+ (leave off the colon) the replacement triplet will be the codon with the highest usage 
+ in E. coli K12. Exact triplets, will override automatic selection. 
+ 
+[p] [ID] [start] [end] [replacement]
+[p] Specifies a general indel/substitution operation. 
+ 
+ Examples: 
+ ID1 234 239 deletes the sequence between bases 234 and 239. 
+ ID2 234 239 ACGT substitutes ACGT for the sequence between bases 234 and 239. 
+ ID3 234 235 ACGT inserts ACGT between bases 234 and 235. 
+ 
+ [Start] and [end] are the base positions flanking the target sequence 
+ to be replaced. If [replacement] is omitted, the target sequence will be deleted. 
+ To insert a sequence, [start] and [end] should be consecutive positions. 
+ 
+[p] Any ambiguous base codes (N,Y,S,W, etc) will be expanded combinatorialy 
+ unless "Preserve degenerate bases" is checked.
+ For example, a replacement sequence containing NS will be expanded to 8 sequences 
+ containing: AC, CC, GC, TC, AG, CG, GG, and TG, generating 8 primer pairs.
+[p] The "Preserve degenerate bases" and "Confine mutations to primer 5' tails" options are honored in Batch mode. 
+ Settings for minimum primer Tm and minimum primer length are also honored.
+ 
+[p] The following is an example of a valid set of batch commands:
+[p] ORF: 100 
+ M1Y 
+ A42S 
+ P24F:TTT 
+ setA 200 205 NNA 
+ InSetB 400 401 AACGGTGTN 
+ Site1 100 105 ACGT 
+ D1 1000 1200 
+ setE 1800 200 ATNCG 
+[p] Legacy mode is intended to emulate NEBaseChanger V1 and produce results 
+ that are consistent with the parameters used in V1. Principally, the minimum 
+ primer length is reset to 18nt and insertions are always in the 5' tails.
+[p] Insert/delete/substitute operations require a 5&#39; flanking position (start),
+ 3&#39; flanking position (end); the target sequence to be mutatated 
+ is between the start and end positions. This is a change fropm V1 where substitutions and deletions
+ were identified by the ends of the target itself, not the flanking bases. 
+ For deletions, leave the replacement sequence blank.
+[p] In addition to manualy setting the start/end coordinates of the target,
+ the target sequence may be selected by click and drag (text selection) in the DNA sequence row. 
+ For insertions, clicking between two bases will select the proper flanking bases. The target sequence
+ may also be located using the search field.
+[p] Ambiguous base codes can be entered in the replacement sequence (N,Y,S,W, etc) 
+ and will be expanded combinatorialy. 
+ For example, a replacement sequence containing NS will be expanded to 8 sequences
+ containing: AC, CC, GC, TC, AG, CG, GG, and TG, generating 8 primer pairs.
+[p] PRIMER GENERATION STRATEGY
+[p] NEBaseChanger will design the custom mutagenic back-to-back primers for use in the Q5 Site-Directed Mutagenesis Kit. Primers designed for this kit can accommodate more complex mutagenic strategies than other commercial SDM kits including multiple substitutions within a 100 nucleotide region or insertions up to 100 nucleotides long. In addition, due to the use of back-to-back primers, there is no limit to the size of the deletion that can be introduced using this kit.
+[p] For deletions, the 5' ends of the primers align with the edges of the deletion (the bases flanking the deleted sequence.
+[p] For insertions, the inserted sequence is attached to the 5' end of the primers as non-annealing tails. If 6 or fewer nucleotides are to be inserted, they will be placed at the 5' end of one primer. If more than 6 nucleotides are to be inserted, they will be split between the two primers to keep the primer lengths and Tm\u2019s similar.
+[p] For substitutions, if the target region is longer than 6 nucleotides, the substitution sequence will be split between the two primers, attached to the 5' end of the primers as non-annealing tails. The 5' ends of the annealing portions of the primers align with the edges of the target region. If the target region encompasses 6 or fewer nucleotides, the replacement sequence will be placed in the forward primer with 10 or more bases of annealing sequence flanking the inserted bases. If the "Confine mutations to primer 5' tails" option is selected, the replacement sequence will always be attached to the 5' end of the primers, regardless of the length of the substitution.
+[p] There are two optional parameters that can be used to influence primer length: minimum primer length and minimum primer Tm with default values of 15nt and 55degC, respectively. Increasing the value of either parameter will generally result in longer primers with higher specificity. To match the
+ specifications used in NEBaseChanger v1, set the minimum length to 18 nt and kepp the minimum Tm at 55degC. When modifications are constrained to the 5' tails, the minimum primer length only applies to the annealing portion of the primer. If a tighter range of Tm values across a larger set of primers is desired, raising the minimum Tm value may help.
+[p] The output from NEBaseChanger can be viewed in multiple ways.
+[p] Displayed near the bottom of the page. In addition to the primer sequence, the length, % GC, calculated melting temperature (Tm) and suggested annealing temperature (Ta) are displayed. The primer display is automatically updated whenever the mutation region or desired sequence is changed. Forward and reverse primers are color coded and the 3-frame coding sequence is shown allowing the user to verify that the desired mutation(s) has(have) been incorporated.
+[p] Summary table A tab-delimited table containing information comparable to the Primer Result table.
+ All primers A tab-delimited plain text list of the required primers (name, sequence, note), suitable for common oligonucleotide order forms.
+ Selected primers A tab-delimited plain text list of the required primers (name, sequence, note), suitable for common oligonucleotide order forms. 
+ Limited to just the selected primer pair.
+ All sequence All result sequences in multi-FASTA format as a local text file.
+ Selected sequence The result sequence for the selected primer pair in FASTA format as a local text file. 
+[p] The full Q5 Site-Directed Mutagenesis Protocol can be found in the manual, which can be downloaded from: www.neb.com/E0554
+[p] For your convenience, a quick protocol is presented here:
+[p] Step I: Exponential Amplification (PCR)
+[p] 25 \u03BCl RXN FINAL CONC. 
+ Q5 Hot Start High-Fidelity 2X Master Mix 12.5 \u03BCl 1X 
+ 10 \u03BCM Forward Primer 1.25 \u03BCl 0.5 \u03BCM 
+ 10 \u03BCM Reverse Primer 1.25 \u03BCl 0.5 \u03BCM 
+ Template DNA (1-25 ng/ \u03BCl) 1 \u03BCl 1-25 ng 
+ Nuclease-free water 9.0 \u03BCl 
+[p] STEP TEMP TIME 
+ Initial Denaturation 98 degC 30 seconds 
+ 25 Cycles 98 degC 10 sec 
+ 50-72 degC* 10-30 sec 
+ 72 degC 20-30 seconds/kb 
+ Final Extension 72 degC 2 minutes 
+ Hold 4-10 degC \u221E 
+[p] * For mutagenic primers, please use the annealing temperature recommended by this primer design tool. 
+[p] Step II: Kinase, Ligase & DpnI (KLD) Treatment
+[p] 10 \u03BCl RXN FINAL CONC. 
+ PCR Product 1 \u03BCl 
+ 2X KLD Reaction Buffer 5 \u03BCl 1X 
+ 10X KLD Enzyme Mix 1 \u03BCl 1X 
+ Nuclease-free water 3 \u03BCl 
+[p] Mix well by pipetting gently up and down, and incubate at room temperature for 5 minutes.
+[p] Add 5 \u03BCl of the KLD reaction mixture directly from step II to 50 \u03BCl of chemically-competent cells. 
+ Incubate on ice for 30 minutes. 
+ Heat shock at 42 degC for 30 seconds. 
+ Incubate on ice for 5 minutes. 
+ Add 950 \u03BCl of SOC, gently shake at 37 degC for 1 hour. 
+ Spread 40-100 \u03BCl onto appropriate selection plate and incubate overnight at 37 degC (if necessary, make a 10-100 fold dilution of recovered cells before plating to avoid a lawn of colonies). 
+[p] POST-REACTION TROUBLESHOOTING
+[p] If the results of your site-directed mutagenesis experiment were unsatisfactory, try the Q5 SDM Troubleshooting guide for help. The guide can be accessed through the Troubleshooting link near the top the page.
+[p] NEBaseChanger uses primer melting temperature (Tm) when determining how long a primer should be. For substitutions that span a mutation region greater than 6 nucleotides, the 5' end of the primer is anchored in the center of the region and extended in the 3' direction until a desired minimum Tm is achieved. For fewer than 6 substitutions, the center of the primer is anchored to the nucleotide region and extended in both the 5' and 3' directions so that there are at least 10 nucleotides that are 100% complementary on both sides of the mutation region and until a desired minimum Tm is achieved. For deletions, the primer is designed by anchoring its 5' end to the nucleotide adjacent to the selected mutation region and extending in the 3' direction until a desired minimum Tm is achieved. For insertions, the primer is designed by anchoring its 5' end to the last nucleotide in the selected mutation region and extending in the 3' direction until a desired minimum Tm is achieved. Insertions are either added to the 5' end of one primer (6 or fewer nucleotides) or both primers (more than 6 nucleotides). Tm\u2019s are calculated using nearest neighbor thermodynamics data for matched and internal mismatched bases and corrected for buffer composition [see references below]. Tms are calculated assuming the recommended buffer composition for Hot Start High-Fidelity DNA Polymerase, and the preferred primer concentration (500nM). An annealing temperature (Ta) for the PCR is calculated in addition to the Tm, optimized for Q5 DNA polymerase.
+[p] SantaLucia J Jr. 1998. A unified view of polymer, dumbbell, and olignucleotide DNA nearest-neighbor thermodynamics. Proc. Natl. Acad. Sci. USA 95 :1460\u201365 
+ Allawi HT, SantaLucia J Jr. 1997. Thermodynamics and NMR of internal G\u2212T misatches in DNA. Biochemistry 36 :10581\u201394 
+ Allawi HT, SantaLucia J Jr. 1998. Nearest-neighbor thermodynamics of internal A-C mismatches in DNA: sequence dependence and pH effects. Biochemistry 37 :9435\u201344 
+ Allawi HT, SantaLucia J Jr. 1998. Nearest-neighbor thermodynamics parameters for internal GA mismatches in DNA. Biochemistry 37 :2170\u201379 
+ Allawi HT, SantaLucia J Jr. 1998. Thermodynamics of internal C-T mismatches in DNA. Nucleic Acids Res. 26 :2694\u2013701 
+ SantaLucia, J Jr., Hicks, D. 2004. The thermodynamics of DNA structural motifs. Annu. Rev. Biophys. Biomol. Struct. 33 :415\u201340. 
+ Peyret N, Seneviratne PA, Allawi HT, SantaLucia J Jr. 1999. Nearest-neighbor thermodynamics and NMR of DNA sequences with internal A-A, C-C, G-G, and T-T mismatches. Biochemistry 38 :3468\u201377 
+ Bommarito S, Peyret N, SantaLucia J Jr. 2000. Thermodynamic parameters for DNA sequences with dangling ends. Nucleic Acids Res. 28 :1929\u201334 
+ Owczarzy, R, You, Y, Moreira, B, Manthey, JA, Huang, L, Behlke, MA, Walder, JA. 2004. Effects of sodium ions on DNA duplex oligomers: improved predictions of melting temperatures. Biochemistry 43 :3537-54 
+[p] NEB welcomes your questions and comments on NEBaseChanger, particularly how we could improve the tool to make it more useful in your site-directed mutagenesis projects. Please contact us via our TECH SUPPORT or FEEDBACK forms or email us at info@neb.com or contact us by phone in the US at (800) 632-7799 with your feedback.

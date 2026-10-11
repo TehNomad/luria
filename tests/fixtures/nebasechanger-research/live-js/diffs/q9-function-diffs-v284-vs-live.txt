@@ -1,0 +1,2019 @@
+beautified bundles: {'v2.8.4': ('index.a5da1636.v2.8.4.beauty.js', 614639), 'live': ('index.4330b0c7.v2.11.0-live.beauty.js', 615623)}
+
+######## DEGENERATES  v2.8.4:1  live:1
+  occurrence 0: DIFFERS  (v2.8.4 line 863 / live line 868)
+--- v2.8.4:DEGENERATES
++++ live:DEGENERATES
+@@ -1,4 +1,4 @@
+-    (t.DEGENERATES = {
++    (e.DEGENERATES = {
+       A: "A",
+       C: "C",
+       G: "G",
+@@ -10,8 +10,8 @@
+       K: "GT",
+       R: "AG",
+       Y: "CT",
+-      B: "AGT",
+-      D: "ACT",
++      B: "CGT",
++      D: "AGT",
+       H: "ACT",
+       V: "ACG",
+       N: "ACGT",
+@@ -26,8 +26,8 @@
+       k: "gt",
+       r: "ag",
+       y: "ct",
+-      b: "agt",
+-      d: "act",
++      b: "cgt",
++      d: "agt",
+       h: "act",
+       v: "acg",
+       n: "acgt",
+
+######## expandDNASeq  v2.8.4:1  live:1
+  occurrence 0: DIFFERS  (v2.8.4 line 1407 / live line 1396)
+--- v2.8.4:expandDNASeq
++++ live:expandDNASeq
+@@ -1,13 +1,13 @@
+-    (t.expandDNASeq = function (e) {
+-      const n = /[^acgt]/gi;
+-      if (!e) return [];
+-      const l = e.replace(/\s+/g, "");
+-      for (var a = [], r; (r = n.exec(l)) !== null; ) a.push(r.index);
+-      var f = [],
+-        u = 0;
+-      for (let m of a) (m > u && f.push([l.slice(u, m)]), f.push(t.DEGENERATES[l[m]].split("")), (u = m + 1));
+-      u < l.length && f.push([l.slice(u)]);
+-      var h = t.cp(f),
++    (e.expandDNASeq = function (t) {
++      const s = /[^acgt]/gi;
++      if (!t) return [];
++      const n = t.replace(/\s+/g, "");
++      for (var a = [], i; (i = s.exec(n)) !== null; ) a.push(i.index);
++      var u = [],
++        f = 0;
++      for (let v of a) (v > f && u.push([n.slice(f, v)]), u.push(e.DEGENERATES[n[v]].split("")), (f = v + 1));
++      f < n.length && u.push([n.slice(f)]);
++      var h = e.cp(u),
+         d = [];
+       for (var p of h) d.push(p.join(""));
+       return d;
+
+######## alignDNAglobal  v2.8.4:1  live:1
+  occurrence 0: DIFFERS  (v2.8.4 line 4668 / live line 4091)
+--- v2.8.4:alignDNAglobal
++++ live:alignDNAglobal
+@@ -1,71 +1,56 @@
+-    (t.alignDNAglobal = function (e) {
+-      var n = e.param || {},
+-        l = e.fullSeq1 || "",
+-        a = e.fullSeq2 || "",
+-        r,
++    (e.alignDNAglobal = function (t) {
++      var s = t.param || {},
++        n = t.fullSeq1 || "",
++        a = t.fullSeq2 || "",
++        i,
++        u,
+         f,
+-        u,
+         h,
+         d = [],
+         p = [],
+-        m,
++        v,
+         _,
++        b,
+         w,
+-        q,
+-        C = n.gap || -5,
+-        A = n.term || -1,
+-        b = n.extend || -1,
+-        y = [],
+-        k,
++        y = s.gap || -5,
++        A = s.term || -1,
++        q = s.extend || -1,
++        T = [],
++        N,
+         M = [],
+-        P = n.mat || {
++        k = s.mat || {
+           a: { a: 3, c: -3, g: -3, t: -3 },
+           c: { a: -3, c: 3, g: -3, t: -3 },
+           g: { a: -3, c: -3, g: 3, t: -3 },
+           t: { a: -3, c: -3, g: -3, t: 3 },
+         };
+-      if (l == "" || a == "") return e;
+-      for (
+-        r = ("-" + l.toLowerCase()).split(""),
+-          f = ("-" + a.toLowerCase()).split(""),
+-          w = r.length,
+-          q = f.length,
+-          m = 0;
+-        m < w;
+-        ++m
+-      )
+-        for (d[m] = [], p[m] = [], _ = 0; _ < q; ++_) ((d[m][_] = 0), (p[m][_] = []));
+-      for (d[1][0] = C, p[1][0].push(1), m = 2; m < w; ++m) ((d[m][0] = m * A), p[m][0].push(1));
+-      for (d[0][1] = C, p[0][1].push(2), _ = 2; _ < q; ++_) ((d[0][_] = _ * A), p[0][_].push(2));
+-      for (m = 1; m < w; ++m)
+-        for (_ = 1; _ < q; ++_)
+-          ((y[0] = d[m - 1][_ - 1] + P[r[m]][f[_]]),
+-            p[m - 1][_].indexOf(1) != -1 ? (y[1] = d[m - 1][_] + b) : (y[1] = d[m - 1][_] + C),
+-            p[m][_ - 1].indexOf(2) != -1 ? (y[2] = d[m][_ - 1] + b) : (y[2] = d[m][_ - 1] + C),
+-            (k = Math.max(y[0], y[1], y[2])),
+-            (d[m][_] = k),
+-            k === y[0] && p[m][_].push(0),
+-            k === y[1] && p[m][_].push(1),
+-            k === y[2] && p[m][_].push(2));
+-      for (m = w - 1, _ = q - 1, u = "", h = ""; p[m][_].length != 0; )
+-        switch (p[m][_][p[m][_].length - 1]) {
++      if (n == "" || a == "") return t;
++      for (i = ("-" + n.toLowerCase()).split(""), u = ("-" + a.toLowerCase()).split(""), b = i.length, w = u.length, v = 0; v < b; ++v)
++        for (d[v] = [], p[v] = [], _ = 0; _ < w; ++_) ((d[v][_] = 0), (p[v][_] = []));
++      for (d[1][0] = y, p[1][0].push(1), v = 2; v < b; ++v) ((d[v][0] = v * A), p[v][0].push(1));
++      for (d[0][1] = y, p[0][1].push(2), _ = 2; _ < w; ++_) ((d[0][_] = _ * A), p[0][_].push(2));
++      for (v = 1; v < b; ++v)
++        for (_ = 1; _ < w; ++_)
++          ((T[0] = d[v - 1][_ - 1] + k[i[v]][u[_]]),
++            p[v - 1][_].indexOf(1) != -1 ? (T[1] = d[v - 1][_] + q) : (T[1] = d[v - 1][_] + y),
++            p[v][_ - 1].indexOf(2) != -1 ? (T[2] = d[v][_ - 1] + q) : (T[2] = d[v][_ - 1] + y),
++            (N = Math.max(T[0], T[1], T[2])),
++            (d[v][_] = N),
++            N === T[0] && p[v][_].push(0),
++            N === T[1] && p[v][_].push(1),
++            N === T[2] && p[v][_].push(2));
++      for (v = b - 1, _ = w - 1, f = "", h = ""; p[v][_].length != 0; )
++        switch (p[v][_][p[v][_].length - 1]) {
+           case 0:
+-            ((u = r[m--] + u), (h = f[_--] + h));
++            ((f = i[v--] + f), (h = u[_--] + h));
+             break;
+           case 1:
+-            ((u = r[m--] + u), (h = "-" + h));
++            ((f = i[v--] + f), (h = "-" + h));
+             break;
+           case 2:
+-            ((h = f[_--] + h), (u = "-" + u));
++            ((h = u[_--] + h), (f = "-" + f));
+             break;
+         }
+-      var L, G, R, N;
+-      return (
+-        (L = m),
+-        (R = _),
+-        (G = M[0] - 1),
+-        (N = M[1] - 1),
+-        e.setAlignedSeqs(u, L, G, h, R, N, t.buildAlignMap(u, h)),
+-        e
+-      );
++      var E, P, G, O;
++      return ((E = v), (G = _), (P = M[0] - 1), (O = M[1] - 1), t.setAlignedSeqs(f, E, P, h, G, O, e.buildAlignMap(f, h)), t);
+     }),
+
+######## alignDNAlocal  v2.8.4:1  live:1
+  occurrence 0: DIFFERS  (v2.8.4 line 4739 / live line 4147)
+--- v2.8.4:alignDNAlocal
++++ live:alignDNAlocal
+@@ -1,80 +1,65 @@
+-    (t.alignDNAlocal = function (e) {
+-      e.param || (e.param = {});
+-      var n,
+-        l,
++    (e.alignDNAlocal = function (t) {
++      t.param || (t.param = {});
++      var s,
++        n,
+         a,
+-        r,
++        i,
++        u = [],
+         f = [],
+-        u = [],
+         h,
+         d,
+         p,
+-        m,
+-        _ = e.param.gap || -12,
+-        w = e.param.extend || -1,
+-        q = [],
+-        C,
++        v,
++        _ = t.param.gap || -12,
++        b = t.param.extend || -1,
++        w = [],
++        y,
+         A = 0,
+-        b = [0, 0],
+-        y = 2,
+-        k = -4,
+-        M = e.param.mat || {
+-          a: { a: y, c: k, g: k, t: k },
+-          c: { a: k, c: y, g: k, t: k },
+-          g: { a: k, c: k, g: y, t: k },
+-          t: { a: k, c: k, g: k, t: y },
++        q = [0, 0],
++        T = 2,
++        N = -4,
++        M = t.param.mat || {
++          a: { a: T, c: N, g: N, t: N },
++          c: { a: N, c: T, g: N, t: N },
++          g: { a: N, c: N, g: T, t: N },
++          t: { a: N, c: N, g: N, t: T },
+         };
+       for (
+-        n = ("-" + e.fullSeq1.toLowerCase()).split(""),
+-          l = ("-" + e.fullSeq2.toLowerCase()).split(""),
+-          p = n.length,
+-          m = l.length,
+-          h = 0;
++        s = ("-" + t.fullSeq1.toLowerCase()).split(""), n = ("-" + t.fullSeq2.toLowerCase()).split(""), p = s.length, v = n.length, h = 0;
+         h < p;
+         ++h
+       )
+-        for (f[h] = [], u[h] = [], d = 0; d < m; ++d) ((f[h][d] = 0), (u[h][d] = []));
+-      for (f[1][0] = 0, u[1][0].push(1), h = 2; h < p; ++h) ((f[h][0] = 0), u[h][0].push(-1));
+-      for (f[0][1] = 0, u[0][1].push(2), d = 2; d < m; ++d) ((f[0][d] = 0), u[0][d].push(-1));
++        for (u[h] = [], f[h] = [], d = 0; d < v; ++d) ((u[h][d] = 0), (f[h][d] = []));
++      for (u[1][0] = 0, f[1][0].push(1), h = 2; h < p; ++h) ((u[h][0] = 0), f[h][0].push(-1));
++      for (u[0][1] = 0, f[0][1].push(2), d = 2; d < v; ++d) ((u[0][d] = 0), f[0][d].push(-1));
+       for (h = 1; h < p; ++h)
+-        for (d = 1; d < m; ++d)
+-          ((q[0] = f[h - 1][d - 1] + M[n[h]][l[d]]),
+-            u[h - 1][d].indexOf(1) != -1 ? (q[1] = f[h - 1][d] + w) : (q[1] = f[h - 1][d] + _),
+-            u[h][d - 1].indexOf(2) != -1 ? (q[2] = f[h][d - 1] + w) : (q[2] = f[h][d - 1] + _),
+-            (C = Math.max(q[0], q[1], q[2], 0)),
+-            (f[h][d] = C),
+-            f[h][d] > A && ((A = f[h][d]), (b = [h, d])),
+-            C === 0 && u[h][d].push(-1),
+-            C === q[0] && u[h][d].push(0),
+-            C === q[1] && u[h][d].push(1),
+-            C === q[2] && u[h][d].push(2),
+-            C === 0 && u[h][d].push(-1));
+-      ((h = b[0]), (d = b[1]), (a = ""), (r = ""));
+-      e: for (; u[h][d].length != 0; )
+-        switch (u[h][d][u[h][d].length - 1]) {
++        for (d = 1; d < v; ++d)
++          ((w[0] = u[h - 1][d - 1] + M[s[h]][n[d]]),
++            f[h - 1][d].indexOf(1) != -1 ? (w[1] = u[h - 1][d] + b) : (w[1] = u[h - 1][d] + _),
++            f[h][d - 1].indexOf(2) != -1 ? (w[2] = u[h][d - 1] + b) : (w[2] = u[h][d - 1] + _),
++            (y = Math.max(w[0], w[1], w[2], 0)),
++            (u[h][d] = y),
++            u[h][d] > A && ((A = u[h][d]), (q = [h, d])),
++            y === 0 && f[h][d].push(-1),
++            y === w[0] && f[h][d].push(0),
++            y === w[1] && f[h][d].push(1),
++            y === w[2] && f[h][d].push(2),
++            y === 0 && f[h][d].push(-1));
++      ((h = q[0]), (d = q[1]), (a = ""), (i = ""));
++      e: for (; f[h][d].length != 0; )
++        switch (f[h][d][f[h][d].length - 1]) {
+           case 0:
+-            ((a = n[h--] + a), (r = l[d--] + r));
++            ((a = s[h--] + a), (i = n[d--] + i));
+             break;
+           case 1:
+-            ((a = n[h--] + a), (r = "-" + r));
++            ((a = s[h--] + a), (i = "-" + i));
+             break;
+           case 2:
+-            ((r = l[d--] + r), (a = "-" + a));
++            ((i = n[d--] + i), (a = "-" + a));
+             break;
+           case -1:
+             break e;
+         }
+-      var P, L, G, R;
+-      return (
+-        (P = h),
+-        (G = d),
+-        (L = b[0] - 1),
+-        (R = b[1] - 1),
+-        console.log("start/end aln1: " + P + "/" + L),
+-        console.log(a),
+-        console.log("start/end aln2: " + G + "/" + R),
+-        console.log(r),
+-        e.setAlignedSeqs(a, P, L, r, G, R, t.buildAlignMap(a, r)),
+-        e
+-      );
++      var k, E, P, G;
++      return ((k = h), (P = d), (E = q[0] - 1), (G = q[1] - 1), t.setAlignedSeqs(a, k, E, i, P, G, e.buildAlignMap(a, i)), t);
+     }),
+
+######## createTmCalc  v2.8.4:1  live:1
+  occurrence 0: DIFFERS  (v2.8.4 line 4107 / live line 3558)
+--- v2.8.4:createTmCalc
++++ live:createTmCalc
+@@ -1,23 +1,19 @@
+-Ge.createTmCalc = function (s) {
+-  if (!s.seq)
+-    throw {
+-      name: "Missing seq",
+-      message: "A property named seq must be present in the object provided to createTmCalc",
+-    };
+-  var t = s.seq,
+-    e = s.ct || 0.25,
+-    n = s.salt || 50,
+-    l = s.dmso || 0,
+-    a = s.method || 1,
+-    r = s.compseq || null,
+-    f = Ge.trim(t.toLowerCase()).replace(/\s/g, ""),
+-    u = r ? Ge.trim(r).toLowerCase().replace(/s/g, "") : Ge.revcomp(f),
++Ne.createTmCalc = function (l) {
++  if (!l.seq) throw { name: "Missing seq", message: "A property named seq must be present in the object provided to createTmCalc" };
++  var e = l.seq,
++    t = l.ct || 0.25,
++    s = l.salt || 50,
++    n = l.dmso || 0,
++    a = l.method || 1,
++    i = l.compseq || null,
++    u = Ne.trim(e.toLowerCase()).replace(/\s/g, "").replace(/u/g, "t"),
++    f = i ? Ne.trim(i).toLowerCase().replace(/s/g, "") : Ne.revcomp(u),
+     h = h || "",
+     d,
+     p,
+-    m,
++    v,
+     _ = 1.987,
+-    w = {
++    b = {
+       aa: -24,
+       tt: -24,
+       at: -23.9,
+@@ -35,7 +31,7 @@
+       gg: -26.6,
+       cc: -26.6,
+     },
+-    q = {
++    w = {
+       aa: -22.2,
+       tt: -22.2,
+       at: -20.4,
+@@ -53,7 +49,7 @@
+       gg: -19.9,
+       cc: -19.9,
+     },
+-    C = {
++    y = {
+       aa: -9.1,
+       tt: -9.1,
+       at: -8.6,
+@@ -89,7 +85,7 @@
+       gg: -8,
+       cc: -8,
+     },
+-    b = {
++    q = {
+       "-a/at": { dh: -0.7, ds: -0.8 },
+       "-a/ct": { dh: 4.4, ds: 14.9 },
+       "-a/gt": { dh: -1.6, ds: -3.6 },
+@@ -116,7 +112,7 @@
+       "aa/gt": { dh: 3, ds: 7.4 },
+       "aa/t-": { dh: -0.5, ds: -1.1 },
+       "aa/ta": { dh: 1.2, ds: 1.7 },
+-      "aa/tc": { dh: -9.1, ds: -24 },
++      "aa/tc": { dh: 2.3, ds: 4.6 },
+       "aa/tg": { dh: -0.6, ds: -2.3 },
+       "aa/tt": { dh: -7.6, ds: -21.3 },
+       "ac/-g": { dh: -6.3, ds: -17.1 },
+@@ -178,7 +174,7 @@
+       "cg/gt": { dh: -4.1, ds: -11.7 },
+       "cg/tc": { dh: -1.5, ds: -6.1 },
+       "ct/-a": { dh: -4.1, ds: -13 },
+-      "ct/aa": { dh: -9.1, ds: -24 },
++      "ct/aa": { dh: 2.3, ds: 4.6 },
+       "ct/ca": { dh: 0, ds: -4.4 },
+       "ct/g-": { dh: -5.2, ds: -15 },
+       "ct/ga": { dh: -7.8, ds: -21 },
+@@ -235,7 +231,7 @@
+       "ta/aa": { dh: 4.7, ds: 12.9 },
+       "ta/ac": { dh: 3.4, ds: 8 },
+       "ta/ag": { dh: 0.7, ds: 0.7 },
+-      "ta/at": { dh: -7.2, ds: -20.4 },
++      "ta/at": { dh: -7.2, ds: -21.3 },
+       "ta/ct": { dh: 1.2, ds: 0.7 },
+       "ta/gt": { dh: -0.1, ds: -1.7 },
+       "ta/tt": { dh: 0.2, ds: -1.5 },
+@@ -267,7 +263,7 @@
+       "tt/ga": { dh: 1, ds: 0.9 },
+       "tt/ta": { dh: -2.7, ds: -10.8 },
+     },
+-    y = {
++    T = {
+       3: { dh: 0, ds: -10.3 },
+       4: { dh: 0, ds: -11.6 },
+       5: { dh: 0, ds: -12.9 },
+@@ -284,7 +280,7 @@
+       25: { dh: 0, ds: -20.3 },
+       30: { dh: 0, ds: -21.3 },
+     },
+-    k = {
++    N = {
+       1: { dh: 0, ds: -12.9 },
+       2: { dh: 0, ds: -9.4 },
+       3: { dh: 0, ds: -10 },
+@@ -300,245 +296,224 @@
+       16: { dh: 0, ds: -16.1 },
+       18: { dh: 0, ds: -16.8 },
+       20: { dh: 0, ds: -17.1 },
+-      25: { dh: 0, ds: -28.1 },
++      25: { dh: 0, ds: -18.1 },
+       30: { dh: 0, ds: -19 },
+     },
+     M = 0,
++    k,
++    E,
+     P,
+-    L,
+     G,
+-    R,
+-    N,
+-    U = function () {
+-      var Q,
+-        Z = this.wseq.split(""),
+-        oe = this.cseq.split("").reverse(),
+-        X;
+-      for (Q = 0; Q < Z.length; ++Q)
+-        Z[Q] === Ge.comp(oe[Q])
+-          ? (this.pairmap += "|")
+-          : Z[Q] === "-" || oe[Q] === "-"
+-            ? (this.pairmap += "^")
+-            : (this.pairmap += "x");
+-      for (X = this.pairmap.split(""), Q = 1; Q < X.length; ++Q)
+-        X[Q] === "x" && (X[Q - 1] === "x" || X[Q - 1] === "_") && ((X[Q] = "_"), (X[Q - 1] = "_"));
+-      for (this.pairmap = X.join(""); this.pairmap.search(/\^+_+|_+\^+/) !== -1; )
+-        this.pairmap = this.pairmap.replace(/\^+_+|_+\^+/, function (re, x, le) {
+-          le.slice(0, x);
+-          var z = new Array(re.length + 1).join("_");
+-          return (le.slice(x + re.length), z);
++    O,
++    K = function () {
++      var U,
++        le = this.wseq.split(""),
++        J = this.cseq.split("").reverse(),
++        ie;
++      for (U = 0; U < le.length; ++U)
++        le[U] === Ne.comp(J[U]) ? (this.pairmap += "|") : le[U] === "-" || J[U] === "-" ? (this.pairmap += "^") : (this.pairmap += "x");
++      for (ie = this.pairmap.split(""), U = 1; U < ie.length; ++U)
++        ie[U] === "x" && (ie[U - 1] === "x" || ie[U - 1] === "_") && ((ie[U] = "_"), (ie[U - 1] = "_"));
++      for (this.pairmap = ie.join(""); this.pairmap.search(/\^+_+|_+\^+/) !== -1; )
++        this.pairmap = this.pairmap.replace(/\^+_+|_+\^+/, function (z, te, pe) {
++          pe.slice(0, te);
++          var Y = new Array(z.length + 1).join("_");
++          return (pe.slice(te + z.length), Y);
+         });
+       for (; this.pairmap.search(/\^+x|x\^+/) !== -1; )
+-        this.pairmap = this.pairmap.replace(/\^+x|x\^+/, function (re, x, le) {
+-          le.slice(0, x);
+-          var z = new Array(re.length + 1).join("_");
+-          return (le.slice(x + re.length), z);
++        this.pairmap = this.pairmap.replace(/\^+x|x\^+/, function (z, te, pe) {
++          pe.slice(0, te);
++          var Y = new Array(z.length + 1).join("_");
++          return (pe.slice(te + z.length), Y);
+         });
+       for (; this.pairmap.search(/_+[x^]|[x^]_+/) !== -1; )
+-        this.pairmap = this.pairmap.replace(/_+[x^]|[x^]_+/, function (re, x, le) {
+-          le.slice(0, x);
+-          var z = new Array(re.length + 1).join("_");
+-          return (le.slice(x + re.length), z);
++        this.pairmap = this.pairmap.replace(/_+[x^]|[x^]_+/, function (z, te, pe) {
++          pe.slice(0, te);
++          var Y = new Array(z.length + 1).join("_");
++          return (pe.slice(te + z.length), Y);
+         });
+     },
+-    B = function () {
++    D = function () {
+       ((this.sc_sch = (16.6 * Math.log(this.saltc)) / Math.LN10),
+         (this.sc_sl = 0.368 * this.wseq.length * Math.log(this.saltc)),
+-        (this.sc_ow =
+-          (4.29 * this.fgc - 3.95) * 1e-5 * Math.log(this.saltc) +
+-          94e-7 * Math.log(this.saltc) * Math.log(this.saltc)));
+-    },
+-    F = function (Q) {
+-      return ((this.method = Q), this);
+-    },
+-    I = function (Q, Z) {
+-      var oe;
++        (this.sc_ow = (4.29 * this.fgc - 3.95) * 1e-5 * Math.log(this.saltc) + 94e-7 * Math.log(this.saltc) * Math.log(this.saltc)));
++    },
++    L = function (U) {
++      return ((this.method = U), this);
++    },
++    R = function (U, le) {
++      var J;
+       for (
+-        this.seq = Q,
+-          this.wseq = Ge.trim(this.seq.toLowerCase().replace(/\s/g, "")),
+-          Z ? (this.cseq = Ge.trim(Z.toLowerCase().replace(/\s/g, ""))) : (this.cseq = Ge.revcomp(this.wseq)),
++        this.seq = U,
++          this.wseq = Ne.trim(this.seq.toLowerCase().replace(/\s/g, "")),
++          le ? (this.cseq = Ne.trim(le.toLowerCase().replace(/\s/g, ""))) : (this.cseq = Ne.revcomp(this.wseq)),
+           this.sym = this.wseq === this.cseq,
+           this.gc_cnt = 0,
+-          oe = 0;
+-        oe < this.wseq.length;
+-        ++oe
++          J = 0;
++        J < this.wseq.length;
++        ++J
+       )
+-        (this.wseq.charAt(oe) === "g" || this.wseq.charAt(oe) === "c") && (this.gc_cnt += 1);
++        (this.wseq.charAt(J) === "g" || this.wseq.charAt(J) === "c") && (this.gc_cnt += 1);
+       return ((this.fgc = this.gc_cnt / this.wseq.length), this.saltCorrect(), this);
+     },
+-    H = function (Q) {
+-      return ((this.ct = Q), (this.primerc = e * 1e-6), this);
+-    },
+-    W = function (Q) {
+-      return ((this.salt = Q), (this.saltc = this.salt * 0.001), this.saltCorrect(), this);
+-    },
+-    D = function (Q) {
+-      return ((this.dmso = Q), this);
+-    },
+-    V = function () {
+-      var Q = 0,
+-        Z = 0,
+-        oe = 0,
+-        X = 0,
+-        re = 0,
+-        x = 0,
+-        le = this.primerc,
+-        z,
+-        fe,
+-        de = this.wseq.split(""),
+-        pe = this.cseq.split("").reverse(),
+-        ye;
++    Q = function (U) {
++      return ((this.ct = U), (this.primerc = t * 1e-6), this);
++    },
++    ae = function (U) {
++      return ((this.salt = U), (this.saltc = this.salt * 0.001), this.saltCorrect(), this);
++    },
++    W = function (U) {
++      return ((this.dmso = U), this);
++    },
++    x = function () {
++      var U = 0,
++        le = 0,
++        J = 0,
++        ie = 0,
++        z = 0,
++        te = 0,
++        pe = this.primerc,
++        Y,
++        ue,
++        he = this.wseq.split(""),
++        de = this.cseq.split("").reverse(),
++        _e;
+       switch (
+         (this.pairmap === "" &&
+           (this.buildPairMap(),
+-          (de = this.wseq.split("")),
+-          (pe = this.cseq.split("").reverse()),
+-          Ge.dmsg(
++          (he = this.wseq.split("")),
++          (de = this.cseq.split("").reverse()),
++          Ne.dmsg(
+             this.wseq +
+               `
+ ` +
+               this.pairmap +
+               `
+ ` +
+-              Ge.rev(this.cseq),
++              Ne.rev(this.cseq),
+           )),
+-        (ye = this.pairmap.split("")),
++        (_e = this.pairmap.split("")),
+         this.method)
+       ) {
+         case 1:
+-          for (X += this.sym ? -12.4 : -10.8, z = 0; z < this.wseq.length - 1; ++z)
+-            ((fe = this.wseq.slice(z, z + 2)), (Z += this.dSBr[fe]), (oe += this.dHBr[fe]));
+-          ((oe *= 1e3), (Q = oe / (X + Z + this.R * Math.log(le)) - 273.15 + this.sc_sch));
++          for (ie += this.sym ? -12.4 : -10.8, Y = 0; Y < this.wseq.length - 1; ++Y)
++            ((ue = this.wseq.slice(Y, Y + 2)), (le += this.dSBr[ue]), (J += this.dHBr[ue]));
++          ((J *= 1e3), (U = J / (ie + le + this.R * Math.log(pe)) - 273.15 + this.sc_sch));
+           break;
+         case 3:
+         case 4:
+           for (
+-            x = this.sym ? -1.4 : 0,
+-              X = -5.7,
+-              re = 200,
+-              (de[0] === "a" || de[0] === "t") && ((X += 6.9), (re += 2200)),
+-              (de[f.length - 1] === "a" || de[this.wseq.length - 1] === "t") && ((X += 6.9), (re += 2200)),
+-              z = 0;
+-            z < this.wseq.length - 1;
+-            z++
++            te = this.sym ? -1.4 : 0,
++              ie = -5.7,
++              z = 200,
++              (he[0] === "a" || he[0] === "t") && ((ie += 6.9), (z += 2200)),
++              (he[u.length - 1] === "a" || he[this.wseq.length - 1] === "t") && ((ie += 6.9), (z += 2200)),
++              Y = 0;
++            Y < this.wseq.length - 1;
++            Y++
+           )
+-            (ye[z] === "|" || ye[z] === "x") &&
+-              (ye[z + 1] === "|" || ye[z + 1] === "x") &&
+-              ((fe = de[z] + de[z + 1] + "/" + pe[z] + pe[z + 1]),
+-              b.hasOwnProperty(fe) && ((Z += this.nndhds[fe].ds), (oe += this.nndhds[fe].dh)));
+-          ((Q = (oe * 1e3 + re) / (X + x + Z + this.R * Math.log(le))),
+-            Ge.dmsg("tm of non-looped portion: " + Q));
+-          var ve,
+-            Se,
+-            me = !1;
+-          ((me = !1), (ve = 0), (Se = 0));
+-          var we, _e;
+-          for (z = 0; z < ye.length; ++z)
+-            if (ye[z] === "_") {
+-              if ((de[z] !== "-" && (ve += 1), pe[z] !== "-" && (Se += 1), !me)) {
+-                for (me = !0, we = z; de[we] === "-"; ) ++we;
+-                for (_e = z; pe[_e] === "-"; ) ++_e;
+-                ((Z += this.nndhds[de[z - 1] + "-/" + pe[z - 1] + pe[_e]].ds),
+-                  (oe += this.nndhds[de[z - 1] + "-/" + pe[z - 1] + pe[_e]].dh),
+-                  (Z += this.nndhds[de[z - 1] + de[we] + "/" + pe[z - 1] + "-"].ds),
+-                  (oe += this.nndhds[de[z - 1] + de[we] + "/" + pe[z - 1] + "-"].dh));
++            (_e[Y] === "|" || _e[Y] === "x") &&
++              (_e[Y + 1] === "|" || _e[Y + 1] === "x") &&
++              ((ue = he[Y] + he[Y + 1] + "/" + de[Y] + de[Y + 1]),
++              q.hasOwnProperty(ue) && ((le += this.nndhds[ue].ds), (J += this.nndhds[ue].dh)));
++          ((U = (J * 1e3 + z) / (ie + te + le + this.R * Math.log(pe))), Ne.dmsg("tm of non-looped portion: " + U));
++          var ne,
++            $,
++            fe = !1;
++          ((fe = !1), (ne = 0), ($ = 0));
++          var we, j;
++          for (Y = 0; Y < _e.length; ++Y)
++            if (_e[Y] === "_") {
++              if ((he[Y] !== "-" && (ne += 1), de[Y] !== "-" && ($ += 1), !fe)) {
++                for (fe = !0, we = Y; he[we] === "-"; ) ++we;
++                for (j = Y; de[j] === "-"; ) ++j;
++                ((le += this.nndhds[he[Y - 1] + "-/" + de[Y - 1] + de[j]].ds),
++                  (J += this.nndhds[he[Y - 1] + "-/" + de[Y - 1] + de[j]].dh),
++                  (le += this.nndhds[he[Y - 1] + he[we] + "/" + de[Y - 1] + "-"].ds),
++                  (J += this.nndhds[he[Y - 1] + he[we] + "/" + de[Y - 1] + "-"].dh));
+               }
+             } else {
+-              if (ve + Se > 0) {
++              if (ne + $ > 0) {
+                 for (
+-                  Ge.dmsg("loop: " + (ve + Se)),
+-                    Z += this.loop["" + (ve + Se)].ds,
+-                    Z -= Math.abs(ve - Se) * 0.97,
+-                    we = z - 1;
+-                  de[we] === "-";
++                  Ne.dmsg("loop: " + (ne + $)), le += this.loop["" + (ne + $)].ds, le -= Math.abs(ne - $) * 0.97, we = Y - 1;
++                  he[we] === "-";
+                 )
+                   --we;
+-                for (_e = z - 1; pe[_e] === "-"; ) --_e;
+-                ((Z += this.nndhds["-" + de[z] + "/" + pe[_e] + pe[z]].ds),
+-                  (oe += this.nndhds["-" + de[z] + "/" + pe[_e] + pe[z]].dh),
+-                  (Z += this.nndhds[de[we] + de[z] + "/-" + pe[z]].ds),
+-                  (oe += this.nndhds[de[we] + de[z] + "/-" + pe[z]].dh));
++                for (j = Y - 1; de[j] === "-"; ) --j;
++                ((le += this.nndhds["-" + he[Y] + "/" + de[j] + de[Y]].ds),
++                  (J += this.nndhds["-" + he[Y] + "/" + de[j] + de[Y]].dh),
++                  (le += this.nndhds[he[we] + he[Y] + "/-" + de[Y]].ds),
++                  (J += this.nndhds[he[we] + he[Y] + "/-" + de[Y]].dh));
+               }
+-              ((ve = 0), (Se = 0), (me = !1));
++              ((ne = 0), ($ = 0), (fe = !1));
+             }
+-          var j = 0;
+-          for (z = 0; z < ye.length; ++z)
+-            ye[z] === "^"
+-              ? (j += 1)
+-              : (j === 1 && z >= 2
+-                  ? ((Z += this.bulge["" + j].ds),
+-                    (Z += this.nndhds[de[z - 2] + de[z] + "/" + pe[z - 2] + pe[z]].ds),
+-                    (oe += this.nndhds[de[z - 2] + de[z] + "/" + pe[z - 2] + pe[z]].dh))
+-                  : j > 1 && (Z += this.bulge["" + j].ds),
+-                (j = 0));
+-          ((oe *= 1e3),
+-            (Q = (oe + re) / (X + x + Z + this.R * Math.log(le))),
+-            this.method === 3
+-              ? (Q = 1 / (1 / Q + this.sc_sl / (oe + re)))
+-              : this.method === 4 && (Q = 1 / (1 / Q + this.sc_ow)),
+-            (Q -= 273.15));
++          var F = 0;
++          for (Y = 0; Y < _e.length; ++Y)
++            _e[Y] === "^"
++              ? (F += 1)
++              : (F === 1 && Y >= 2
++                  ? ((le += this.bulge["" + F].ds),
++                    (le += this.nndhds[he[Y - 2] + he[Y] + "/" + de[Y - 2] + de[Y]].ds),
++                    (J += this.nndhds[he[Y - 2] + he[Y] + "/" + de[Y - 2] + de[Y]].dh))
++                  : F > 1 && (le += this.bulge["" + F].ds),
++                (F = 0));
++          ((J *= 1e3),
++            (U = (J + z) / (ie + te + le + this.R * Math.log(pe))),
++            this.method === 3 ? (U = 1 / (1 / U + this.sc_sl / (J + z))) : this.method === 4 && (U = 1 / (1 / U + this.sc_ow)),
++            (U -= 273.15));
+           break;
+         case 7:
+-          Q = 81.5 + (16.6 * Math.log(this.saltc)) / Math.LN10 + 0.41 * this.fgc - 675 / this.wseq.length;
++          U = 81.5 + (16.6 * Math.log(this.saltc)) / Math.LN10 + 0.41 * this.fgc - 675 / this.wseq.length;
+           break;
+       }
+       return (
+-        (Q = Q - this.dmso * 0.6),
+-        Ge.dmsg("Tm is " + Q),
+-        {
+-          method: this.method,
+-          wseq: this.wseq,
+-          cseq: this.cseq,
+-          tm: Q,
+-          dh: oe,
+-          ds: Z,
+-          salt: this.saltc,
+-          ct: this.primerc,
+-          dmso: this.dmso,
+-        }
++        (U = U - this.dmso * 0.6),
++        Ne.dmsg("Tm is " + U),
++        { method: this.method, wseq: this.wseq, cseq: this.cseq, tm: U, dh: J, ds: le, salt: this.saltc, ct: this.primerc, dmso: this.dmso }
+       );
+     };
+-  for (d = f === u, p = e * 1e-6, m = n * 0.001, N = 0; N < f.length; ++N)
+-    (f.charAt(N) === "g" || f.charAt(N) === "c") && (M += 1);
++  ((d = u === f), (p = t * 1e-6), (v = s * 0.001));
++  var H = u.replace(/-/g, "");
++  for (O = 0; O < H.length; ++O) (H.charAt(O) === "g" || H.charAt(O) === "c") && (M += 1);
+   return (
+-    (P = M / f.length),
+-    (L = (16.6 * Math.log(m)) / Math.LN10),
+-    (G = 0.368 * f.length * Math.log(m)),
+-    (R = (4.29 * P - 3.95) * 1e-5 * Math.log(m) + 94e-7 * Math.log(m) * Math.log(m)),
++    (k = M / H.length),
++    (E = (16.6 * Math.log(v)) / Math.LN10),
++    (P = 0.368 * u.length * Math.log(v)),
++    (G = (4.29 * k - 3.95) * 1e-5 * Math.log(v) + 94e-7 * Math.log(v) * Math.log(v)),
+     {
+-      setSeq: I,
+-      setSalt: W,
+-      setCt: H,
+-      setDMSO: D,
+-      setMethod: F,
+-      saltCorrect: B,
+-      Tm: V,
++      setSeq: R,
++      setSalt: ae,
++      setCt: Q,
++      setDMSO: W,
++      setMethod: L,
++      saltCorrect: D,
++      Tm: x,
+       gc_cnt: M,
+-      fgc: P,
+-      sc_sch: L,
+-      sc_sl: G,
+-      sc_ow: R,
+-      seq: t,
+-      compseq: r,
+-      ct: e,
+-      salt: n,
+-      dmso: l,
++      fgc: k,
++      sc_sch: E,
++      sc_sl: P,
++      sc_ow: G,
++      seq: e,
++      compseq: i,
++      ct: t,
++      salt: s,
++      dmso: n,
+       method: a,
+-      wseq: f,
+-      cseq: u,
++      wseq: u,
++      cseq: f,
+       sym: d,
+       pairmap: h,
+-      buildPairMap: U,
++      buildPairMap: K,
+       primerc: p,
+-      saltc: m,
++      saltc: v,
+       R: _,
+-      dSSa: q,
++      dSSa: w,
+       dHSa: A,
+-      dSBr: w,
+-      dHBr: C,
+-      nndhds: b,
+-      loop: y,
+-      bulge: k,
++      dSBr: b,
++      dHBr: y,
++      nndhds: q,
++      loop: T,
++      bulge: N,
+     }
+   );
+ };
+
+######## calcTm  v2.8.4:1  live:0
+  REMOVED IN LIVE (present only in v2.8.4):
+  [v2.8.4 line 2387]
+    (t.TmCalc.prototype.calcTm = function (e, n, l) {
+      (console.log("Tmcalc: seq:  ", e), console.log("Tmcalc: cseq: ", n), console.log("Tmcalc: pmap: ", l));
+      var a = 0,
+        r = 0,
+        f = 0,
+        u = 0,
+        h = 0,
+        d = 0,
+        p = 0,
+        m = 0,
+        _ = 0,
+        w = 0,
+        q = this.primerc,
+        C,
+        A,
+        b,
+        y,
+        k,
+        M = 0,
+        P,
+        L;
+      if (!e && !this.wseq) return {};
+      if (n) this.setSeq(e, n);
+      else {
+        for (; e[0] === "-"; ) e = e.slice(1);
+        for (; e[e.length - 1] === "-"; ) e = e.slice(0, e.length - 1);
+        this.setSeq(e);
+      }
+      if (
+        ((b = this.wseq.split("")),
+        (y = this.cseq.split("").reverse()),
+        l
+          ? ((this.pairmap = l.toLowerCase()),
+            console.log("existing pairmap", this.pairmap, this.wseq, this.cseq))
+          : (console.log("missing pairmap"),
+            (this.pairmap = this.buildPairMap(this.wseq, this.cseq)),
+            console.log("new pairmap", this.pairmap, this.wseq, this.cseq)),
+        this.pairmap.length !== this.wseq.length)
+      )
+        throw (
+          console.log("pairmap", this.pairmap, this.pairmap.length, "seq", this.wseq.length),
+          {
+            name: "Invalid pairmap or alignment",
+            message:
+              "Pairmap length " +
+              this.pairmap.length +
+              " must be same as aligned seq length " +
+              this.wseq.length,
+          }
+        );
+      if (this.cseq.length !== this.wseq.length)
+        throw {
+          name: "Invalid pairmap or alignment",
+          message: "aligned seqs must have same length (" + this.wseq.length + ").",
+        };
+      switch (((k = this.pairmap.split("")), this.method)) {
+        case 1:
+          for (u += this.sym ? -12.4 : -10.8, C = 0; C < this.wseq.length - 1; ++C)
+            ((A = this.wseq.slice(C, C + 2)), (r += this.dSBr[A]), (f += this.dHBr[A]));
+          ((f *= 1e3), (a = f / (u + r + this.R * Math.log(q)) - 273.15 + this.sc_sch));
+          break;
+        case 3:
+        case 4:
+          for (
+            d = this.sym ? -1.4 : 0, u = -5.7, h = 200, P = 0, L = this.wseq.length - 1;
+            b[P] + b[P + 1] === "--" || y[P] + y[P + 1] === "--" || k[P] === ".";
+          )
+            ++P;
+          for (
+            (b[P] === "-" || y[P] === "-") &&
+            ((A = b[P] + b[P + 1] + "/" + y[P] + y[P + 1]),
+            this.nnde.hasOwnProperty(A) && ((p += this.nnde[A].ds), (m += this.nnde[A].dh)),
+            ++P);
+            b[L - 1] + b[L] === "--" || y[L - 1] + y[L] === "--" || k[L] === ".";
+          )
+            --L;
+          for (
+            (b[L] === "-" || y[L] === "-") &&
+              ((A = b[L - 1] + b[L] + "/" + y[L - 1] + y[L]),
+              this.nnde.hasOwnProperty(A) &&
+                (console.log("adding dangling end correction"),
+                (p += this.nnde[A].ds),
+                (m += this.nnde[A].dh)),
+              --L),
+              A = y[P + 1] + y[P] + "/" + b[P + 1] + b[P],
+              console.log("nn for terminal mismatch check " + A),
+              this.nntmm.hasOwnProperty(A) &&
+                (console.log("adding ds/dh for " + A), (_ += this.nntmm[A].ds), (w += this.nntmm[A].dh), ++P),
+              A = b[L - 1] + b[L] + "/" + y[L - 1] + y[L],
+              console.log("nn for terminal mismatch check " + A),
+              this.nntmm.hasOwnProperty(A) &&
+                (console.log("adding ds/dh for " + A), (_ += this.nntmm[A].ds), (w += this.nntmm[A].dh), --L),
+              (b[P] === "a" || b[P] === "t") && ((u += 6.9), (h += 2200)),
+              (b[L] === "a" || b[L] === "t") && ((u += 6.9), (h += 2200)),
+              C = P;
+            C < L;
+            C++
+          )
+            (k[C] === "|" || k[C] === "x") &&
+              (k[C + 1] === "|" || k[C + 1] === "x") &&
+              ((A = b[C] + b[C + 1] + "/" + y[C] + y[C + 1]),
+              this.nndhds.hasOwnProperty(A) && ((r += this.nndhds[A].ds), (f += this.nndhds[A].dh)));
+          ((f += m + w),
+            (r += p + _),
+            (a = (f * 1e3 + h) / (u + d + r + this.R * Math.log(q))),
+            (M = a - 273.15));
+          for (
+            var G, R, N, U = /[^_]_+[^_]/g, B = /[^=]=+[^=]/g, F = /[^\^]\^+[^\^]/g, I, H, W, D = 0;
+            (I = U.exec(this.pairmap));
+          )
+            (console.log("found internal loop"),
+              (H = I.index),
+              (W = I[0].length),
+              (G = (W - 2) * 2),
+              console.log("looplen is " + G),
+              console.log("checking tmm for " + b[H] + b[H + 1] + "/" + y[H] + y[H + 1]),
+              (D += this.nntmm[b[H] + b[H + 1] + "/" + y[H] + y[H + 1]].ds),
+              console.log(
+                "checking tmm for " + b[H + W - 2] + b[H + W - 1] + "/" + y[H + W - 2] + y[H + W - 1],
+              ),
+              (D += this.nntmm[b[H + W - 2] + b[H + W - 1] + "/" + y[H + W - 2] + y[H + W - 1]].ds),
+              console.log("checking nnloop for " + G),
+              (D += this.nnloop["" + G].ds),
+              ((b[H] === "a" && y[H] === "t") || (b[H] === "t" && y[H] === "a")) && (D += 0.5),
+              ((b[H + W - 1] === "a" && y[H + W - 1] === "t") ||
+                (b[H + W - 1] === "t" && y[H + W - 1] === "a")) &&
+                (D += 0.5));
+          for (; (I = B.exec(this.pairmap)); ) {
+            for (
+              console.log("found asymmetric internal loop"),
+                H = I.index,
+                W = I[0].length,
+                G = R = W - 2,
+                C = 0;
+              C < W;
+              ++C
+            )
+              (b[H + 1] === "-" && (G -= 1), y[H + 1] === "-" && (R -= 1));
+            (console.log("looplen is " + G + R),
+              (D += this.nntmm[b[H] + b[H + 1] + "/" + y[H] + y[H + 1]].ds),
+              (D += this.nntmm[b[H + W - 2] + b[H + W - 1] + "/" + y[H + W - 2] + y[H + W - 1]].ds),
+              (D += (Math.abs(G - R) * 0.3 * 1e3) / 310.15),
+              (D += this.nnloop["" + (G + R)].ds),
+              ((b[H] === "a" && y[H] === "t") || (b[H] === "t" && y[H] === "a")) && (D += 0.5),
+              ((b[H + W - 1] === "a" && y[H + W - 1] === "t") ||
+                (b[H + W - 1] === "t" && y[H + W - 1] === "a")) &&
+                (D += 0.5));
+          }
+          for (; (I = F.exec(this.pairmap)); )
+            (console.log("found bulge loop"),
+              (H = I.index),
+              (W = I[0].length),
+              (N = W - 2),
+              N === 1
+                ? ((D += this.nnbulge["" + N].ds),
+                  (r += this.nndhds[b[H] + b[H + 2] + "/" + y[H] + y[H + 2]].ds),
+                  (f += this.nndhds[b[H] + b[H + 2] + "/" + y[H] + y[H + 2]].dh))
+                : N > 1 && (D += this.nnbulge["" + N].ds),
+              ((b[H] === "a" && y[H] === "t") || (b[H] === "t" && y[H] === "a")) && (D += 0.5),
+              ((b[H + W - 1] === "a" && y[H + W - 1] === "t") ||
+                (b[H + W - 1] === "t" && y[H + W - 1] === "a")) &&
+                (D += 0.5));
+          ((r += D),
+            (f *= 1e3),
+            (a = (f + h) / (u + d + r + this.R * Math.log(q))),
+            (M = a - 273.15),
+            this.method === 3
+              ? (a = 1 / (1 / a + this.sc_sl / (f + h)))
+              : this.method === 4 && (a = 1 / (1 / a + this.sc_ow)),
+            (a -= 273.15));
+          break;
+        case 7:
+          a = 81.5 + (16.6 * Math.log(this.saltc)) / Math.LN10 + 0.41 * this.fgc - 675 / this.wseq.length;
+          break;
+        case 8:
+          a = this.gc_cnt * 4 + this.at_cnt * 2;
+      }
+      return (
+        (a = a - this.dmso * 0.6),
+        {
+          method: this.method,
+          wseq: this.wseq,
+          cseq: this.cseq,
+          rawtm: M,
+          tm: a,
+          dh: f + h,
+          ds: r + u + d,
+          salt: this.saltc,
+          ct: this.primerc,
+          dmso: this.dmso,
+          fgc: this.fgc,
+          len: this.wseq.length,
+        }
+      );
+    }),
+
+######## calculatePrimers  v2.8.4:1  live:1
+  occurrence 0: DIFFERS  (v2.8.4 line 2867 / live line 2554)
+--- v2.8.4:calculatePrimers
++++ live:calculatePrimers
+@@ -1,56 +1,52 @@
+-    (t.Primer.calculatePrimers = function (l, a, r) {
+-      console.log("calculatePrimers called");
+-      var f, u, h, d, p;
++    (e.Primer.calculatePrimers = function (n, a, i) {
++      var u, f, h, d, p;
+       (a || (a = {}),
+-        a && a.primerMonosalt && a.primerCt && ((u = a.primerMonosalt), (h = a.primerCt)),
+-        a && a.primerMethod ? (f = a.primerMethod) : (f = 4),
+-        (u = u || 150),
++        a && a.primerMonosalt && a.primerCt && ((f = a.primerMonosalt), (h = a.primerCt)),
++        a && a.primerMethod ? (u = a.primerMethod) : (u = 4),
++        (f = f || 150),
+         (h = h || 500),
+-        (r = r || t.createTmFunction(f, u, h)));
+-      var m = {},
+-        _ = l.length,
++        (i = i || e.createTmFunction(u, f, h)));
++      var v = {},
++        _ = n.length,
++        b = a.primerMinLen || 20,
+         w = a.primerMinLen || 20,
+-        q = a.primerMinLen || 20,
+-        C = w,
+-        A = q,
+-        b = e.revcomp(l);
+-      if (w > _) throw new Error("Frag (" + _ + " bp) is shorter  than min primer length (" + w + " bp)");
+-      if (w + q > _) throw new Error("Autogen primers will overlap.");
+-      ((d = a.primerMinTm || 55),
+-        (p = a.primerMaxTm || 70),
+-        (m.pfwd = l.slice(0, w)),
+-        (m.prev = b.slice(0, q)));
+-      var y = r(m.pfwd);
+-      for (m.tmfwd = y; y < d; ) ((m.pfwd = l.slice(0, ++w)), (y = r(m.pfwd)), (m.tmfwd = y), (C = w));
+-      for (; y < p && m.pfwd.search("[GgCc]$") === -1; )
+-        ((m.pfwd = l.slice(0, ++w)), (y = r(m.pfwd)), (m.tmfwd = y));
+-      m.pfwd.search("[GCgc]$") === -1 && ((m.pfwd = l.slice(0, C)), (y = r(m.pfwd)), (m.tmfwd = y), (w = C));
+-      var k = r(m.prev);
+-      for (m.tmrev = k; k < d; ) ((m.prev = b.slice(0, ++q)), (k = r(m.prev)), (m.tmrev = k), (A = q));
+-      for (; k < p && m.prev.search("[GgCc]$") === -1; )
+-        ((m.prev = b.slice(0, ++q)), (k = r(m.prev)), (m.tmrev = k));
+-      if (
+-        (m.prev.search("[GgCc]$") === -1 &&
+-          ((m.prev = b.slice(0, A)), (k = r(m.prev)), (m.tmrev = k), (q = A)),
+-        y > k)
+-      ) {
+-        for (; y - k > 5; ) ((m.prev = b.slice(0, ++q)), (k = r(m.prev)), (m.tmrev = k));
+-        for (A = q; k < y && m.prev.search("[GgCc]$") === -1; )
+-          if (((m.prev = b.slice(0, ++q)), (k = r(m.prev)), k < y)) A = q;
++        y = b,
++        A = w,
++        q = t.revcomp(n);
++      if (b > _) throw new Error("Frag (" + _ + " bp) is shorter  than min primer length (" + b + " bp)");
++      if (b + w > _) throw new Error("Autogen primers will overlap.");
++      ((d = a.primerMinTm || 55), (p = a.primerMaxTm || 70), (v.pfwd = n.slice(0, b)), (v.prev = q.slice(0, w)));
++      var T = i(v.pfwd);
++      for (v.tmfwd = T; T < d; ) {
++        if (b >= _) throw new Error("cannot reach min Tm " + d + " for forward primer within " + _ + " bp");
++        ((v.pfwd = n.slice(0, ++b)), (T = i(v.pfwd)), (v.tmfwd = T), (y = b));
++      }
++      for (; T < p && b < _ && v.pfwd.search("[GgCc]$") === -1; ) ((v.pfwd = n.slice(0, ++b)), (T = i(v.pfwd)), (v.tmfwd = T));
++      v.pfwd.search("[GCgc]$") === -1 && ((v.pfwd = n.slice(0, y)), (T = i(v.pfwd)), (v.tmfwd = T), (b = y));
++      var N = i(v.prev);
++      for (v.tmrev = N; N < d; ) {
++        if (w >= _) throw new Error("cannot reach min Tm " + d + " for reverse primer within " + _ + " bp");
++        ((v.prev = q.slice(0, ++w)), (N = i(v.prev)), (v.tmrev = N), (A = w));
++      }
++      for (; N < p && w < _ && v.prev.search("[GgCc]$") === -1; ) ((v.prev = q.slice(0, ++w)), (N = i(v.prev)), (v.tmrev = N));
++      if ((v.prev.search("[GgCc]$") === -1 && ((v.prev = q.slice(0, A)), (N = i(v.prev)), (v.tmrev = N), (w = A)), T > N)) {
++        for (; T - N > 5 && !(w >= _); ) ((v.prev = q.slice(0, ++w)), (N = i(v.prev)), (v.tmrev = N));
++        for (A = w; N < T && w < _ && v.prev.search("[GgCc]$") === -1; )
++          if (((v.prev = q.slice(0, ++w)), (N = i(v.prev)), N < T)) A = w;
+           else {
+-            ((m.prev = b.slice(0, A)), (k = r(m.prev)), (m.tmrev = k));
++            ((v.prev = q.slice(0, A)), (N = i(v.prev)), (v.tmrev = N));
+             break;
+           }
+       }
+-      if (k > y) {
+-        for (; k - y > 5; ) ((m.pfwd = l.slice(0, ++w)), (y = r(m.pfwd)), (m.tmfwd = y));
+-        for (C = w; y < k && m.pfwd.search("[GgCc]$") === -1; )
+-          if (((m.pfwd = l.slice(0, ++w)), (y = r(m.pfwd)), (m.tmfwd = y), y < k)) C = w;
++      if (N > T) {
++        for (; N - T > 5 && !(b >= _); ) ((v.pfwd = n.slice(0, ++b)), (T = i(v.pfwd)), (v.tmfwd = T));
++        for (y = b; T < N && b < _ && v.pfwd.search("[GgCc]$") === -1; )
++          if (((v.pfwd = n.slice(0, ++b)), (T = i(v.pfwd)), (v.tmfwd = T), T < N)) y = b;
+           else {
+-            ((m.pfwd = l.slice(0, C)), (y = r(m.pfwd)), (m.tmfwd = y));
++            ((v.pfwd = n.slice(0, y)), (T = i(v.pfwd)), (v.tmfwd = T));
+             break;
+           }
+       }
+-      if (m.prev.length + m.pfwd.length > _) throw new Error("Autogen primers will overlap.");
+-      return m;
++      if (v.prev.length + v.pfwd.length > _) throw new Error("Autogen primers will overlap.");
++      return v;
+     }),
+
+######## calculateSDMPrimers  v2.8.4:1  live:0
+  REMOVED IN LIVE (present only in v2.8.4):
+  [v2.8.4 line 2923]
+    (t.Primer.calculateSDMPrimers = function (l, a, r) {
+      console.log("calculatePrimers called");
+      var f, u, h, d, p;
+      (a || (a = {}),
+        a && a.primerMonosalt && a.primerCt && ((u = a.primerMonosalt), (h = a.primerCt)),
+        a && a.primerMethod ? (f = a.primerMethod) : (f = 4),
+        (u = u || 150),
+        (h = h || 500),
+        (r = r || t.createTmFunction(f, u, h)));
+      var m = {},
+        _ = l.length,
+        w = a.primerMinLen || 20,
+        q = a.primerMinLen || 20,
+        C = w,
+        A = q,
+        b = e.revcomp(l),
+        y = align(repseq, repseqtpl);
+      if (w > _) throw new Error("Frag (" + _ + " bp) is shorter  than min primer length (" + w + " bp)");
+      if (w + q > _) throw new Error("Autogen primers will overlap.");
+      ((d = a.primerMinTm || 55),
+        (p = a.primerMaxTm || 70),
+        (m.pfwd = l.slice(0, pad) + y.seq1 + l.slice(offset, offset + w)),
+        (m.prev = b.slice(0, q)));
+      var k = r(m.pfwd, Ws.revcomp(l.slice(0, pad) + y.seq2 + l.slice(offset, offset + w)));
+      for (m.tmfwd = k; k < d; )
+        ((m.pfwd = l.slice(0, pad) + y.seq1 + l.slice(offset, offset + ++w)),
+          (k = r(m.pfwd, Ws.revcomp(l.slice(0, pad) + y.seq2 + l.slice(offset, offset + w)))),
+          (m.tmfwd = k),
+          (C = w));
+      for (; k < p && m.pfwd.search("[GgCc]$") === -1; )
+        ((m.pfwd = l.slice(0, pad) + y.seq1 + l.slice(offset, offset + ++minf)),
+          (k = r(m.pfwd, Ws.revcomp(l.slice(0, pad) + y.seq2 + l.slice(offset, offset + w)))),
+          (m.tmfwd = k));
+      m.pfwd.search("[GCgc]$") === -1 &&
+        ((m.pfwd = l.slice(0, pad) + y.seq1 + l.slice(offset, offset + C)),
+        (k = r(m.pfwd, Ws.revcomp(l.slice(0, pad) + y.seq2 + l.slice(offset, offset + C)))),
+        (m.tmfwd = k),
+        (w = C));
+      var M = r(m.prev);
+      for (m.tmrev = M; M < d; ) ((m.prev = b.slice(0, ++q)), (M = r(m.prev)), (m.tmrev = M), (A = q));
+      for (; M < p && m.prev.search("[GgCc]$") === -1; )
+        ((m.prev = b.slice(0, ++q)), (M = r(m.prev)), (m.tmrev = M));
+      if (
+        (m.prev.search("[GgCc]$") === -1 &&
+          ((m.prev = b.slice(0, A)), (M = r(m.prev)), (m.tmrev = M), (q = A)),
+        k > M)
+      ) {
+        for (; k - M > 5; ) ((m.prev = b.slice(0, ++q)), (M = r(m.prev)), (m.tmrev = M));
+        for (A = q; M < k && m.prev.search("[GgCc]$") === -1; )
+          if (((m.prev = b.slice(0, ++q)), (M = r(m.prev)), M < k)) A = q;
+          else {
+            ((m.prev = b.slice(0, A)), (M = r(m.prev)), (m.tmrev = M));
+            break;
+          }
+      }
+      if (M > k) {
+        for (; M - k > 5; )
+          ((m.pfwd = l.slice(0, pad) + y.seq1 + l.slice(offset, offset + ++w)),
+            (k = r(m.pfwd, Ws.revcomp(l.slice(0, pad) + y.seq2 + l.slice(offset, offset + w)))),
+            (m.tmfwd = k));
+        for (C = w; k < M && m.pfwd.search("[GgCc]$") === -1; )
+          if (
+            ((m.pfwd = l.slice(0, pad) + y.seq1 + l.slice(offset, offset + ++w)),
+            (k = r(m.pfwd, Ws.revcomp(l.slice(0, pad) + y.seq2 + l.slice(offset, offset + w)))),
+            (m.tmfwd = k),
+            k < M)
+          )
+            C = w;
+          else {
+            ((m.pfwd = l.slice(0, pad) + y.seq1 + l.slice(offset, offset + ++C)),
+              (k = r(m.pfwd, Ws.revcomp(l.slice(0, pad) + y.seq2 + l.slice(offset, offset + C)))),
+              (m.tmfwd = k));
+            break;
+          }
+      }
+      if (m.prev.length + m.pfwd.length > _) throw new Error("Autogen primers will overlap.");
+      return m;
+    }),
+
+######## calcSDMPrimers  v2.8.4:1  live:1
+  occurrence 0: DIFFERS  (v2.8.4 line 17515 / live line 17194)
+--- v2.8.4:calcSDMPrimers
++++ live:calcSDMPrimers
+@@ -1,110 +1,98 @@
+-    (Ge.calcSDMPrimers = function (E, ee, ne, ae, ue, ie) {
+-      (console.log("calcSDMPrimers *************"),
+-        console.log(E, ee, ne, ae, ue, ie),
+-        (ee = ee < 15 ? 15 : ee),
+-        (ne = ne < 55 ? 55 : ne),
+-        (ne = ne > 72 ? 72 : ne));
+-      var ce = {},
+-        J = ae,
+-        ge = ee,
+-        Te = J,
+-        Xe = ge,
+-        el = 63,
+-        Ve,
+-        it = mi.alignDNAglobal,
+-        At = {};
+-      ((At.mat = {
++    (Ne.calcSDMPrimers = function (I, X, re, se, Se, Me, Le, je) {
++      ((X = X < 15 ? 15 : X),
++        (re = re < 55 ? 55 : re),
++        (re = re > 72 ? 72 : re),
++        (Le = Le === void 0 ? 1 / 0 : Le),
++        (je = je === void 0 ? 1 / 0 : je));
++      var oe = {},
++        ge = se,
++        xe = X,
++        et = ge,
++        Ct = xe,
++        Tt = 63,
++        wt,
++        mt = Li.alignDNAglobal,
++        ft = {};
++      ((ft.mat = {
+         a: { a: 2, c: -1, g: 1, t: -1 },
+         c: { a: -1, c: 2, g: -1, t: 1 },
+         g: { a: 1, c: -1, g: 2, t: -1 },
+         t: { a: -1, c: 1, g: -1, t: 2 },
+       }),
+-        (At.gap = -2.5),
+-        (At.term = -2.5),
+-        (At.extend = -1),
+-        console.log("repseq", ie),
+-        console.log("repseqtpl", ue));
+-      var ot = new mi.Alignment("global", ie, w, At),
+-        Pe = it(ot);
+-      (console.log(Pe), (Ve = Ge.revcomp(E)));
+-      var Ne = ae + w.length;
+-      (console.log(E),
+-        console.log("offset", Ne),
+-        console.log(E.slice(0, ae)),
+-        console.log(Pe.alnSeq1),
+-        console.log(E.slice(Ne, Ne + J)),
+-        (ce.pfwd = E.slice(0, ae) + Pe.alnSeq1 + E.slice(Ne, Ne + J)),
+-        (ce.prev = Ve.slice(0, ge)),
+-        console.info(ce));
+-      for (var Ze = Ge.tm(ce.pfwd, Ge.revcomp(E.slice(0, ae) + Pe.alnSeq2 + E.slice(Ne, Ne + J))); Ze < ne; )
+-        (Ge.dmsg("tmf " + Ze + " < " + ne),
+-          ++J,
+-          (ce.pfwd = E.slice(0, ae) + Pe.alnSeq1 + E.slice(Ne, Ne + J)),
+-          (Ze = Ge.tm(ce.pfwd, Ge.revcomp(E.slice(0, ae) + Pe.alnSeq2 + E.slice(Ne, Ne + J)))),
+-          (Te = J));
+-      for (; Ze < el && ce.pfwd.search("[GgCc]$") === -1; )
+-        (Ge.dmsg("extending fwd to terminal g/c"),
+-          ++J,
+-          (ce.pfwd = E.slice(0, ae) + Pe.alnSeq1 + E.slice(Ne, Ne + J)),
+-          (Ze = Ge.tm(ce.pfwd, Ge.revcomp(E.slice(0, ae) + Pe.alnSeq2 + E.slice(Ne, Ne + J)))));
+-      ce.pfwd.search("[GCgc]$") === -1 &&
+-        (Ge.dmsg("reverting to minimal good fwd primer"),
+-        (ce.pfwd = E.slice(0, ae) + Pe.alnSeq1 + E.slice(Ne, Ne + Te)),
+-        (Ze = Ge.tm(ce.pfwd, Ge.revcomp(E.slice(0, ae) + Pe.alnSeq2 + E.slice(Ne, Ne + Te)))),
+-        (J = Te));
+-      for (var Mt = Ge.tm(ce.prev); Mt < ne; )
+-        (Ge.dmsg("tmr " + Mt + " < " + ne), (ce.prev = Ve.slice(0, ++ge)), (Mt = Ge.tm(ce.prev)), (Xe = ge));
+-      for (; Mt < el && ce.prev.search("[GgCc]$") === -1; )
+-        (Ge.dmsg("extending rev to terminal g/c"), (ce.prev = Ve.slice(0, ++ge)), (Mt = Ge.tm(ce.prev)));
++        (ft.gap = -2.5),
++        (ft.term = -2.5),
++        (ft.extend = -1));
++      var Sl = /^[acgt]+$/i,
++        St = 10,
++        Ye =
++          Me.length === Se.length && Me.length < St && Sl.test(Me) && Sl.test(Se)
++            ? { alnSeq1: Me.toLowerCase(), alnSeq2: Se.toLowerCase() }
++            : mt(new Li.Alignment("global", Me, Se, ft));
++      wt = Ne.revcomp(I);
++      var Pe = se + Se.length;
++      if (((Le = Math.min(Le, I.length - Pe)), (je = Math.min(je, I.length)), ge > Le))
++        throw new Error("cannot reach min primer length " + ge + ": only " + Le + " bases available 3' of the mutation");
++      if (xe > je) throw new Error("cannot reach min primer length " + xe + ": only " + je + " bases available 5' of the mutation");
++      ((oe.pfwd = I.slice(0, se) + Ye.alnSeq1 + I.slice(Pe, Pe + ge)), (oe.prev = wt.slice(0, xe)));
++      for (var $e = Ne.tm(oe.pfwd, Ne.revcomp(I.slice(0, se) + Ye.alnSeq2 + I.slice(Pe, Pe + ge))); $e < re; ) {
++        if ((Ne.dmsg("tmf " + $e + " < " + re), ge >= Le))
++          throw new Error("cannot reach min Tm: only " + Le + " bases available 3' of the mutation");
++        (++ge,
++          (oe.pfwd = I.slice(0, se) + Ye.alnSeq1 + I.slice(Pe, Pe + ge)),
++          ($e = Ne.tm(oe.pfwd, Ne.revcomp(I.slice(0, se) + Ye.alnSeq2 + I.slice(Pe, Pe + ge)))),
++          (et = ge));
++      }
++      for (; $e < Tt && ge < Le && oe.pfwd.search("[GgCc]$") === -1; )
++        (Ne.dmsg("extending fwd to terminal g/c"),
++          ++ge,
++          (oe.pfwd = I.slice(0, se) + Ye.alnSeq1 + I.slice(Pe, Pe + ge)),
++          ($e = Ne.tm(oe.pfwd, Ne.revcomp(I.slice(0, se) + Ye.alnSeq2 + I.slice(Pe, Pe + ge)))));
++      oe.pfwd.search("[GCgc]$") === -1 &&
++        (Ne.dmsg("reverting to minimal good fwd primer"),
++        (oe.pfwd = I.slice(0, se) + Ye.alnSeq1 + I.slice(Pe, Pe + et)),
++        ($e = Ne.tm(oe.pfwd, Ne.revcomp(I.slice(0, se) + Ye.alnSeq2 + I.slice(Pe, Pe + et)))),
++        (ge = et));
++      for (var yt = Ne.tm(oe.prev); yt < re; ) {
++        if ((Ne.dmsg("tmr " + yt + " < " + re), xe >= je))
++          throw new Error("cannot reach min Tm: only " + je + " bases available 5' of the mutation");
++        ((oe.prev = wt.slice(0, ++xe)), (yt = Ne.tm(oe.prev)), (Ct = xe));
++      }
++      for (; yt < Tt && xe < je && oe.prev.search("[GgCc]$") === -1; )
++        (Ne.dmsg("extending rev to terminal g/c"), (oe.prev = wt.slice(0, ++xe)), (yt = Ne.tm(oe.prev)));
+       if (
+-        (ce.prev.search("[GgCc]$") === -1 &&
+-          (Ge.dmsg("reverting to minimal good rev primer"),
+-          (ce.prev = Ve.slice(0, Xe)),
+-          (Mt = Ge.tm(ce.prev)),
+-          (ge = Xe)),
+-        Ze > Mt)
++        (oe.prev.search("[GgCc]$") === -1 &&
++          (Ne.dmsg("reverting to minimal good rev primer"), (oe.prev = wt.slice(0, Ct)), (yt = Ne.tm(oe.prev)), (xe = Ct)),
++        $e > yt)
+       ) {
+-        for (Ge.dmsg("tmf > tmr"); Ze - Mt > 5; )
+-          (Ge.dmsg("tmf - tmr > 5"), (ce.prev = Ve.slice(0, ++ge)), (Mt = Ge.tm(ce.prev)));
+-        for (Xe = ge; Mt < Ze && ce.prev.search("[GgCc]$") === -1; )
+-          if (
+-            (Ge.dmsg("tmr < tmf but does not end in g/c"),
+-            (ce.prev = Ve.slice(0, ++ge)),
+-            (Mt = Ge.tm(ce.prev)),
+-            Mt < Ze)
+-          )
+-            Xe = ge;
++        for (Ne.dmsg("tmf > tmr"); $e - yt > 5 && xe < je; )
++          (Ne.dmsg("tmf - tmr > 5"), (oe.prev = wt.slice(0, ++xe)), (yt = Ne.tm(oe.prev)));
++        for (Ct = xe; yt < $e && xe < je && oe.prev.search("[GgCc]$") === -1; )
++          if ((Ne.dmsg("tmr < tmf but does not end in g/c"), (oe.prev = wt.slice(0, ++xe)), (yt = Ne.tm(oe.prev)), yt < $e)) Ct = xe;
+           else {
+-            ((ce.prev = Ve.slice(0, Xe)), (Mt = Ge.tm(ce.prev)));
++            ((oe.prev = wt.slice(0, Ct)), (yt = Ne.tm(oe.prev)));
+             break;
+           }
+       }
+-      if (Mt > Ze) {
+-        for (Ge.dmsg("tmr > tmf"); Mt - Ze > 5; )
+-          (Ge.dmsg("tmf - tmr > 5"),
+-            ++J,
+-            (ce.pfwd = E.slice(0, ae) + Pe.alnSeq1 + E.slice(Ne, Ne + J)),
+-            (Ze = Ge.tm(ce.pfwd, Ge.revcomp(E.slice(0, ae) + Pe.alnSeq2 + E.slice(Ne, Ne + J)))));
+-        for (Te = J; Ze < Mt && ce.pfwd.search("[GgCc]$") === -1; )
++      if (yt > $e) {
++        for (Ne.dmsg("tmr > tmf"); yt - $e > 5 && ge < Le; )
++          (Ne.dmsg("tmf - tmr > 5"),
++            ++ge,
++            (oe.pfwd = I.slice(0, se) + Ye.alnSeq1 + I.slice(Pe, Pe + ge)),
++            ($e = Ne.tm(oe.pfwd, Ne.revcomp(I.slice(0, se) + Ye.alnSeq2 + I.slice(Pe, Pe + ge)))));
++        for (et = ge; $e < yt && ge < Le && oe.pfwd.search("[GgCc]$") === -1; )
+           if (
+-            (Ge.dmsg("tmf < tmr but does not end in g/c"),
+-            ++J,
+-            (ce.pfwd = E.slice(0, ae) + Pe.alnSeq1 + E.slice(Ne, Ne + J)),
+-            (Ze = Ge.tm(ce.pfwd, Ge.revcomp(E.slice(0, ae) + Pe.alnSeq2 + E.slice(Ne, Ne + J)))),
+-            Ze < Mt)
++            (Ne.dmsg("tmf < tmr but does not end in g/c"),
++            ++ge,
++            (oe.pfwd = I.slice(0, se) + Ye.alnSeq1 + I.slice(Pe, Pe + ge)),
++            ($e = Ne.tm(oe.pfwd, Ne.revcomp(I.slice(0, se) + Ye.alnSeq2 + I.slice(Pe, Pe + ge)))),
++            $e < yt)
+           )
+-            Te = J;
++            et = ge;
+           else {
+-            ((ce.pfwd = E.slice(0, ae) + Pe.alnSeq1 + E.slice(Ne, Ne + Te)),
+-              (Ze = Ge.tm(ce.pfwd, Ge.revcomp(E.slice(0, ae) + Pe.alnSeq2 + E.slice(Ne, Ne + Te)))));
++            ((oe.pfwd = I.slice(0, se) + Ye.alnSeq1 + I.slice(Pe, Pe + et)),
++              ($e = Ne.tm(oe.pfwd, Ne.revcomp(I.slice(0, se) + Ye.alnSeq2 + I.slice(Pe, Pe + et)))));
+             break;
+           }
+       }
+-      return (
+-        (ce.tmf = Ze),
+-        (ce.tmr = Mt),
+-        (ce.pfwd = ce.pfwd.replace(/-/g, "")),
+-        (ce.prev = ce.prev.replace(/-/g, "")),
+-        ce
+-      );
++      return ((oe.tmf = $e), (oe.tmr = yt), (oe.pfwd = oe.pfwd.replace(/-/g, "")), (oe.prev = oe.prev.replace(/-/g, "")), oe);
+     }));
+
+######## autogenPrimers  v2.8.4:1  live:1
+  occurrence 0: DIFFERS  (v2.8.4 line 3887 / live line 3369)
+--- v2.8.4:autogenPrimers
++++ live:autogenPrimers
+@@ -1,55 +1,51 @@
+-    (t.Fragment.prototype.autogenPrimers = function (l) {
++    (e.Fragment.prototype.autogenPrimers = function (n) {
+       if (
+-        (console.log("autogenPrimers called"),
+-        l || (l = {}),
+-        (l.polGroup = l.polGroup || "Q5"),
+-        (l.primerMethod = l.primerMethod || 4),
+-        (l.primerMonosalt = l.primerMonosalt || 150),
+-        (l.primerCt = l.primerCt || 500),
+-        (l.primerMinLen = l.primerMinLen || 15),
+-        (l.primerMinTm = l.primerMinTm || 55),
+-        (l.primerMaxTm = l.primerMaxTm || 70),
+-        (l.direction = l.direction || "both"),
++        (n || (n = {}),
++        (n = Object.assign({}, n)),
++        (n.polGroup = n.polGroup || "Q5"),
++        (n.primerMethod = n.primerMethod || 4),
++        (n.primerMonosalt = n.primerMonosalt || 150),
++        (n.primerCt = n.primerCt || 500),
++        (n.primerMinLen = n.primerMinLen || 15),
++        (n.primerMinTm = n.primerMinTm || 55),
++        (n.primerMaxTm = n.primerMaxTm || 70),
++        (n.direction = n.direction || "both"),
+         this.template.length < this.maxOverlapLength)
+       )
+         throw new Error("fragment too short for autogen primers");
+       var a;
+       try {
+-        a = n.Primer.calculatePrimers(this.template, l);
+-      } catch (w) {
+-        throw new Error("primer autogen failed: " + w.message);
++        a = s.Primer.calculatePrimers(this.template, n);
++      } catch (b) {
++        throw new Error("primer autogen failed: " + b.message);
+       }
+-      var r = !1,
++      var i = !1,
++        u,
+         f,
+-        u,
+         h,
+         d,
+         p,
+-        m,
++        v,
+         _;
+       ((_ = this.srcseq.wseq.length),
+-        (l.direction === "both" || l.direction === "fwd") &&
+-          ((f = a.pfwd),
+-          (u = (this.fwdPrimer && this.fwdPrimer.overlap) || ""),
++        (n.direction === "both" || n.direction === "fwd") &&
++          ((u = a.pfwd),
++          (f = (this.fwdPrimer && this.fwdPrimer.overlap) || ""),
+           (h = (this.fwdPrimer && this.fwdPrimer.spacer) || ""),
+           a.pfwd !== "" &&
+-            (console.log("fwd primer"),
+-            (d = new n.BuilderPrimer(f, h, u, l)),
++            ((d = new s.BuilderPrimer(u, h, f, n)),
+             (p = this._modelFragment.subseq[0]),
+-            (m = this._modelFragment.subseq[0] + a.pfwd.length - 1),
+-            m > _ && (m -= _),
+-            console.log("start", p, "end", m, "length", _),
+-            this.setFwdPrimer(d, [p, m], r))),
+-        (l.direction === "both" || l.direction === "rev") &&
+-          ((f = a.prev),
+-          (u = (this.revPrimer && this.revPrimer.overlap) || ""),
++            (v = this._modelFragment.subseq[0] + a.pfwd.length - 1),
++            v >= _ && (v -= _),
++            this.setFwdPrimer(d, [p, v], i))),
++        (n.direction === "both" || n.direction === "rev") &&
++          ((u = a.prev),
++          (f = (this.revPrimer && this.revPrimer.overlap) || ""),
+           (h = (this.revPrimer && this.revPrimer.spacer) || ""),
+           a.prev !== "" &&
+-            (console.log("revprimer"),
+-            (d = new n.BuilderPrimer(f, h, u, l)),
++            ((d = new s.BuilderPrimer(u, h, f, n)),
+             (p = this._modelFragment.subseq[1] + 1 - a.prev.length),
+             p < 0 && (p += _),
+-            (m = this._modelFragment.subseq[1]),
+-            console.log("start", p, "end", m, "length", _),
+-            this.setRevPrimer(new n.BuilderPrimer(f, h, u, l), [p, m], r))));
++            (v = this._modelFragment.subseq[1]),
++            this.setRevPrimer(new s.BuilderPrimer(u, h, f, n), [p, v], i))));
+     }),
+
+######## autogenSDMPrimers  v2.8.4:1  live:1
+  occurrence 0: DIFFERS  (v2.8.4 line 3942 / live line 3420)
+--- v2.8.4:autogenSDMPrimers
++++ live:autogenSDMPrimers
+@@ -1,55 +1,50 @@
+-    (t.Fragment.prototype.autogenSDMPrimers = function (l) {
++    (e.Fragment.prototype.autogenSDMPrimers = function (n) {
+       if (
+-        (console.log("autogenSDMPrimers called"),
+-        l || (l = {}),
+-        (l.polGroup = l.polGroup || "Q5"),
+-        (l.primerMethod = l.primerMethod || 4),
+-        (l.primerMonosalt = l.primerMonosalt || 150),
+-        (l.primerCt = l.primerCt || 500),
+-        (l.primerMinLen = l.primerMinLen || 15),
+-        (l.primerMinTm = l.primerMinTm || 55),
+-        (l.primerMaxTm = l.primerMaxTm || 70),
+-        (l.direction = l.direction || "both"),
++        (n || (n = {}),
++        (n.polGroup = n.polGroup || "Q5"),
++        (n.primerMethod = n.primerMethod || 4),
++        (n.primerMonosalt = n.primerMonosalt || 150),
++        (n.primerCt = n.primerCt || 500),
++        (n.primerMinLen = n.primerMinLen || 15),
++        (n.primerMinTm = n.primerMinTm || 55),
++        (n.primerMaxTm = n.primerMaxTm || 70),
++        (n.direction = n.direction || "both"),
+         this.template.length < this.maxOverlapLength)
+       )
+         throw new Error("fragment too short for autogen primers");
+       var a;
+       try {
+-        a = n.Primer.calculatePrimers(this.template, l);
+-      } catch (w) {
+-        throw new Error("primer autogen failed: " + w.message);
++        a = s.Primer.calculatePrimers(this.template, n);
++      } catch (b) {
++        throw new Error("primer autogen failed: " + b.message);
+       }
+-      var r = !1,
++      var i = !1,
++        u,
+         f,
+-        u,
+         h,
+         d,
+         p,
+-        m,
++        v,
+         _;
+       ((_ = this.srcseq.wseq.length),
+-        (l.direction === "both" || l.direction === "fwd") &&
+-          ((f = a.pfwd),
+-          (u = (this.fwdPrimer && this.fwdPrimer.overlap) || ""),
++        (n.direction === "both" || n.direction === "fwd") &&
++          ((u = a.pfwd),
++          (f = (this.fwdPrimer && this.fwdPrimer.overlap) || ""),
+           (h = (this.fwdPrimer && this.fwdPrimer.spacer) || ""),
+           a.pfwd !== "" &&
+-            (console.log("fwd primer"),
+-            (d = new n.BuilderPrimer(f, h, u, l)),
++            ((d = new s.BuilderPrimer(u, h, f, n)),
+             (p = this._modelFragment.subseq[0]),
+-            (m = this._modelFragment.subseq[0] + a.pfwd.length - 1),
+-            m > _ && (m -= _),
+-            console.log("start", p, "end", m, "length", _),
+-            this.setFwdPrimer(d, [p, m], r))),
+-        (l.direction === "both" || l.direction === "rev") &&
+-          ((f = a.prev),
+-          (u = (this.revPrimer && this.revPrimer.overlap) || ""),
++            (v = this._modelFragment.subseq[0] + a.pfwd.length - 1),
++            v > _ && (v -= _),
++            this.setFwdPrimer(d, [p, v], i))),
++        (n.direction === "both" || n.direction === "rev") &&
++          ((u = a.prev),
++          (f = (this.revPrimer && this.revPrimer.overlap) || ""),
+           (h = (this.revPrimer && this.revPrimer.spacer) || ""),
+           a.prev !== "" &&
+-            (console.log("revprimer"),
+-            (d = new n.BuilderPrimer(f, h, u, l)),
++            ((d = new s.BuilderPrimer(u, h, f, n)),
+             (p = this._modelFragment.subseq[1] + 1 - a.prev.length),
+             p < 0 && (p += _),
+-            (m = this._modelFragment.subseq[1]),
+-            console.log("start", p, "end", m, "length", _),
+-            this.setRevPrimer(new n.BuilderPrimer(f, h, u, l), [p, m], r))));
++            (v = this._modelFragment.subseq[1]),
++            this.setRevPrimer(new s.BuilderPrimer(u, h, f, n), [p, v], i))));
+     }),
+
+######## terminalOverlapLen  v2.8.4:1  live:1
+  occurrence 0: DIFFERS  (v2.8.4 line 1294 / live line 1295)
+--- v2.8.4:terminalOverlapLen
++++ live:terminalOverlapLen
+@@ -1,18 +1,18 @@
+-    (t.terminalOverlapLen = function (e, n, l, a) {
+-      (console.log("terminalOverlapLen called"), (l = l || Math.min(e.length, n.length)), (a = a || 0));
+-      var r = l,
++    (e.terminalOverlapLen = function (t, s, n, a) {
++      ((n = n || Math.min(t.length, s.length)), (a = a || 0));
++      var i = n,
++        u,
+         f,
+-        u,
+         h,
+-        d = function (p, m) {
+-          for (var _ = 0, w = 0; w < e.length; ++w) p.charAt(w) !== m.charAt(w) && ++_;
++        d = function (p, v) {
++          for (var _ = 0, b = 0; b < t.length; ++b) p.charAt(b) !== v.charAt(b) && ++_;
+           return _;
+         };
+-      for ((e.length < l || n.length < l) && (r = Math.min(e.length, n.length)), f = r; f > 0; ) {
+-        if (((u = e.slice(-f)), (h = n.slice(0, f)), a === 0)) {
+-          if (u === h) return (console.log("ident seq, terminalOverlapLen returning " + f), f);
+-        } else if (d(u, h) <= a) return (console.log("terminalOverlapLen returning " + f), f);
+-        --f;
++      for ((t.length < n || s.length < n) && (i = Math.min(t.length, s.length)), u = i; u > 0; ) {
++        if (((f = t.slice(-u)), (h = s.slice(0, u)), a === 0)) {
++          if (f === h) return u;
++        } else if (d(f, h) <= a) return u;
++        --u;
+       }
+       return 0;
+     }),
+
+######## simpleTm  v2.8.4:1  live:1
+  occurrence 0: DIFFERS  (v2.8.4 line 2660 / live line 2369)
+--- v2.8.4:simpleTm
++++ live:simpleTm
+@@ -1,5 +1,4 @@
+-    (t.simpleTm = function (l) {
+-      for (var a = l.toLowerCase(), r = a.length, f = 0, u = 0; u < a.length; ++u)
+-        (a.charAt(u) === "g" || a.charAt(u) === "c") && (f += 1);
+-      return 4 * f + 2 * (r - f);
++    (e.simpleTm = function (n) {
++      for (var a = n.toLowerCase(), i = a.length, u = 0, f = 0; f < a.length; ++f) (a.charAt(f) === "g" || a.charAt(f) === "c") && (u += 1);
++      return 4 * u + 2 * (i - u);
+     }),
+
+######## createTmFunction  v2.8.4:1  live:1
+  occurrence 0: DIFFERS  (v2.8.4 line 2665 / live line 2373)
+--- v2.8.4:createTmFunction
++++ live:createTmFunction
+@@ -1,11 +1,11 @@
+-    (t.createTmFunction = function (l, a, r) {
+-      var f = r || 250,
+-        u = a || 50,
+-        h = l || 4;
+-      ((f = f / 1e3), (h === 1 || h === 5) && (f = f / 4));
+-      var d = new n.TmCalc({ ct: f, monosalt: u, method: h }),
+-        p = function (m, _) {
+-          return d.calcTm_nomm(m).tm;
++    (e.createTmFunction = function (n, a, i) {
++      var u = i || 250,
++        f = a || 50,
++        h = n || 4;
++      ((u = u / 1e3), (h === 1 || h === 5) && (u = u / 4));
++      var d = new s.TmCalc({ ct: u, monosalt: f, method: h }),
++        p = function (v, _) {
++          return d.calcTm_nomm(v).tm;
+         };
+       return p;
+     }),
+
+######## revcomp  v2.8.4:4  live:4
+  occurrence 0: DIFFERS  (v2.8.4 line 1151 / live line 1155)
+--- v2.8.4:revcomp
++++ live:revcomp
+@@ -1,9 +1,9 @@
+-    (t.revcomp = function (e, n) {
+-      if ((console.log("revcomp called with " + e), (e = e || ""), e === "")) return "";
+-      (n == null ? (n = !0) : (n = !!n), console.log("strict is ", n));
+-      for (var l = e.split(""), a = 0; a < l.length; ++a)
+-        if (t.COMPLEMENTS[l[a]]) l[a] = t.COMPLEMENTS[l[a]];
+-        else if (n) throw "Unknown base: " + l[a];
+-      for (var r = "", f = l.length - 1; f >= 0; f--) r += l[f];
+-      return r;
++    (e.revcomp = function (t, s) {
++      if (((t = t || ""), t === "")) return "";
++      s == null ? (s = !0) : (s = !!s);
++      for (var n = t.split(""), a = 0; a < n.length; ++a)
++        if (e.COMPLEMENTS[n[a]]) n[a] = e.COMPLEMENTS[n[a]];
++        else if (s) throw "Unknown base: " + n[a];
++      for (var i = "", u = n.length - 1; u >= 0; u--) i += n[u];
++      return i;
+     }),
+  occurrence 1: DIFFERS  (v2.8.4 line 2343 / live line 2249)
+--- v2.8.4:revcomp
++++ live:revcomp
+@@ -1,22 +1,22 @@
+-    (t.TmCalc.prototype.revcomp = function e(n) {
++    (e.TmCalc.prototype.revcomp = function t(s) {
+       if (
+-        (e.COMPLEMENTS ||
+-          (e.COMPLEMENTS = (function () {
+-            var u,
++        (t.COMPLEMENTS ||
++          (t.COMPLEMENTS = (function () {
++            var f,
+               h = "ACGTUNSWMKRYVDHBacgtunswmkryvdhb -",
+               d = "TGCAANSWKMYRBHDVtgcaanswkmyrbhdv -",
+               p = {};
+-            for (u = 0; u < h.length; ++u) p[h.charAt(u)] = d.charAt(u);
++            for (f = 0; f < h.length; ++f) p[h.charAt(f)] = d.charAt(f);
+             return p;
+           })()),
+-        (n = n || ""),
+-        n === "")
++        (s = s || ""),
++        s === "")
+       )
+         return "";
+-      for (var l = n.split(""), a = 0; a < l.length; ++a) {
+-        if (!e.COMPLEMENTS[l[a]]) throw "Unknown base: " + l[a];
+-        l[a] = e.COMPLEMENTS[l[a]];
++      for (var n = s.split(""), a = 0; a < n.length; ++a) {
++        if (!t.COMPLEMENTS[n[a]]) throw "Unknown base: " + n[a];
++        n[a] = t.COMPLEMENTS[n[a]];
+       }
+-      for (var r = "", f = l.length - 1; f >= 0; f--) r += l[f];
+-      return r;
++      for (var i = "", u = n.length - 1; u >= 0; u--) i += n[u];
++      return i;
+     }),
+  occurrence 2: DIFFERS  (v2.8.4 line 4090 / live line 3546)
+--- v2.8.4:revcomp
++++ live:revcomp
+@@ -1,17 +1,12 @@
+-Ge.revcomp = function (s) {
+-  console.log("NEB.revcomp", s);
+-  var t = "ACGTUKMSWRYBDHVNacgtukmswrybdhvn -",
+-    e = "TGCAAMKWSYRVHDBNtgcaamkwsyrvhdbn -",
+-    n = s.split("").reverse(),
+-    l,
++Ne.revcomp = function (l) {
++  var e = "ACGTUKMSWRYBDHVNacgtukmswrybdhvn -",
++    t = "TGCAAMKSWYRVHDBNtgcaamkswyrvhdbn -",
++    s = l.split("").reverse(),
++    n,
+     a;
+-  for (l = 0; l < n.length; ++l) {
+-    if (((a = t.indexOf(n[l])), a === -1))
+-      throw (
+-        console.log("A non IUPAC base was encountered: " + n[l]),
+-        { name: "InvalidCharacter", message: "A non IUPAC base was encountered: " + n[l] }
+-      );
+-    n[l] = e.charAt(a);
++  for (n = 0; n < s.length; ++n) {
++    if (((a = e.indexOf(s[n])), a === -1)) throw { name: "InvalidCharacter", message: "A non IUPAC base was encountered: " + s[n] };
++    s[n] = t.charAt(a);
+   }
+-  return n.join("");
++  return s.join("");
+ };
+  occurrence 3: DIFFERS  (v2.8.4 line 17466 / live line 17147)
+--- v2.8.4:revcomp
++++ live:revcomp
+@@ -1,13 +1,12 @@
+-  ((Ge.revcomp = function (E) {
+-    var ee = "ACGTUKMSWRYBDHVNacgtukmswrybdhvn-",
+-      ne = "TGCAAMKWSYRVHDBNtgcaamkwsyrvhdbn-",
+-      ae = E.split("").reverse(),
+-      ue,
+-      ie;
+-    for (ue = 0; ue < ae.length; ++ue) {
+-      if (((ie = ee.indexOf(ae[ue])), ie === -1))
+-        throw { name: "InvalidCharacter", message: "A non IUPAC base was encountered" };
+-      ae[ue] = ne.charAt(ie);
++  ((Ne.revcomp = function (I) {
++    var X = "ACGTUKMSWRYBDHVNacgtukmswrybdhvn-",
++      re = "TGCAAMKSWYRVHDBNtgcaamkswyrvhdbn-",
++      se = I.split("").reverse(),
++      Se,
++      Me;
++    for (Se = 0; Se < se.length; ++Se) {
++      if (((Me = X.indexOf(se[Se])), Me === -1)) throw { name: "InvalidCharacter", message: "A non IUPAC base was encountered" };
++      se[Se] = re.charAt(Me);
+     }
+-    return ae.join("");
++    return se.join("");
+   }),
+
+######## translate  v2.8.4:2  live:2
+  occurrence 0: DIFFERS  (v2.8.4 line 1177 / live line 1181)
+--- v2.8.4:translate
++++ live:translate
+@@ -1,66 +1,65 @@
+-        (this.translate = function (l, a) {
+-          if (l.length !== 3) throw "Invalid codon: " + l;
+-          var r = l.split("").map(function (m) {
+-              if (!m) return [];
+-              var _ = t.DEGENERATES[m];
+-              return _ ? t.DEGENERATES[m].split("") : [];
++        (this.translate = function (n, a) {
++          if (n.length !== 3) throw "Invalid codon: " + n;
++          var i = n.split("").map(function (v) {
++              if (!v) return [];
++              var _ = e.DEGENERATES[v];
++              return _ ? e.DEGENERATES[v].split("") : [];
+             }),
++            u = (function () {
++              var v,
++                _,
++                b,
++                w = [],
++                y,
++                A,
++                q,
++                T;
++              for (A = 0; A < i[0].length; ++A) {
++                for (y = [], v = i[0][A], q = 0; q < i[1].length; ++q)
++                  for (_ = i[1][q], T = 0; T < i[2].length; ++T) ((b = i[2][T]), y.push(v + _ + b));
++                w.push(y);
++              }
++              return w;
++            })(),
+             f = (function () {
+-              var m,
+-                _,
+-                w,
+-                q = [],
+-                C,
+-                A,
+-                b,
+-                y;
+-              for (A = 0; A < r[0].length; ++A) {
+-                for (C = [], m = r[0][A], b = 0; b < r[1].length; ++b)
+-                  for (_ = r[1][b], y = 0; y < r[2].length; ++y) ((w = r[2][y]), C.push(m + _ + w));
+-                q.push(C);
+-              }
+-              return q;
+-            })(),
+-            u = (function () {
+               for (
+-                var m = [],
+-                  _ = function (q) {
+-                    e[q] ? m.push(e[q]) : m.push("X");
++                var v = [],
++                  _ = function (w) {
++                    t[w] ? v.push(t[w]) : v.push("X");
+                   },
+-                  w = 0;
+-                w < f.length;
+-                w++
++                  b = 0;
++                b < u.length;
++                b++
+               )
+-                f[w].forEach(_);
+-              return m;
++                u[b].forEach(_);
++              return v;
+             })(),
+             h = (function () {
+               for (
+-                var m = [],
+-                  _ = function (q) {
+-                    n[q] ? m.push(n[q]) : m.push(!1);
++                var v = [],
++                  _ = function (w) {
++                    s[w] ? v.push(s[w]) : v.push(!1);
+                   },
+-                  w = 0;
+-                w < f.length;
+-                w++
++                  b = 0;
++                b < u.length;
++                b++
+               )
+-                f[w].forEach(_);
+-              return m;
++                u[b].forEach(_);
++              return v;
+             })(),
+             d;
+-          u.length === 1
+-            ? (d = u.pop())
+-            : u.length === 2
+-              ? u.indexOf("D") + u.indexOf("N") === 1
+-                ? (d = "B")
+-                : u.indexOf("E") + u.indexOf("Q") === 1
+-                  ? (d = "Z")
+-                  : u.indexOf("I") + u.indexOf("L") === 1
+-                    ? (d = "J")
+-                    : u[0] === u[1]
+-                      ? (d = u[0])
++          ((f = Array.from(new Set(f))),
++            f.length === 1
++              ? (d = f.pop())
++              : f.length === 2
++                ? f.indexOf("D") + f.indexOf("N") === 1
++                  ? (d = "B")
++                  : f.indexOf("E") + f.indexOf("Q") === 1
++                    ? (d = "Z")
++                    : f.indexOf("I") + f.indexOf("L") === 1
++                      ? (d = "J")
+                       : (d = "X")
+-              : (d = "X");
++                : (d = "X"));
+           var p;
+           return (h.length > 1 ? (p = !1) : (p = h.pop()), [d, p]);
+         }));
+  occurrence 1: DIFFERS  (v2.8.4 line 1270 / live line 1273)
+--- v2.8.4:translate
++++ live:translate
+@@ -1,24 +1,22 @@
+-    (t.translate = function (e, n, l, a, r) {
+-      if (((l = l || "1"), (n = n || 0), (a = a || []), (r = r || [!0, !0]), !e || e.length === 0)) return "";
+-      if (((e = e.slice(n).toUpperCase().replace(/U/g, "T")), !t.CODON_TABLES[l]))
+-        throw "Unknown translation table: " + l;
+-      if (e.length < 3) throw "Sequence length is too short.";
+-      var f = t.CODON_TABLES[l],
+-        u = f.translate(e.slice(0, 3), e.length === 3),
+-        h = u[0],
+-        d = u[1],
++    (e.translate = function (t, s, n, a, i) {
++      if (((n = n || "1"), (s = s || 0), (a = a || []), (i = i || [!0, !0]), !t || t.length === 0)) return "";
++      if (((t = t.slice(s).toUpperCase().replace(/U/g, "T")), !e.CODON_TABLES[n])) throw "Unknown translation table: " + n;
++      if (t.length < 3) throw "Sequence length is too short.";
++      var u = e.CODON_TABLES[n],
++        f = u.translate(t.slice(0, 3), t.length === 3),
++        h = f[0],
++        d = f[1],
+         p;
+-      !r[0] && d ? (p = ["M"]) : !r[0] && !d && n === 0 ? (p = ["X"]) : (p = [h]);
+-      for (var m = e.length, _ = 3; _ < m - (m % 3); _ += 3)
+-        p.push(f.translate(e.slice(_, _ + 3), _ === m - 3)[0]);
++      !i[0] && d ? (p = ["M"]) : !i[0] && !d && s === 0 ? (p = ["X"]) : (p = [h]);
++      for (var v = t.length, _ = 3; _ < v - (v % 3); _ += 3) p.push(u.translate(t.slice(_, _ + 3), _ === v - 3)[0]);
+       return (
+         (p = p.join("")),
+-        a.forEach(function (w) {
+-          if (w[0] % 3 !== 0) throw "Invalid modification coordinate: " + w[0];
+-          var q = w[0] / 3;
+-          p = p.slice(0, q) + w[1] + p.slice(q);
++        a.forEach(function (b) {
++          if (b[0] % 3 !== 0) throw "Invalid modification coordinate: " + b[0];
++          var w = b[0] / 3;
++          p = p.slice(0, w) + b[1] + p.slice(w);
+         }),
+-        !r[1] && p[p.length - 1] === "*" && (p = p.slice(0, p.length - 1)),
++        !i[1] && p[p.length - 1] === "*" && (p = p.slice(0, p.length - 1)),
+         p
+       );
+     }),
+
+######## cut  v2.8.4:1  live:1
+  occurrence 0: DIFFERS  (v2.8.4 line 1079 / live line 1083)
+--- v2.8.4:cut
++++ live:cut
+@@ -1,4 +1,4 @@
+-    (t.cut = {
++    (e.cut = {
+       Ecoli_K12: [
+         ["Ala", "GCG", 0.36],
+         ["Ala", "GCC", 0.27],
+
+######## matchesIUPAC  v2.8.4:0  live:1
+  NEW IN LIVE (not present in v2.8.4):
+  [live line 4733]
+vt.matchesIUPAC = function (l, e) {
+  if (!l || !e || l.length !== e.length) return !1;
+  for (var t = 0; t < l.length; t++) {
+    var s = Te.DEGENERATES[e.charAt(t).toUpperCase()],
+      n = Te.DEGENERATES[l.charAt(t).toUpperCase()];
+    if (!s || !n) return !1;
+    for (var a = 0; a < n.length; a++) if (s.indexOf(n.charAt(a)) === -1) return !1;
+  }
+  return !0;
+};
+
+######## verifyOp  v2.8.4:0  live:1
+  NEW IN LIVE (not present in v2.8.4):
+  [live line 4755]
+vt.verifyOp = function (l, e, t, s, n, a) {
+  if (((e = e || ""), !l)) return "";
+  var i = t.length,
+    u = function (E) {
+      return E ? E + ": " : "";
+    };
+  if (l.kind === "codon") {
+    var f = a ? (((n - s) % i) + i) % i : n - s;
+    if (f - 1 !== 3) return "the op's flanks bracket " + (f - 1) + " bp, not one codon (3 bp)";
+    if (!Gi(e, l.target, l.triplet)) {
+      if (l.triplet) return "repseq " + e + " does not match the explicit triplet " + l.triplet;
+      if ((l.target || "").toUpperCase() === "X") return "target X must be within the degenerate NNK codon, got " + e;
+      var h;
+      try {
+        h = Te.translate(e);
+      } catch {
+        h = "?";
+      }
+      return "repseq " + e + " translates to " + h + ", not the target " + l.target;
+    }
+    return "";
+  }
+  if (l.kind === "merge") {
+    var d = l.subs || [];
+    if (d.length === 0) return "";
+    var p = d[0].start,
+      v = d[d.length - 1].start - p + 3;
+    if (e.length !== v) return "merged repseq length " + e.length + " does not match the merged span (" + v + " bp)";
+    for (
+      var _ = function (E) {
+          return a ? t.charAt((((E - 1) % i) + i) % i) : t.charAt(E - 1);
+        },
+        b = p,
+        w = 0;
+      w < d.length;
+      w++
+    ) {
+      var y = d[w],
+        A = y.start - p;
+      if (w > 0) {
+        for (var q = y.start - b + 1, T = "", N = 0; N < q; N++) T += _(b + N);
+        var M = e.slice(A - q, A);
+        if (M.toLowerCase() !== T.toLowerCase()) return u(y.id) + "the wild-type bases before this codon do not match the sequence";
+      }
+      var k = e.slice(A, A + 3);
+      if (!Gi(k, y.target, y.triplet)) return u(y.id) + "codon " + k + " at its merged position does not match its target";
+      b = y.end;
+    }
+    return "";
+  }
+  return "";
+};

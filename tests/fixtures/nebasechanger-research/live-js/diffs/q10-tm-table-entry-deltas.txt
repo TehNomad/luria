@@ -1,0 +1,38 @@
+v2.8.4: [('nndhds:b', 176), ('nndhds:y', 15), ('nndhds:k', 17), ('scalar:w', 16), ('scalar:q', 16), ('scalar:C', 16), ('scalar:A', 16)]
+live: [('nndhds:q', 176), ('nndhds:T', 15), ('nndhds:N', 17), ('scalar:b', 16), ('scalar:w', 16), ('scalar:y', 16), ('scalar:A', 16)]
+
+
+table #0  v2.8.4=nndhds:b live=nndhds:q  (176 vs 176 entries)
+  only v2.8.4: {}
+  only live:   {}
+  changed:     {'aa/tc': ((-9.1, -24.0), (2.3, 4.6)), 'ct/aa': ((-9.1, -24.0), (2.3, 4.6)), 'ta/at': ((-7.2, -20.4), (-7.2, -21.3))}
+
+table #1  v2.8.4=nndhds:y live=nndhds:T  (15 vs 15 entries)
+  only v2.8.4: {}
+  only live:   {}
+  changed:     {}
+
+table #2  v2.8.4=nndhds:k live=nndhds:N  (17 vs 17 entries)
+  only v2.8.4: {}
+  only live:   {}
+  changed:     {'25': ((0.0, -28.1), (0.0, -18.1))}
+
+table #3  v2.8.4=scalar:w live=scalar:b  (16 vs 16 entries)
+  only v2.8.4: {}
+  only live:   {}
+  changed:     {}
+
+table #4  v2.8.4=scalar:q live=scalar:w  (16 vs 16 entries)
+  only v2.8.4: {}
+  only live:   {}
+  changed:     {}
+
+table #5  v2.8.4=scalar:C live=scalar:y  (16 vs 16 entries)
+  only v2.8.4: {}
+  only live:   {}
+  changed:     {}
+
+table #6  v2.8.4=scalar:A live=scalar:A  (16 vs 16 entries)
+  only v2.8.4: {}
+  only live:   {}
+  changed:     {}

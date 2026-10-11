@@ -1,0 +1,96 @@
+{
+  "captured_by": "Luria research task, 2026-10-10",
+  "provenance": "Fetched from the Internet Archive public replay of nebasechanger.neb.com. No Cloudflare challenge was bypassed and no session material was used.",
+  "privacy": "Contains NO request headers, cookies, cf_clearance, Authorization, or OptanonConsent values.",
+  "live_build_status": "The live build observed in the HAR is /assets/index.4d8eac54.js (last-modified 2026-10-10, ETag W/\"6ac99667-60435\" => 394293 bytes). It is NOT in the Internet Archive (CDX 404). index.a5da1636.js is the nearest available build.",
+  "artifacts": [
+    {
+      "file": "app-js/index.a5da1636.v2.8.4.js",
+      "original_url": "https://nebasechanger.neb.com/assets/index.a5da1636.js",
+      "archive_snapshot_ts": "20260730111722",
+      "replay_url": "https://web.archive.org/web/20260730111722id_/https://nebasechanger.neb.com/assets/index.a5da1636.js",
+      "mimeType": "application/javascript",
+      "bytes": 395491,
+      "sha256": "82db4e9675f0ecb2a926ad699f39ed15b4603a55b8d0c3f8a3dacdaf1eb53969",
+      "encoding_applied": "archive served gzip; stored decompressed",
+      "note": "Newest archived client bundle. In-app changelog newest entry: v2.8.4, July 10 2026."
+    },
+    {
+      "file": "app-js/index.dfcf8292.v2.7.2.js",
+      "original_url": "https://nebasechanger.neb.com/assets/index.dfcf8292.js",
+      "archive_snapshot_ts": "20260417033937",
+      "replay_url": "https://web.archive.org/web/20260417033937id_/https://nebasechanger.neb.com/assets/index.dfcf8292.js",
+      "mimeType": "application/javascript",
+      "bytes": 375662,
+      "sha256": "73d21fb469e9378533c1a426bd311f5913ad1c86c61c4097cb9e16dbf3e065f4",
+      "encoding_applied": "archive served gzip; stored decompressed",
+      "note": "Prior build. In-app changelog newest entry: v2.7.2/v2.7.3, March 2 2026."
+    },
+    {
+      "file": "app-js/index.17c7600d.v2.5.3.js",
+      "original_url": "https://nebasechanger.neb.com/assets/index.17c7600d.js",
+      "archive_snapshot_ts": "20250622130245",
+      "replay_url": "https://web.archive.org/web/20250622130245id_/https://nebasechanger.neb.com/assets/index.17c7600d.js",
+      "mimeType": "application/javascript",
+      "bytes": 292233,
+      "sha256": "c40e727e5525881673cefb14ab2be5bdf25e276237cda78fac85b62d61ef7934",
+      "encoding_applied": "archive served uncompressed",
+      "note": "Older build. In-app changelog newest entry: v2.5.3, June 11 2025."
+    },
+    {
+      "file": "app-js/shell.2026-07-30.html",
+      "original_url": "https://nebasechanger.neb.com/",
+      "archive_snapshot_ts": "20260730111722",
+      "replay_url": "https://web.archive.org/web/20260730111722id_/https://nebasechanger.neb.com/",
+      "mimeType": "text/html",
+      "bytes": 2418,
+      "sha256": "9a3a7bd16031f16083959767427df93e6d69f3f2c593f8e09fda9054febb7e42",
+      "encoding_applied": "archive served gzip; stored decompressed",
+      "note": "SPA shell; loads /assets/index.a5da1636.js (type=module) and /assets/index.7598f4bf.css. Body is just <div id=app>; all UI comes from the JS module."
+    },
+    {
+      "file": "app-js/shell.2026-04-17.html",
+      "original_url": "https://nebasechanger.neb.com/",
+      "archive_snapshot_ts": "20260417033937",
+      "replay_url": "https://web.archive.org/web/20260417033937id_/https://nebasechanger.neb.com/",
+      "mimeType": "text/html",
+      "bytes": 2418,
+      "sha256": "a97a4a3508f14e19835fa11ebf2f9d56d452c8d8cf1ce3064e498daa558bb50c",
+      "encoding_applied": "archive served gzip; stored decompressed",
+      "note": "SPA shell; loads /assets/index.dfcf8292.js and /assets/index.b5a5c25c.css."
+    },
+    {
+      "file": "raw/index.a5da1636.v2.8.4.min.js",
+      "original_url": "https://nebasechanger.neb.com/assets/index.a5da1636.js",
+      "archive_snapshot_ts": "20260730111722",
+      "replay_url": "https://web.archive.org/web/20260730111722id_/https://nebasechanger.neb.com/assets/index.a5da1636.js",
+      "mimeType": "application/javascript",
+      "bytes": 395491,
+      "sha256": "82db4e9675f0ecb2a926ad699f39ed15b4603a55b8d0c3f8a3dacdaf1eb53969",
+      "encoding_applied": "archive served gzip; stored decompressed",
+      "note": "Newest archived client bundle. In-app changelog newest entry: v2.8.4, July 10 2026. | byte-identical copy of the app-js/ file, kept for diffing"
+    },
+    {
+      "file": "raw/index.dfcf8292.v2.7.2.min.js",
+      "original_url": "https://nebasechanger.neb.com/assets/index.dfcf8292.js",
+      "archive_snapshot_ts": "20260417033937",
+      "replay_url": "https://web.archive.org/web/20260417033937id_/https://nebasechanger.neb.com/assets/index.dfcf8292.js",
+      "mimeType": "application/javascript",
+      "bytes": 375662,
+      "sha256": "73d21fb469e9378533c1a426bd311f5913ad1c86c61c4097cb9e16dbf3e065f4",
+      "encoding_applied": "archive served gzip; stored decompressed",
+      "note": "Prior build. In-app changelog newest entry: v2.7.2/v2.7.3, March 2 2026. | byte-identical copy of the app-js/ file, kept for diffing"
+    },
+    {
+      "file": "raw/index.17c7600d.v2.5.3.min.js",
+      "original_url": "https://nebasechanger.neb.com/assets/index.17c7600d.js",
+      "archive_snapshot_ts": "20250622130245",
+      "replay_url": "https://web.archive.org/web/20250622130245id_/https://nebasechanger.neb.com/assets/index.17c7600d.js",
+      "mimeType": "application/javascript",
+      "bytes": 292233,
+      "sha256": "c40e727e5525881673cefb14ab2be5bdf25e276237cda78fac85b62d61ef7934",
+      "encoding_applied": "archive served uncompressed",
+      "note": "Older build. In-app changelog newest entry: v2.5.3, June 11 2025. | byte-identical copy of the app-js/ file, kept for diffing"
+    }
+  ]
+}

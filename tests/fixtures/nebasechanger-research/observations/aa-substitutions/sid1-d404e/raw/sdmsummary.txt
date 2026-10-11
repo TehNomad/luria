@@ -1,0 +1,2 @@
+ID	Description	Fwd Primer ID	Fwd Primer Seq	Length	Tm Fwd	Rev Primer ID	Rev Primer Seq	Length	Tm Rev	Ta
+D404E	Replace gat at bases 1210-1212 with GAA in 3xFLAG-mVenus-sid-1 (D404E)	D404E_1_F	CGTTGAGCAAgaaTTCGGGGCGC	23	72	D404E_1_R	AGCGGATTGAGCAGTTTTCCG	21	68	69

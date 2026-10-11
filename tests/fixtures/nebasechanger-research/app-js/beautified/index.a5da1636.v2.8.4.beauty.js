@@ -1,0 +1,20444 @@
+(function () {
+  const t = document.createElement("link").relList;
+  if (t && t.supports && t.supports("modulepreload")) return;
+  for (const l of document.querySelectorAll('link[rel="modulepreload"]')) n(l);
+  new MutationObserver((l) => {
+    for (const a of l)
+      if (a.type === "childList")
+        for (const r of a.addedNodes) r.tagName === "LINK" && r.rel === "modulepreload" && n(r);
+  }).observe(document, { childList: !0, subtree: !0 });
+  function e(l) {
+    const a = {};
+    return (
+      l.integrity && (a.integrity = l.integrity),
+      l.referrerpolicy && (a.referrerPolicy = l.referrerpolicy),
+      l.crossorigin === "use-credentials"
+        ? (a.credentials = "include")
+        : l.crossorigin === "anonymous"
+          ? (a.credentials = "omit")
+          : (a.credentials = "same-origin"),
+      a
+    );
+  }
+  function n(l) {
+    if (l.ep) return;
+    l.ep = !0;
+    const a = e(l);
+    fetch(l.href, a);
+  }
+})();
+function be() {}
+function ni(s, t) {
+  for (const e in t) s[e] = t[e];
+  return s;
+}
+function To(s) {
+  return s();
+}
+function ui() {
+  return Object.create(null);
+}
+function Vt(s) {
+  s.forEach(To);
+}
+function ii(s) {
+  return typeof s == "function";
+}
+function yl(s, t) {
+  return s != s ? t == t : s !== t || (s && typeof s == "object") || typeof s == "function";
+}
+let wn;
+function Ft(s, t) {
+  return (wn || (wn = document.createElement("a")), (wn.href = t), s === wn.href);
+}
+function Jo(s) {
+  return Object.keys(s).length === 0;
+}
+function Zo(s, ...t) {
+  if (s == null) return be;
+  const e = s.subscribe(...t);
+  return e.unsubscribe ? () => e.unsubscribe() : e;
+}
+function $o(s, t, e, n) {
+  if (s) {
+    const l = So(s, t, e, n);
+    return s[0](l);
+  }
+}
+function So(s, t, e, n) {
+  return s[1] && n ? ni(e.ctx.slice(), s[1](n(t))) : e.ctx;
+}
+function er(s, t, e, n) {
+  if (s[2] && n) {
+    const l = s[2](n(e));
+    if (t.dirty === void 0) return l;
+    if (typeof l == "object") {
+      const a = [],
+        r = Math.max(t.dirty.length, l.length);
+      for (let f = 0; f < r; f += 1) a[f] = t.dirty[f] | l[f];
+      return a;
+    }
+    return t.dirty | l;
+  }
+  return t.dirty;
+}
+function tr(s, t, e, n, l, a) {
+  if (l) {
+    const r = So(t, e, n, a);
+    s.p(r, l);
+  }
+}
+function lr(s) {
+  if (s.ctx.length > 32) {
+    const t = [],
+      e = s.ctx.length / 32;
+    for (let n = 0; n < e; n++) t[n] = -1;
+    return t;
+  }
+  return -1;
+}
+function Ts(s) {
+  return s == null ? "" : s;
+}
+function o(s, t) {
+  s.appendChild(t);
+}
+function v(s, t, e) {
+  s.insertBefore(t, e || null);
+}
+function g(s) {
+  s.parentNode.removeChild(s);
+}
+function Ys(s, t) {
+  for (let e = 0; e < s.length; e += 1) s[e] && s[e].d(t);
+}
+function c(s) {
+  return document.createElement(s);
+}
+function T(s) {
+  return document.createTextNode(s);
+}
+function S() {
+  return T(" ");
+}
+function Xl() {
+  return T("");
+}
+function se(s, t, e, n) {
+  return (s.addEventListener(t, e, n), () => s.removeEventListener(t, e, n));
+}
+function i(s, t, e) {
+  e == null ? s.removeAttribute(t) : s.getAttribute(t) !== e && s.setAttribute(t, e);
+}
+function ys(s) {
+  return s === "" ? null : +s;
+}
+function sr(s) {
+  return Array.from(s.childNodes);
+}
+function $(s, t) {
+  ((t = "" + t), s.wholeText !== t && (s.data = t));
+}
+function $e(s, t) {
+  s.value = t == null ? "" : t;
+}
+function tn(s, t, e, n) {
+  e === null ? s.style.removeProperty(t) : s.style.setProperty(t, e, n ? "important" : "");
+}
+function Ks(s, t) {
+  for (let e = 0; e < s.options.length; e += 1) {
+    const n = s.options[e];
+    if (n.__value === t) {
+      n.selected = !0;
+      return;
+    }
+  }
+  s.selectedIndex = -1;
+}
+function nn(s) {
+  const t = s.querySelector(":checked") || s.options[0];
+  return t && t.__value;
+}
+function fi(s, t, e) {
+  s.classList[e ? "add" : "remove"](t);
+}
+function nr(s, t, { bubbles: e = !1, cancelable: n = !1 } = {}) {
+  const l = document.createEvent("CustomEvent");
+  return (l.initCustomEvent(s, e, n, t), l);
+}
+let cn;
+function rn(s) {
+  cn = s;
+}
+function yn() {
+  if (!cn) throw new Error("Function called outside component initialization");
+  return cn;
+}
+function ko(s) {
+  yn().$$.on_mount.push(s);
+}
+function ir(s) {
+  yn().$$.after_update.push(s);
+}
+function Mo(s) {
+  yn().$$.on_destroy.push(s);
+}
+function Po() {
+  const s = yn();
+  return (t, e, { cancelable: n = !1 } = {}) => {
+    const l = s.$$.callbacks[t];
+    if (l) {
+      const a = nr(t, e, { cancelable: n });
+      return (
+        l.slice().forEach((r) => {
+          r.call(s, a);
+        }),
+        !a.defaultPrevented
+      );
+    }
+    return !0;
+  };
+}
+function di(s, t) {
+  const e = s.$$.callbacks[t.type];
+  e && e.slice().forEach((n) => n.call(this, t));
+}
+const on = [],
+  ft = [],
+  Cn = [],
+  li = [],
+  Lo = Promise.resolve();
+let si = !1;
+function Eo() {
+  si || ((si = !0), Lo.then(Go));
+}
+function No() {
+  return (Eo(), Lo);
+}
+function zs(s) {
+  Cn.push(s);
+}
+function Ot(s) {
+  li.push(s);
+}
+const $n = new Set();
+let An = 0;
+function Go() {
+  const s = cn;
+  do {
+    for (; An < on.length; ) {
+      const t = on[An];
+      (An++, rn(t), or(t.$$));
+    }
+    for (rn(null), on.length = 0, An = 0; ft.length; ) ft.pop()();
+    for (let t = 0; t < Cn.length; t += 1) {
+      const e = Cn[t];
+      $n.has(e) || ($n.add(e), e());
+    }
+    Cn.length = 0;
+  } while (on.length);
+  for (; li.length; ) li.pop()();
+  ((si = !1), $n.clear(), rn(s));
+}
+function or(s) {
+  if (s.fragment !== null) {
+    (s.update(), Vt(s.before_update));
+    const t = s.dirty;
+    ((s.dirty = [-1]), s.fragment && s.fragment.p(s.ctx, t), s.after_update.forEach(zs));
+  }
+}
+const qn = new Set();
+let Js;
+function Fs() {
+  Js = { r: 0, c: [], p: Js };
+}
+function Rs() {
+  (Js.r || Vt(Js.c), (Js = Js.p));
+}
+function Fe(s, t) {
+  s && s.i && (qn.delete(s), s.i(t));
+}
+function Ie(s, t, e, n) {
+  if (s && s.o) {
+    if (qn.has(s)) return;
+    (qn.add(s),
+      Js.c.push(() => {
+        (qn.delete(s), n && (e && s.d(1), n()));
+      }),
+      s.o(t));
+  } else n && n();
+}
+function rr(s, t) {
+  (s.d(1), t.delete(s.key));
+}
+function ar(s, t, e, n, l, a, r, f, u, h, d, p) {
+  let m = s.length,
+    _ = a.length,
+    w = m;
+  const q = {};
+  for (; w--; ) q[s[w].key] = w;
+  const C = [],
+    A = new Map(),
+    b = new Map();
+  for (w = _; w--; ) {
+    const P = p(l, a, w),
+      L = e(P);
+    let G = r.get(L);
+    (G ? n && G.p(P, t) : ((G = h(L, P)), G.c()),
+      A.set(L, (C[w] = G)),
+      L in q && b.set(L, Math.abs(w - q[L])));
+  }
+  const y = new Set(),
+    k = new Set();
+  function M(P) {
+    (Fe(P, 1), P.m(f, d), r.set(P.key, P), (d = P.first), _--);
+  }
+  for (; m && _; ) {
+    const P = C[_ - 1],
+      L = s[m - 1],
+      G = P.key,
+      R = L.key;
+    P === L
+      ? ((d = P.first), m--, _--)
+      : A.has(R)
+        ? !r.has(G) || y.has(G)
+          ? M(P)
+          : k.has(R)
+            ? m--
+            : b.get(G) > b.get(R)
+              ? (k.add(G), M(P))
+              : (y.add(R), m--)
+        : (u(L, r), m--);
+  }
+  for (; m--; ) {
+    const P = s[m];
+    A.has(P.key) || u(P, r);
+  }
+  for (; _; ) M(C[_ - 1]);
+  return C;
+}
+function Fo(s, t) {
+  const e = {},
+    n = {},
+    l = { $$scope: 1 };
+  let a = s.length;
+  for (; a--; ) {
+    const r = s[a],
+      f = t[a];
+    if (f) {
+      for (const u in r) u in f || (n[u] = 1);
+      for (const u in f) l[u] || ((e[u] = f[u]), (l[u] = 1));
+      s[a] = f;
+    } else for (const u in r) l[u] = 1;
+  }
+  for (const r in n) r in e || (e[r] = void 0);
+  return e;
+}
+function Ro(s) {
+  return typeof s == "object" && s !== null ? s : {};
+}
+function Bt(s, t, e) {
+  const n = s.$$.props[t];
+  n !== void 0 && ((s.$$.bound[n] = e), e(s.$$.ctx[n]));
+}
+function ut(s) {
+  s && s.c();
+}
+function rt(s, t, e, n) {
+  const { fragment: l, on_mount: a, on_destroy: r, after_update: f } = s.$$;
+  (l && l.m(t, e),
+    n ||
+      zs(() => {
+        const u = a.map(To).filter(ii);
+        (r ? r.push(...u) : Vt(u), (s.$$.on_mount = []));
+      }),
+    f.forEach(zs));
+}
+function at(s, t) {
+  const e = s.$$;
+  e.fragment !== null &&
+    (Vt(e.on_destroy), e.fragment && e.fragment.d(t), (e.on_destroy = e.fragment = null), (e.ctx = []));
+}
+function cr(s, t) {
+  (s.$$.dirty[0] === -1 && (on.push(s), Eo(), s.$$.dirty.fill(0)),
+    (s.$$.dirty[(t / 31) | 0] |= 1 << (t % 31)));
+}
+function El(s, t, e, n, l, a, r, f = [-1]) {
+  const u = cn;
+  rn(s);
+  const h = (s.$$ = {
+    fragment: null,
+    ctx: null,
+    props: a,
+    update: be,
+    not_equal: l,
+    bound: ui(),
+    on_mount: [],
+    on_destroy: [],
+    on_disconnect: [],
+    before_update: [],
+    after_update: [],
+    context: new Map(t.context || (u ? u.$$.context : [])),
+    callbacks: ui(),
+    dirty: f,
+    skip_bound: !1,
+    root: t.target || u.$$.root,
+  });
+  r && r(h.root);
+  let d = !1;
+  if (
+    ((h.ctx = e
+      ? e(s, t.props || {}, (p, m, ..._) => {
+          const w = _.length ? _[0] : m;
+          return (
+            h.ctx &&
+              l(h.ctx[p], (h.ctx[p] = w)) &&
+              (!h.skip_bound && h.bound[p] && h.bound[p](w), d && cr(s, p)),
+            m
+          );
+        })
+      : []),
+    h.update(),
+    (d = !0),
+    Vt(h.before_update),
+    (h.fragment = n ? n(h.ctx) : !1),
+    t.target)
+  ) {
+    if (t.hydrate) {
+      const p = sr(t.target);
+      (h.fragment && h.fragment.l(p), p.forEach(g));
+    } else h.fragment && h.fragment.c();
+    (t.intro && Fe(s.$$.fragment), rt(s, t.target, t.anchor, t.customElement), Go());
+  }
+  rn(u);
+}
+class Nl {
+  $destroy() {
+    (at(this, 1), (this.$destroy = be));
+  }
+  $on(t, e) {
+    const n = this.$$.callbacks[t] || (this.$$.callbacks[t] = []);
+    return (
+      n.push(e),
+      () => {
+        const l = n.indexOf(e);
+        l !== -1 && n.splice(l, 1);
+      }
+    );
+  }
+  $set(t) {
+    this.$$set && !Jo(t) && ((this.$$.skip_bound = !0), this.$$set(t), (this.$$.skip_bound = !1));
+  }
+}
+const Zs = [];
+function Io(s, t) {
+  return { subscribe: Do(s, t).subscribe };
+}
+function Do(s, t = be) {
+  let e;
+  const n = new Set();
+  function l(f) {
+    if (yl(s, f) && ((s = f), e)) {
+      const u = !Zs.length;
+      for (const h of n) (h[1](), Zs.push(h, s));
+      if (u) {
+        for (let h = 0; h < Zs.length; h += 2) Zs[h][0](Zs[h + 1]);
+        Zs.length = 0;
+      }
+    }
+  }
+  function a(f) {
+    l(f(s));
+  }
+  function r(f, u = be) {
+    const h = [f, u];
+    return (
+      n.add(h),
+      n.size === 1 && (e = t(l) || be),
+      f(s),
+      () => {
+        (n.delete(h), n.size === 0 && (e(), (e = null)));
+      }
+    );
+  }
+  return { set: l, update: a, subscribe: r };
+}
+function Oo(s, t, e) {
+  const n = !Array.isArray(s),
+    l = n ? [s] : s,
+    a = t.length < 2;
+  return Io(e, (r) => {
+    let f = !1;
+    const u = [];
+    let h = 0,
+      d = be;
+    const p = () => {
+        if (h) return;
+        d();
+        const _ = t(n ? u[0] : u, r);
+        a ? r(_) : (d = ii(_) ? _ : be);
+      },
+      m = l.map((_, w) =>
+        Zo(
+          _,
+          (q) => {
+            ((u[w] = q), (h &= ~(1 << w)), f && p());
+          },
+          () => {
+            h |= 1 << w;
+          },
+        ),
+      );
+    return (
+      (f = !0),
+      p(),
+      function () {
+        (Vt(m), d());
+      }
+    );
+  });
+}
+function ur(s, t) {
+  if (s instanceof RegExp) return { keys: !1, pattern: s };
+  var e,
+    n,
+    l,
+    a,
+    r = [],
+    f = "",
+    u = s.split("/");
+  for (u[0] || u.shift(); (l = u.shift()); )
+    ((e = l[0]),
+      e === "*"
+        ? (r.push("wild"), (f += "/(.*)"))
+        : e === ":"
+          ? ((n = l.indexOf("?", 1)),
+            (a = l.indexOf(".", 1)),
+            r.push(l.substring(1, ~n ? n : ~a ? a : l.length)),
+            (f += !!~n && !~a ? "(?:/([^/]+?))?" : "/([^/]+?)"),
+            ~a && (f += (~n ? "?" : "") + "\\" + l.substring(a)))
+          : (f += "/" + l));
+  return { keys: r, pattern: new RegExp("^" + f + (t ? "(?=$|/)" : "/?$"), "i") };
+}
+function fr(s) {
+  let t, e, n;
+  const l = [s[2]];
+  var a = s[0];
+  function r(f) {
+    let u = {};
+    for (let h = 0; h < l.length; h += 1) u = ni(u, l[h]);
+    return { props: u };
+  }
+  return (
+    a && ((t = new a(r())), t.$on("routeEvent", s[7])),
+    {
+      c() {
+        (t && ut(t.$$.fragment), (e = Xl()));
+      },
+      m(f, u) {
+        (t && rt(t, f, u), v(f, e, u), (n = !0));
+      },
+      p(f, u) {
+        const h = u & 4 ? Fo(l, [Ro(f[2])]) : {};
+        if (a !== (a = f[0])) {
+          if (t) {
+            Fs();
+            const d = t;
+            (Ie(d.$$.fragment, 1, 0, () => {
+              at(d, 1);
+            }),
+              Rs());
+          }
+          a
+            ? ((t = new a(r())),
+              t.$on("routeEvent", f[7]),
+              ut(t.$$.fragment),
+              Fe(t.$$.fragment, 1),
+              rt(t, e.parentNode, e))
+            : (t = null);
+        } else a && t.$set(h);
+      },
+      i(f) {
+        n || (t && Fe(t.$$.fragment, f), (n = !0));
+      },
+      o(f) {
+        (t && Ie(t.$$.fragment, f), (n = !1));
+      },
+      d(f) {
+        (f && g(e), t && at(t, f));
+      },
+    }
+  );
+}
+function dr(s) {
+  let t, e, n;
+  const l = [{ params: s[1] }, s[2]];
+  var a = s[0];
+  function r(f) {
+    let u = {};
+    for (let h = 0; h < l.length; h += 1) u = ni(u, l[h]);
+    return { props: u };
+  }
+  return (
+    a && ((t = new a(r())), t.$on("routeEvent", s[6])),
+    {
+      c() {
+        (t && ut(t.$$.fragment), (e = Xl()));
+      },
+      m(f, u) {
+        (t && rt(t, f, u), v(f, e, u), (n = !0));
+      },
+      p(f, u) {
+        const h = u & 6 ? Fo(l, [u & 2 && { params: f[1] }, u & 4 && Ro(f[2])]) : {};
+        if (a !== (a = f[0])) {
+          if (t) {
+            Fs();
+            const d = t;
+            (Ie(d.$$.fragment, 1, 0, () => {
+              at(d, 1);
+            }),
+              Rs());
+          }
+          a
+            ? ((t = new a(r())),
+              t.$on("routeEvent", f[6]),
+              ut(t.$$.fragment),
+              Fe(t.$$.fragment, 1),
+              rt(t, e.parentNode, e))
+            : (t = null);
+        } else a && t.$set(h);
+      },
+      i(f) {
+        n || (t && Fe(t.$$.fragment, f), (n = !0));
+      },
+      o(f) {
+        (t && Ie(t.$$.fragment, f), (n = !1));
+      },
+      d(f) {
+        (f && g(e), t && at(t, f));
+      },
+    }
+  );
+}
+function pr(s) {
+  let t, e, n, l;
+  const a = [dr, fr],
+    r = [];
+  function f(u, h) {
+    return u[1] ? 0 : 1;
+  }
+  return (
+    (t = f(s)),
+    (e = r[t] = a[t](s)),
+    {
+      c() {
+        (e.c(), (n = Xl()));
+      },
+      m(u, h) {
+        (r[t].m(u, h), v(u, n, h), (l = !0));
+      },
+      p(u, [h]) {
+        let d = t;
+        ((t = f(u)),
+          t === d
+            ? r[t].p(u, h)
+            : (Fs(),
+              Ie(r[d], 1, 1, () => {
+                r[d] = null;
+              }),
+              Rs(),
+              (e = r[t]),
+              e ? e.p(u, h) : ((e = r[t] = a[t](u)), e.c()),
+              Fe(e, 1),
+              e.m(n.parentNode, n)));
+      },
+      i(u) {
+        l || (Fe(e), (l = !0));
+      },
+      o(u) {
+        (Ie(e), (l = !1));
+      },
+      d(u) {
+        (r[t].d(u), u && g(n));
+      },
+    }
+  );
+}
+function pi() {
+  const s = window.location.href.indexOf("#/");
+  let t = s > -1 ? window.location.href.substr(s + 1) : "/";
+  const e = t.indexOf("?");
+  let n = "";
+  return (e > -1 && ((n = t.substr(e + 1)), (t = t.substr(0, e))), { location: t, querystring: n });
+}
+const oi = Io(null, function (t) {
+  t(pi());
+  const e = () => {
+    t(pi());
+  };
+  return (
+    window.addEventListener("hashchange", e, !1),
+    function () {
+      window.removeEventListener("hashchange", e, !1);
+    }
+  );
+});
+Oo(oi, (s) => s.location);
+Oo(oi, (s) => s.querystring);
+const hi = Do(void 0);
+function hr(s) {
+  s ? window.scrollTo(s.__svelte_spa_router_scrollX, s.__svelte_spa_router_scrollY) : window.scrollTo(0, 0);
+}
+function mr(s, t, e) {
+  let { routes: n = {} } = t,
+    { prefix: l = "" } = t,
+    { restoreScrollState: a = !1 } = t;
+  class r {
+    constructor(M, P) {
+      if (!P || (typeof P != "function" && (typeof P != "object" || P._sveltesparouter !== !0)))
+        throw Error("Invalid component object");
+      if (
+        !M ||
+        (typeof M == "string" && (M.length < 1 || (M.charAt(0) != "/" && M.charAt(0) != "*"))) ||
+        (typeof M == "object" && !(M instanceof RegExp))
+      )
+        throw Error('Invalid value for "path" argument - strings must start with / or *');
+      const { pattern: L, keys: G } = ur(M);
+      ((this.path = M),
+        typeof P == "object" && P._sveltesparouter === !0
+          ? ((this.component = P.component),
+            (this.conditions = P.conditions || []),
+            (this.userData = P.userData),
+            (this.props = P.props || {}))
+          : ((this.component = () => Promise.resolve(P)), (this.conditions = []), (this.props = {})),
+        (this._pattern = L),
+        (this._keys = G));
+    }
+    match(M) {
+      if (l) {
+        if (typeof l == "string")
+          if (M.startsWith(l)) M = M.substr(l.length) || "/";
+          else return null;
+        else if (l instanceof RegExp) {
+          const R = M.match(l);
+          if (R && R[0]) M = M.substr(R[0].length) || "/";
+          else return null;
+        }
+      }
+      const P = this._pattern.exec(M);
+      if (P === null) return null;
+      if (this._keys === !1) return P;
+      const L = {};
+      let G = 0;
+      for (; G < this._keys.length; ) {
+        try {
+          L[this._keys[G]] = decodeURIComponent(P[G + 1] || "") || null;
+        } catch {
+          L[this._keys[G]] = null;
+        }
+        G++;
+      }
+      return L;
+    }
+    async checkConditions(M) {
+      for (let P = 0; P < this.conditions.length; P++) if (!(await this.conditions[P](M))) return !1;
+      return !0;
+    }
+  }
+  const f = [];
+  n instanceof Map
+    ? n.forEach((k, M) => {
+        f.push(new r(M, k));
+      })
+    : Object.keys(n).forEach((k) => {
+        f.push(new r(k, n[k]));
+      });
+  let u = null,
+    h = null,
+    d = {};
+  const p = Po();
+  async function m(k, M) {
+    (await No(), p(k, M));
+  }
+  let _ = null,
+    w = null;
+  a &&
+    ((w = (k) => {
+      k.state && (k.state.__svelte_spa_router_scrollY || k.state.__svelte_spa_router_scrollX)
+        ? (_ = k.state)
+        : (_ = null);
+    }),
+    window.addEventListener("popstate", w),
+    ir(() => {
+      hr(_);
+    }));
+  let q = null,
+    C = null;
+  const A = oi.subscribe(async (k) => {
+    q = k;
+    let M = 0;
+    for (; M < f.length; ) {
+      const P = f[M].match(k.location);
+      if (!P) {
+        M++;
+        continue;
+      }
+      const L = {
+        route: f[M].path,
+        location: k.location,
+        querystring: k.querystring,
+        userData: f[M].userData,
+        params: P && typeof P == "object" && Object.keys(P).length ? P : null,
+      };
+      if (!(await f[M].checkConditions(L))) {
+        (e(0, (u = null)), (C = null), m("conditionsFailed", L));
+        return;
+      }
+      m("routeLoading", Object.assign({}, L));
+      const G = f[M].component;
+      if (C != G) {
+        G.loading
+          ? (e(0, (u = G.loading)),
+            (C = G),
+            e(1, (h = G.loadingParams)),
+            e(2, (d = {})),
+            m("routeLoaded", Object.assign({}, L, { component: u, name: u.name, params: h })))
+          : (e(0, (u = null)), (C = null));
+        const R = await G();
+        if (k != q) return;
+        (e(0, (u = (R && R.default) || R)), (C = G));
+      }
+      (P && typeof P == "object" && Object.keys(P).length ? e(1, (h = P)) : e(1, (h = null)),
+        e(2, (d = f[M].props)),
+        m("routeLoaded", Object.assign({}, L, { component: u, name: u.name, params: h })).then(() => {
+          hi.set(h);
+        }));
+      return;
+    }
+    (e(0, (u = null)), (C = null), hi.set(void 0));
+  });
+  Mo(() => {
+    (A(), w && window.removeEventListener("popstate", w));
+  });
+  function b(k) {
+    di.call(this, s, k);
+  }
+  function y(k) {
+    di.call(this, s, k);
+  }
+  return (
+    (s.$$set = (k) => {
+      ("routes" in k && e(3, (n = k.routes)),
+        "prefix" in k && e(4, (l = k.prefix)),
+        "restoreScrollState" in k && e(5, (a = k.restoreScrollState)));
+    }),
+    (s.$$.update = () => {
+      s.$$.dirty & 32 && (history.scrollRestoration = a ? "manual" : "auto");
+    }),
+    [u, h, d, n, l, a, b, y]
+  );
+}
+class gr extends Nl {
+  constructor(t) {
+    (super(), El(this, t, mr, pr, yl, { routes: 3, prefix: 4, restoreScrollState: 5 }));
+  }
+}
+var Bo = {};
+(function (s) {
+  var t = s;
+  return (
+    (t.isNumeric = function (e) {
+      var n;
+      return ((n = e / 1), !isNaN(n));
+    }),
+    (t.trim = function (n) {
+      n = n.replace(/^\s+/, "");
+      for (var l = n.length - 1; l >= 0; l--)
+        if (/\S/.test(n.charAt(l))) {
+          n = n.slice(0, l + 1);
+          break;
+        }
+      return n;
+    }),
+    (t.DEGENERATES = {
+      A: "A",
+      C: "C",
+      G: "G",
+      T: "T",
+      U: "U",
+      W: "AT",
+      S: "CG",
+      M: "AC",
+      K: "GT",
+      R: "AG",
+      Y: "CT",
+      B: "AGT",
+      D: "ACT",
+      H: "ACT",
+      V: "ACG",
+      N: "ACGT",
+      a: "a",
+      c: "c",
+      g: "g",
+      t: "t",
+      u: "u",
+      w: "at",
+      s: "cg",
+      m: "ac",
+      k: "gt",
+      r: "ag",
+      y: "ct",
+      b: "agt",
+      d: "act",
+      h: "act",
+      v: "acg",
+      n: "acgt",
+    }),
+    (t.areEqualDNABases = function (e, n) {
+      if (!e || !n) return !1;
+      var l = t.DEGENERATES[e];
+      l = l.toLowerCase();
+      var a = t.DEGENERATES[n];
+      a = a.toLowerCase();
+      for (var r = l.length; r > -1; --r) if (a.indexOf(l[r]) !== -1) return !0;
+      return !1;
+    }),
+    (t.COMPLEMENTS = (function () {
+      var e,
+        n = "ACGTUNSWMKRYVDHBacgtunswmkryvdhb -",
+        l = "TGCAANSWKMYRBHDVtgcaanswkmyrbhdv -",
+        a = {};
+      for (e = 0; e < n.length; ++e) a[n.charAt(e)] = l.charAt(e);
+      return a;
+    })()),
+    (t.AMINO_ACID_TLC = {
+      ALA: "A",
+      ASX: "B",
+      CYS: "C",
+      ASP: "D",
+      GLU: "E",
+      PHE: "F",
+      GLY: "G",
+      HIS: "H",
+      XLE: "J",
+      ILE: "I",
+      LYS: "K",
+      LEU: "L",
+      MET: "M",
+      ASN: "N",
+      PYL: "O",
+      PRO: "P",
+      GLN: "Q",
+      ARG: "R",
+      SER: "S",
+      THR: "T",
+      SEC: "U",
+      VAL: "V",
+      TRP: "W",
+      ALL: "X",
+      TYR: "Y",
+      GLX: "Z",
+      TER: "*",
+    }),
+    (t.AMINO_ACID_OLC = {
+      A: "Ala",
+      B: "Asx",
+      C: "Cys",
+      D: "Asp",
+      E: "Glu",
+      F: "Phe",
+      G: "Gly",
+      H: "His",
+      I: "Ile",
+      J: "Xle",
+      K: "Lys",
+      L: "Leu",
+      M: "Met",
+      N: "Asn",
+      O: "Pyl",
+      P: "Pro",
+      Q: "Gln",
+      R: "Arg",
+      S: "Ser",
+      T: "Thr",
+      U: "Sec",
+      V: "Val",
+      W: "Trp",
+      X: "All",
+      Y: "Tyr",
+      Z: "Glx",
+      "*": "Ter",
+    }),
+    (t.validAARegex = (function () {
+      return /([ABCDEFGHIKLMNOPQRSTUVWXYZ\*])/gi;
+    })()),
+    (t.invalidAARegex = (function () {
+      return /([^ABCDEFGHIKLMNOPQRSTUVWXYZ\*])/gi;
+    })()),
+    (t.validNARegex = (function () {
+      return /([ACGTUNSWMKRYVDHBacgtunswmkryvdhb])/g;
+    })()),
+    (t.invalidNARegex = (function () {
+      return /([^ACGTUNSWMKRYVDHBacgtunswmkryvdhb])/g;
+    })()),
+    (t.validNAStrictRegex = (function () {
+      return /([TCAGtcag])/g;
+    })()),
+    (t.invalidNAStrictRegex = (function () {
+      return /([^TCAGtcag])/g;
+    })()),
+    (t.isValidAASeq = function (e) {
+      return !t.invalidAARegex.exec(e);
+    }),
+    (t.isValidNASeq = function (e, n) {
+      n = n || !1;
+      var l = n ? t.invalidNARegex : t.invalidNAStrictRegex;
+      return !l.exec(e);
+    }),
+    (t.aaOneToThree = function (e) {
+      for (var n = e.split(""), l = [], a = 0; a < n.length; a++)
+        if (t.AMINO_ACID_OLC[n[a]]) l.push(t.AMINO_ACID_OLC[n[a]]);
+        else throw "Unknown one-letter-code: " + n[a];
+      return l.join("");
+    }),
+    (t.CODONS = (function () {
+      var e,
+        n,
+        l,
+        a = [],
+        r = ["T", "C", "A", "G"],
+        f,
+        u,
+        h;
+      for (f = 0; f < 4; ++f)
+        for (e = r[f], u = 0; u < 4; ++u) for (n = r[u], h = 0; h < 4; ++h) ((l = r[h]), a.push(e + n + l));
+      return a;
+    })()),
+    (t.CODON_TABLE_DATA = [
+      `1
+FFLLSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG
+---M---------------M---------------M----------------------------`,
+      `2
+FFLLSSSSYY**CCWWLLLLPPPPHHQQRRRRIIMMTTTTNNKKSS**VVVVAAAADDEEGGGG
+--------------------------------MMMM---------------M------------`,
+      `3
+FFLLSSSSYY**CCWWTTTTPPPPHHQQRRRRIIMMTTTTNNKKSSRRVVVVAAAADDEEGGGG
+----------------------------------MM----------------------------`,
+      `4
+FFLLSSSSYY**CCWWLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG
+--MM---------------M------------MMMM---------------M------------`,
+      `5
+FFLLSSSSYY**CCWWLLLLPPPPHHQQRRRRIIMMTTTTNNKKSSSSVVVVAAAADDEEGGGG
+---M----------------------------MMMM---------------M------------`,
+      `6
+FFLLSSSSYYQQCC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG
+-----------------------------------M----------------------------`,
+      `9
+FFLLSSSSYY**CCWWLLLLPPPPHHQQRRRRIIIMTTTTNNNKSSSSVVVVAAAADDEEGGGG
+-----------------------------------M---------------M------------`,
+      `10
+FFLLSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG
+---M---------------M------------MMMM---------------M------------`,
+      `11
+FFLLSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG
+---M---------------M------------MMMM---------------M------------`,
+      `12
+FFLLSSSSYY**CC*WLLLSPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG
+-------------------M---------------M----------------------------`,
+      `13
+FFLLSSSSYY**CCWWLLLLPPPPHHQQRRRRIIMMTTTTNNKKSSGGVVVVAAAADDEEGGGG
+---M------------------------------MM---------------M------------`,
+      `14
+FFLLSSSSYYY*CCWWLLLLPPPPHHQQRRRRIIIMTTTTNNNKSSSSVVVVAAAADDEEGGGG
+-----------------------------------M----------------------------`,
+      `15
+FFLLSSSSYY*QCC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG
+-----------------------------------M----------------------------`,
+      `16
+FFLLSSSSYY*LCC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG
+-----------------------------------M----------------------------`,
+      `21
+FFLLSSSSYY**CCWWLLLLPPPPHHQQRRRRIIMMTTTTNNNKSSSSVVVVAAAADDEEGGGG
+-----------------------------------M---------------M------------`,
+      `22
+FFLLSS*SYY*LCC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG
+-----------------------------------M----------------------------`,
+      `23
+FF*LSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG
+--------------------------------M--M---------------M------------`,
+      `24
+FFLLSSSSYY**CCWWLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSSKVVVVAAAADDEEGGGG
+---M---------------M---------------M---------------M------------`,
+      `25
+FFLLSSSSYY**CCGWLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG
+---M-------------------------------M---------------M------------`,
+      `90
+FFLLSSSSYY*QCC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG
+---M---------------M------------MMMM---------------M------------`,
+    ]),
+    (t.cut = {
+      Ecoli_K12: [
+        ["Ala", "GCG", 0.36],
+        ["Ala", "GCC", 0.27],
+        ["Ala", "GCA", 0.21],
+        ["Ala", "GCT", 0.16],
+        ["Arg", "CGC", 0.4],
+        ["Arg", "CGT", 0.38],
+        ["Arg", "CGG", 0.1],
+        ["Arg", "CGA", 0.06],
+        ["Arg", "AGA", 0.04],
+        ["Arg", "AGG", 0.02],
+        ["Asn", "AAC", 0.55],
+        ["Asn", "AAT", 0.45],
+        ["Asp", "GAT", 0.63],
+        ["Asp", "GAC", 0.37],
+        ["Cys", "TGC", 0.55],
+        ["Cys", "TGT", 0.45],
+        ["Gln", "CAG", 0.65],
+        ["Gln", "CAA", 0.35],
+        ["Glu", "GAA", 0.69],
+        ["Glu", "GAG", 0.31],
+        ["Gly", "GGC", 0.4],
+        ["Gly", "GGT", 0.34],
+        ["Gly", "GGG", 0.15],
+        ["Gly", "GGA", 0.11],
+        ["His", "CAT", 0.57],
+        ["His", "CAC", 0.43],
+        ["Ile", "ATT", 0.51],
+        ["Ile", "ATC", 0.42],
+        ["Ile", "ATA", 0.07],
+        ["Leu", "CTG", 0.5],
+        ["Leu", "TTG", 0.13],
+        ["Leu", "TTA", 0.13],
+        ["Leu", "CTT", 0.1],
+        ["Leu", "CTC", 0.1],
+        ["Leu", "CTA", 0.04],
+        ["Lys", "AAA", 0.77],
+        ["Lys", "AAG", 0.23],
+        ["Met", "ATG", 1],
+        ["Phe", "TTT", 0.57],
+        ["Phe", "TTC", 0.43],
+        ["Pro", "CCG", 0.52],
+        ["Pro", "CCA", 0.19],
+        ["Pro", "CCT", 0.16],
+        ["Pro", "CCC", 0.12],
+        ["Ser", "AGC", 0.28],
+        ["Ser", "AGT", 0.15],
+        ["Ser", "TCG", 0.15],
+        ["Ser", "TCT", 0.15],
+        ["Ser", "TCC", 0.15],
+        ["Ser", "TCA", 0.12],
+        ["Thr", "ACC", 0.44],
+        ["Thr", "ACG", 0.27],
+        ["Thr", "ACT", 0.17],
+        ["Thr", "ACA", 0.13],
+        ["Trp", "TGG", 1],
+        ["Tyr", "TAT", 0.57],
+        ["Tyr", "TAC", 0.43],
+        ["Val", "GTG", 0.37],
+        ["Val", "GTT", 0.26],
+        ["Val", "GTC", 0.22],
+        ["Val", "GTA", 0.15],
+        ["Ter", "TAA", 0.64],
+        ["Ter", "TGA", 0.29],
+        ["Ter", "TAG", 0.07],
+        ["All", "NNK", 1],
+      ],
+    }),
+    (t.sanitizeSeq = function (e) {
+      return e.replace(/[\s\d\/]+/gi, "");
+    }),
+    (t.revcomp = function (e, n) {
+      if ((console.log("revcomp called with " + e), (e = e || ""), e === "")) return "";
+      (n == null ? (n = !0) : (n = !!n), console.log("strict is ", n));
+      for (var l = e.split(""), a = 0; a < l.length; ++a)
+        if (t.COMPLEMENTS[l[a]]) l[a] = t.COMPLEMENTS[l[a]];
+        else if (n) throw "Unknown base: " + l[a];
+      for (var r = "", f = l.length - 1; f >= 0; f--) r += l[f];
+      return r;
+    }),
+    (t.rev = function (e) {
+      if (((e = e || ""), e === "")) return "";
+      for (var n = e.split(""), l = "", a = n.length - 1; a >= 0; a--) l += n[a];
+      return l;
+    }),
+    (t.comp = function (e, n) {
+      if (((e = e || ""), e === "")) return "";
+      (n === "undefined" || n === null) && (n = !0);
+      for (var l = e.split(""), a = 0; a < l.length; ++a)
+        if (t.COMPLEMENTS[l[a]]) l[a] = t.COMPLEMENTS[l[a]];
+        else if (n) throw "Unknown base: " + l[a];
+      return l.join("");
+    }),
+    (t.TranslationTable = function (e, n) {
+      ((this.self = this),
+        (this.codons = e),
+        (this.starts = n),
+        (this.translate = function (l, a) {
+          if (l.length !== 3) throw "Invalid codon: " + l;
+          var r = l.split("").map(function (m) {
+              if (!m) return [];
+              var _ = t.DEGENERATES[m];
+              return _ ? t.DEGENERATES[m].split("") : [];
+            }),
+            f = (function () {
+              var m,
+                _,
+                w,
+                q = [],
+                C,
+                A,
+                b,
+                y;
+              for (A = 0; A < r[0].length; ++A) {
+                for (C = [], m = r[0][A], b = 0; b < r[1].length; ++b)
+                  for (_ = r[1][b], y = 0; y < r[2].length; ++y) ((w = r[2][y]), C.push(m + _ + w));
+                q.push(C);
+              }
+              return q;
+            })(),
+            u = (function () {
+              for (
+                var m = [],
+                  _ = function (q) {
+                    e[q] ? m.push(e[q]) : m.push("X");
+                  },
+                  w = 0;
+                w < f.length;
+                w++
+              )
+                f[w].forEach(_);
+              return m;
+            })(),
+            h = (function () {
+              for (
+                var m = [],
+                  _ = function (q) {
+                    n[q] ? m.push(n[q]) : m.push(!1);
+                  },
+                  w = 0;
+                w < f.length;
+                w++
+              )
+                f[w].forEach(_);
+              return m;
+            })(),
+            d;
+          u.length === 1
+            ? (d = u.pop())
+            : u.length === 2
+              ? u.indexOf("D") + u.indexOf("N") === 1
+                ? (d = "B")
+                : u.indexOf("E") + u.indexOf("Q") === 1
+                  ? (d = "Z")
+                  : u.indexOf("I") + u.indexOf("L") === 1
+                    ? (d = "J")
+                    : u[0] === u[1]
+                      ? (d = u[0])
+                      : (d = "X")
+              : (d = "X");
+          var p;
+          return (h.length > 1 ? (p = !1) : (p = h.pop()), [d, p]);
+        }));
+    }),
+    (t.buildhash = function (e, n) {
+      var l = {};
+      if (e.length !== n.length) throw "Arrays for buildhash must be equal length";
+      for (var a = 0; a < e.length; a++) l[e[a].toString()] = n[a];
+      return l;
+    }),
+    (t.CODON_TABLES = (function () {
+      var e = {};
+      return (
+        t.CODON_TABLE_DATA.forEach(function (n) {
+          var l = n.split(`
+`);
+          if (l.length !== 3) throw "codon table not parsed properly";
+          var a = l[0],
+            r = t.buildhash(t.CODONS, l[1].split("")),
+            f = t.buildhash(
+              t.CODONS,
+              l[2].split("").map(function (u) {
+                return u === "M";
+              }),
+            );
+          e[a] = new t.TranslationTable(r, f);
+        }),
+        e
+      );
+    })()),
+    (t.translate = function (e, n, l, a, r) {
+      if (((l = l || "1"), (n = n || 0), (a = a || []), (r = r || [!0, !0]), !e || e.length === 0)) return "";
+      if (((e = e.slice(n).toUpperCase().replace(/U/g, "T")), !t.CODON_TABLES[l]))
+        throw "Unknown translation table: " + l;
+      if (e.length < 3) throw "Sequence length is too short.";
+      var f = t.CODON_TABLES[l],
+        u = f.translate(e.slice(0, 3), e.length === 3),
+        h = u[0],
+        d = u[1],
+        p;
+      !r[0] && d ? (p = ["M"]) : !r[0] && !d && n === 0 ? (p = ["X"]) : (p = [h]);
+      for (var m = e.length, _ = 3; _ < m - (m % 3); _ += 3)
+        p.push(f.translate(e.slice(_, _ + 3), _ === m - 3)[0]);
+      return (
+        (p = p.join("")),
+        a.forEach(function (w) {
+          if (w[0] % 3 !== 0) throw "Invalid modification coordinate: " + w[0];
+          var q = w[0] / 3;
+          p = p.slice(0, q) + w[1] + p.slice(q);
+        }),
+        !r[1] && p[p.length - 1] === "*" && (p = p.slice(0, p.length - 1)),
+        p
+      );
+    }),
+    (t.terminalOverlapLen = function (e, n, l, a) {
+      (console.log("terminalOverlapLen called"), (l = l || Math.min(e.length, n.length)), (a = a || 0));
+      var r = l,
+        f,
+        u,
+        h,
+        d = function (p, m) {
+          for (var _ = 0, w = 0; w < e.length; ++w) p.charAt(w) !== m.charAt(w) && ++_;
+          return _;
+        };
+      for ((e.length < l || n.length < l) && (r = Math.min(e.length, n.length)), f = r; f > 0; ) {
+        if (((u = e.slice(-f)), (h = n.slice(0, f)), a === 0)) {
+          if (u === h) return (console.log("ident seq, terminalOverlapLen returning " + f), f);
+        } else if (d(u, h) <= a) return (console.log("terminalOverlapLen returning " + f), f);
+        --f;
+      }
+      return 0;
+    }),
+    (t.lcs = function (e, n) {
+      if (!e || !n || e.length === 0 || n.length === 0) return 0;
+      var l = 0,
+        a = 0,
+        r = new Array(e.length),
+        f,
+        u;
+      for (f = 0; f <= e.length; f++) for (r[f] = new Array(n.length), u = 0; u <= n.length; u++) r[f][u] = 0;
+      for (var h = 0, d = e.length; h < d; h++)
+        for (var p = 0, m = n.length; p < m; p++)
+          e[h] === n[p]
+            ? (h === 0 || p === 0 ? (r[h + 1][p + 1] = 1) : (r[h + 1][p + 1] = r[h][p] + 1),
+              r[h + 1][p + 1] > l && ((l = r[h + 1][p + 1]), (a = h)))
+            : (r[h + 1][p + 1] = 0);
+      return [l, e.slice(a - l + 1, a + 1)];
+    }),
+    (t.LCS = function (e, n) {
+      var l = e.length,
+        a = n.length,
+        r = [],
+        f,
+        u;
+      for (f = 0; f <= l; f++) r.push([0]);
+      for (u = 0; u < a; u++) r[0].push(0);
+      for (f = 0; f < l; f++)
+        for (u = 0; u < a; u++)
+          r[f + 1][u + 1] = e[f] === n[u] ? r[f][u] + 1 : Math.max(r[f + 1][u], r[f][u + 1]);
+      return (function h(d, p) {
+        return d * p === 0
+          ? ""
+          : e[d - 1] === n[p - 1]
+            ? h(d - 1, p - 1) + e[d - 1]
+            : r[d][p - 1] > r[d - 1][p]
+              ? h(d, p - 1)
+              : h(d - 1, p);
+      })(l, a);
+    }),
+    (t.editDist = function (e, n) {
+      if (e.length === 0) return n.length;
+      if (n.length === 0) return e.length;
+      var l = [],
+        a,
+        r;
+      for (a = 0; a <= e.length; a++) l[a] = [a];
+      for (r = 0; r <= n.length; r++) l[0][r] = r;
+      for (a = 1; a <= e.length; a++)
+        for (r = 1; r <= n.length; r++)
+          e.charAt(a - 1) === n.charAt(r - 1)
+            ? (l[a][r] = l[a - 1][r - 1])
+            : (l[a][r] = Math.min(l[a - 1][r - 1] + 1, l[a][r - 1] + 1, l[a - 1][r] + 1));
+      return l[e.length][n.length];
+    }),
+    (t.fGC = function (e) {
+      for (var n = 0, l = 0; l < e.length; ++l)
+        (e.charAt(l) === "g" || e.charAt(l) === "G" || e.charAt(l) === "C" || e.charAt(l) === "c") &&
+          (n += 1);
+      var a = n / e.length;
+      return a;
+    }),
+    (t.cntGC = function (e) {
+      for (var n = 0, l = 0; l < e.length; ++l)
+        (e.charAt(l) === "g" || e.charAt(l) === "G" || e.charAt(l) === "C" || e.charAt(l) === "c") &&
+          (n += 1);
+      return n;
+    }),
+    (t.randomDNASeq = function (e, n) {
+      if (
+        n &&
+        n.a &&
+        n.c &&
+        n.g &&
+        n.t &&
+        (n.a + n.c + n.g + n.t > 1 && (n.t = 1 - (n.a + n.c + n.g)), n.t < 0)
+      )
+        throw new Error("Invalid base distribution");
+      for (var l = 0, a, r = ""; l < length; )
+        ((a = Math.random()),
+          a < n.a ? (r += "a") : a < n.a + n.c ? (r += "c") : a < n.a + n.c + n.g ? (r += "g") : (r += "t"));
+      return r;
+    }),
+    (t.replicateDNASeq = function (e, n) {
+      var l = [];
+      for (let a = 0; a < n; ++a) l.push(e);
+      return l;
+    }),
+    (t.cp = function (n) {
+      var l = [];
+      for (var a of n[0]) l.push([a]);
+      for (var r = 1; r < n.length; ) {
+        var f = [];
+        for (var u of l) for (var a of n[r]) f.push(u.concat([a]));
+        ((l = f.slice()), r++);
+      }
+      return l;
+    }),
+    (t.expandDNASeq = function (e) {
+      const n = /[^acgt]/gi;
+      if (!e) return [];
+      const l = e.replace(/\s+/g, "");
+      for (var a = [], r; (r = n.exec(l)) !== null; ) a.push(r.index);
+      var f = [],
+        u = 0;
+      for (let m of a) (m > u && f.push([l.slice(u, m)]), f.push(t.DEGENERATES[l[m]].split("")), (u = m + 1));
+      u < l.length && f.push([l.slice(u)]);
+      var h = t.cp(f),
+        d = [];
+      for (var p of h) d.push(p.join(""));
+      return d;
+    }),
+    (t.NASeq = function (e, n) {
+      ((this._modelNASeq = {}),
+        (this._modelNASeq.stype = void 0),
+        (this._modelNASeq.isDoubleStranded = void 0),
+        (this._modelNASeq.topology = "linear"),
+        (this._modelNASeq.sid = void 0),
+        (this._modelNASeq.sname = void 0),
+        (this._modelNASeq.wseq = void 0),
+        (this._modelNASeq.cseq = void 0),
+        (this._modelNASeq.length = void 0),
+        (this._modelNASeq.sym = void 0),
+        (this._modelNASeq.gc_cnt = 0),
+        (this._modelNASeq.fgc = 0),
+        n
+          ? (n.stype && this.setSeqType(n.stype),
+            n.topology && this.setSeqTopology(n.topology),
+            n.sid && this.setSeqId(n.sid),
+            n.sname && this.setSeqName(n.sname),
+            n.extended ? this.setSeq(e, !0) : this.setSeq(e))
+          : this.setSeq(e),
+        Object.defineProperty(this, "stype", {
+          get: function () {
+            return this._modelNASeq.stype;
+          },
+          set: function (l) {
+            this.setSeqType(l);
+          },
+        }),
+        Object.defineProperty(this, "isDoubleStranded", {
+          get: function () {
+            return this._modelNASeq.isDoubleStranded;
+          },
+          set: function (l) {
+            this._modelNASeq.isDoubleStranded = !!l;
+          },
+        }),
+        Object.defineProperty(this, "sym", {
+          get: function () {
+            return this._modelNASeq.sym;
+          },
+          set: function (l) {
+            this._modelNASeq.sym = !!l;
+          },
+        }),
+        Object.defineProperty(this, "topology", {
+          get: function () {
+            return this._modelNASeq.topology;
+          },
+          set: function (l) {
+            this.setSeqTopology(l);
+          },
+        }),
+        Object.defineProperty(this, "sid", {
+          get: function () {
+            return this._modelNASeq.sid;
+          },
+          set: function (l) {
+            this.setSeqId(l);
+          },
+        }),
+        Object.defineProperty(this, "sname", {
+          get: function () {
+            return this._modelNASeq.sname;
+          },
+          set: function (l) {
+            this.setSeqName(l);
+          },
+        }),
+        Object.defineProperty(this, "wseq", {
+          get: function () {
+            return this._modelNASeq.wseq;
+          },
+          set: function (l) {
+            this._modelNASeq.wseq = l;
+          },
+        }),
+        Object.defineProperty(this, "cseq", {
+          get: function () {
+            return this._modelNASeq.cseq;
+          },
+          set: function (l) {
+            this._modelNASeq.cseq = l;
+          },
+        }),
+        Object.defineProperty(this, "length", {
+          get: function () {
+            return this._modelNASeq.length;
+          },
+          set: function (l) {
+            this._modelNASeq.length = l;
+          },
+        }),
+        Object.defineProperty(this, "seq", {
+          get: function () {
+            return this._modelNASeq.wseq;
+          },
+          set: function (l) {
+            this.setSeq(l);
+          },
+        }));
+    }),
+    (t.NASeq.prototype = {
+      setSeq: function (e) {
+        if (
+          (console.log("NASeq.setSeq called"),
+          console.log("seq " + e),
+          (this._modelNASeq.wseq = t.sanitizeSeq(e).toLowerCase()),
+          !t.isValidNASeq(this._modelNASeq.wseq, !1))
+        )
+          throw new Error("Invalid seq " + this._modelNASeq.wseq);
+        (this._modelNASeq.wseq === ""
+          ? (this._modelNASeq.cseq = "")
+          : (this._modelNASeq.cseq = t.revcomp(this._modelNASeq.wseq)),
+          (this._modelNASeq.length = this._modelNASeq.wseq.length),
+          (this._modelNASeq.sym = this._modelNASeq.wseq === this._modelNASeq.cseq),
+          (this._modelNASeq.gc_cnt = 0));
+        for (var n = 0; n < this._modelNASeq.wseq.length; ++n)
+          (this._modelNASeq.wseq.charAt(n) === "g" ||
+            this._modelNASeq.wseq.charAt(n) === "G" ||
+            this._modelNASeq.wseq.charAt(n) === "C" ||
+            this._modelNASeq.wseq.charAt(n) === "c") &&
+            (this._modelNASeq.gc_cnt += 1);
+        return (
+          this._modelNASeq.length > 0
+            ? (this._modelNASeq.fgc = this._modelNASeq.gc_cnt / this._modelNASeq.wseq.length)
+            : (this._modelNASeq.fgc = 0),
+          this
+        );
+      },
+      setSeqName: function (e) {
+        return ((this._modelNASeq.sname = e), this);
+      },
+      setSeqId: function (e) {
+        return ((this._modelNASeq.sid = e), this);
+      },
+      setSeqType: function (e) {
+        return ((this._modelNASeq.stype = e), this);
+      },
+      setSeqTopology: function (e) {
+        return ((this._modelNASeq.topology = e), this);
+      },
+      coord: function (e) {
+        if (e > this.length) {
+          if (this.topology === "circular") return this.length % e;
+          throw new Error("coordinate out of range");
+        } else return e;
+      },
+      subSeq: function (e, n) {
+        if (
+          (e < 0 && (e += this._modelNASeq.wseq.length),
+          n < 0 && (n += this._modelNASeq.wseq.length),
+          e < 0 || e >= this._modelNASeq.wseq.length || n <= 0 || n > this._modelNASeq.wseq.length,
+          e < n)
+        )
+          return this._modelNASeq.wseq.slice(e, n);
+        if (this._modelNASeq.topology === "circular")
+          return this._modelNASeq.wseq.slice(e) + this._modelNASeq.wseq.slice(0, n);
+        throw new Error("startidx must be < endidx for linear seq");
+      },
+      splice: function (e, n, l) {
+        if (((l = l || ""), arguments.length < 2)) throw new Error("insufficient arguments");
+        if ((e < 0 && (e += this._modelNASeq.wseq.length), e < 0 || e >= this._modelNASeq.wseq.length))
+          throw new Error("start index out of range");
+        return (
+          e + n < this.wseq.length
+            ? this.setSeq(this._modelNASeq.wseq.slice(0, e) + l + this._modelNASeq.wseq.slice(e + n))
+            : this.topology === "linear"
+              ? this.setSeq(this._modelNASeq.wseq.slice(0, e) + l)
+              : this.setSeq(this._modelNASeq.wseq.slice(e + n - this._modelNASeq.wseq.length, e) + l),
+          this
+        );
+      },
+      replace: function (e, n, l) {
+        if (((l = l || ""), arguments.length < 2)) throw new Error("insufficient arguments");
+        if (e <= n) this.setSeq(this._modelNASeq.wseq.slice(0, e) + l + this._modelNASeq.wseq.slice(n + 1));
+        else {
+          if (this.topology === "linear") throw new Error("end index smaller than start index");
+          this.setSeq(this._modelNASeq.wseq.slice(n + 1, e) + l);
+        }
+      },
+      insert: function (e, n) {
+        if (n < 0 || n >= this.wseq.length) throw new Error("start index out of range");
+        this.setSeq(this._modelNASeq.wseq.slice(0, n + 1) + e + this._modelNASeq.wseq.slice(n + 1));
+      },
+      delete: function (e, n) {
+        if (
+          (console.log("delete", e, n),
+          console.log(this._modelNASeq.wseq.slice(e, n), "[" + e + "," + (n - 1) + "]"),
+          e < 0 || e > this._modelNASeq.wseq.length)
+        )
+          throw new Error("start index out of range");
+        if (n && (n < 0 || n > this._modelNASeq.wseq.length)) throw new Error("end index out of range");
+        if (n)
+          if (e > n) {
+            if (this.topology === "linear") throw new Error("end index smaller than start index");
+            this.setSeq(this._modelNASeq.wseq.slice(n, e));
+          } else this.setSeq(this._modelNASeq.wseq.slice(0, e) + this._modelNASeq.wseq.slice(n));
+        else this.setSeq(this._modelNASeq.wseq.slice(0, e));
+      },
+      ligate: function (e) {
+        return new t.NASeq(this._modelNASeq.wseq + e.wseq);
+      },
+      shift: function (e) {
+        var n;
+        e > 0
+          ? ((n = this._modelNASeq.wseq.slice(e) + this._modelNASeq.wseq.slice(0, e)), this.setSeq(n))
+          : e < 0 &&
+            ((n =
+              this._modelNASeq.wseq.slice(this.wseq.length + e) +
+              this._modelNASeq.wseq.slice(0, this._modelNASeq.wseq.length + e)),
+            this.setSeq(n));
+      },
+      toJson: function () {
+        return this._modelNASeq;
+      },
+      expand: function () {
+        var e = t.expandDNASeq(this.seq),
+          n = this.stype,
+          l = this.topology;
+        return e.map(function (a) {
+          new t.NASeq(a, { stype: n, topology: l });
+        });
+      },
+      deepCopy: function () {
+        var e = this._modelNASeq,
+          n = new t.NASeq(""),
+          l = {};
+        for (var a in e) {
+          if (e[a] === null) {
+            l[a] = null;
+            continue;
+          }
+          if (e[a] === void 0) {
+            l[a] = void 0;
+            continue;
+          }
+          l[a] = e[a];
+        }
+        return ((n._modelNASeq = l), n);
+      },
+    }),
+    (t.parseSeqFile = function (e, n, l) {
+      var a = e.trim();
+      (console.log("parseSeqFile called"), console.log("filename", n), console.log("ftype", l));
+      function r(w) {
+        (console.log("fileExtension"), (w = w.toLowerCase()));
+        var q = "",
+          C = /\.(\w+)$/.exec(w);
+        return (C && C[1] && (q = C[1]), q);
+      }
+      function f(w) {
+        return (
+          console.log("parseAny"),
+          w.search(/^[\s\r\n]*>/) !== -1 ? h(w) : w.search(/^[\s\r\n]*LOCUS/) !== -1 ? d(w) : u(w)
+        );
+      }
+      function u(w) {
+        return (console.log("parseRaw"), { id: "seq", seq: t.sanitizeSeq(w) });
+      }
+      function h(w) {
+        console.log("parseFASTA");
+        var q, C, A, b, y;
+        return (
+          (b = w.split(/\r\n|\r|\n/)),
+          (A = /^\s*>(\S+)\s*(.*)$/.exec(b[0])),
+          (q = A[1] || "seq"),
+          q[q.length - 1] === " " && (q = q.splice(0, q.length - 1)),
+          (b = b.slice(1)),
+          (C = b.join("")),
+          console.log(q),
+          console.log(C),
+          (y = { id: q, seq: t.sanitizeSeq(C), isCircular: !1 }),
+          console.log(y),
+          y
+        );
+      }
+      function d(w) {
+        console.log("parseGenbank");
+        var q = w.split(/\r\n|\r|\n/),
+          C = /^LOCUS\s+(\w+)\s/,
+          A = C.exec(q[0]),
+          b = (A && A[1]) || "seq",
+          y = !1;
+        q[0].indexOf("circular") !== -1 && (y = !0);
+        for (var k = 0; !q[k++].startsWith("ORIGIN"); );
+        q.splice(0, k);
+        var M = q.join(""),
+          P = { id: b, seq: t.sanitizeSeq(M), isCircular: y };
+        return P;
+      }
+      var p = { any: f, raw: u, fasta: h, genbank: d };
+      ((l = l || "any"), (l = l.toLowerCase()));
+      var m;
+      if (!l && n) {
+        var _ = r(n);
+        switch (_) {
+          case "fa":
+          case "fasta":
+          case "fas":
+          case "fna":
+          case "ffn":
+            l = "fasta";
+            break;
+          case "gb":
+          case "gbk":
+            l = "genbank";
+            break;
+          default:
+            l = "any";
+        }
+      } else l = "any";
+      if ((console.log("ftype is ", l), l in p)) ((m = p[l](a)), console.log("result"), console.log(m));
+      else throw new Error("parseSeqFile: invalid sequence format type");
+      return m;
+    }),
+    t
+  );
+})(Bo);
+const qe = Bo;
+var Ho = {};
+(function (s) {
+  var t = s;
+  return (
+    (t.TmCalc = function (e) {
+      this.init(e);
+    }),
+    (t.TmCalc.prototype.nnBr = {
+      aa: { dh: -9.1, ds: -22.2 },
+      tt: { dh: -9.1, ds: -22.2 },
+      at: { dh: -8.6, ds: -20.4 },
+      ta: { dh: -6, ds: -21.3 },
+      ca: { dh: -5.8, ds: -22.7 },
+      tg: { dh: -5.8, ds: -22.7 },
+      gt: { dh: -6.5, ds: -22.4 },
+      ac: { dh: -6.5, ds: -22.4 },
+      ct: { dh: -7.8, ds: -21 },
+      ag: { dh: -7.8, ds: -21 },
+      ga: { dh: -5.6, ds: -22.2 },
+      tc: { dh: -5.6, ds: -22.2 },
+      cg: { dh: -11.9, ds: -27.2 },
+      gc: { dh: -11.1, ds: -24.4 },
+      gg: { dh: -11, ds: -19.9 },
+      cc: { dh: -11, ds: -19.9 },
+    }),
+    (t.TmCalc.prototype.nnSa = {
+      aa: { dh: -7.9, ds: -22.2 },
+      tt: { dh: -7.9, ds: -22.2 },
+      at: { dh: -7.2, ds: -20.4 },
+      ta: { dh: -7.2, ds: -21.3 },
+      ca: { dh: -8.5, ds: -22.7 },
+      tg: { dh: -8.5, ds: -22.7 },
+      gt: { dh: -8.4, ds: -22.4 },
+      ac: { dh: -8.4, ds: -22.4 },
+      ct: { dh: -7.8, ds: -21 },
+      ag: { dh: -7.8, ds: -21 },
+      ga: { dh: -8.2, ds: -22.2 },
+      tc: { dh: -8.2, ds: -22.2 },
+      cg: { dh: -10.6, ds: -27.2 },
+      gc: { dh: -9.8, ds: -24.4 },
+      gg: { dh: -8, ds: -19.9 },
+      cc: { dh: -8, ds: -19.9 },
+    }),
+    (t.TmCalc.prototype.nnde = {
+      "-a/at": { dh: -0.7, ds: -0.8 },
+      "-a/ct": { dh: 4.4, ds: 14.9 },
+      "-a/gt": { dh: -1.6, ds: -3.6 },
+      "-a/tt": { dh: 2.9, ds: 10.4 },
+      "-c/ag": { dh: -2.1, ds: -3.9 },
+      "-c/cg": { dh: -0.2, ds: -0.1 },
+      "-c/gg": { dh: -3.9, ds: -11.2 },
+      "-c/tg": { dh: -4.4, ds: -13.1 },
+      "-g/ac": { dh: -5.9, ds: -16.5 },
+      "-g/cc": { dh: -2.6, ds: -7.4 },
+      "-g/gc": { dh: -3.2, ds: -10.4 },
+      "-g/tc": { dh: -5.2, ds: -15 },
+      "-t/aa": { dh: -0.5, ds: -1.1 },
+      "-t/ca": { dh: 4.7, ds: 7.7 },
+      "-t/ga": { dh: -4.1, ds: -13.1 },
+      "-t/ta": { dh: -3.8, ds: -12.6 },
+      "a-/ta": { dh: -2.9, ds: -7.6 },
+      "a-/tc": { dh: -4.1, ds: -13 },
+      "a-/tg": { dh: -4.2, ds: -15 },
+      "a-/tt": { dh: -0.2, ds: -0.5 },
+      "aa/-t": { dh: 0.2, ds: 2.3 },
+      "aa/t-": { dh: -0.5, ds: -1.1 },
+      "ac/-g": { dh: -6.3, ds: -17.1 },
+      "ac/t-": { dh: 4.7, ds: 7.7 },
+      "ag/-c": { dh: -3.7, ds: -10 },
+      "ag/t-": { dh: -4.1, ds: -13.1 },
+      "at/-a": { dh: -2.9, ds: -7.6 },
+      "at/t-": { dh: -3.8, ds: -12.6 },
+      "c-/ga": { dh: -3.7, ds: -10 },
+      "c-/gc": { dh: -4, ds: -11.9 },
+      "c-/gg": { dh: -3.9, ds: -10.9 },
+      "c-/gt": { dh: -4.9, ds: -13.8 },
+      "ca/-t": { dh: 0.6, ds: 3.3 },
+      "ca/g-": { dh: -5.9, ds: -16.5 },
+      "cc/-g": { dh: -4.4, ds: -12.6 },
+      "cc/g-": { dh: -2.6, ds: -7.4 },
+      "cg/-c": { dh: -4, ds: -11.9 },
+      "cg/g-": { dh: -3.2, ds: -10.4 },
+      "ct/-a": { dh: -4.1, ds: -13 },
+      "ct/g-": { dh: -5.2, ds: -15 },
+      "g-/ca": { dh: -6.3, ds: -17.1 },
+      "g-/cc": { dh: -4.4, ds: -12.6 },
+      "g-/cg": { dh: -5.1, ds: -14 },
+      "g-/ct": { dh: -4, ds: -10.9 },
+      "ga/-t": { dh: -1.1, ds: -1.6 },
+      "ga/c-": { dh: -2.1, ds: -3.9 },
+      "gc/-g": { dh: -5.1, ds: -14 },
+      "gc/c-": { dh: -0.2, ds: -0.1 },
+      "gg/-c": { dh: -3.9, ds: -10.9 },
+      "gg/c-": { dh: -3.9, ds: -11.2 },
+      "gt/-a": { dh: -4.2, ds: -15 },
+      "gt/c-": { dh: -4.4, ds: -13.1 },
+      "t-/aa": { dh: 0.2, ds: 2.3 },
+      "t-/ac": { dh: 0.6, ds: 3.3 },
+      "t-/ag": { dh: -1.1, ds: -1.6 },
+      "t-/at": { dh: -6.9, ds: -20 },
+      "ta/-t": { dh: -6.9, ds: -20 },
+      "ta/a-": { dh: -0.7, ds: -0.8 },
+      "tc/-g": { dh: -4, ds: -10.9 },
+      "tc/a-": { dh: 4.4, ds: 14.9 },
+      "tg/-c": { dh: -4.9, ds: -13.8 },
+      "tg/a-": { dh: -1.6, ds: -3.6 },
+      "tt/-a": { dh: -0.2, ds: -0.5 },
+      "tt/a-": { dh: 2.9, ds: 10.4 },
+    }),
+    (t.TmCalc.prototype.nndhds = {
+      "aa/at": { dh: 4.7, ds: 12.9 },
+      "aa/ct": { dh: 7.6, ds: 20.2 },
+      "aa/gt": { dh: 3, ds: 7.4 },
+      "aa/ta": { dh: 1.2, ds: 1.7 },
+      "aa/tc": { dh: -9.1, ds: -24 },
+      "aa/tg": { dh: -0.6, ds: -2.3 },
+      "aa/tt": { dh: -7.6, ds: -21.3 },
+      "ac/ag": { dh: -2.9, ds: -9.8 },
+      "ac/cg": { dh: -0.7, ds: -3.8 },
+      "ac/gg": { dh: 0.5, ds: 3.2 },
+      "ac/ta": { dh: 5.3, ds: 14.6 },
+      "ac/tc": { dh: 0, ds: -4.4 },
+      "ac/tg": { dh: -8.4, ds: -22.4 },
+      "ac/tt": { dh: 0.7, ds: 0.2 },
+      "ag/ac": { dh: -0.9, ds: -4.2 },
+      "ag/cc": { dh: 0.6, ds: -0.6 },
+      "ag/gc": { dh: -4, ds: -13.2 },
+      "ag/ta": { dh: -0.7, ds: -2.3 },
+      "ag/tc": { dh: -7.8, ds: -21 },
+      "ag/tg": { dh: -3.1, ds: -9.5 },
+      "ag/tt": { dh: 1, ds: 0.9 },
+      "at/aa": { dh: 1.2, ds: 1.7 },
+      "at/ca": { dh: 5.3, ds: 14.6 },
+      "at/ga": { dh: -0.7, ds: -2.3 },
+      "at/ta": { dh: -7.2, ds: -20.4 },
+      "at/tc": { dh: -1.2, ds: -6.2 },
+      "at/tg": { dh: -2.5, ds: -8.3 },
+      "at/tt": { dh: -2.7, ds: -10.8 },
+      "ca/at": { dh: 3.4, ds: 8 },
+      "ca/ct": { dh: 6.1, ds: 16.4 },
+      "ca/ga": { dh: -0.9, ds: -4.2 },
+      "ca/gc": { dh: 1.9, ds: 3.7 },
+      "ca/gg": { dh: -0.7, ds: -2.3 },
+      "ca/gt": { dh: -8.5, ds: -22.7 },
+      "ca/tt": { dh: 1, ds: 0.7 },
+      "cc/ag": { dh: 5.2, ds: 14.2 },
+      "cc/cg": { dh: 3.6, ds: 8.9 },
+      "cc/ga": { dh: 0.6, ds: -0.6 },
+      "cc/gc": { dh: -1.5, ds: -7.2 },
+      "cc/gg": { dh: -8, ds: -19.9 },
+      "cc/gt": { dh: -0.8, ds: -4.5 },
+      "cc/tg": { dh: 5.2, ds: 13.5 },
+      "cg/ac": { dh: 1.9, ds: 3.7 },
+      "cg/cc": { dh: -1.5, ds: -7.2 },
+      "cg/ga": { dh: -4, ds: -13.2 },
+      "cg/gc": { dh: -10.6, ds: -27.2 },
+      "cg/gg": { dh: -4.9, ds: -15.3 },
+      "cg/gt": { dh: -4.1, ds: -11.7 },
+      "cg/tc": { dh: -1.5, ds: -6.1 },
+      "ct/aa": { dh: -9.1, ds: -24 },
+      "ct/ca": { dh: 0, ds: -4.4 },
+      "ct/ga": { dh: -7.8, ds: -21 },
+      "ct/gc": { dh: -1.5, ds: -6.1 },
+      "ct/gg": { dh: -2.8, ds: -8 },
+      "ct/gt": { dh: -5, ds: -15.8 },
+      "ct/ta": { dh: -1.2, ds: -6.2 },
+      "ga/at": { dh: 0.7, ds: 0.7 },
+      "ga/ca": { dh: -2.9, ds: -9.8 },
+      "ga/cc": { dh: 5.2, ds: 14.2 },
+      "ga/cg": { dh: -0.6, ds: -1 },
+      "ga/ct": { dh: -8.2, ds: -22.2 },
+      "ga/gt": { dh: 1.6, ds: 3.6 },
+      "ga/tt": { dh: -1.3, ds: -5.3 },
+      "gc/ag": { dh: -0.6, ds: -1 },
+      "gc/ca": { dh: -0.7, ds: -3.8 },
+      "gc/cc": { dh: 3.6, ds: 8.9 },
+      "gc/cg": { dh: -9.8, ds: -24.4 },
+      "gc/ct": { dh: 2.3, ds: 5.4 },
+      "gc/gg": { dh: -6, ds: -15.8 },
+      "gc/tg": { dh: -4.4, ds: -12.3 },
+      "gg/ac": { dh: -0.7, ds: -2.3 },
+      "gg/ca": { dh: 0.5, ds: 3.2 },
+      "gg/cc": { dh: -8, ds: -19.9 },
+      "gg/cg": { dh: -6, ds: -15.8 },
+      "gg/ct": { dh: 3.3, ds: 10.4 },
+      "gg/gc": { dh: -4.9, ds: -15.3 },
+      "gg/tc": { dh: -2.8, ds: -8 },
+      "gt/aa": { dh: -0.6, ds: -2.3 },
+      "gt/ca": { dh: -8.4, ds: -22.4 },
+      "gt/cc": { dh: 5.2, ds: 13.5 },
+      "gt/cg": { dh: -4.4, ds: -12.3 },
+      "gt/ct": { dh: -2.2, ds: -8.4 },
+      "gt/ga": { dh: -3.1, ds: -9.5 },
+      "gt/ta": { dh: -2.5, ds: -8.3 },
+      "ta/aa": { dh: 4.7, ds: 12.9 },
+      "ta/ac": { dh: 3.4, ds: 8 },
+      "ta/ag": { dh: 0.7, ds: 0.7 },
+      "ta/at": { dh: -7.2, ds: -20.4 },
+      "ta/ct": { dh: 1.2, ds: 0.7 },
+      "ta/gt": { dh: -0.1, ds: -1.7 },
+      "ta/tt": { dh: 0.2, ds: -1.5 },
+      "tc/aa": { dh: 7.6, ds: 20.2 },
+      "tc/ac": { dh: 6.1, ds: 16.4 },
+      "tc/ag": { dh: -8.2, ds: -22.2 },
+      "tc/at": { dh: 1.2, ds: 0.7 },
+      "tc/cg": { dh: 2.3, ds: 5.4 },
+      "tc/gg": { dh: 3.3, ds: 10.4 },
+      "tc/tg": { dh: -2.2, ds: -8.4 },
+      "tg/aa": { dh: 3, ds: 7.4 },
+      "tg/ac": { dh: -8.5, ds: -22.7 },
+      "tg/ag": { dh: 1.6, ds: 3.6 },
+      "tg/at": { dh: -0.1, ds: -1.7 },
+      "tg/cc": { dh: -0.8, ds: -4.5 },
+      "tg/gc": { dh: -4.1, ds: -11.7 },
+      "tg/tc": { dh: -5, ds: -15.8 },
+      "tt/aa": { dh: -7.6, ds: -21.3 },
+      "tt/ac": { dh: 1, ds: 0.7 },
+      "tt/ag": { dh: -1.3, ds: -5.3 },
+      "tt/at": { dh: 0.2, ds: -1.5 },
+      "tt/ca": { dh: 0.7, ds: 0.2 },
+      "tt/ga": { dh: 1, ds: 0.9 },
+      "tt/ta": { dh: -2.7, ds: -10.8 },
+      "ai/tc": { dh: -8.9, ds: -25.5 },
+      "ti/ac": { dh: -5.9, ds: -17.4 },
+      "ac/ti": { dh: -8.8, ds: -25.4 },
+      "tc/ai": { dh: -4.9, ds: -13.9 },
+      "ci/gc": { dh: -5.4, ds: -13.7 },
+      "gi/cc": { dh: -6.8, ds: -19.1 },
+      "cc/gi": { dh: -8.3, ds: -23.8 },
+      "gc/ci": { dh: -5, ds: -12.6 },
+      "ai/ta": { dh: -8.3, ds: -25 },
+      "ti/aa": { dh: -3.4, ds: -11.2 },
+      "aa/ti": { dh: -0.7, ds: -2.6 },
+      "ta/ai": { dh: -1.3, ds: -4.6 },
+      "ci/ga": { dh: 2.6, ds: 8.9 },
+      "gi/ca": { dh: -7.8, ds: -21.1 },
+      "ca/gi": { dh: -7, ds: -20 },
+      "ga/ci": { dh: -7.6, ds: -20.2 },
+      "ai/tt": { dh: 0.49, ds: -0.7 },
+      "ti/at": { dh: -6.5, ds: -22 },
+      "at/ti": { dh: -5.6, ds: -18.7 },
+      "tt/ai": { dh: -0.8, ds: -4.3 },
+      "ci/gt": { dh: -1, ds: -2.4 },
+      "gi/ct": { dh: -3.5, ds: -10.6 },
+      "ct/gi": { dh: 0.1, ds: -1 },
+      "gt/ci": { dh: -4.3, ds: -12.1 },
+      "ai/tg": { dh: -4.9, ds: -15.8 },
+      "ti/ag": { dh: -1.9, ds: -8.5 },
+      "ag/ti": { dh: 0.1, ds: -1.8 },
+      "tg/ai": { dh: 1, ds: 1 },
+      "ci/gg": { dh: 7.1, ds: 21.3 },
+      "gi/cg": { dh: -1.1, ds: -3.2 },
+      "cg/gi": { dh: 5.8, ds: 16.9 },
+      "gg/ci": { dh: -7.6, ds: -22 },
+      "ai/ti": { dh: -3.3, ds: -11.9 },
+      "ti/ai": { dh: 0.1, ds: -2.3 },
+      "ci/gi": { dh: 1.3, ds: 3 },
+      "gi/ci": { dh: -0.5, ds: -1.3 },
+    }),
+    (t.TmCalc.prototype.nnloop = {
+      3: { dh: 0, ds: -10.3 },
+      4: { dh: 0, ds: -11.6 },
+      5: { dh: 0, ds: -12.9 },
+      6: { dh: 0, ds: -14.2 },
+      7: { dh: 0, ds: -14.8 },
+      8: { dh: 0, ds: -15.5 },
+      9: { dh: 0, ds: -15.8 },
+      10: { dh: 0, ds: -15.8 },
+      12: { dh: 0, ds: -16.8 },
+      14: { dh: 0, ds: -17.4 },
+      16: { dh: 0, ds: -18.1 },
+      18: { dh: 0, ds: -18.7 },
+      20: { dh: 0, ds: -19 },
+      25: { dh: 0, ds: -20.3 },
+      30: { dh: 0, ds: -21.3 },
+    }),
+    (t.TmCalc.prototype.nnbulge = {
+      1: { dh: 0, ds: -12.9 },
+      2: { dh: 0, ds: -9.4 },
+      3: { dh: 0, ds: -10 },
+      4: { dh: 0, ds: -10.3 },
+      5: { dh: 0, ds: -10.6 },
+      6: { dh: 0, ds: -11.3 },
+      7: { dh: 0, ds: -11.9 },
+      8: { dh: 0, ds: -12.6 },
+      9: { dh: 0, ds: -13.2 },
+      10: { dh: 0, ds: -13.9 },
+      12: { dh: 0, ds: -14.5 },
+      14: { dh: 0, ds: -15.5 },
+      16: { dh: 0, ds: -16.1 },
+      18: { dh: 0, ds: -16.8 },
+      20: { dh: 0, ds: -17.1 },
+      25: { dh: 0, ds: -28.1 },
+      30: { dh: 0, ds: -19 },
+    }),
+    (t.TmCalc.prototype.nntmm = {
+      "aa/ta": { dh: -3.1, ds: -7.8 },
+      "aa/tc": { dh: -1.6, ds: -4 },
+      "aa/tg": { dh: -1.9, ds: -4.4 },
+      "ac/ta": { dh: -1.8, ds: -3.8 },
+      "ac/tc": { dh: -0.1, ds: 0.5 },
+      "ac/tt": { dh: -0.9, ds: -1.7 },
+      "ag/ta": { dh: -2.5, ds: -5.9 },
+      "ag/tg": { dh: -1.1, ds: -2.1 },
+      "ag/tt": { dh: -3.2, ds: -8.7 },
+      "at/tc": { dh: -2.3, ds: -6.3 },
+      "at/tg": { dh: -3.5, ds: -9.4 },
+      "at/tt": { dh: -2.4, ds: -6.5 },
+      "ca/ga": { dh: -4.3, ds: -10.7 },
+      "ca/gc": { dh: -2.6, ds: -5.9 },
+      "ca/gg": { dh: -3.9, ds: -9.6 },
+      "cc/ga": { dh: -2.7, ds: -6 },
+      "cc/gc": { dh: -2.1, ds: -5.1 },
+      "cc/gt": { dh: -3.2, ds: -8 },
+      "cg/ga": { dh: -6, ds: -15.5 },
+      "cg/gg": { dh: -3.8, ds: -9.5 },
+      "cg/gt": { dh: -3.8, ds: -9 },
+      "ct/gc": { dh: -3.9, ds: -10.6 },
+      "ct/gg": { dh: -6.6, ds: -18.7 },
+      "ct/gt": { dh: -6.1, ds: -16.9 },
+      "ga/ca": { dh: -8, ds: -22.5 },
+      "ga/cc": { dh: -5, ds: -13.8 },
+      "ga/cg": { dh: -4.3, ds: -11.1 },
+      "gc/ca": { dh: -3.2, ds: -7.1 },
+      "gc/cc": { dh: -3.9, ds: -10.6 },
+      "gc/ct": { dh: -4.9, ds: -13.5 },
+      "gg/ca": { dh: -4.6, ds: -11.4 },
+      "gg/cg": { dh: -0.7, ds: -19.2 },
+      "gg/ct": { dh: -5.7, ds: -15.9 },
+      "gt/cc": { dh: -3, ds: -7.8 },
+      "gt/cg": { dh: -5.9, ds: -16.1 },
+      "gt/ct": { dh: -7.4, ds: -21.2 },
+      "ta/aa": { dh: -2.5, ds: -6.3 },
+      "ta/ac": { dh: -2.3, ds: -5.9 },
+      "ta/ag": { dh: -2, ds: -4.7 },
+      "tc/aa": { dh: -2.7, ds: -7 },
+      "tc/ac": { dh: -0.7, ds: -1.3 },
+      "tc/at": { dh: -2.5, ds: -6.3 },
+      "tg/aa": { dh: -2.4, ds: -5.8 },
+      "tg/ag": { dh: -1.1, ds: -2.7 },
+      "tg/at": { dh: -3.9, ds: -10.5 },
+      "tt/ac": { dh: -0.7, ds: -1.2 },
+      "tt/ag": { dh: -3.6, ds: -9.8 },
+      "tt/at": { dh: -3.2, ds: -8.9 },
+      "at/aa": { dh: -3.1, ds: -7.8 },
+      "ct/aa": { dh: -1.6, ds: -4 },
+      "gt/aa": { dh: -1.9, ds: -4.4 },
+      "at/ca": { dh: -1.8, ds: -3.8 },
+      "ct/ca": { dh: -0.1, ds: 0.5 },
+      "tt/ca": { dh: -0.9, ds: -1.7 },
+      "at/ga": { dh: -2.5, ds: -5.9 },
+      "gt/ga": { dh: -1.1, ds: -2.1 },
+      "tt/ga": { dh: -3.2, ds: -8.7 },
+      "ct/ta": { dh: -2.3, ds: -6.3 },
+      "gt/ta": { dh: -3.5, ds: -9.4 },
+      "tt/ta": { dh: -2.4, ds: -6.5 },
+      "ag/ac": { dh: -4.3, ds: -10.7 },
+      "cg/ac": { dh: -2.6, ds: -5.9 },
+      "gg/ac": { dh: -3.9, ds: -9.6 },
+      "ag/cc": { dh: -2.7, ds: -6 },
+      "cg/cc": { dh: -2.1, ds: -5.1 },
+      "tg/cc": { dh: -3.2, ds: -8 },
+      "ag/gc": { dh: -6, ds: -15.5 },
+      "gg/gc": { dh: -3.8, ds: -9.5 },
+      "tg/gc": { dh: -3.8, ds: -9 },
+      "cg/tc": { dh: -3.9, ds: -10.6 },
+      "gg/tc": { dh: -6.6, ds: -18.7 },
+      "tg/tc": { dh: -6.1, ds: -16.9 },
+      "ac/ag": { dh: -8, ds: -22.5 },
+      "cc/ag": { dh: -5, ds: -13.8 },
+      "gc/ag": { dh: -4.3, ds: -11.1 },
+      "ac/cg": { dh: -3.2, ds: -7.1 },
+      "cc/cg": { dh: -3.9, ds: -10.6 },
+      "tc/cg": { dh: -4.9, ds: -13.5 },
+      "ac/gg": { dh: -4.6, ds: -11.4 },
+      "gc/gg": { dh: -0.7, ds: -19.2 },
+      "tc/gg": { dh: -5.7, ds: -15.9 },
+      "cc/tg": { dh: -3, ds: -7.8 },
+      "gc/tg": { dh: -5.9, ds: -16.1 },
+      "tc/tg": { dh: -7.4, ds: -21.2 },
+      "aa/at": { dh: -2.5, ds: -6.3 },
+      "ca/at": { dh: -2.3, ds: -5.9 },
+      "ga/at": { dh: -2, ds: -4.7 },
+      "aa/ct": { dh: -2.7, ds: -7 },
+      "ca/ct": { dh: -0.7, ds: -1.3 },
+      "ta/ct": { dh: -2.5, ds: -6.3 },
+      "aa/gt": { dh: -2.4, ds: -5.8 },
+      "ga/gt": { dh: -1.1, ds: -2.7 },
+      "ta/gt": { dh: -3.9, ds: -10.5 },
+      "ca/tt": { dh: -0.7, ds: -1.2 },
+      "ga/tt": { dh: -3.6, ds: -9.8 },
+      "ta/tt": { dh: -3.2, ds: -8.9 },
+    }),
+    (t.TmCalc.prototype.R = 1.987),
+    (t.TmCalc.prototype.dSBr = {
+      aa: -24,
+      tt: -24,
+      at: -23.9,
+      ta: -16.9,
+      ca: -12.9,
+      tg: -12.9,
+      gt: -17.3,
+      ac: -17.3,
+      ct: -20.8,
+      ag: -20.8,
+      ga: -13.5,
+      tc: -13.5,
+      cg: -27.8,
+      gc: -26.7,
+      gg: -26.6,
+      cc: -26.6,
+    }),
+    (t.TmCalc.prototype.dSSa = {
+      aa: -22.2,
+      tt: -22.2,
+      at: -20.4,
+      ta: -21.3,
+      ca: -22.7,
+      tg: -22.7,
+      gt: -22.4,
+      ac: -22.4,
+      ct: -21,
+      ag: -21,
+      ga: -22.2,
+      tc: -22.2,
+      cg: -27.2,
+      gc: -24.4,
+      gg: -19.9,
+      cc: -19.9,
+    }),
+    (t.TmCalc.prototype.dHBr = {
+      aa: -9.1,
+      tt: -9.1,
+      at: -8.6,
+      ta: -6,
+      ca: -5.8,
+      tg: -5.8,
+      gt: -6.5,
+      ac: -6.5,
+      ct: -7.8,
+      ag: -7.8,
+      ga: -5.6,
+      tc: -5.6,
+      cg: -11.9,
+      gc: -11.1,
+      gg: -11,
+      cc: -11,
+    }),
+    (t.TmCalc.prototype.dHSa = {
+      aa: -7.9,
+      tt: -7.9,
+      at: -7.2,
+      ta: -7.2,
+      ca: -8.5,
+      tg: -8.5,
+      gt: -8.4,
+      ac: -8.4,
+      ct: -7.8,
+      ag: -7.8,
+      ga: -8.2,
+      tc: -8.2,
+      cg: -10.6,
+      gc: -9.8,
+      gg: -8,
+      cc: -8,
+    }),
+    (t.TmCalc.prototype.init = function (e) {
+      (e
+        ? e.seq && e.compseq
+          ? this.setSeq(e.seq, e.compseq)
+          : e.seq
+            ? this.setSeq(e.seq)
+            : ((this.wseq = ""), (this.cseq = ""))
+        : ((this.wseq = ""), (this.cseq = ""), (e = {})),
+        this.setCt(e.ct || 0.25),
+        this.setMonosalt(e.monosalt || 50),
+        this.setDisalt(e.disalt || 0),
+        this.setDMSO(e.dmso || 0),
+        this.setMethod(e.method || 4),
+        (this.pairmap = e.pairmap || ""));
+    }),
+    (t.TmCalc.prototype.saltCorrect = function () {
+      var e, n, l, a, r, f, u, h;
+      if (this.saltc === 0 && this.disaltc === 0)
+        throw {
+          name: "Missing salt",
+          message: "Unable to calculate salt correction because mono and divalent salt are missing.",
+        };
+      ((this.sc_sch = (16.6 * Math.log(this.saltc)) / Math.LN10),
+        (this.sc_sl = 0.368 * this.wseq.length * Math.log(this.saltc)),
+        (l = -0.911),
+        (a = 6.26),
+        (f = -48.2),
+        (u = 52.5),
+        (n = 3.92),
+        (r = 1.42),
+        (h = 8.31),
+        this.saltc > 0 ? (e = Math.sqrt(this.disaltc) / this.saltc) : (e = -1),
+        e >= 0 && e < 0.22
+          ? (this.sc_ow =
+              (4.29 * this.fgc - 3.95) * 1e-5 * Math.log(this.saltc) +
+              94e-7 * Math.log(this.saltc) * Math.log(this.saltc))
+          : (e >= 0.22 &&
+              e < 6 &&
+              ((n = 3.92 * (0.843 - 0.352 * Math.sqrt(this.saltc) * Math.log(this.saltc))),
+              (r =
+                1.42 *
+                (1.279 -
+                  0.00403 * Math.log(this.saltc) -
+                  0.00803 * Math.log(this.saltc) * Math.log(this.saltc))),
+              (h =
+                8.31 *
+                (0.486 -
+                  0.258 * Math.log(this.saltc) +
+                  0.00525 * Math.log(this.saltc) * Math.log(this.saltc) * Math.log(this.saltc)))),
+            (this.sc_ow =
+              (n +
+                l * Math.log(this.disaltc) +
+                this.fgc * (a + r * Math.log(this.disaltc)) +
+                (0.5 / (this.wseq.length - 1)) *
+                  (f + u * Math.log(this.disaltc) + h * Math.log(this.disaltc) * Math.log(this.disaltc))) *
+              1e-5)));
+    }),
+    (t.TmCalc.prototype.setMethod = function (e) {
+      return ((this.method = e), this);
+    }),
+    (t.TmCalc.prototype.setSeq = function (e, n) {
+      var l;
+      for (
+        this.wseq = e.toLowerCase().replace(/\s/g, "").replace(/u/g, "t"),
+          n
+            ? (this.cseq = n.toLowerCase().replace(/\s/g, ""))
+            : ((this.cseq = this.revcomp(this.wseq, !1)),
+              (this.pairmap = Array(this.wseq.length + 1).join("|"))),
+          this.sym = this.wseq === this.cseq,
+          this.gc_cnt = 0,
+          this.at_cnt = 0,
+          l = 0;
+        l < this.wseq.length;
+        ++l
+      )
+        this.wseq.charAt(l) === "g" || this.wseq.charAt(l) === "c"
+          ? (this.gc_cnt += 1)
+          : (this.wseq.charAt(l) === "a" || this.wseq.charAt(l) === "t") && (this.at_cnt += 1);
+      return ((this.fgc = this.gc_cnt / (this.at_cnt + this.gc_cnt)), this.saltCorrect(), this);
+    }),
+    (t.TmCalc.prototype.setCt = function (e) {
+      return ((this.ct = e), (this.primerc = this.ct * 1e-6), this);
+    }),
+    (t.TmCalc.prototype.setMonosalt = function (e) {
+      return ((this.salt = e), (this.saltc = this.salt * 0.001), this.saltCorrect(), this);
+    }),
+    (t.TmCalc.prototype.setDisalt = function (e) {
+      return ((this.disalt = e), (this.disaltc = this.disalt * 0.001), this.saltCorrect(), this);
+    }),
+    (t.TmCalc.prototype.setDMSO = function (e) {
+      return ((this.dmso = e), this);
+    }),
+    (t.TmCalc.prototype.buildPairMap = function (e, n) {
+      console.log("buildPairMap called", e, n);
+      var l = (function () {
+          var p,
+            m = "ACGTUNSWMKRYVDHBacgtunswmkryvdhb -",
+            _ = "TGCAANSWKMYRBHDVtgcaanswkmyrbhdv -",
+            w = {};
+          for (p = 0; p < m.length; ++p) w[m.charAt(p)] = _.charAt(p);
+          return w;
+        })(),
+        a,
+        r = e.split("") || this.wseq.split(""),
+        f = n.split("").reverse() || this.cseq.split("").reverse(),
+        u = "";
+      for (a = 0; a < r.length; ++a)
+        (console.log(r[a], l[f[a]]),
+          r[a] === l[f[a]] ? (u += "|") : r[a] === "-" || f[a] === "-" ? (u += "^") : (u += "x"));
+      console.log("initial pairmap", u);
+      for (var h = /x{3,}/g; h.exec(u) !== null; );
+      var d = u.split("");
+      for (a = 0; a < d.length - 2; ++a)
+        (d[a] === "x" || d[a] === "_") &&
+          (d[a + 1] === "x" || d[a + 1] === "_") &&
+          (d[a + 2] === "x" || d[a + 2] === "_") &&
+          ((d[a] = "_"), (d[a + 1] = "_"), (d[a + 2] = "_"));
+      for (u = d.join(""), console.log("after join pairmap", u); u.search(/\^+_+|_+\^+/) !== -1; )
+        u = prmap.replace(/\^+_+|_+\^+/, function (p, m, _) {
+          _.slice(0, m);
+          var w = new Array(p.length + 1).join("_");
+          return (_.slice(m + p.length), w);
+        });
+      for (; u.search(/\^+x|x\^+/) !== -1; )
+        u = u.replace(/\^+x|x\^+/, function (p, m, _) {
+          _.slice(0, m);
+          var w = new Array(p.length + 1).join("_");
+          return (_.slice(m + p.length), w);
+        });
+      for (; u.search(/_+[x^]|[x^]_+/) !== -1; )
+        u = u.replace(/_+[x^]|[x^]_+/, function (p, m, _) {
+          _.slice(0, m);
+          var w = new Array(p.length + 1).join("_");
+          return (_.slice(m + p.length), w);
+        });
+      return ((this.pairmap = u), console.log("returning pairmap", u), u);
+    }),
+    (t.TmCalc.prototype.revcomp = function e(n) {
+      if (
+        (e.COMPLEMENTS ||
+          (e.COMPLEMENTS = (function () {
+            var u,
+              h = "ACGTUNSWMKRYVDHBacgtunswmkryvdhb -",
+              d = "TGCAANSWKMYRBHDVtgcaanswkmyrbhdv -",
+              p = {};
+            for (u = 0; u < h.length; ++u) p[h.charAt(u)] = d.charAt(u);
+            return p;
+          })()),
+        (n = n || ""),
+        n === "")
+      )
+        return "";
+      for (var l = n.split(""), a = 0; a < l.length; ++a) {
+        if (!e.COMPLEMENTS[l[a]]) throw "Unknown base: " + l[a];
+        l[a] = e.COMPLEMENTS[l[a]];
+      }
+      for (var r = "", f = l.length - 1; f >= 0; f--) r += l[f];
+      return r;
+    }),
+    (t.TmCalc.prototype.comp = function (n) {
+      if (
+        (this.COMPLEMENTS ||
+          (this.COMPLEMENTS = (function () {
+            var f,
+              u = "ACGTUNSWMKRYVDHBacgtunswmkryvdhb -",
+              h = "TGCAANSWKMYRBHDVtgcaanswkmyrbhdv -",
+              d = {};
+            for (f = 0; f < u.length; ++f) d[u.charAt(f)] = h.charAt(f);
+            return d;
+          })()),
+        (n = n || ""),
+        n === "")
+      )
+        return "";
+      for (var l = n.split(""), a = 0; a < l.length; ++a) {
+        if (!this.COMPLEMENTS[l[a]]) throw "Unknown base: " + l[a];
+        l[a] = this.COMPLEMENTS[l[a]];
+      }
+      var r = l.join("");
+      return r;
+    }),
+    (t.TmCalc.prototype.calcTm = function (e, n, l) {
+      (console.log("Tmcalc: seq:  ", e), console.log("Tmcalc: cseq: ", n), console.log("Tmcalc: pmap: ", l));
+      var a = 0,
+        r = 0,
+        f = 0,
+        u = 0,
+        h = 0,
+        d = 0,
+        p = 0,
+        m = 0,
+        _ = 0,
+        w = 0,
+        q = this.primerc,
+        C,
+        A,
+        b,
+        y,
+        k,
+        M = 0,
+        P,
+        L;
+      if (!e && !this.wseq) return {};
+      if (n) this.setSeq(e, n);
+      else {
+        for (; e[0] === "-"; ) e = e.slice(1);
+        for (; e[e.length - 1] === "-"; ) e = e.slice(0, e.length - 1);
+        this.setSeq(e);
+      }
+      if (
+        ((b = this.wseq.split("")),
+        (y = this.cseq.split("").reverse()),
+        l
+          ? ((this.pairmap = l.toLowerCase()),
+            console.log("existing pairmap", this.pairmap, this.wseq, this.cseq))
+          : (console.log("missing pairmap"),
+            (this.pairmap = this.buildPairMap(this.wseq, this.cseq)),
+            console.log("new pairmap", this.pairmap, this.wseq, this.cseq)),
+        this.pairmap.length !== this.wseq.length)
+      )
+        throw (
+          console.log("pairmap", this.pairmap, this.pairmap.length, "seq", this.wseq.length),
+          {
+            name: "Invalid pairmap or alignment",
+            message:
+              "Pairmap length " +
+              this.pairmap.length +
+              " must be same as aligned seq length " +
+              this.wseq.length,
+          }
+        );
+      if (this.cseq.length !== this.wseq.length)
+        throw {
+          name: "Invalid pairmap or alignment",
+          message: "aligned seqs must have same length (" + this.wseq.length + ").",
+        };
+      switch (((k = this.pairmap.split("")), this.method)) {
+        case 1:
+          for (u += this.sym ? -12.4 : -10.8, C = 0; C < this.wseq.length - 1; ++C)
+            ((A = this.wseq.slice(C, C + 2)), (r += this.dSBr[A]), (f += this.dHBr[A]));
+          ((f *= 1e3), (a = f / (u + r + this.R * Math.log(q)) - 273.15 + this.sc_sch));
+          break;
+        case 3:
+        case 4:
+          for (
+            d = this.sym ? -1.4 : 0, u = -5.7, h = 200, P = 0, L = this.wseq.length - 1;
+            b[P] + b[P + 1] === "--" || y[P] + y[P + 1] === "--" || k[P] === ".";
+          )
+            ++P;
+          for (
+            (b[P] === "-" || y[P] === "-") &&
+            ((A = b[P] + b[P + 1] + "/" + y[P] + y[P + 1]),
+            this.nnde.hasOwnProperty(A) && ((p += this.nnde[A].ds), (m += this.nnde[A].dh)),
+            ++P);
+            b[L - 1] + b[L] === "--" || y[L - 1] + y[L] === "--" || k[L] === ".";
+          )
+            --L;
+          for (
+            (b[L] === "-" || y[L] === "-") &&
+              ((A = b[L - 1] + b[L] + "/" + y[L - 1] + y[L]),
+              this.nnde.hasOwnProperty(A) &&
+                (console.log("adding dangling end correction"),
+                (p += this.nnde[A].ds),
+                (m += this.nnde[A].dh)),
+              --L),
+              A = y[P + 1] + y[P] + "/" + b[P + 1] + b[P],
+              console.log("nn for terminal mismatch check " + A),
+              this.nntmm.hasOwnProperty(A) &&
+                (console.log("adding ds/dh for " + A), (_ += this.nntmm[A].ds), (w += this.nntmm[A].dh), ++P),
+              A = b[L - 1] + b[L] + "/" + y[L - 1] + y[L],
+              console.log("nn for terminal mismatch check " + A),
+              this.nntmm.hasOwnProperty(A) &&
+                (console.log("adding ds/dh for " + A), (_ += this.nntmm[A].ds), (w += this.nntmm[A].dh), --L),
+              (b[P] === "a" || b[P] === "t") && ((u += 6.9), (h += 2200)),
+              (b[L] === "a" || b[L] === "t") && ((u += 6.9), (h += 2200)),
+              C = P;
+            C < L;
+            C++
+          )
+            (k[C] === "|" || k[C] === "x") &&
+              (k[C + 1] === "|" || k[C + 1] === "x") &&
+              ((A = b[C] + b[C + 1] + "/" + y[C] + y[C + 1]),
+              this.nndhds.hasOwnProperty(A) && ((r += this.nndhds[A].ds), (f += this.nndhds[A].dh)));
+          ((f += m + w),
+            (r += p + _),
+            (a = (f * 1e3 + h) / (u + d + r + this.R * Math.log(q))),
+            (M = a - 273.15));
+          for (
+            var G, R, N, U = /[^_]_+[^_]/g, B = /[^=]=+[^=]/g, F = /[^\^]\^+[^\^]/g, I, H, W, D = 0;
+            (I = U.exec(this.pairmap));
+          )
+            (console.log("found internal loop"),
+              (H = I.index),
+              (W = I[0].length),
+              (G = (W - 2) * 2),
+              console.log("looplen is " + G),
+              console.log("checking tmm for " + b[H] + b[H + 1] + "/" + y[H] + y[H + 1]),
+              (D += this.nntmm[b[H] + b[H + 1] + "/" + y[H] + y[H + 1]].ds),
+              console.log(
+                "checking tmm for " + b[H + W - 2] + b[H + W - 1] + "/" + y[H + W - 2] + y[H + W - 1],
+              ),
+              (D += this.nntmm[b[H + W - 2] + b[H + W - 1] + "/" + y[H + W - 2] + y[H + W - 1]].ds),
+              console.log("checking nnloop for " + G),
+              (D += this.nnloop["" + G].ds),
+              ((b[H] === "a" && y[H] === "t") || (b[H] === "t" && y[H] === "a")) && (D += 0.5),
+              ((b[H + W - 1] === "a" && y[H + W - 1] === "t") ||
+                (b[H + W - 1] === "t" && y[H + W - 1] === "a")) &&
+                (D += 0.5));
+          for (; (I = B.exec(this.pairmap)); ) {
+            for (
+              console.log("found asymmetric internal loop"),
+                H = I.index,
+                W = I[0].length,
+                G = R = W - 2,
+                C = 0;
+              C < W;
+              ++C
+            )
+              (b[H + 1] === "-" && (G -= 1), y[H + 1] === "-" && (R -= 1));
+            (console.log("looplen is " + G + R),
+              (D += this.nntmm[b[H] + b[H + 1] + "/" + y[H] + y[H + 1]].ds),
+              (D += this.nntmm[b[H + W - 2] + b[H + W - 1] + "/" + y[H + W - 2] + y[H + W - 1]].ds),
+              (D += (Math.abs(G - R) * 0.3 * 1e3) / 310.15),
+              (D += this.nnloop["" + (G + R)].ds),
+              ((b[H] === "a" && y[H] === "t") || (b[H] === "t" && y[H] === "a")) && (D += 0.5),
+              ((b[H + W - 1] === "a" && y[H + W - 1] === "t") ||
+                (b[H + W - 1] === "t" && y[H + W - 1] === "a")) &&
+                (D += 0.5));
+          }
+          for (; (I = F.exec(this.pairmap)); )
+            (console.log("found bulge loop"),
+              (H = I.index),
+              (W = I[0].length),
+              (N = W - 2),
+              N === 1
+                ? ((D += this.nnbulge["" + N].ds),
+                  (r += this.nndhds[b[H] + b[H + 2] + "/" + y[H] + y[H + 2]].ds),
+                  (f += this.nndhds[b[H] + b[H + 2] + "/" + y[H] + y[H + 2]].dh))
+                : N > 1 && (D += this.nnbulge["" + N].ds),
+              ((b[H] === "a" && y[H] === "t") || (b[H] === "t" && y[H] === "a")) && (D += 0.5),
+              ((b[H + W - 1] === "a" && y[H + W - 1] === "t") ||
+                (b[H + W - 1] === "t" && y[H + W - 1] === "a")) &&
+                (D += 0.5));
+          ((r += D),
+            (f *= 1e3),
+            (a = (f + h) / (u + d + r + this.R * Math.log(q))),
+            (M = a - 273.15),
+            this.method === 3
+              ? (a = 1 / (1 / a + this.sc_sl / (f + h)))
+              : this.method === 4 && (a = 1 / (1 / a + this.sc_ow)),
+            (a -= 273.15));
+          break;
+        case 7:
+          a = 81.5 + (16.6 * Math.log(this.saltc)) / Math.LN10 + 0.41 * this.fgc - 675 / this.wseq.length;
+          break;
+        case 8:
+          a = this.gc_cnt * 4 + this.at_cnt * 2;
+      }
+      return (
+        (a = a - this.dmso * 0.6),
+        {
+          method: this.method,
+          wseq: this.wseq,
+          cseq: this.cseq,
+          rawtm: M,
+          tm: a,
+          dh: f + h,
+          ds: r + u + d,
+          salt: this.saltc,
+          ct: this.primerc,
+          dmso: this.dmso,
+          fgc: this.fgc,
+          len: this.wseq.length,
+        }
+      );
+    }),
+    (t.TmCalc.prototype.calcTm_nomm = function (e) {
+      if ((!e || e === "") && !this.wseq) return {};
+      e && (this.setSeq(e), this.saltCorrect());
+      var n = 0,
+        l = 0,
+        a = 0,
+        r = 0,
+        f = 0,
+        u = 0,
+        h = this.ct * 1e-6,
+        d,
+        p,
+        m = 0;
+      switch (this.method) {
+        case 1:
+          for (r += this.sym ? -12.4 : -10.8, d = 0; d < this.wseq.length - 1; ++d)
+            ((p = this.wseq.slice(d, d + 2)), (l += this.dSBr[p]), (a += this.dHBr[p]));
+          ((a *= 1e3), (m = a / (r + l + this.R * Math.log(h)) - 273.15), (n = m + this.sc_sch));
+          break;
+        case 3:
+        case 4:
+        case 5:
+          for (
+            u = this.sym ? -1.4 : 0,
+              (this.wseq.charAt(0) === "a" || this.wseq.charAt(0) === "t") && ((r += 4.1), (f += 2300)),
+              (this.wseq.charAt(this.wseq.length - 1) === "a" ||
+                this.wseq.charAt(this.wseq.length - 1) === "t") &&
+                ((r += 4.1), (f += 2300)),
+              (this.wseq.charAt(0) === "g" || this.wseq.charAt(0) === "c") && ((r += -2.8), (f += 100)),
+              (this.wseq.charAt(this.wseq.length - 1) === "g" ||
+                this.wseq.charAt(this.wseq.length - 1) === "c") &&
+                ((r += -2.8), (f += 100)),
+              d = 0;
+            d < this.wseq.length - 1;
+            d++
+          )
+            ((p = this.wseq.slice(d, d + 2)), (l += this.dSSa[p]), (a += this.dHSa[p]));
+          ((a *= 1e3),
+            (n = (a + f) / (r + u + l + this.R * Math.log(h))),
+            (m = n - 273.15),
+            this.method === 3
+              ? (n = 1 / (1 / n + this.sc_sl / (a + f)))
+              : this.method === 4
+                ? (n = 1 / (1 / n + this.sc_ow))
+                : this.method === 5 && (n = n + this.sc_sch),
+            (n -= 273.15));
+          break;
+        case 7:
+          n = 81.5 + (16.6 * Math.log(this.saltc)) / Math.LN10 + 0.41 * this.fgc - 675 / this.wseq.length;
+          break;
+      }
+      return (
+        (n = n - this.dmso * 0.6),
+        {
+          method: this.method,
+          wseq: this.wseq,
+          rawtm: m,
+          tm: n,
+          dh: a + f,
+          ds: l + r + u,
+          salt: this.saltc,
+          ct: this.primerc,
+          dmso: this.dmso,
+          fgc: this.fgc,
+          len: this.wseq.length,
+        }
+      );
+    }),
+    t
+  );
+})(Ho);
+const vr = Ho;
+var Ws = {};
+(function (s) {
+  var t = s,
+    e = qe,
+    n = vr;
+  return (
+    (t.simpleTm = function (l) {
+      for (var a = l.toLowerCase(), r = a.length, f = 0, u = 0; u < a.length; ++u)
+        (a.charAt(u) === "g" || a.charAt(u) === "c") && (f += 1);
+      return 4 * f + 2 * (r - f);
+    }),
+    (t.createTmFunction = function (l, a, r) {
+      var f = r || 250,
+        u = a || 50,
+        h = l || 4;
+      ((f = f / 1e3), (h === 1 || h === 5) && (f = f / 4));
+      var d = new n.TmCalc({ ct: f, monosalt: u, method: h }),
+        p = function (m, _) {
+          return d.calcTm_nomm(m).tm;
+        };
+      return p;
+    }),
+    (t.Primer = function (l, a, r) {
+      var f, u, h, d;
+      if (
+        ((r = r || {
+          primerMethod: 4,
+          primerMonosalt: 50,
+          primerCt: 200,
+          primerMinLen: 20,
+          primerMinTm: 55,
+          primerMaxTm: 70,
+        }),
+        r &&
+          r.primerMonosalt &&
+          r.primerCt &&
+          ((d = r.primerMonosalt),
+          (h = r.primerCt),
+          r.primerMethod ? (u = r.primerMethod) : (u = 4),
+          (f = t.createTmFunction(u, d, h))),
+        r && r.primerMinLen && (this.primerMinLen = r.primerMinLen),
+        r && r.primerMinTm && (this.primerMinTm = r.primerMinTm),
+        r && r.primerMaxTm && (this.primerMaxTm = r.maxTm),
+        (a = a || ""),
+        (this._modelPrimer = {}),
+        (this._modelPrimer.tm = null),
+        (this._modelPrimer.ta = null),
+        (this._modelPrimer.primerMonosalt = r.primerMonosalt || 150),
+        (this._modelPrimer.primerDisalt = r.primerDisalt || 0),
+        (this._modelPrimer.primerCt = r.primerCt || 500),
+        (this._modelPrimer.primerMethod = r.primerMethod || 4),
+        (this._modelPrimer.primerMinLen = r.primerMinLen || 20),
+        (this._modelPrimer.primerMinTm = r.primerMinTm || 55),
+        (this._modelPrimer.primerMaxTm = r.primerMaxTm || 70),
+        (this._modelPrimer.anneal = new e.NASeq(l)),
+        this._modelPrimer.anneal)
+      )
+        f && ((this._modelPrimer.tm = f(l)), console.log("set Tm to ", this._modelPrimer.tm));
+      else throw new Error("Unable to create seq");
+      if (((this._modelPrimer.tail = new e.NASeq(a)), !this._modelPrimer.tail))
+        throw new Error("Unable to create seq");
+      (Object.defineProperty(this, "seq", {
+        get: function () {
+          return this.getSeq();
+        },
+      }),
+        Object.defineProperty(this, "anneal", {
+          get: function () {
+            return this._modelPrimer.anneal ? this._modelPrimer.anneal.wseq : null;
+          },
+          set: function (p) {
+            if (((this._modelPrimer.anneal = new e.NASeq(p)), !this._modelPrimer.anneal))
+              throw new Error("Unable to create seq");
+            ((this._modelPrimer.tm = null), (this._modelPrimer.ta = null));
+          },
+        }),
+        Object.defineProperty(this, "tail", {
+          get: function () {
+            return this.getTail();
+          },
+          set: function (p) {
+            this.setTail(p);
+          },
+        }),
+        Object.defineProperty(this, "tm", {
+          get: function () {
+            return this._modelPrimer.tm;
+          },
+          set: function (p) {
+            this._modelPrimer.tm = p;
+          },
+        }),
+        Object.defineProperty(this, "ta", {
+          get: function () {
+            return this._modelPrimer.ta;
+          },
+          set: function (p) {
+            this._modelPrimer.ta = p;
+          },
+        }),
+        Object.defineProperty(this, "primerMonosalt", {
+          get: function () {
+            return this._modelPrimer.primerMonosalt;
+          },
+          set: function (p) {
+            this._modelPrimer.primerMonosalt = p;
+          },
+        }),
+        Object.defineProperty(this, "primerDisalt", {
+          get: function () {
+            return this._modelPrimer.primerDisalt;
+          },
+          set: function (p) {
+            this._modelPrimer.primerDisalt = p;
+          },
+        }),
+        Object.defineProperty(this, "primerCt", {
+          get: function () {
+            return this._modelPrimer.primerCt;
+          },
+          set: function (p) {
+            this._modelPrimer.primerCt = p;
+          },
+        }),
+        Object.defineProperty(this, "primerMethod", {
+          get: function () {
+            return this._modelPrimer.primerMethod;
+          },
+          set: function (p) {
+            this._modelPrimer.primerMethod = p;
+          },
+        }),
+        Object.defineProperty(this, "primerMinLen", {
+          get: function () {
+            return this._modelPrimer.primerMinLen;
+          },
+          set: function (p) {
+            this._modelPrimer.primerMinLen = p;
+          },
+        }),
+        Object.defineProperty(this, "primerMinTm", {
+          get: function () {
+            return this._modelPrimer.primerMinTm;
+          },
+          set: function (p) {
+            this._modelPrimer.primerMinTm = p;
+          },
+        }),
+        Object.defineProperty(this, "primerMaxTm", {
+          get: function () {
+            return this._modelPrimer.primerMaxTm;
+          },
+          set: function (p) {
+            this._modelPrimer.primerMaxTm = p;
+          },
+        }));
+    }),
+    (t.Primer.prototype.getSeq = function () {
+      return (
+        console.log("Primer.getSeq called"),
+        this._modelPrimer.tail.wseq + this._modelPrimer.anneal.wseq
+      );
+    }),
+    (t.Primer.prototype.getTail = function () {
+      return (console.log("Primer.getTail called"), this._modelPrimer.tail.wseq);
+    }),
+    (t.Primer.prototype.setTail = function (l) {
+      if (
+        (console.log("Primer.setTail called"),
+        (this._modelPrimer.tail = new e.NASeq(l, { extended: !0 })),
+        !this._modelPrimer.tail)
+      )
+        throw new Error("Unable to create seq");
+    }),
+    (t.Primer.prototype.setForward = function () {
+      return ((this._modelPrimer.direction = "fwd"), this);
+    }),
+    (t.Primer.prototype.setReverse = function () {
+      return ((this._modelPrimer.direction = "rev"), this);
+    }),
+    (t.Primer.prototype.direction = function () {
+      return this._modelPrimer.direction;
+    }),
+    (t.Primer.prototype.toJson = function () {
+      return this._modelPrimer;
+    }),
+    (t.Primer.prototype.deepCopy = function () {
+      console.log("deep copy");
+      var l = this._modelPrimer,
+        a = new t.BuilderPrimer(""),
+        r = {};
+      for (var f in l) {
+        if (l[f] === null) {
+          r[f] = null;
+          continue;
+        }
+        if (l[f] === void 0) {
+          r[f] = void 0;
+          continue;
+        }
+        switch (f) {
+          case "anneal":
+          case "overlap":
+          case "spacer":
+          case "tail":
+            r[f] = l[f].deepCopy();
+            break;
+          default:
+            r[f] = l[f];
+        }
+      }
+      return ((a._modelPrimer = r), a);
+    }),
+    (t.Primer.calculatePrimers = function (l, a, r) {
+      console.log("calculatePrimers called");
+      var f, u, h, d, p;
+      (a || (a = {}),
+        a && a.primerMonosalt && a.primerCt && ((u = a.primerMonosalt), (h = a.primerCt)),
+        a && a.primerMethod ? (f = a.primerMethod) : (f = 4),
+        (u = u || 150),
+        (h = h || 500),
+        (r = r || t.createTmFunction(f, u, h)));
+      var m = {},
+        _ = l.length,
+        w = a.primerMinLen || 20,
+        q = a.primerMinLen || 20,
+        C = w,
+        A = q,
+        b = e.revcomp(l);
+      if (w > _) throw new Error("Frag (" + _ + " bp) is shorter  than min primer length (" + w + " bp)");
+      if (w + q > _) throw new Error("Autogen primers will overlap.");
+      ((d = a.primerMinTm || 55),
+        (p = a.primerMaxTm || 70),
+        (m.pfwd = l.slice(0, w)),
+        (m.prev = b.slice(0, q)));
+      var y = r(m.pfwd);
+      for (m.tmfwd = y; y < d; ) ((m.pfwd = l.slice(0, ++w)), (y = r(m.pfwd)), (m.tmfwd = y), (C = w));
+      for (; y < p && m.pfwd.search("[GgCc]$") === -1; )
+        ((m.pfwd = l.slice(0, ++w)), (y = r(m.pfwd)), (m.tmfwd = y));
+      m.pfwd.search("[GCgc]$") === -1 && ((m.pfwd = l.slice(0, C)), (y = r(m.pfwd)), (m.tmfwd = y), (w = C));
+      var k = r(m.prev);
+      for (m.tmrev = k; k < d; ) ((m.prev = b.slice(0, ++q)), (k = r(m.prev)), (m.tmrev = k), (A = q));
+      for (; k < p && m.prev.search("[GgCc]$") === -1; )
+        ((m.prev = b.slice(0, ++q)), (k = r(m.prev)), (m.tmrev = k));
+      if (
+        (m.prev.search("[GgCc]$") === -1 &&
+          ((m.prev = b.slice(0, A)), (k = r(m.prev)), (m.tmrev = k), (q = A)),
+        y > k)
+      ) {
+        for (; y - k > 5; ) ((m.prev = b.slice(0, ++q)), (k = r(m.prev)), (m.tmrev = k));
+        for (A = q; k < y && m.prev.search("[GgCc]$") === -1; )
+          if (((m.prev = b.slice(0, ++q)), (k = r(m.prev)), k < y)) A = q;
+          else {
+            ((m.prev = b.slice(0, A)), (k = r(m.prev)), (m.tmrev = k));
+            break;
+          }
+      }
+      if (k > y) {
+        for (; k - y > 5; ) ((m.pfwd = l.slice(0, ++w)), (y = r(m.pfwd)), (m.tmfwd = y));
+        for (C = w; y < k && m.pfwd.search("[GgCc]$") === -1; )
+          if (((m.pfwd = l.slice(0, ++w)), (y = r(m.pfwd)), (m.tmfwd = y), y < k)) C = w;
+          else {
+            ((m.pfwd = l.slice(0, C)), (y = r(m.pfwd)), (m.tmfwd = y));
+            break;
+          }
+      }
+      if (m.prev.length + m.pfwd.length > _) throw new Error("Autogen primers will overlap.");
+      return m;
+    }),
+    (t.Primer.calculateSDMPrimers = function (l, a, r) {
+      console.log("calculatePrimers called");
+      var f, u, h, d, p;
+      (a || (a = {}),
+        a && a.primerMonosalt && a.primerCt && ((u = a.primerMonosalt), (h = a.primerCt)),
+        a && a.primerMethod ? (f = a.primerMethod) : (f = 4),
+        (u = u || 150),
+        (h = h || 500),
+        (r = r || t.createTmFunction(f, u, h)));
+      var m = {},
+        _ = l.length,
+        w = a.primerMinLen || 20,
+        q = a.primerMinLen || 20,
+        C = w,
+        A = q,
+        b = e.revcomp(l),
+        y = align(repseq, repseqtpl);
+      if (w > _) throw new Error("Frag (" + _ + " bp) is shorter  than min primer length (" + w + " bp)");
+      if (w + q > _) throw new Error("Autogen primers will overlap.");
+      ((d = a.primerMinTm || 55),
+        (p = a.primerMaxTm || 70),
+        (m.pfwd = l.slice(0, pad) + y.seq1 + l.slice(offset, offset + w)),
+        (m.prev = b.slice(0, q)));
+      var k = r(m.pfwd, Ws.revcomp(l.slice(0, pad) + y.seq2 + l.slice(offset, offset + w)));
+      for (m.tmfwd = k; k < d; )
+        ((m.pfwd = l.slice(0, pad) + y.seq1 + l.slice(offset, offset + ++w)),
+          (k = r(m.pfwd, Ws.revcomp(l.slice(0, pad) + y.seq2 + l.slice(offset, offset + w)))),
+          (m.tmfwd = k),
+          (C = w));
+      for (; k < p && m.pfwd.search("[GgCc]$") === -1; )
+        ((m.pfwd = l.slice(0, pad) + y.seq1 + l.slice(offset, offset + ++minf)),
+          (k = r(m.pfwd, Ws.revcomp(l.slice(0, pad) + y.seq2 + l.slice(offset, offset + w)))),
+          (m.tmfwd = k));
+      m.pfwd.search("[GCgc]$") === -1 &&
+        ((m.pfwd = l.slice(0, pad) + y.seq1 + l.slice(offset, offset + C)),
+        (k = r(m.pfwd, Ws.revcomp(l.slice(0, pad) + y.seq2 + l.slice(offset, offset + C)))),
+        (m.tmfwd = k),
+        (w = C));
+      var M = r(m.prev);
+      for (m.tmrev = M; M < d; ) ((m.prev = b.slice(0, ++q)), (M = r(m.prev)), (m.tmrev = M), (A = q));
+      for (; M < p && m.prev.search("[GgCc]$") === -1; )
+        ((m.prev = b.slice(0, ++q)), (M = r(m.prev)), (m.tmrev = M));
+      if (
+        (m.prev.search("[GgCc]$") === -1 &&
+          ((m.prev = b.slice(0, A)), (M = r(m.prev)), (m.tmrev = M), (q = A)),
+        k > M)
+      ) {
+        for (; k - M > 5; ) ((m.prev = b.slice(0, ++q)), (M = r(m.prev)), (m.tmrev = M));
+        for (A = q; M < k && m.prev.search("[GgCc]$") === -1; )
+          if (((m.prev = b.slice(0, ++q)), (M = r(m.prev)), M < k)) A = q;
+          else {
+            ((m.prev = b.slice(0, A)), (M = r(m.prev)), (m.tmrev = M));
+            break;
+          }
+      }
+      if (M > k) {
+        for (; M - k > 5; )
+          ((m.pfwd = l.slice(0, pad) + y.seq1 + l.slice(offset, offset + ++w)),
+            (k = r(m.pfwd, Ws.revcomp(l.slice(0, pad) + y.seq2 + l.slice(offset, offset + w)))),
+            (m.tmfwd = k));
+        for (C = w; k < M && m.pfwd.search("[GgCc]$") === -1; )
+          if (
+            ((m.pfwd = l.slice(0, pad) + y.seq1 + l.slice(offset, offset + ++w)),
+            (k = r(m.pfwd, Ws.revcomp(l.slice(0, pad) + y.seq2 + l.slice(offset, offset + w)))),
+            (m.tmfwd = k),
+            k < M)
+          )
+            C = w;
+          else {
+            ((m.pfwd = l.slice(0, pad) + y.seq1 + l.slice(offset, offset + ++C)),
+              (k = r(m.pfwd, Ws.revcomp(l.slice(0, pad) + y.seq2 + l.slice(offset, offset + C)))),
+              (m.tmfwd = k));
+            break;
+          }
+      }
+      if (m.prev.length + m.pfwd.length > _) throw new Error("Autogen primers will overlap.");
+      return m;
+    }),
+    (t.Primer.locate_primer = function (l, a, r, f, u) {
+      (console.log("locate_primer called"),
+        (r = r || this.primerMinLen),
+        (f = f || this.primerMinTm),
+        (u = u || 0),
+        (l = l.toLowerCase()),
+        console.log("maxmismatch " + u));
+      var h = l.slice(-8),
+        d = new RegExp(h, "gi"),
+        p = [],
+        m,
+        _ = 0,
+        w = l.length,
+        q,
+        C,
+        A,
+        b,
+        y,
+        k = "watson";
+      for (C = w - r; (m = d.exec(a)) !== null; ) {
+        for (_ = 0, y = m.index, q = w - h.length, b = q, A = y; _ <= u && A >= 0 && b >= 0; )
+          if ((--A, --b, l[b] !== a[A] && (++_, _ > u))) {
+            ((b += 1), (A += 1), (_ -= 1));
+            break;
+          }
+        (b === -1 && (b = 0),
+          A === -1 && (A = 0),
+          b <= C && p.push({ ppos: b, tpos: A, mm: _, strand: k }),
+          (d.lastIndex = m.index + 1));
+      }
+      for (k = "crick", a = e.revcomp(a), d.lastIndex = 0; (m = d.exec(a)) !== null; ) {
+        for (_ = 0, y = m.index, q = w - h.length, b = q, A = y; _ <= u && A >= 0 && b >= 0; )
+          if ((--A, --b, l[b] !== a[A] && (++_, _ > u))) {
+            ((b += 1), (A += 1), (_ -= 1));
+            break;
+          }
+        (b === -1 && (b = 0),
+          A === -1 && (A = 0),
+          b <= C && p.push({ ppos: b, tpos: A, mm: _, strand: k }),
+          (d.lastIndex = m.index + 1));
+      }
+      return p;
+    }),
+    (t.BuilderPrimer = function (l, a, r, f) {
+      if (
+        (console.log("BuilderPrimer constructor"),
+        console.log(l, a, r, f),
+        (a = a || ""),
+        (r = r || ""),
+        console.log("anneal,spacer,overlap:", l, a, r),
+        (f = f || {
+          primerMethod: 4,
+          bufferGroup: "Q5",
+          primerMonosalt: 50,
+          primerCt: 200,
+          primerMinLen: 20,
+          primerMinTm: 55,
+          primerMaxTm: 70,
+        }),
+        console.log("calling Primer with: " + l + ", " + r + a + ", " + f),
+        t.Primer.call(this, l, r + a, f),
+        (this._modelPrimer.spacer = new e.NASeq(a)),
+        !this._modelPrimer.spacer)
+      )
+        throw new Error("Unable to create seq");
+      if (((this._modelPrimer.overlap = new e.NASeq(r)), !this._modelPrimer.overlap))
+        throw new Error("Unable to create seq");
+      (Object.defineProperty(this, "overlap", {
+        get: function () {
+          return this._modelPrimer.overlap.wseq || "";
+        },
+        set: function (u) {
+          if (((this._modelPrimer.overlap = new e.NASeq(u)), !this._modelPrimer.overlap))
+            throw new Error("Unable to create seq");
+        },
+      }),
+        Object.defineProperty(this, "spacer", {
+          get: function () {
+            return this._modelPrimer.spacer.wseq ? this._modelPrimer.spacer.wseq : "";
+          },
+          set: function (u) {
+            if (((this._modelPrimer.spacer = new e.NASeq(u)), !this._modelPrimer.spacer))
+              throw new Error("Unable to create seq");
+          },
+        }));
+    }),
+    (t.BuilderPrimer.prototype = Object.create(t.Primer.prototype)),
+    (t.BuilderPrimer.prototype.constructor = t.BuilderPrimer),
+    (t.BuilderPrimer.prototype.getSeq = function () {
+      return this.overlap + this.spacer + this.anneal;
+    }),
+    (t.BuilderPrimer.prototype.getTail = function () {
+      return this.overlap + this.spacer;
+    }),
+    (t.BuilderPrimer.prototype.setTail = function (l) {
+      if (((this._modelPrimer.overlap = new e.NASeq(l)), !this._modelPrimer.overlap))
+        throw new Error("Unable to create seq");
+    }),
+    (t.BuilderPrimer.prototype.updateTm = function (l) {
+      (l && l.primerMethod && (this.primerMethod = l.primerMethod),
+        l && l.primerCt && (this.primerCt = l.primerCt),
+        l && l.primerMonosalt && (this.primerMonosalt = l.primerMonosalt));
+      var a = t.createTmFunction(this.primerMethod, this.primerMonosalt, this.primerCt);
+      this.tm = a(this.anneal);
+    }),
+    t
+  );
+})(Ws);
+const _r = Ws;
+var jo = {};
+(function (s) {
+  var t = s,
+    e = qe,
+    n = _r;
+  return (
+    (t.Fragment = function (l, a) {
+      if ((console.log("Fragment constructor"), l == null)) throw new Error("Missing argument");
+      if (
+        ((this._modelFragment = {}),
+        (this._modelFragment.srcseq = new e.NASeq(l)),
+        !this._modelFragment.srcseq)
+      )
+        throw new Error("Unable to create seq");
+      if (
+        ((this._modelFragment.subseq = [0, this._modelFragment.srcseq.wseq.length - 1]),
+        (this._modelFragment.fwdPrimer = null),
+        (this._modelFragment.revPrimer = null),
+        (this._modelFragment.fwdTm = null),
+        (this._modelFragment.revTm = null),
+        (this._modelFragment.customFwdPrimer = !1),
+        (this._modelFragment.customRevPrimer = !1),
+        (this._modelFragment.leftRE = null),
+        (this._modelFragment.rightRE = null),
+        (this._modelFragment.leftREName = null),
+        (this._modelFragment.rightREName = null),
+        (this._modelFragment.leftREAdjustment = "none"),
+        (this._modelFragment.rightREAdjustment = "none"),
+        (this._modelFragment.upstreamJunction = null),
+        (this._modelFragment.downstreamJunction = null),
+        (this._modelFragment.upstreamJunctionID = null),
+        (this._modelFragment.downstreamJunctionID = null),
+        (this._modelFragment.leftInset = 0),
+        (this._modelFragment.rightInset = 0),
+        (this._modelFragment.id = null),
+        (this._modelFragment.polID = "q5-0"),
+        (this._modelFragment.polGroup = "Q5 High-Fidelity DNA Polymerase"),
+        (this._modelFragment.primerMinLen = 15),
+        (this._modelFragment.primerMethod = 4),
+        (this._modelFragment.primerCt = 500),
+        (this._modelFragment.primerMonosalt = 150),
+        (this._modelFragment.primerMinTm = 55),
+        (this._modelFragment.primerMaxTm = 70),
+        (this._modelFragment.maxOverlapLength = 60),
+        (this._modelFragment.digestIndex = 0),
+        (this._modelFragment.isVectorBackbone = !1),
+        (this._modelFragment.padseq = ""),
+        a && a.srctopology)
+      )
+        switch (a.srctopology.toLowerCase()) {
+          case "circular":
+            this._modelFragment.srcseq.setSeqTopology("circular");
+            break;
+          case "linear":
+            this._modelFragment.srcseq.setSeqTopology("linear");
+            break;
+          default:
+            throw new Error("Invalid topology");
+        }
+      else this._modelFragment.srcseq.setSeqTopology("linear");
+      if (a && a.srctype)
+        switch (a.srctype.toLowerCase()) {
+          case "synth":
+          case "redig":
+          case "pcr":
+            this._modelFragment.srctype = a.srctype.toLowerCase();
+            break;
+          default:
+            throw new Error("Invalid srctype");
+        }
+      else this._modelFragment.srctype = "synth";
+      (a && a.srcname && (this._modelFragment.srcseq.sname = a.srcname),
+        a && a.polID && (this._modelFragment.polID = a.polID),
+        a && a.polGroup && (this._modelFragment.polGroup = a.polGroup),
+        a && a.primerMethod && (this._modelFragment.primerMethod = a.primerMethod),
+        a && a.primerCt && (this._modelFragment.primerCt = a.primerCt),
+        a && a.primerMonosalt && (this._modelFragment.primerMonosalt = a.primerMonosalt),
+        a && a.primerMinLen && (this._modelFragment.primerMinLen = a.primerMinLen),
+        a && a.primerMinTm && (this._modelFragment.primerMinTm = a.primerMinTm),
+        a && a.primerMaxTm && (this._modelFragment.primerMaxTm = a.primerMaxTm),
+        a && a.isVectorBackbone && (this._modelFragment.isVectorBackbone = a.isVectorBackbone),
+        Object.defineProperty(this, "id", {
+          get: function () {
+            return this._modelFragment.id;
+          },
+          set: function (r) {
+            this._modelFragment.id = r;
+          },
+        }),
+        Object.defineProperty(this, "isCircular", {
+          get: function () {
+            return this._modelFragment.srcseq.topology === "circular";
+          },
+          set: function (r) {
+            r
+              ? (this._modelFragment.srcseq.topology = "circular")
+              : (this._modelFragment.srcseq.topology = "linear");
+          },
+        }),
+        Object.defineProperty(this, "upstreamJunction", {
+          get: function () {
+            return this._modelFragment.upstreamJunction;
+          },
+          set: function (r) {
+            this._modelFragment.upstreamJunction = r;
+          },
+        }),
+        Object.defineProperty(this, "downstreamJunction", {
+          get: function () {
+            return this._modelFragment.downstreamJunction;
+          },
+          set: function (r) {
+            this._modelFragment.downstreamJunction = r;
+          },
+        }),
+        Object.defineProperty(this, "upstreamJunctionID", {
+          get: function () {
+            return this._modelFragment.upstreamJunctionID;
+          },
+          set: function (r) {
+            this._modelFragment.upstreamJunctionID = r;
+          },
+        }),
+        Object.defineProperty(this, "downstreamJunctionID", {
+          get: function () {
+            return this._modelFragment.downstreamJunctionID;
+          },
+          set: function (r) {
+            this._modelFragment.downstreamJunctionID = r;
+          },
+        }),
+        Object.defineProperty(this, "leftInset", {
+          get: function () {
+            return this._modelFragment.leftInset;
+          },
+          set: function (r) {
+            this._modelFragment.leftInset = r;
+          },
+        }),
+        Object.defineProperty(this, "rightInset", {
+          get: function () {
+            return this._modelFragment.rightInset;
+          },
+          set: function (r) {
+            this._modelFragment.rightInset = r;
+          },
+        }),
+        Object.defineProperty(this, "leftREAdjustment", {
+          get: function () {
+            return this._modelFragment.leftREAdjustment;
+          },
+          set: function (r) {
+            this._modelFragment.leftREAdjustment = r;
+          },
+        }),
+        Object.defineProperty(this, "rightREAdjustment", {
+          get: function () {
+            return this._modelFragment.rightREAdjustment;
+          },
+          set: function (r) {
+            this._modelFragment.rightREAdjustment = r;
+          },
+        }),
+        Object.defineProperty(this, "leftRE", {
+          get: function () {
+            return this._modelFragment.leftRE;
+          },
+          set: function (r) {
+            this._modelFragment.leftRE = r;
+          },
+        }),
+        Object.defineProperty(this, "rightRE", {
+          get: function () {
+            return this._modelFragment.rightRE;
+          },
+          set: function (r) {
+            this._modelFragment.rightRE = r;
+          },
+        }),
+        Object.defineProperty(this, "leftREName", {
+          get: function () {
+            return this._modelFragment.leftREName;
+          },
+          set: function (r) {
+            this._modelFragment.leftREName = r;
+          },
+        }),
+        Object.defineProperty(this, "rightREName", {
+          get: function () {
+            return this._modelFragment.rightREName;
+          },
+          set: function (r) {
+            this._modelFragment.rightREName = r;
+          },
+        }),
+        Object.defineProperty(this, "customFwdPrimer", {
+          get: function () {
+            return this._modelFragment.customFwdPrimer;
+          },
+          set: function (r) {
+            this._modelFragment.customFwdPrimer = r;
+          },
+        }),
+        Object.defineProperty(this, "customRevPrimer", {
+          get: function () {
+            return this._modelFragment.customRevPrimer;
+          },
+          set: function (r) {
+            this._modelFragment.customRevPrimer = r;
+          },
+        }),
+        Object.defineProperty(this, "fwdPrimer", {
+          get: function () {
+            return this._modelFragment.fwdPrimer;
+          },
+          set: function (r) {
+            this._modelFragment.fwdPrimer = r;
+          },
+        }),
+        Object.defineProperty(this, "revPrimer", {
+          get: function () {
+            return this._modelFragment.revPrimer;
+          },
+          set: function (r) {
+            this._modelFragment.revPrimer = r;
+          },
+        }),
+        Object.defineProperty(this, "fwdTm", {
+          get: function () {
+            return this._modelFragment.fwdTm;
+          },
+          set: function (r) {
+            this._modelFragment.fwdTm = r;
+          },
+        }),
+        Object.defineProperty(this, "revTm", {
+          get: function () {
+            return this._modelFragment.revTm;
+          },
+          set: function (r) {
+            this._modelFragment.revTm = r;
+          },
+        }),
+        Object.defineProperty(this, "fwdAnnealRange", {
+          get: function () {
+            return this._modelFragment.fwdAnnealRange;
+          },
+          set: function (r) {
+            this._modelFragment.fwdAnnealRange = r;
+          },
+        }),
+        Object.defineProperty(this, "revAnnealRange", {
+          get: function () {
+            return this._modelFragment.revAnnealRange;
+          },
+          set: function (r) {
+            this._modelFragment.revAnnealRange = r;
+          },
+        }),
+        Object.defineProperty(this, "srctype", {
+          get: function () {
+            return this._modelFragment.srctype;
+          },
+          set: function (r) {
+            var f = this._modelFragment.srctype;
+            ((this._modelFragment.srctype = r), f !== r && this.reset(this.primerSpecs));
+          },
+        }),
+        Object.defineProperty(this, "src", {
+          get: function () {
+            return this._modelFragment.srcseq;
+          },
+          set: function (r) {
+            if (((this._modelFragment.srcseq = new e.NASeq(r)), !this._modelFragment.srcseq))
+              throw new Error("Unable to create seq");
+          },
+        }),
+        Object.defineProperty(this, "srcseq", {
+          get: function () {
+            return this._modelFragment.srcseq;
+          },
+          set: function (r) {
+            if (((this._modelFragment.srcseq = new e.NASeq(r)), !this._modelFragment.srcseq))
+              throw new Error("Unable to create seq");
+          },
+        }),
+        Object.defineProperty(this, "seq", {
+          get: function () {
+            return this.generateSeq(!1);
+          },
+        }),
+        Object.defineProperty(this, "minseq", {
+          get: function () {
+            return this.generateSeq(!0);
+          },
+        }),
+        Object.defineProperty(this, "subseq", {
+          get: function () {
+            return this._modelFragment.subseq;
+          },
+          set: function (r) {
+            if (r.length !== 2) throw new Error("Invalid range input");
+            this.setRange(r[0], r[1]);
+          },
+        }),
+        Object.defineProperty(this, "template", {
+          get: function () {
+            console.log("template getter");
+            var r = this.srcseq.subSeq(this.subseq[0], this.subseq[1] + 1);
+            return (
+              (r = this.padseq + r),
+              (r = r.slice(this.leftInset, r.length - this.rightInset)),
+              console.log(r.slice(0, 20) + "..." + r.slice(-20)),
+              r
+            );
+          },
+        }),
+        Object.defineProperty(this, "polID", {
+          get: function () {
+            return this._modelFragment.polID;
+          },
+          set: function (r) {
+            this._modelFragment.polID = r;
+          },
+        }),
+        Object.defineProperty(this, "name", {
+          get: function () {
+            return this._modelFragment.srcseq.sname;
+          },
+          set: function (r) {
+            this._modelFragment.srcseq.sname = r;
+          },
+        }),
+        Object.defineProperty(this, "maxOverlapLength", {
+          get: function () {
+            return this._modelFragment.maxOverlapLength;
+          },
+          set: function (r) {
+            this._modelFragment.maxOverlapLength = r;
+          },
+        }),
+        Object.defineProperty(this, "primerMinLen", {
+          get: function () {
+            return this._modelFragment.primerMinLen;
+          },
+          set: function (r) {
+            this._modelFragment.primerMinLen = r;
+          },
+        }),
+        Object.defineProperty(this, "primerMinTm", {
+          get: function () {
+            return this._modelFragment.primerMinTm;
+          },
+          set: function (r) {
+            this._modelFragment.primerMinTm = r;
+          },
+        }),
+        Object.defineProperty(this, "primerMaxTm", {
+          get: function () {
+            return this._modelFragment.primerMaxTm;
+          },
+          set: function (r) {
+            this._modelFragment.primerMaxTm = r;
+          },
+        }),
+        Object.defineProperty(this, "primerMethod", {
+          get: function () {
+            return this._modelFragment.primerMethod;
+          },
+          set: function (r) {
+            this._modelFragment.primerMethod = r;
+          },
+        }),
+        Object.defineProperty(this, "primerDisalt", {
+          get: function () {
+            return this._modelFragment.primerDisalt;
+          },
+          set: function (r) {
+            this._modelFragment.primerDisalt = r;
+          },
+        }),
+        Object.defineProperty(this, "primerCt", {
+          get: function () {
+            return this._modelFragment.primerCt;
+          },
+          set: function (r) {
+            this._modelFragment.primerCt = r;
+          },
+        }),
+        Object.defineProperty(this, "primerMonosalt", {
+          get: function () {
+            return this._modelFragment.primerMonosalt;
+          },
+          set: function (r) {
+            this._modelFragment.primerMonosalt = r;
+          },
+        }),
+        Object.defineProperty(this, "digestIndex", {
+          get: function () {
+            return this._modelFragment.digestIndex;
+          },
+          set: function (r) {
+            this._modelFragment.digestIndex = r;
+          },
+        }),
+        Object.defineProperty(this, "isVectorBackbone", {
+          get: function () {
+            return this._modelFragment.isVectorBackbone;
+          },
+          set: function (r) {
+            this._modelFragment.isVectorBackbone = !!r;
+          },
+        }),
+        Object.defineProperty(this, "primerSpecs", {
+          get: function () {
+            return {
+              polID: this._modelFragment.polID,
+              primerMinLen: this._modelFragment.primerMinLen,
+              polGroup: this._modelFragment.polGroup,
+              primerMethod: this._modelFragment.primerMethod,
+              primerCt: this._modelFragment.primerCt,
+              primerMonosalt: this._modelFragment.primerMonosalt,
+              primerMinTm: this._modelFragment.primerMinTm,
+              primerMaxTm: this._modelFragment.primerMaxTm,
+            };
+          },
+          set: function (r) {
+            for (var f in r) r.hasOwnProperty(f) && (this._modelFragment[f] = r[f]);
+          },
+        }),
+        Object.defineProperty(this, "padseq", {
+          get: function () {
+            return this._modelFragment.padseq;
+          },
+          set: function (r) {
+            this._modelFragment.padseq = r;
+          },
+        }),
+        this.reset(this.primerSpecs));
+    }),
+    (t.Fragment.prototype.deepCopy = function () {
+      console.log("deep copy");
+      var l = this._modelFragment,
+        a = new t.Fragment(""),
+        r = {};
+      for (var f in l) {
+        if (l[f] === null) {
+          r[f] = null;
+          continue;
+        }
+        if (l[f] === void 0) {
+          r[f] = void 0;
+          continue;
+        }
+        switch (f) {
+          case "srcseq":
+            r.srcseq = l.srcseq.deepCopy();
+            break;
+          case "fwdPrimer":
+            r.fwdPrimer = l.fwdPrimer.deepCopy();
+            break;
+          case "revPrimer":
+            r.revPrimer = l.revPrimer.deepCopy();
+            break;
+          case "upstreamJunction":
+            r.upstreamJunction = l.upstreamJunction.deepCopy();
+            break;
+          case "downstreamJunction":
+            r.downstreamJunction = l.downstreamJunction.deepCopy();
+            break;
+          default:
+            r[f] = l[f];
+        }
+      }
+      return ((a._modelFragment = r), a);
+    }),
+    (t.Fragment.prototype.toJson = function () {
+      return this._modelFragment;
+    }),
+    (t.Fragment.prototype.coord = function (l) {
+      return this.srcseq.coord(l);
+    }),
+    (t.Fragment.prototype.generateSeq = function (l) {
+      console.log("generateSeq");
+      var a = l || !1,
+        r = "",
+        f = "",
+        u,
+        h;
+      if (this.srctype === "synth") {
+        if (this.subseq[0] < this.subseq[1])
+          return this.srcseq.wseq.slice(
+            this.subseq[0] + this.leftInset,
+            this.subseq[1] + 1 - this.rightInset,
+          );
+        if (this.srcseq.topology === "circular")
+          return (
+            this.srcseq.wseq.slice(this.subseq[0] + this.leftInset) +
+            this.srcseq.wseq.slice(0, this.subseq[1] + 1 - this.rightInset)
+          );
+        throw new Error("subseq spans origin of linear src");
+      } else if (this.srctype === "pcr") {
+        if (this.fwdPrimer === null || this.revPrimer === null) {
+          if (this.subseq[0] < this.subseq[1])
+            return this.srcseq.wseq.slice(this.subseq[0], this.subseq[1] + 1);
+          if (this.srcseq.topology === "circular")
+            return this.srcseq.wseq.slice(this.subseq[0]) + this.srcseq.wseq.slice(0, this.subseq[1] + 1);
+          throw new Error("subseq spans origin of linear src");
+        }
+        if (((u = this.fwdPrimer), (h = this.revPrimer), this.fwdAnnealRange[1] < this.revAnnealRange[0]))
+          f = this.srcseq.wseq.slice(this.fwdAnnealRange[1] + 1, this.revAnnealRange[0]);
+        else if (this.srcseq.topology === "circular")
+          f =
+            this.srcseq.wseq.slice(this.fwdAnnealRange[1] + 1) +
+            this.srcseq.wseq.slice(0, this.revAnnealRange[0]);
+        else throw new Error("primers overlap - unable to generate ipr seq");
+        return (
+          a ? (r = u.anneal + f + e.revcomp(h.anneal)) : (r = u.seq + f + e.revcomp(h.seq)),
+          (r = r.slice(this.leftInset, r.length - this.rightInset)),
+          r
+        );
+      } else if (this.srctype === "redig")
+        if (this.padseq === "") {
+          if (this.subseq[0] < this.subseq[1])
+            return this.srcseq.wseq.slice(
+              this.subseq[0] + this.leftInset,
+              this.subseq[1] + 1 - this.rightInset,
+            );
+          if (this.srcseq.topology === "circular")
+            return (
+              this.srcseq.wseq.slice(this.subseq[0] + this.leftInset) +
+              this.srcseq.wseq.slice(0, this.subseq[1] + 1 - this.rightInset)
+            );
+          throw new Error("subseq spans origin of linear src");
+        } else {
+          if (this.subseq[0] < this.subseq[1]) r = this.srcseq.wseq.slice(this.subseq[0], this.subseq[1] + 1);
+          else if (this.srcseq.topology === "circular")
+            r = this.srcseq.wseq.slice(this.subseq[0]) + this.srcseq.wseq.slice(0, this.subseq[1] + 1);
+          else throw new Error("subseq spans origin of linear src");
+          return ((r = this.padseq + r), r.slice(this.leftInset, r.length - this.rightInset));
+        }
+      return this.srcseq.wseq;
+    }),
+    (t.Fragment.prototype.setFwdPrimer = function (l, a, r, f) {
+      if ((console.log("setFwdPrimer called"), (f = f || null), (r = !!r || !1), arguments.length < 2))
+        throw new Error("insufficient arguments");
+      if (!(l instanceof n.BuilderPrimer)) throw new Error("invalid primer");
+      if (Array.isArray(a)) {
+        if (a.length !== 2) throw new Error("invalid range 2");
+        if (a[0] < 0 || a[1] > this.srcseq.wseq.length) throw new Error("invalid range 3");
+      } else throw new Error("invalid range 1");
+      return (
+        (this.customFwdPrimer = r),
+        (this.fwdAnnealRange = a),
+        (this.fwdPrimer = l),
+        (this.fwdTa = f),
+        (this.subseq[0] = a[0]),
+        this
+      );
+    }),
+    (t.Fragment.prototype.setRevPrimer = function (l, a, r, f) {
+      if ((console.log("setRevPrimer called"), (f = f || null), (r = !!r || !1), arguments.length < 2))
+        throw new Error("insufficient arguments");
+      if (!(l instanceof n.BuilderPrimer)) throw new Error("invalid primer");
+      if (Array.isArray(a)) {
+        if (a.length !== 2) throw new Error("invalid range 2");
+        if (a[0] < 0 || a[1] > this.srcseq.wseq.length) throw new Error("invalid range 3");
+      } else throw new Error("invalid range 1");
+      return (
+        (this.customRevPrimer = r),
+        (this.revAnnealRange = a),
+        (this.revPrimer = l),
+        (this.revTa = f),
+        (this.subseq[1] = a[1]),
+        this
+      );
+    }),
+    (t.Fragment.prototype.getFwdPrimer = function () {
+      return this.fwdPrimer;
+    }),
+    (t.Fragment.prototype.getRevPrimer = function () {
+      return this.revPrimer;
+    }),
+    (t.Fragment.prototype.getFwdPrimerSeq = function () {
+      return this.fwdPrimer.seq;
+    }),
+    (t.Fragment.prototype.getRevPrimerSeq = function () {
+      return this.revPrimer.seq;
+    }),
+    (t.Fragment.prototype.setLeftRE = function (l, a, r, f) {
+      console.log("setLeftRE");
+      var u = r || !1,
+        h = f || !1,
+        d = "";
+      function p(y) {
+        return y > 0 ? y - 1 : y;
+      }
+      var m, _, w;
+      if (arguments.length < 2) throw new Error("insufficient arguments");
+      if (a < 0 || a > this._modelFragment.srcseq.length) throw new Error("location out of range");
+      l.c3 !== 0 ? ((_ = l.c3), (w = l.c4)) : ((_ = l.c1), (w = l.c2));
+      var q = {};
+      ((q.enzyme = l),
+        (q.recognitionSite = a),
+        (q.overhang3 = ""),
+        (q.overhang5 = ""),
+        (q.cutsite = a + p(_)),
+        this.setStart(this.coord(q.cutsite + 1)),
+        _ === w
+          ? ((q.overhang3 = ""), (q.overhang5 = ""), (q.otype = "Blunt"))
+          : _ > w
+            ? ((m = a + p(w) + 1),
+              (q.overhang3 = this.srcseq.subSeq(m, m + (_ - w))),
+              (q.overhang5 = ""),
+              (q.otype = "3-Prime"),
+              (d = q.overhang3))
+            : ((m = a + p(_) + 1),
+              (q.overhang3 = ""),
+              (q.overhang5 = this.srcseq.subSeq(m, m + (w - _))),
+              (q.otype = "5-Prime")),
+        (this._modelFragment.leftRE = q));
+      var C = l.oseq,
+        A = l.otype,
+        A = l.otype,
+        b = 0;
+      return (
+        C !== "" && A === "3-Prime" ? (b = -1 * C.length) : C !== "" && A === "5-Prime" && (b = C.length),
+        u && this.adjustStart(b),
+        h ? (this.padseq = d) : (this.padseq = ""),
+        this
+      );
+    }),
+    (t.Fragment.prototype.setRightRE = function (l, a) {
+      console.log("setRightRE");
+      function r(p) {
+        return p > 0 ? p - 1 : p;
+      }
+      var f, u, h;
+      if (arguments.length < 2) throw new Error("insufficient arguments");
+      if (a < 0 || a > this._modelFragment.srcseq.length) throw new Error("location out of range");
+      ((u = l.c1), (h = l.c2));
+      var d = {};
+      return (
+        (d.enzyme = l),
+        (d.recognitionSite = a),
+        (d.overhang3 = ""),
+        (d.overhang5 = ""),
+        (d.cutsite = a + r(u)),
+        this.setEnd(this.coord(d.cutsite)),
+        u === h
+          ? ((d.overhang3 = ""), (d.overhang5 = ""), (d.otype = "Blunt"))
+          : u > h
+            ? ((f = a + r(h) + 1),
+              (d.overhang3 = this.srcseq.subSeq(f, f + (u - h))),
+              (d.overhang5 = ""),
+              (d.otype = "3-Prime"))
+            : ((f = a + r(u) + 1),
+              (d.overhang3 = ""),
+              (d.overhang5 = this.srcseq.subSeq(f, f + (h - u))),
+              (d.otype = "5-Prime")),
+        (this._modelFragment.rightRE = d),
+        this
+      );
+    }),
+    (t.Fragment.prototype.rebuildRightRE = function (l, a, r) {
+      (console.log("fragment.rebuildRightRE"), (l = l || "strict"), (a = a || ""));
+      var f,
+        u,
+        h,
+        d,
+        p,
+        m,
+        _,
+        w = this._modelFragment.rightRE,
+        q = this._modelFragment.rightRE.enzyme.pat.toLowerCase(),
+        C = w.recognitionSite,
+        A = (C + q.length - 1) % this._modelFragment.srcseq.length,
+        b;
+      r ? (b = r.pat.length) : A > C ? (b = A - C) : (b = A - (C - this._modelFragment.srcseq.length));
+      var y;
+      r ? (y = [0, Number(r.c1), Number(r.c2), Number(r.c3), Number(r.c4)]) : (y = []);
+      var k = this.subseq[1];
+      if (
+        (console.log("siteStart", C),
+        console.log("siteEnd", A),
+        console.log("cutEnd", k),
+        console.log("mode", l),
+        l === "none")
+      )
+        return "";
+      if (!this.isCircular && k >= A) return "";
+      if (this.isCircular && y[1] >= b - 1 && y[2] >= b - 1) return "";
+      console.log("site", this.srcseq.subSeq(C, A));
+      var M = this.srcseq.subSeq(k + 1, A + 1);
+      if (
+        (console.log("requiredSeq", M),
+        console.log("adjseq length", a.length),
+        console.log("adjseq", a.slice(0, 20)),
+        l === "strict")
+      )
+        return M;
+      if (l === "min") {
+        if (a.length < M.length) return M;
+        for (h = q.length, d = M.length, f = 0, _ = 0; f < d; ) {
+          for (u = 0, m = a[u], p = M[f + u]; qe.areEqualDNABases(m, p) && u < d - _; )
+            (++u, (m = a[u]), (p = M[f + u]));
+          if (u === d - _) break;
+          (++f, ++_);
+        }
+        return (
+          console.log("i", f),
+          console.log("m", h),
+          console.log("n", d),
+          f === 0
+            ? (console.log("returning", "empty"), "")
+            : (console.log("returning", M.substring(0, f + 1)), M.substring(0, f + 1))
+        );
+      }
+    }),
+    (t.Fragment.prototype.rebuildLeftRE = function (l, a, r) {
+      (console.log("fragment.rebuildLeftRE"), (l = l || "strict"), (a = a || ""));
+      var f,
+        u,
+        h,
+        d,
+        p,
+        m,
+        _,
+        w,
+        q = this._modelFragment.leftRE,
+        C = q.recognitionSite,
+        A = "",
+        b;
+      (r ? (b = [0, Number(r.c1), Number(r.c2), Number(r.c3), Number(r.c4)]) : (b = []),
+        console.log(r),
+        console.log(b));
+      var y = this._modelFragment.leftRE.enzyme.pat;
+      console.log("pat", y);
+      var k = (C + y.length - 1) % this._modelFragment.srcseq.length;
+      (console.log("subseq[0]", this.subseq[0]), console.log("padseq", this.padseq));
+      var M = this.subseq[0] - this.padseq.length;
+      if (
+        (console.log("siteStart", C),
+        console.log("siteEnd", k),
+        console.log("cutEnd", M),
+        console.log("mode", l),
+        l === "none")
+      )
+        return "";
+      if (!this.isCircular && M < C) return "";
+      if (this.isCircular && b[1] < 0 && b[2] < 0) return "";
+      if (
+        (console.log("site", this.srcseq.subSeq(C, k)),
+        (A = this._modelFragment.srcseq.subSeq(C, M)),
+        console.log("requiredSeq", A),
+        console.log("adjseq", a.slice(-10)),
+        l === "strict")
+      )
+        return A;
+      if (l === "min") {
+        if (a.length < y.length) return A;
+        for (h = y.length, d = A.length, f = d - 1, _ = 0, w = a.length - 1; f >= 0; ) {
+          for (u = 0, m = a[w - u], p = A[f - u]; qe.areEqualDNABases(m, p) && u < d - _; )
+            (++u, (m = a[w - u]), (p = A[f - u]));
+          if (u === d - _) break;
+          (--f, ++_);
+        }
+        return (
+          console.log("i", f),
+          console.log("m", h),
+          console.log("n", d),
+          f === d - 1
+            ? (console.log("returning", "empty"), "")
+            : (console.log("returning", A.slice(f + 1)), A.slice(f + 1))
+        );
+      }
+    }),
+    (t.Fragment.prototype.autogenPrimers = function (l) {
+      if (
+        (console.log("autogenPrimers called"),
+        l || (l = {}),
+        (l.polGroup = l.polGroup || "Q5"),
+        (l.primerMethod = l.primerMethod || 4),
+        (l.primerMonosalt = l.primerMonosalt || 150),
+        (l.primerCt = l.primerCt || 500),
+        (l.primerMinLen = l.primerMinLen || 15),
+        (l.primerMinTm = l.primerMinTm || 55),
+        (l.primerMaxTm = l.primerMaxTm || 70),
+        (l.direction = l.direction || "both"),
+        this.template.length < this.maxOverlapLength)
+      )
+        throw new Error("fragment too short for autogen primers");
+      var a;
+      try {
+        a = n.Primer.calculatePrimers(this.template, l);
+      } catch (w) {
+        throw new Error("primer autogen failed: " + w.message);
+      }
+      var r = !1,
+        f,
+        u,
+        h,
+        d,
+        p,
+        m,
+        _;
+      ((_ = this.srcseq.wseq.length),
+        (l.direction === "both" || l.direction === "fwd") &&
+          ((f = a.pfwd),
+          (u = (this.fwdPrimer && this.fwdPrimer.overlap) || ""),
+          (h = (this.fwdPrimer && this.fwdPrimer.spacer) || ""),
+          a.pfwd !== "" &&
+            (console.log("fwd primer"),
+            (d = new n.BuilderPrimer(f, h, u, l)),
+            (p = this._modelFragment.subseq[0]),
+            (m = this._modelFragment.subseq[0] + a.pfwd.length - 1),
+            m > _ && (m -= _),
+            console.log("start", p, "end", m, "length", _),
+            this.setFwdPrimer(d, [p, m], r))),
+        (l.direction === "both" || l.direction === "rev") &&
+          ((f = a.prev),
+          (u = (this.revPrimer && this.revPrimer.overlap) || ""),
+          (h = (this.revPrimer && this.revPrimer.spacer) || ""),
+          a.prev !== "" &&
+            (console.log("revprimer"),
+            (d = new n.BuilderPrimer(f, h, u, l)),
+            (p = this._modelFragment.subseq[1] + 1 - a.prev.length),
+            p < 0 && (p += _),
+            (m = this._modelFragment.subseq[1]),
+            console.log("start", p, "end", m, "length", _),
+            this.setRevPrimer(new n.BuilderPrimer(f, h, u, l), [p, m], r))));
+    }),
+    (t.Fragment.prototype.autogenSDMPrimers = function (l) {
+      if (
+        (console.log("autogenSDMPrimers called"),
+        l || (l = {}),
+        (l.polGroup = l.polGroup || "Q5"),
+        (l.primerMethod = l.primerMethod || 4),
+        (l.primerMonosalt = l.primerMonosalt || 150),
+        (l.primerCt = l.primerCt || 500),
+        (l.primerMinLen = l.primerMinLen || 15),
+        (l.primerMinTm = l.primerMinTm || 55),
+        (l.primerMaxTm = l.primerMaxTm || 70),
+        (l.direction = l.direction || "both"),
+        this.template.length < this.maxOverlapLength)
+      )
+        throw new Error("fragment too short for autogen primers");
+      var a;
+      try {
+        a = n.Primer.calculatePrimers(this.template, l);
+      } catch (w) {
+        throw new Error("primer autogen failed: " + w.message);
+      }
+      var r = !1,
+        f,
+        u,
+        h,
+        d,
+        p,
+        m,
+        _;
+      ((_ = this.srcseq.wseq.length),
+        (l.direction === "both" || l.direction === "fwd") &&
+          ((f = a.pfwd),
+          (u = (this.fwdPrimer && this.fwdPrimer.overlap) || ""),
+          (h = (this.fwdPrimer && this.fwdPrimer.spacer) || ""),
+          a.pfwd !== "" &&
+            (console.log("fwd primer"),
+            (d = new n.BuilderPrimer(f, h, u, l)),
+            (p = this._modelFragment.subseq[0]),
+            (m = this._modelFragment.subseq[0] + a.pfwd.length - 1),
+            m > _ && (m -= _),
+            console.log("start", p, "end", m, "length", _),
+            this.setFwdPrimer(d, [p, m], r))),
+        (l.direction === "both" || l.direction === "rev") &&
+          ((f = a.prev),
+          (u = (this.revPrimer && this.revPrimer.overlap) || ""),
+          (h = (this.revPrimer && this.revPrimer.spacer) || ""),
+          a.prev !== "" &&
+            (console.log("revprimer"),
+            (d = new n.BuilderPrimer(f, h, u, l)),
+            (p = this._modelFragment.subseq[1] + 1 - a.prev.length),
+            p < 0 && (p += _),
+            (m = this._modelFragment.subseq[1]),
+            console.log("start", p, "end", m, "length", _),
+            this.setRevPrimer(new n.BuilderPrimer(f, h, u, l), [p, m], r))));
+    }),
+    (t.Fragment.prototype.reset = function (l) {
+      switch (this._modelFragment.srctype) {
+        case "pcr":
+          ((this._modelFragment.customFwdPrimer = !1),
+            (this._modelFragment.customRevPrimer = !1),
+            this.autogenPrimers(l));
+          break;
+        case "redig":
+          ((this._modelFragment.leftRE = null),
+            (this._modelFragment.rightRE = null),
+            (this._modelFragment.leftREName = null),
+            (this._modelFragment.rightREName = null));
+          break;
+      }
+    }),
+    (t.Fragment.prototype.setRange = function (l, a) {
+      console.log("setRange [" + l + "," + a + "]");
+      var r = [this._modelFragment.subseq[0], this._modelFragment.subseq[1]],
+        f = this._modelFragment.srcseq.length;
+      console.log("len", f);
+      var u = this._modelFragment.srcseq.topology;
+      if (u === "linear" && (l > a || l < 0 || a < 0 || l > f || a > f))
+        throw (
+          (this._modelFragment.subseq = r),
+          console.log(this._modelFragment.isCircular),
+          console.log(this._modelFragment.srcseq.topology),
+          new Error("location out of range: negative or greater than length of linear fragment")
+        );
+      return (
+        u == "circular" && ((l = l % f), (a = a % f), l < 0 && (l += f), a < 0 && (a += f)),
+        (this._modelFragment.subseq = [l, a]),
+        this
+      );
+    }),
+    (t.Fragment.prototype.setStart = function (l) {
+      console.log("setStart");
+      var a = this._modelFragment.subseq[1];
+      return (this.setRange(l, a), this);
+    }),
+    (t.Fragment.prototype.setEnd = function (l) {
+      console.log("setEnd");
+      var a = this._modelFragment.subseq[0];
+      return (this.setRange(a, l), this);
+    }),
+    (t.Fragment.prototype.adjustStart = function (l) {
+      console.log("adjustStart");
+      var a = this._modelFragment.subseq[0] + l,
+        r = this._modelFragment.subseq[1];
+      return (this.setRange(a, r), this);
+    }),
+    (t.Fragment.prototype.adjustEnd = function (l) {
+      console.log("adjustEnd");
+      var a = this._modelFragment.subseq[0],
+        r = this._modelFragment.subseq[1] + l;
+      return (this.setRange(a, r), this);
+    }),
+    (t.Fragment.prototype.updateSrcseq = function (l) {
+      this._modelFragment.srcseq.seq = l;
+    }),
+    (t.Fragment.prototype.clearPrimers = function (l) {
+      switch ((console.log("clearPrimers"), (l = l || "both"), l)) {
+        case "fwd":
+          this._modelFragment.fwdPrimer = null;
+          break;
+        case "rev":
+          this._modelFragment.revPrimer = null;
+          break;
+        case "both":
+          ((this._modelFragment.fwdPrimer = null), (this._modelFragment.revPrimer = null));
+          break;
+        default:
+          ((this._modelFragment.fwdPrimer = null), (this._modelFragment.revPrimer = null));
+      }
+    }),
+    (t.Fragment.prototype.updateTm = function (l) {
+      if ((console.log("fragment.updateTm"), this.srctype === "pcr")) {
+        l && (this.primerSpec = l);
+        var a = {
+          primerMethod: this.primerMethod,
+          primerCt: this.primerCt,
+          primerMonosalt: this.primerMonosalt,
+        };
+        (this.fwdPrimer.updateTm(a), this.revPrimer.updateTm(a));
+      }
+    }),
+    t
+  );
+})(jo);
+const Vo = jo;
+var Ge = Ge || {};
+Ge.trim = function (s) {
+  return s.replace(/^\s+|\s+$/g, "");
+};
+Ge.revcomp = function (s) {
+  console.log("NEB.revcomp", s);
+  var t = "ACGTUKMSWRYBDHVNacgtukmswrybdhvn -",
+    e = "TGCAAMKWSYRVHDBNtgcaamkwsyrvhdbn -",
+    n = s.split("").reverse(),
+    l,
+    a;
+  for (l = 0; l < n.length; ++l) {
+    if (((a = t.indexOf(n[l])), a === -1))
+      throw (
+        console.log("A non IUPAC base was encountered: " + n[l]),
+        { name: "InvalidCharacter", message: "A non IUPAC base was encountered: " + n[l] }
+      );
+    n[l] = e.charAt(a);
+  }
+  return n.join("");
+};
+Ge.createTmCalc = function (s) {
+  if (!s.seq)
+    throw {
+      name: "Missing seq",
+      message: "A property named seq must be present in the object provided to createTmCalc",
+    };
+  var t = s.seq,
+    e = s.ct || 0.25,
+    n = s.salt || 50,
+    l = s.dmso || 0,
+    a = s.method || 1,
+    r = s.compseq || null,
+    f = Ge.trim(t.toLowerCase()).replace(/\s/g, ""),
+    u = r ? Ge.trim(r).toLowerCase().replace(/s/g, "") : Ge.revcomp(f),
+    h = h || "",
+    d,
+    p,
+    m,
+    _ = 1.987,
+    w = {
+      aa: -24,
+      tt: -24,
+      at: -23.9,
+      ta: -16.9,
+      ca: -12.9,
+      tg: -12.9,
+      gt: -17.3,
+      ac: -17.3,
+      ct: -20.8,
+      ag: -20.8,
+      ga: -13.5,
+      tc: -13.5,
+      cg: -27.8,
+      gc: -26.7,
+      gg: -26.6,
+      cc: -26.6,
+    },
+    q = {
+      aa: -22.2,
+      tt: -22.2,
+      at: -20.4,
+      ta: -21.3,
+      ca: -22.7,
+      tg: -22.7,
+      gt: -22.4,
+      ac: -22.4,
+      ct: -21,
+      ag: -21,
+      ga: -22.2,
+      tc: -22.2,
+      cg: -27.2,
+      gc: -24.4,
+      gg: -19.9,
+      cc: -19.9,
+    },
+    C = {
+      aa: -9.1,
+      tt: -9.1,
+      at: -8.6,
+      ta: -6,
+      ca: -5.8,
+      tg: -5.8,
+      gt: -6.5,
+      ac: -6.5,
+      ct: -7.8,
+      ag: -7.8,
+      ga: -5.6,
+      tc: -5.6,
+      cg: -11.9,
+      gc: -11.1,
+      gg: -11,
+      cc: -11,
+    },
+    A = {
+      aa: -7.9,
+      tt: -7.9,
+      at: -7.2,
+      ta: -7.2,
+      ca: -8.5,
+      tg: -8.5,
+      gt: -8.4,
+      ac: -8.4,
+      ct: -7.8,
+      ag: -7.8,
+      ga: -8.2,
+      tc: -8.2,
+      cg: -10.6,
+      gc: -9.8,
+      gg: -8,
+      cc: -8,
+    },
+    b = {
+      "-a/at": { dh: -0.7, ds: -0.8 },
+      "-a/ct": { dh: 4.4, ds: 14.9 },
+      "-a/gt": { dh: -1.6, ds: -3.6 },
+      "-a/tt": { dh: 2.9, ds: 10.4 },
+      "-c/ag": { dh: -2.1, ds: -3.9 },
+      "-c/cg": { dh: -0.2, ds: -0.1 },
+      "-c/gg": { dh: -3.9, ds: -11.2 },
+      "-c/tg": { dh: -4.4, ds: -13.1 },
+      "-g/ac": { dh: -5.9, ds: -16.5 },
+      "-g/cc": { dh: -2.6, ds: -7.4 },
+      "-g/gc": { dh: -3.2, ds: -10.4 },
+      "-g/tc": { dh: -5.2, ds: -15 },
+      "-t/aa": { dh: -0.5, ds: -1.1 },
+      "-t/ca": { dh: 4.7, ds: 7.7 },
+      "-t/ga": { dh: -4.1, ds: -13.1 },
+      "-t/ta": { dh: -3.8, ds: -12.6 },
+      "a-/ta": { dh: -2.9, ds: -7.6 },
+      "a-/tc": { dh: -4.1, ds: -13 },
+      "a-/tg": { dh: -4.2, ds: -15 },
+      "a-/tt": { dh: -0.2, ds: -0.5 },
+      "aa/-t": { dh: 0.2, ds: 2.3 },
+      "aa/at": { dh: 4.7, ds: 12.9 },
+      "aa/ct": { dh: 7.6, ds: 20.2 },
+      "aa/gt": { dh: 3, ds: 7.4 },
+      "aa/t-": { dh: -0.5, ds: -1.1 },
+      "aa/ta": { dh: 1.2, ds: 1.7 },
+      "aa/tc": { dh: -9.1, ds: -24 },
+      "aa/tg": { dh: -0.6, ds: -2.3 },
+      "aa/tt": { dh: -7.6, ds: -21.3 },
+      "ac/-g": { dh: -6.3, ds: -17.1 },
+      "ac/ag": { dh: -2.9, ds: -9.8 },
+      "ac/cg": { dh: -0.7, ds: -3.8 },
+      "ac/gg": { dh: 0.5, ds: 3.2 },
+      "ac/t-": { dh: 4.7, ds: 7.7 },
+      "ac/ta": { dh: 5.3, ds: 14.6 },
+      "ac/tc": { dh: 0, ds: -4.4 },
+      "ac/tg": { dh: -8.4, ds: -22.4 },
+      "ac/tt": { dh: 0.7, ds: 0.2 },
+      "ag/-c": { dh: -3.7, ds: -10 },
+      "ag/ac": { dh: -0.9, ds: -4.2 },
+      "ag/cc": { dh: 0.6, ds: -0.6 },
+      "ag/gc": { dh: -4, ds: -13.2 },
+      "ag/t-": { dh: -4.1, ds: -13.1 },
+      "ag/ta": { dh: -0.7, ds: -2.3 },
+      "ag/tc": { dh: -7.8, ds: -21 },
+      "ag/tg": { dh: -3.1, ds: -9.5 },
+      "ag/tt": { dh: 1, ds: 0.9 },
+      "at/-a": { dh: -2.9, ds: -7.6 },
+      "at/aa": { dh: 1.2, ds: 1.7 },
+      "at/ca": { dh: 5.3, ds: 14.6 },
+      "at/ga": { dh: -0.7, ds: -2.3 },
+      "at/t-": { dh: -3.8, ds: -12.6 },
+      "at/ta": { dh: -7.2, ds: -20.4 },
+      "at/tc": { dh: -1.2, ds: -6.2 },
+      "at/tg": { dh: -2.5, ds: -8.3 },
+      "at/tt": { dh: -2.7, ds: -10.8 },
+      "c-/ga": { dh: -3.7, ds: -10 },
+      "c-/gc": { dh: -4, ds: -11.9 },
+      "c-/gg": { dh: -3.9, ds: -10.9 },
+      "c-/gt": { dh: -4.9, ds: -13.8 },
+      "ca/-t": { dh: 0.6, ds: 3.3 },
+      "ca/at": { dh: 3.4, ds: 8 },
+      "ca/ct": { dh: 6.1, ds: 16.4 },
+      "ca/g-": { dh: -5.9, ds: -16.5 },
+      "ca/ga": { dh: -0.9, ds: -4.2 },
+      "ca/gc": { dh: 1.9, ds: 3.7 },
+      "ca/gg": { dh: -0.7, ds: -2.3 },
+      "ca/gt": { dh: -8.5, ds: -22.7 },
+      "ca/tt": { dh: 1, ds: 0.7 },
+      "cc/-g": { dh: -4.4, ds: -12.6 },
+      "cc/ag": { dh: 5.2, ds: 14.2 },
+      "cc/cg": { dh: 3.6, ds: 8.9 },
+      "cc/g-": { dh: -2.6, ds: -7.4 },
+      "cc/ga": { dh: 0.6, ds: -0.6 },
+      "cc/gc": { dh: -1.5, ds: -7.2 },
+      "cc/gg": { dh: -8, ds: -19.9 },
+      "cc/gt": { dh: -0.8, ds: -4.5 },
+      "cc/tg": { dh: 5.2, ds: 13.5 },
+      "cg/-c": { dh: -4, ds: -11.9 },
+      "cg/ac": { dh: 1.9, ds: 3.7 },
+      "cg/cc": { dh: -1.5, ds: -7.2 },
+      "cg/g-": { dh: -3.2, ds: -10.4 },
+      "cg/ga": { dh: -4, ds: -13.2 },
+      "cg/gc": { dh: -10.6, ds: -27.2 },
+      "cg/gg": { dh: -4.9, ds: -15.3 },
+      "cg/gt": { dh: -4.1, ds: -11.7 },
+      "cg/tc": { dh: -1.5, ds: -6.1 },
+      "ct/-a": { dh: -4.1, ds: -13 },
+      "ct/aa": { dh: -9.1, ds: -24 },
+      "ct/ca": { dh: 0, ds: -4.4 },
+      "ct/g-": { dh: -5.2, ds: -15 },
+      "ct/ga": { dh: -7.8, ds: -21 },
+      "ct/gc": { dh: -1.5, ds: -6.1 },
+      "ct/gg": { dh: -2.8, ds: -8 },
+      "ct/gt": { dh: -5, ds: -15.8 },
+      "ct/ta": { dh: -1.2, ds: -6.2 },
+      "g-/ca": { dh: -6.3, ds: -17.1 },
+      "g-/cc": { dh: -4.4, ds: -12.6 },
+      "g-/cg": { dh: -5.1, ds: -14 },
+      "g-/ct": { dh: -4, ds: -10.9 },
+      "ga/-t": { dh: -1.1, ds: -1.6 },
+      "ga/at": { dh: 0.7, ds: 0.7 },
+      "ga/c-": { dh: -2.1, ds: -3.9 },
+      "ga/ca": { dh: -2.9, ds: -9.8 },
+      "ga/cc": { dh: 5.2, ds: 14.2 },
+      "ga/cg": { dh: -0.6, ds: -1 },
+      "ga/ct": { dh: -8.2, ds: -22.2 },
+      "ga/gt": { dh: 1.6, ds: 3.6 },
+      "ga/tt": { dh: -1.3, ds: -5.3 },
+      "gc/-g": { dh: -5.1, ds: -14 },
+      "gc/ag": { dh: -0.6, ds: -1 },
+      "gc/c-": { dh: -0.2, ds: -0.1 },
+      "gc/ca": { dh: -0.7, ds: -3.8 },
+      "gc/cc": { dh: 3.6, ds: 8.9 },
+      "gc/cg": { dh: -9.8, ds: -24.4 },
+      "gc/ct": { dh: 2.3, ds: 5.4 },
+      "gc/gg": { dh: -6, ds: -15.8 },
+      "gc/tg": { dh: -4.4, ds: -12.3 },
+      "gg/-c": { dh: -3.9, ds: -10.9 },
+      "gg/ac": { dh: -0.7, ds: -2.3 },
+      "gg/c-": { dh: -3.9, ds: -11.2 },
+      "gg/ca": { dh: 0.5, ds: 3.2 },
+      "gg/cc": { dh: -8, ds: -19.9 },
+      "gg/cg": { dh: -6, ds: -15.8 },
+      "gg/ct": { dh: 3.3, ds: 10.4 },
+      "gg/gc": { dh: -4.9, ds: -15.3 },
+      "gg/tc": { dh: -2.8, ds: -8 },
+      "gt/-a": { dh: -4.2, ds: -15 },
+      "gt/aa": { dh: -0.6, ds: -2.3 },
+      "gt/c-": { dh: -4.4, ds: -13.1 },
+      "gt/ca": { dh: -8.4, ds: -22.4 },
+      "gt/cc": { dh: 5.2, ds: 13.5 },
+      "gt/cg": { dh: -4.4, ds: -12.3 },
+      "gt/ct": { dh: -2.2, ds: -8.4 },
+      "gt/ga": { dh: -3.1, ds: -9.5 },
+      "gt/ta": { dh: -2.5, ds: -8.3 },
+      "t-/aa": { dh: 0.2, ds: 2.3 },
+      "t-/ac": { dh: 0.6, ds: 3.3 },
+      "t-/ag": { dh: -1.1, ds: -1.6 },
+      "t-/at": { dh: -6.9, ds: -20 },
+      "ta/-t": { dh: -6.9, ds: -20 },
+      "ta/a-": { dh: -0.7, ds: -0.8 },
+      "ta/aa": { dh: 4.7, ds: 12.9 },
+      "ta/ac": { dh: 3.4, ds: 8 },
+      "ta/ag": { dh: 0.7, ds: 0.7 },
+      "ta/at": { dh: -7.2, ds: -20.4 },
+      "ta/ct": { dh: 1.2, ds: 0.7 },
+      "ta/gt": { dh: -0.1, ds: -1.7 },
+      "ta/tt": { dh: 0.2, ds: -1.5 },
+      "tc/-g": { dh: -4, ds: -10.9 },
+      "tc/a-": { dh: 4.4, ds: 14.9 },
+      "tc/aa": { dh: 7.6, ds: 20.2 },
+      "tc/ac": { dh: 6.1, ds: 16.4 },
+      "tc/ag": { dh: -8.2, ds: -22.2 },
+      "tc/at": { dh: 1.2, ds: 0.7 },
+      "tc/cg": { dh: 2.3, ds: 5.4 },
+      "tc/gg": { dh: 3.3, ds: 10.4 },
+      "tc/tg": { dh: -2.2, ds: -8.4 },
+      "tg/-c": { dh: -4.9, ds: -13.8 },
+      "tg/a-": { dh: -1.6, ds: -3.6 },
+      "tg/aa": { dh: 3, ds: 7.4 },
+      "tg/ac": { dh: -8.5, ds: -22.7 },
+      "tg/ag": { dh: 1.6, ds: 3.6 },
+      "tg/at": { dh: -0.1, ds: -1.7 },
+      "tg/cc": { dh: -0.8, ds: -4.5 },
+      "tg/gc": { dh: -4.1, ds: -11.7 },
+      "tg/tc": { dh: -5, ds: -15.8 },
+      "tt/-a": { dh: -0.2, ds: -0.5 },
+      "tt/a-": { dh: 2.9, ds: 10.4 },
+      "tt/aa": { dh: -7.6, ds: -21.3 },
+      "tt/ac": { dh: 1, ds: 0.7 },
+      "tt/ag": { dh: -1.3, ds: -5.3 },
+      "tt/at": { dh: 0.2, ds: -1.5 },
+      "tt/ca": { dh: 0.7, ds: 0.2 },
+      "tt/ga": { dh: 1, ds: 0.9 },
+      "tt/ta": { dh: -2.7, ds: -10.8 },
+    },
+    y = {
+      3: { dh: 0, ds: -10.3 },
+      4: { dh: 0, ds: -11.6 },
+      5: { dh: 0, ds: -12.9 },
+      6: { dh: 0, ds: -14.2 },
+      7: { dh: 0, ds: -14.8 },
+      8: { dh: 0, ds: -15.5 },
+      9: { dh: 0, ds: -15.8 },
+      10: { dh: 0, ds: -15.8 },
+      12: { dh: 0, ds: -16.8 },
+      14: { dh: 0, ds: -17.4 },
+      16: { dh: 0, ds: -18.1 },
+      18: { dh: 0, ds: -18.7 },
+      20: { dh: 0, ds: -19 },
+      25: { dh: 0, ds: -20.3 },
+      30: { dh: 0, ds: -21.3 },
+    },
+    k = {
+      1: { dh: 0, ds: -12.9 },
+      2: { dh: 0, ds: -9.4 },
+      3: { dh: 0, ds: -10 },
+      4: { dh: 0, ds: -10.3 },
+      5: { dh: 0, ds: -10.6 },
+      6: { dh: 0, ds: -11.3 },
+      7: { dh: 0, ds: -11.9 },
+      8: { dh: 0, ds: -12.6 },
+      9: { dh: 0, ds: -13.2 },
+      10: { dh: 0, ds: -13.9 },
+      12: { dh: 0, ds: -14.5 },
+      14: { dh: 0, ds: -15.5 },
+      16: { dh: 0, ds: -16.1 },
+      18: { dh: 0, ds: -16.8 },
+      20: { dh: 0, ds: -17.1 },
+      25: { dh: 0, ds: -28.1 },
+      30: { dh: 0, ds: -19 },
+    },
+    M = 0,
+    P,
+    L,
+    G,
+    R,
+    N,
+    U = function () {
+      var Q,
+        Z = this.wseq.split(""),
+        oe = this.cseq.split("").reverse(),
+        X;
+      for (Q = 0; Q < Z.length; ++Q)
+        Z[Q] === Ge.comp(oe[Q])
+          ? (this.pairmap += "|")
+          : Z[Q] === "-" || oe[Q] === "-"
+            ? (this.pairmap += "^")
+            : (this.pairmap += "x");
+      for (X = this.pairmap.split(""), Q = 1; Q < X.length; ++Q)
+        X[Q] === "x" && (X[Q - 1] === "x" || X[Q - 1] === "_") && ((X[Q] = "_"), (X[Q - 1] = "_"));
+      for (this.pairmap = X.join(""); this.pairmap.search(/\^+_+|_+\^+/) !== -1; )
+        this.pairmap = this.pairmap.replace(/\^+_+|_+\^+/, function (re, x, le) {
+          le.slice(0, x);
+          var z = new Array(re.length + 1).join("_");
+          return (le.slice(x + re.length), z);
+        });
+      for (; this.pairmap.search(/\^+x|x\^+/) !== -1; )
+        this.pairmap = this.pairmap.replace(/\^+x|x\^+/, function (re, x, le) {
+          le.slice(0, x);
+          var z = new Array(re.length + 1).join("_");
+          return (le.slice(x + re.length), z);
+        });
+      for (; this.pairmap.search(/_+[x^]|[x^]_+/) !== -1; )
+        this.pairmap = this.pairmap.replace(/_+[x^]|[x^]_+/, function (re, x, le) {
+          le.slice(0, x);
+          var z = new Array(re.length + 1).join("_");
+          return (le.slice(x + re.length), z);
+        });
+    },
+    B = function () {
+      ((this.sc_sch = (16.6 * Math.log(this.saltc)) / Math.LN10),
+        (this.sc_sl = 0.368 * this.wseq.length * Math.log(this.saltc)),
+        (this.sc_ow =
+          (4.29 * this.fgc - 3.95) * 1e-5 * Math.log(this.saltc) +
+          94e-7 * Math.log(this.saltc) * Math.log(this.saltc)));
+    },
+    F = function (Q) {
+      return ((this.method = Q), this);
+    },
+    I = function (Q, Z) {
+      var oe;
+      for (
+        this.seq = Q,
+          this.wseq = Ge.trim(this.seq.toLowerCase().replace(/\s/g, "")),
+          Z ? (this.cseq = Ge.trim(Z.toLowerCase().replace(/\s/g, ""))) : (this.cseq = Ge.revcomp(this.wseq)),
+          this.sym = this.wseq === this.cseq,
+          this.gc_cnt = 0,
+          oe = 0;
+        oe < this.wseq.length;
+        ++oe
+      )
+        (this.wseq.charAt(oe) === "g" || this.wseq.charAt(oe) === "c") && (this.gc_cnt += 1);
+      return ((this.fgc = this.gc_cnt / this.wseq.length), this.saltCorrect(), this);
+    },
+    H = function (Q) {
+      return ((this.ct = Q), (this.primerc = e * 1e-6), this);
+    },
+    W = function (Q) {
+      return ((this.salt = Q), (this.saltc = this.salt * 0.001), this.saltCorrect(), this);
+    },
+    D = function (Q) {
+      return ((this.dmso = Q), this);
+    },
+    V = function () {
+      var Q = 0,
+        Z = 0,
+        oe = 0,
+        X = 0,
+        re = 0,
+        x = 0,
+        le = this.primerc,
+        z,
+        fe,
+        de = this.wseq.split(""),
+        pe = this.cseq.split("").reverse(),
+        ye;
+      switch (
+        (this.pairmap === "" &&
+          (this.buildPairMap(),
+          (de = this.wseq.split("")),
+          (pe = this.cseq.split("").reverse()),
+          Ge.dmsg(
+            this.wseq +
+              `
+` +
+              this.pairmap +
+              `
+` +
+              Ge.rev(this.cseq),
+          )),
+        (ye = this.pairmap.split("")),
+        this.method)
+      ) {
+        case 1:
+          for (X += this.sym ? -12.4 : -10.8, z = 0; z < this.wseq.length - 1; ++z)
+            ((fe = this.wseq.slice(z, z + 2)), (Z += this.dSBr[fe]), (oe += this.dHBr[fe]));
+          ((oe *= 1e3), (Q = oe / (X + Z + this.R * Math.log(le)) - 273.15 + this.sc_sch));
+          break;
+        case 3:
+        case 4:
+          for (
+            x = this.sym ? -1.4 : 0,
+              X = -5.7,
+              re = 200,
+              (de[0] === "a" || de[0] === "t") && ((X += 6.9), (re += 2200)),
+              (de[f.length - 1] === "a" || de[this.wseq.length - 1] === "t") && ((X += 6.9), (re += 2200)),
+              z = 0;
+            z < this.wseq.length - 1;
+            z++
+          )
+            (ye[z] === "|" || ye[z] === "x") &&
+              (ye[z + 1] === "|" || ye[z + 1] === "x") &&
+              ((fe = de[z] + de[z + 1] + "/" + pe[z] + pe[z + 1]),
+              b.hasOwnProperty(fe) && ((Z += this.nndhds[fe].ds), (oe += this.nndhds[fe].dh)));
+          ((Q = (oe * 1e3 + re) / (X + x + Z + this.R * Math.log(le))),
+            Ge.dmsg("tm of non-looped portion: " + Q));
+          var ve,
+            Se,
+            me = !1;
+          ((me = !1), (ve = 0), (Se = 0));
+          var we, _e;
+          for (z = 0; z < ye.length; ++z)
+            if (ye[z] === "_") {
+              if ((de[z] !== "-" && (ve += 1), pe[z] !== "-" && (Se += 1), !me)) {
+                for (me = !0, we = z; de[we] === "-"; ) ++we;
+                for (_e = z; pe[_e] === "-"; ) ++_e;
+                ((Z += this.nndhds[de[z - 1] + "-/" + pe[z - 1] + pe[_e]].ds),
+                  (oe += this.nndhds[de[z - 1] + "-/" + pe[z - 1] + pe[_e]].dh),
+                  (Z += this.nndhds[de[z - 1] + de[we] + "/" + pe[z - 1] + "-"].ds),
+                  (oe += this.nndhds[de[z - 1] + de[we] + "/" + pe[z - 1] + "-"].dh));
+              }
+            } else {
+              if (ve + Se > 0) {
+                for (
+                  Ge.dmsg("loop: " + (ve + Se)),
+                    Z += this.loop["" + (ve + Se)].ds,
+                    Z -= Math.abs(ve - Se) * 0.97,
+                    we = z - 1;
+                  de[we] === "-";
+                )
+                  --we;
+                for (_e = z - 1; pe[_e] === "-"; ) --_e;
+                ((Z += this.nndhds["-" + de[z] + "/" + pe[_e] + pe[z]].ds),
+                  (oe += this.nndhds["-" + de[z] + "/" + pe[_e] + pe[z]].dh),
+                  (Z += this.nndhds[de[we] + de[z] + "/-" + pe[z]].ds),
+                  (oe += this.nndhds[de[we] + de[z] + "/-" + pe[z]].dh));
+              }
+              ((ve = 0), (Se = 0), (me = !1));
+            }
+          var j = 0;
+          for (z = 0; z < ye.length; ++z)
+            ye[z] === "^"
+              ? (j += 1)
+              : (j === 1 && z >= 2
+                  ? ((Z += this.bulge["" + j].ds),
+                    (Z += this.nndhds[de[z - 2] + de[z] + "/" + pe[z - 2] + pe[z]].ds),
+                    (oe += this.nndhds[de[z - 2] + de[z] + "/" + pe[z - 2] + pe[z]].dh))
+                  : j > 1 && (Z += this.bulge["" + j].ds),
+                (j = 0));
+          ((oe *= 1e3),
+            (Q = (oe + re) / (X + x + Z + this.R * Math.log(le))),
+            this.method === 3
+              ? (Q = 1 / (1 / Q + this.sc_sl / (oe + re)))
+              : this.method === 4 && (Q = 1 / (1 / Q + this.sc_ow)),
+            (Q -= 273.15));
+          break;
+        case 7:
+          Q = 81.5 + (16.6 * Math.log(this.saltc)) / Math.LN10 + 0.41 * this.fgc - 675 / this.wseq.length;
+          break;
+      }
+      return (
+        (Q = Q - this.dmso * 0.6),
+        Ge.dmsg("Tm is " + Q),
+        {
+          method: this.method,
+          wseq: this.wseq,
+          cseq: this.cseq,
+          tm: Q,
+          dh: oe,
+          ds: Z,
+          salt: this.saltc,
+          ct: this.primerc,
+          dmso: this.dmso,
+        }
+      );
+    };
+  for (d = f === u, p = e * 1e-6, m = n * 0.001, N = 0; N < f.length; ++N)
+    (f.charAt(N) === "g" || f.charAt(N) === "c") && (M += 1);
+  return (
+    (P = M / f.length),
+    (L = (16.6 * Math.log(m)) / Math.LN10),
+    (G = 0.368 * f.length * Math.log(m)),
+    (R = (4.29 * P - 3.95) * 1e-5 * Math.log(m) + 94e-7 * Math.log(m) * Math.log(m)),
+    {
+      setSeq: I,
+      setSalt: W,
+      setCt: H,
+      setDMSO: D,
+      setMethod: F,
+      saltCorrect: B,
+      Tm: V,
+      gc_cnt: M,
+      fgc: P,
+      sc_sch: L,
+      sc_sl: G,
+      sc_ow: R,
+      seq: t,
+      compseq: r,
+      ct: e,
+      salt: n,
+      dmso: l,
+      method: a,
+      wseq: f,
+      cseq: u,
+      sym: d,
+      pairmap: h,
+      buildPairMap: U,
+      primerc: p,
+      saltc: m,
+      R: _,
+      dSSa: q,
+      dHSa: A,
+      dSBr: w,
+      dHBr: C,
+      nndhds: b,
+      loop: y,
+      bulge: k,
+    }
+  );
+};
+Ge.isValidSeq = function (s, t, e) {
+  var n = " acgt";
+  n += n.toUpperCase();
+  var l = " acgtwsrymkbdhvn";
+  l += l.toUpperCase();
+  var a, r;
+  for (t === !1 ? (a = n) : (a = l), e === !0 && (a += "-"), r = 0; r < s.length; ++r)
+    if (a.indexOf(s.charAt(r)) === -1) return !1;
+  return !0;
+};
+Ge.dmsg = function (s) {
+  typeof window.console < "u" && typeof window.console.log == "function" && window.console.log(s);
+};
+var Uo = {};
+(function (s) {
+  var t = s;
+  return (
+    (t.alignDNAglobal = function (e) {
+      var n = e.param || {},
+        l = e.fullSeq1 || "",
+        a = e.fullSeq2 || "",
+        r,
+        f,
+        u,
+        h,
+        d = [],
+        p = [],
+        m,
+        _,
+        w,
+        q,
+        C = n.gap || -5,
+        A = n.term || -1,
+        b = n.extend || -1,
+        y = [],
+        k,
+        M = [],
+        P = n.mat || {
+          a: { a: 3, c: -3, g: -3, t: -3 },
+          c: { a: -3, c: 3, g: -3, t: -3 },
+          g: { a: -3, c: -3, g: 3, t: -3 },
+          t: { a: -3, c: -3, g: -3, t: 3 },
+        };
+      if (l == "" || a == "") return e;
+      for (
+        r = ("-" + l.toLowerCase()).split(""),
+          f = ("-" + a.toLowerCase()).split(""),
+          w = r.length,
+          q = f.length,
+          m = 0;
+        m < w;
+        ++m
+      )
+        for (d[m] = [], p[m] = [], _ = 0; _ < q; ++_) ((d[m][_] = 0), (p[m][_] = []));
+      for (d[1][0] = C, p[1][0].push(1), m = 2; m < w; ++m) ((d[m][0] = m * A), p[m][0].push(1));
+      for (d[0][1] = C, p[0][1].push(2), _ = 2; _ < q; ++_) ((d[0][_] = _ * A), p[0][_].push(2));
+      for (m = 1; m < w; ++m)
+        for (_ = 1; _ < q; ++_)
+          ((y[0] = d[m - 1][_ - 1] + P[r[m]][f[_]]),
+            p[m - 1][_].indexOf(1) != -1 ? (y[1] = d[m - 1][_] + b) : (y[1] = d[m - 1][_] + C),
+            p[m][_ - 1].indexOf(2) != -1 ? (y[2] = d[m][_ - 1] + b) : (y[2] = d[m][_ - 1] + C),
+            (k = Math.max(y[0], y[1], y[2])),
+            (d[m][_] = k),
+            k === y[0] && p[m][_].push(0),
+            k === y[1] && p[m][_].push(1),
+            k === y[2] && p[m][_].push(2));
+      for (m = w - 1, _ = q - 1, u = "", h = ""; p[m][_].length != 0; )
+        switch (p[m][_][p[m][_].length - 1]) {
+          case 0:
+            ((u = r[m--] + u), (h = f[_--] + h));
+            break;
+          case 1:
+            ((u = r[m--] + u), (h = "-" + h));
+            break;
+          case 2:
+            ((h = f[_--] + h), (u = "-" + u));
+            break;
+        }
+      var L, G, R, N;
+      return (
+        (L = m),
+        (R = _),
+        (G = M[0] - 1),
+        (N = M[1] - 1),
+        e.setAlignedSeqs(u, L, G, h, R, N, t.buildAlignMap(u, h)),
+        e
+      );
+    }),
+    (t.alignDNAlocal = function (e) {
+      e.param || (e.param = {});
+      var n,
+        l,
+        a,
+        r,
+        f = [],
+        u = [],
+        h,
+        d,
+        p,
+        m,
+        _ = e.param.gap || -12,
+        w = e.param.extend || -1,
+        q = [],
+        C,
+        A = 0,
+        b = [0, 0],
+        y = 2,
+        k = -4,
+        M = e.param.mat || {
+          a: { a: y, c: k, g: k, t: k },
+          c: { a: k, c: y, g: k, t: k },
+          g: { a: k, c: k, g: y, t: k },
+          t: { a: k, c: k, g: k, t: y },
+        };
+      for (
+        n = ("-" + e.fullSeq1.toLowerCase()).split(""),
+          l = ("-" + e.fullSeq2.toLowerCase()).split(""),
+          p = n.length,
+          m = l.length,
+          h = 0;
+        h < p;
+        ++h
+      )
+        for (f[h] = [], u[h] = [], d = 0; d < m; ++d) ((f[h][d] = 0), (u[h][d] = []));
+      for (f[1][0] = 0, u[1][0].push(1), h = 2; h < p; ++h) ((f[h][0] = 0), u[h][0].push(-1));
+      for (f[0][1] = 0, u[0][1].push(2), d = 2; d < m; ++d) ((f[0][d] = 0), u[0][d].push(-1));
+      for (h = 1; h < p; ++h)
+        for (d = 1; d < m; ++d)
+          ((q[0] = f[h - 1][d - 1] + M[n[h]][l[d]]),
+            u[h - 1][d].indexOf(1) != -1 ? (q[1] = f[h - 1][d] + w) : (q[1] = f[h - 1][d] + _),
+            u[h][d - 1].indexOf(2) != -1 ? (q[2] = f[h][d - 1] + w) : (q[2] = f[h][d - 1] + _),
+            (C = Math.max(q[0], q[1], q[2], 0)),
+            (f[h][d] = C),
+            f[h][d] > A && ((A = f[h][d]), (b = [h, d])),
+            C === 0 && u[h][d].push(-1),
+            C === q[0] && u[h][d].push(0),
+            C === q[1] && u[h][d].push(1),
+            C === q[2] && u[h][d].push(2),
+            C === 0 && u[h][d].push(-1));
+      ((h = b[0]), (d = b[1]), (a = ""), (r = ""));
+      e: for (; u[h][d].length != 0; )
+        switch (u[h][d][u[h][d].length - 1]) {
+          case 0:
+            ((a = n[h--] + a), (r = l[d--] + r));
+            break;
+          case 1:
+            ((a = n[h--] + a), (r = "-" + r));
+            break;
+          case 2:
+            ((r = l[d--] + r), (a = "-" + a));
+            break;
+          case -1:
+            break e;
+        }
+      var P, L, G, R;
+      return (
+        (P = h),
+        (G = d),
+        (L = b[0] - 1),
+        (R = b[1] - 1),
+        console.log("start/end aln1: " + P + "/" + L),
+        console.log(a),
+        console.log("start/end aln2: " + G + "/" + R),
+        console.log(r),
+        e.setAlignedSeqs(a, P, L, r, G, R, t.buildAlignMap(a, r)),
+        e
+      );
+    }),
+    (t.alignDNAprobe = function (e, n) {
+      (console.log("starting probe alignment"), e.param || (e.param = {}));
+      var l,
+        a,
+        r,
+        f,
+        u = [],
+        h = [],
+        d,
+        p,
+        m,
+        _,
+        w,
+        q = e.param.gap || -20,
+        C = e.param.extend || -1,
+        A = [],
+        b,
+        y = 0,
+        k = [0, 0],
+        M = !1,
+        P = 20,
+        L = 2,
+        G = -4,
+        R = e.param.mat || {
+          a: { a: L, c: G, g: G, t: G },
+          c: { a: G, c: L, g: G, t: G },
+          g: { a: G, c: G, g: L, t: G },
+          t: { a: G, c: G, g: G, t: L },
+        };
+      if (e.fullSeq1 === "" || e.fullSeq2 === "") return null;
+      for (
+        n
+          ? ((l = (e.fullSeq1.toLowerCase() + "-").split("").reverse()),
+            (a = (e.fullSeq2.toLowerCase() + "-").split("").reverse()))
+          : ((l = ("-" + e.fullSeq1.toLowerCase()).split("")),
+            (a = ("-" + e.fullSeq2.toLowerCase()).split(""))),
+          _ = l.length,
+          w = a.length,
+          d = 0;
+        d < _;
+        ++d
+      )
+        for (u[d] = [], h[d] = [], p = 0; p < w; ++p) ((u[d][p] = 0), (h[d][p] = []));
+      for (u[1][0] = 0, h[1][0].push(1), d = 2; d < _; ++d) ((u[d][0] = 0), h[d][0].push(-1));
+      for (u[0][1] = 0, h[0][1].push(2), p = 2; p < w; ++p) ((u[0][p] = 0), h[0][p].push(-1));
+      for (console.log("s:" + l, "t:" + a), d = 1; d < _; ++d)
+        for (p = 1; p < w; ++p)
+          ((A[0] = u[d - 1][p - 1] + R[l[d]][a[p]]),
+            h[d - 1][p].indexOf(1) != -1 ? (A[1] = u[d - 1][p] + C) : (A[1] = u[d - 1][p] + q),
+            h[d][p - 1].indexOf(2) != -1 ? (A[2] = u[d][p - 1] + C) : (A[2] = u[d][p - 1] + q),
+            M ? (b = Math.max(A[0], A[1], A[2])) : (b = Math.max(A[0], A[1], A[2], 0)),
+            !M && b > P && ((M = !0), console.log("threshold reached -- flag set")),
+            (u[d][p] = b),
+            b === 0 && !M && h[d][p].push(-1),
+            b === A[0] && h[d][p].push(0),
+            b === A[1] && h[d][p].push(1),
+            b === A[2] && h[d][p].push(2));
+      for (y = -999, d = l.length - 1, m = 1; m < a.length; ++m)
+        (console.log("score: " + u[d][m] + " highscore: " + y), u[d][m] > y && ((y = u[d][m]), (p = m)));
+      ((k = [d, p]), console.log("start traceback at " + d + " " + p), (r = ""), (f = ""));
+      e: for (; h[d][p].length !== 0; )
+        switch (h[d][p][h[d][p].length - 1]) {
+          case 0:
+            ((r = l[d--] + r), (f = a[p--] + f));
+            break;
+          case 1:
+            ((r = l[d--] + r), (f = "-" + f));
+            break;
+          case 2:
+            ((f = a[p--] + f), (r = "-" + r));
+            break;
+          case -1:
+            break e;
+        }
+      n && ((r = r.split("").reverse().join("")), (f = f.split("").reverse().join("")));
+      var N, U, B, F;
+      return (
+        (N = d),
+        (B = p),
+        (U = k[0] - 1),
+        (F = k[1] - 1),
+        n &&
+          ((N = l.length - k[0] - 1),
+          (U = l.length - d - 2),
+          (B = a.length - k[1] - 1),
+          (F = a.length - p - 2)),
+        console.log("probe :" + e.fullSeq1.toLowerCase() + " len: " + e.fullSeq1.length),
+        console.log("start/end aln1: " + N + "/" + U),
+        console.log("aligned probe: " + r),
+        console.log("target :" + e.fullSeq1.toLowerCase() + " len: " + e.fullSeq2.length),
+        console.log("start/end aln2: " + B + "/" + F),
+        console.log("aligned target: " + f),
+        console.log(t.buildAlignMap(r, f)),
+        e.setAlignedSeqs(r, N, U, f, B, F, t.buildAlignMap(r, f)),
+        e
+      );
+    }),
+    (t.alignDNAhalfFit = function (e, n) {
+      (console.log("starting halfFit alignment"), console.log("rev: " + n), e.param || (e.param = {}));
+      var l,
+        a,
+        r,
+        f,
+        u = [],
+        h = [],
+        d,
+        p,
+        m,
+        _,
+        w = e.param.gap || -12,
+        q = e.param.extend || -1,
+        C = [],
+        A,
+        b = 0,
+        y = [0, 0],
+        k = 2,
+        M = -4,
+        P = e.param.mat || {
+          a: { a: k, c: M, g: M, t: M },
+          c: { a: M, c: k, g: M, t: M },
+          g: { a: M, c: M, g: k, t: M },
+          t: { a: M, c: M, g: M, t: k },
+        };
+      if (e.fullSeq1 === "" || e.fullSeq2 === "") return null;
+      for (
+        n
+          ? ((l = (e.fullSeq1.toLowerCase() + "-").split("").reverse()),
+            (a = (e.fullSeq2.toLowerCase() + "-").split("").reverse()))
+          : ((l = ("-" + e.fullSeq1.toLowerCase()).split("")),
+            (a = ("-" + e.fullSeq2.toLowerCase()).split(""))),
+          m = l.length,
+          _ = a.length,
+          d = 0;
+        d < m;
+        ++d
+      )
+        for (u[d] = [], h[d] = [], p = 0; p < _; ++p) ((u[d][p] = 0), (h[d][p] = []));
+      for (u[1][0] = 0, h[1][0].push(1), d = 2; d < m; ++d) ((u[d][0] = d * w), h[d][0].push(1));
+      for (u[0][1] = 0, h[0][1].push(2), p = 2; p < _; ++p) ((u[0][p] = 0), h[0][p].push(-1));
+      for (console.log("s:" + l, "t:" + a), d = 1; d < m; ++d)
+        for (p = 1; p < _; ++p)
+          ((C[0] = u[d - 1][p - 1] + P[l[d]][a[p]]),
+            h[d - 1][p].indexOf(1) != -1 ? (C[1] = u[d - 1][p] + q) : (C[1] = u[d - 1][p] + w),
+            h[d][p - 1].indexOf(2) != -1 ? (C[2] = u[d][p - 1] + q) : (C[2] = u[d][p - 1] + w),
+            (A = Math.max(C[0], C[1], C[2])),
+            (u[d][p] = A),
+            u[d][p] > b && ((b = u[d][p]), (y = [d, p])),
+            A === C[0] && h[d][p].push(0),
+            A === C[1] && h[d][p].push(1),
+            A === C[2] && h[d][p].push(2));
+      ((d = y[0]), (p = y[1]), (r = ""), (f = ""));
+      e: for (; h[d][p].length !== 0; )
+        switch (h[d][p][h[d][p].length - 1]) {
+          case 0:
+            ((r = l[d--] + r), (f = a[p--] + f));
+            break;
+          case 1:
+            ((r = l[d--] + r), (f = "-" + f));
+            break;
+          case 2:
+            ((f = a[p--] + f), (r = "-" + r));
+            break;
+          case -1:
+            break e;
+        }
+      (console.log("end of traceback"),
+        console.log("highcoord: [" + y[0] + "," + y[1] + "]"),
+        console.log("i:" + d),
+        console.log("j:" + p),
+        console.log("s_aln:" + r),
+        console.log("t_aln:" + f),
+        n &&
+          ((r = r.split("").reverse().join("")),
+          (f = f.split("").reverse().join("")),
+          console.log("reversing aligned seqs"),
+          console.log("s_aln:" + r),
+          console.log("t_aln:" + f)));
+      var L, G, R, N;
+      return (
+        (L = d),
+        (R = p),
+        (G = y[0] - 1),
+        (N = y[1] - 1),
+        n &&
+          ((L = l.length - y[0] - 1),
+          (G = l.length - d - 2),
+          (R = a.length - y[1] - 1),
+          (N = a.length - p - 2)),
+        console.log("probe :" + e.fullSeq1.toLowerCase() + " len: " + e.fullSeq1.length),
+        console.log("start/end aln1: " + L + "/" + G),
+        console.log("aligned probe: " + r),
+        console.log("target :" + e.fullSeq2.toLowerCase() + " len: " + e.fullSeq2.length),
+        console.log("start/end aln2: " + R + "/" + N),
+        console.log("aligned target: " + f),
+        console.log(t.buildAlignMap(r, f)),
+        e.setAlignedSeqs(r, L, G, f, R, N, t.buildAlignMap(r, f)),
+        e
+      );
+    }),
+    (t.buildAlignMap = function (e, n) {
+      var l = e.split(""),
+        a = n.split(""),
+        r,
+        f = "",
+        u;
+      for (u = 0; u < l.length; ++u)
+        l[u] === a[u] ? (f += "|") : l[u] === "-" || a[u] === "-" ? (f += "^") : (f += "x");
+      if (((r = f.split("")), console.log("amap before:" + r.join("")), r[0] === "x" || r[0] === "^")) {
+        for (u = 0; u < r.length - 1; ++u)
+          if (r[u] === "x" || r[u] === "^")
+            if (r[u + 1] !== "x" && r[u + 1] !== "^") {
+              r[u] === "^" && (r[u] = ".");
+              break;
+            } else r[u] = ".";
+      }
+      if ((console.log("amap mid:" + r.join("")), r[r.length - 1] === "x" || r[r.length - 1] === "^")) {
+        for (u = r.length - 1; u > 1; --u)
+          if (r[u] === "x" || r[u] === "^")
+            if (r[u - 1] !== "x" && r[u - 1] !== "^") {
+              r[u] === "^" && (r[u] = ".");
+              break;
+            } else r[u] = ".";
+      }
+      (console.log("amap after:" + r.join("")), (f = r.join("")));
+      for (var h = /x{2,}/g, d = /x*\^+x+|x+\^+x*/g, p, m, _; (p = d.exec(f)); )
+        for (m = p.index, _ = p[0].length, u = m; u < m + _; ++u) r[u] = "=";
+      for (; (p = h.exec(f)); ) for (m = p.index, _ = p[0].length, u = m; u < m + _; ++u) r[u] = "_";
+      return r.join("");
+    }),
+    (t.Alignment = function (e, n, l, a) {
+      ((this.type = e),
+        (this.fullSeq1 = this.sanitize(n)),
+        (this.fullSeq2 = this.sanitize(l)),
+        (this.param = a),
+        (this.alnStart1 = 0),
+        (this.alnEnd1 = 0),
+        (this.alnStart2 = 0),
+        (this.alnEnd2 = 0),
+        (this.alnSeq1 = ""),
+        (this.alnSeq2 = ""),
+        (this.alnMap = ""),
+        (this.offset = 0));
+    }),
+    (t.Alignment.prototype.coordS2 = function (e) {
+      var n = null,
+        l = 0,
+        a = 0,
+        r = 0;
+      if (e < 0 || e >= this.fullSeq1.length)
+        throw { name: "coordinate out of bounds ", description: "coordinate " + e + " was out of bounds" };
+      if (e < this.alnStart1) return ((n = this.alnStart2 - (this.alnStart1 - e)), n < 0 ? null : n);
+      if (e > this.alnEnd1)
+        return ((n = this.alnEnd2 + (e - this.alnEnd1)), n >= this.fullSeq2.length ? null : n);
+      for (n = this.alnStart2, l = this.alnStart1, a = this.alnStart2, r = 0; l !== e; )
+        (this.alnSeq1[r] !== "-" && this.alnSeq2[r] !== "-"
+          ? (++l, ++a)
+          : this.alnSeq1[r] === "-"
+            ? ++a
+            : ++l,
+          ++r);
+      return this.alnSeq2[r] === "-" ? "-" : a;
+    }),
+    (t.Alignment.prototype.coordS1Offset = function (e) {
+      var n = 0,
+        l = 0;
+      if (e < 0 || e >= this.fullSeq1.length)
+        throw { name: "coordinate out of bounds ", description: "coordinate " + e + " was out of bounds" };
+      if (e < this.alnStart1 || e > this.alnEnd1) return null;
+      for (n = this.alnStart1, l = 0; n !== e; )
+        this.alnSeq1[l] !== "-" ? (++n, ++l) : this.alnSeq1[l] === "-" && ++l;
+      return l;
+    }),
+    (t.Alignment.prototype.coordS1 = function (e) {
+      var n = null,
+        l = 0,
+        a = 0,
+        r = 0;
+      if (e < 0 || e >= this.fullSeq2.length)
+        throw { name: "coordinate out of bounds ", description: "coordinate " + e + " was out of bounds" };
+      if (e < this.alnStart2) return ((n = this.alnStart1 - (this.alnStart2 - e)), n < 0 ? null : n);
+      if (e > this.alnEnd2)
+        return ((n = this.alnEnd1 + (e - this.alnEnd2)), n >= this.fullSeq1.length ? null : n);
+      for (n = this.alnStart1, l = this.alnStart1, a = this.alnStart2, r = 0; a !== e; )
+        (this.alnSeq1[r] !== "-" && this.alnSeq2[r] !== "-"
+          ? (++l, ++a)
+          : this.alnSeq2[r] === "-"
+            ? ++l
+            : ++a,
+          ++r);
+      return this.alnSeq1[r] === "-" ? "-" : l;
+    }),
+    (t.Alignment.prototype.coordS2Offset = function (e) {
+      var n = 0,
+        l = 0;
+      if (e < 0 || e >= this.fullSeq2.length)
+        throw { name: "coordinate out of bounds ", description: "coordinate " + e + " was out of bounds" };
+      if (e < this.alnStart2 || e > this.alnEnd2) return null;
+      for (n = this.alnStart2, l = 0; n !== e; )
+        this.alnSeq2[l] !== "-" ? (++n, ++l) : this.alnSeq2[l] === "-" && ++l;
+      return l;
+    }),
+    (t.Alignment.prototype.sanitize = function (e) {
+      return e.toLowerCase().replace(/[^acgt]+/g, "");
+    }),
+    (t.Alignment.prototype.setAlignedSeqs = function (e, n, l, a, r, f, u) {
+      ((this.offset = r - n),
+        (this.alnSeq1 = e),
+        (this.alnSeq2 = a),
+        (this.alnStart1 = n),
+        (this.alnStart2 = r),
+        (this.alnEnd1 = l),
+        (this.alnEnd2 = f),
+        (this.alnMap = u));
+    }),
+    (t.Alignment.prototype.isAlignedAtS1Coord = function (e) {
+      console.log("called isAlignedAtS1Coord with " + e);
+      var n = this.alnStart1,
+        l = this.alnEnd1;
+      return (console.log("start is " + n), console.log("end is " + l), e >= n && e <= l);
+    }),
+    (t.Alignment.prototype.isAlignedAtS2Coord = function (e) {
+      var n = this.alnStart2,
+        l = this.alnEnd2;
+      return e >= n && e <= l;
+    }),
+    (t.Alignment.prototype.isS2PresentAtS1Coord = function (e) {
+      console.log("isS2PresentAtS1Coord called with " + e);
+      var n = this.coordS2(e);
+      return (
+        console.log("s2coord is " + n),
+        n === null ? !1 : n === "-" ? !0 : n >= 0 && n <= this.fullSeq2.length - 1
+      );
+    }),
+    (t.Alignment.prototype.isS1PresentAtS2Coord = function (e) {
+      console.log("isS1PresentAtS2Coord called with " + e);
+      var n = this.coordS1(e);
+      return (
+        console.log("s1coord is " + n),
+        n === null ? !1 : n === "-" ? !0 : n >= 0 && n <= this.fullSeq1.length - 1
+      );
+    }),
+    (t.Alignment.prototype.getBasesAtS1Coord = function (e) {
+      console.log("getBasesAtS1Coord called with " + e);
+      var n = 0,
+        l = 0;
+      if (this.isAlignedAtS1Coord(e)) {
+        for (console.log("case aligned"), l = this.alnStart1, n = 0; l !== e; )
+          (this.alnSeq1[n] !== "-" && ++l, ++n);
+        console.log("offset is " + n);
+      } else
+        e < this.alnStart1
+          ? (console.log("case prior to aligned"), (n = e - this.alnStart1), console.log("offset is " + n))
+          : (console.log("case after aligned"),
+            (n = this.alnSeq1.length - 1 + (e - this.alnEnd1)),
+            console.log("offset is " + n));
+      return this.getBasesAtOffset(n);
+    }),
+    (t.Alignment.prototype.getBasesAtS2Coord = function (e) {
+      console.log("getBasesAtS2Coord called with " + e);
+      var n = 0,
+        l = 0;
+      if (this.isAlignedAtS2Coord(e)) {
+        for (console.log("case aligned"), l = this.alnStart2, n = 0; l !== e; )
+          (this.alnSeq2[n] !== "-" && ++l, ++n);
+        console.log("offset is " + n);
+      } else
+        e < this.alnStart2
+          ? (console.log("case prior to aligned"), (n = e - this.alnStart2), console.log("offset is " + n))
+          : (console.log("case after aligned"),
+            (n = this.alnSeq2.length - 1 + (e - this.alnEnd2)),
+            console.log("offset is " + n));
+      return this.getBasesAtOffset(n);
+    }),
+    (t.Alignment.prototype.getBasesAtOffset = function (e) {
+      console.log("getBasesAtOffset called with " + e);
+      var n = "",
+        l = "";
+      return (
+        e >= 0 && e < this.alnSeq1.length
+          ? (console.log("within alignment"), (n = this.alnSeq1[e]), (l = this.alnSeq2[e]))
+          : e < 0
+            ? (console.log("before alignment"),
+              this.alnStart1 + e >= 0 ? (n = this.fullSeq1[this.alnStart1 + e]) : (n = ""),
+              this.alnStart2 + e >= 0 ? (l = this.fullSeq2[this.alnStart2 + e]) : (l = ""))
+            : (console.log("after alignment"),
+              this.alnEnd1 + (e - this.alnSeq1.length + 1) < this.fullSeq1.length
+                ? (n = this.fullSeq1[this.alnEnd1 + (e - this.alnSeq1.length + 1)])
+                : (n = ""),
+              this.alnEnd2 + (e - this.alnSeq2.length + 1) < this.fullSeq2.length
+                ? (l = this.fullSeq2[this.alnEnd2 + (e - this.alnSeq2.length + 1)])
+                : (l = "")),
+        [n, l]
+      );
+    }),
+    (t.mergeAlignments = function (e, n) {
+      var l = null,
+        a = 0,
+        r = function (d, p) {
+          l = d;
+        },
+        f = function (d, p) {
+          r(d);
+        },
+        u = function () {
+          return l === "end" || l === "err";
+        },
+        h = {
+          start: function () {
+            if (((a = 0), (target = e.fullSeq2), e.isPresentAtS2Coord(a))) {
+              if (n.isPresentAtS2Coord(a)) {
+                r("overlap");
+                return;
+              }
+              r("p1");
+              return;
+            }
+            if (n.isPresentAtS2Coord(a)) {
+              if (e.isPresentAtS2Coord(a)) {
+                r("overlap");
+                return;
+              }
+              r("p2");
+              return;
+            }
+            (++targtpos, r("start"));
+          },
+          end: function () {},
+          err: function () {},
+          pre: function () {},
+          p1a: function () {},
+          p1b: function () {},
+          overlap: function () {
+            if ((++a, e.isPresentAtS2Coord(a))) {
+              if (n.isPresentAtS2Coord(a)) {
+                r("overlap");
+                return;
+              }
+              r("p1");
+              return;
+            }
+            if (n.isPresentAtS2Coord(a)) {
+              if (e.isPresentAtS2Coord(a)) {
+                r("overlap");
+                return;
+              }
+              r("p2");
+              return;
+            }
+          },
+          gap: function () {
+            if ((++a, !e.isPresentAtS2Coord(a) && !n.isPresentAtS2Coord(a))) {
+              r("gap");
+              return;
+            } else if (n.isPresentAtS2Coord(a)) {
+              r("p2");
+              return;
+            } else if (e.isPresentAtS2Coord(a)) {
+              r("p1");
+              return;
+            } else r("err");
+          },
+          p2a: function () {},
+          p2b: function () {},
+          post: function () {},
+        };
+      for (
+        e.alnMap.match(/[=^]/) || n.alnMap.match(/[=^]/) || e.fullSeq2 !== n.fullSeq2 ? f("err") : f("start");
+        !u();
+      )
+        switch (l) {
+          case "start":
+            h.start();
+            break;
+          case "end":
+            break;
+          case "err":
+            break;
+          case "pre":
+            break;
+          case "p1a":
+            break;
+          case "p1b":
+            break;
+          case "overlap":
+            h.overlap();
+            break;
+          case "gap":
+            h.gap();
+            break;
+        }
+    }),
+    t
+  );
+})(Uo);
+const mi = Uo,
+  un = {};
+un.revcompSeq = function (s) {
+  if ((console.log("reverse complement the seq"), !s)) return null;
+  var t = qe.revcomp(s, !0);
+  return t;
+};
+un.parseSeqFile = function (s, t, e) {
+  (console.log("parseSeqFile called"),
+    console.log("input_string", s),
+    console.log("filename", t),
+    console.log("ftype", e));
+  var n = s;
+  function l(m) {
+    (console.log("fileExtension"), (m = m.toLowerCase()));
+    var _ = "",
+      w = /\.(\w+)$/.exec(m);
+    return (w && w[1] && (_ = w[1]), _);
+  }
+  function a(m) {
+    return (
+      console.log("parseAny"),
+      m.search(/^[\s\r\n]*>/) !== -1 ? f(m) : m.search(/^[\s\r\n]*LOCUS/) !== -1 ? u(m) : r(m)
+    );
+  }
+  function r(m) {
+    console.log("parseRaw");
+    var _ = {
+      id: "seq",
+      seq: qe.sanitizeSeq(m),
+      isCircular: !1,
+      type: "dna",
+      topology: "linear",
+      length: m.length,
+    };
+    return _;
+  }
+  function f(m) {
+    console.log("parseFasta called");
+    var _, w, q, C, A;
+    (console.log(m), (C = m.split(/[\r\n]+|\r|\n/)), console.log(C));
+    for (var b = 0; C[b] == ""; ) b++;
+    return (
+      (q = /^\s*\>(\S+)\s*(.*)$/.exec(C[b])),
+      q && q.length > 0
+        ? (console.log("header"),
+          console.log(q),
+          (_ = q[1] || "seq"),
+          _[_.length - 1] === " " && (_ = _.splice(0, _.length - 1)))
+        : (_ = "seq"),
+      (C = C.slice(b + 1)),
+      (w = C.join("")),
+      console.log(_),
+      console.log(w),
+      (A = {
+        id: _,
+        seq: qe.sanitizeSeq(w),
+        isCircular: !1,
+        type: "dna",
+        topology: "linear",
+        length: w.length,
+      }),
+      console.log(A),
+      A
+    );
+  }
+  function u(m) {
+    console.log("parseGenbank");
+    var _ = m.split(/\r\n|\r|\n/),
+      w = /^LOCUS\s+(\w+)\s/,
+      q = w.exec(_[0]),
+      C = (q && q[1]) || "seq";
+    _[0].indexOf("circular");
+    for (var A = 0; !_[A++].startsWith("ORIGIN"); );
+    (console.log("remove 0 to ", A - 1), _.splice(0, A));
+    var b = _.join("");
+    b = qe.sanitizeSeq(b);
+    var y = { id: C, seq: b, isCircular: !1, type: "dna", topology: "linear", length: b.length };
+    return y;
+  }
+  var h = { any: a, raw: r, fasta: f, genbank: u };
+  ((e = e || "any"), (e = e.toLowerCase()));
+  var d;
+  if (!e && t) {
+    var p = l(t);
+    switch (p) {
+      case "fa":
+      case "fasta":
+      case "fas":
+      case "fna":
+      case "ffn":
+        e = "fasta";
+        break;
+      case "gb":
+      case "gbk":
+        e = "genbank";
+        break;
+      default:
+        e = "any";
+    }
+  } else e = "any";
+  if ((console.log("ftype is ", e), e in h)) ((d = h[e](n)), console.log("result"), console.log(d));
+  else throw new Error("parseSeqFile: invalid sequence format type");
+  return d;
+};
+un.buildFrag = function (s, t) {
+  console.log("buildFrag called with ", s, t);
+  try {
+    fragment = new Vo.Fragment("", { srctopology: "circular", srctype: "synth" });
+  } catch (e) {
+    return (console.log("unable to create fragment ", e.message), null);
+  }
+  if (s.seq)
+    try {
+      fragment.updateSrcseq(s.seq);
+    } catch (e) {
+      return (console.log("unable to update srcseq on fragment ", e.message), null);
+    }
+  return (
+    t && fragment.updateSrcseq(qe.revcomp(fragment.srcseq.wseq)),
+    (fragment.id = s.id),
+    (fragment.isCircular = s.topology == "circular"),
+    fragment
+  );
+};
+un.test = "seqinput lib";
+const br = un,
+  ql = "/assets/helpicon.6e85585d.svg";
+var en = window.CustomEvent;
+(!en || typeof en == "object") &&
+  ((en = function (t, e) {
+    e = e || {};
+    var n = document.createEvent("CustomEvent");
+    return (n.initCustomEvent(t, !!e.bubbles, !!e.cancelable, e.detail || null), n);
+  }),
+  (en.prototype = window.Event.prototype));
+function Ko(s, t) {
+  var e = "on" + t.type.toLowerCase();
+  return (typeof s[e] == "function" && s[e](t), s.dispatchEvent(t));
+}
+function wr(s) {
+  for (; s && s !== document.body; ) {
+    var t = window.getComputedStyle(s),
+      e = function (n, l) {
+        return !(t[n] === void 0 || t[n] === l);
+      };
+    if (
+      t.opacity < 1 ||
+      e("zIndex", "auto") ||
+      e("transform", "none") ||
+      e("mixBlendMode", "normal") ||
+      e("filter", "none") ||
+      e("perspective", "none") ||
+      t.isolation === "isolate" ||
+      t.position === "fixed" ||
+      t.webkitOverflowScrolling === "touch"
+    )
+      return !0;
+    s = s.parentElement;
+  }
+  return !1;
+}
+function an(s) {
+  for (; s; ) {
+    if (s.localName === "dialog") return s;
+    s.parentElement ? (s = s.parentElement) : s.parentNode ? (s = s.parentNode.host) : (s = null);
+  }
+  return null;
+}
+function Yo(s) {
+  for (; s && s.shadowRoot && s.shadowRoot.activeElement; ) s = s.shadowRoot.activeElement;
+  s && s.blur && s !== document.body && s.blur();
+}
+function Ar(s, t) {
+  for (var e = 0; e < s.length; ++e) if (s[e] === t) return !0;
+  return !1;
+}
+function ei(s) {
+  return !s || !s.hasAttribute("method") ? !1 : s.getAttribute("method").toLowerCase() === "dialog";
+}
+function Wo(s) {
+  var t = ["button", "input", "keygen", "select", "textarea"],
+    e = t.map(function (r) {
+      return r + ":not([disabled])";
+    });
+  e.push('[tabindex]:not([disabled]):not([tabindex=""])');
+  var n = s.querySelector(e.join(", "));
+  if (!n && "attachShadow" in Element.prototype)
+    for (
+      var l = s.querySelectorAll("*"), a = 0;
+      a < l.length && !(l[a].tagName && l[a].shadowRoot && ((n = Wo(l[a].shadowRoot)), n));
+      a++
+    );
+  return n;
+}
+function gi(s) {
+  return s.isConnected || document.body.contains(s);
+}
+function Qo(s) {
+  if (s.submitter) return s.submitter;
+  var t = s.target;
+  if (!(t instanceof HTMLFormElement)) return null;
+  var e = Ct.formSubmitter;
+  if (!e) {
+    var n = s.target,
+      l = ("getRootNode" in n && n.getRootNode()) || document;
+    e = l.activeElement;
+  }
+  return !e || e.form !== t ? null : e;
+}
+function Cr(s) {
+  if (!s.defaultPrevented) {
+    var t = s.target,
+      e = Ct.imagemapUseValue,
+      n = Qo(s);
+    e === null && n && (e = n.value);
+    var l = an(t);
+    if (!!l) {
+      var a = (n && n.getAttribute("formmethod")) || t.getAttribute("method");
+      a === "dialog" && (s.preventDefault(), e != null ? l.close(e) : l.close());
+    }
+  }
+}
+function zo(s) {
+  if (
+    ((this.dialog_ = s),
+    (this.replacedStyleTop_ = !1),
+    (this.openAsModal_ = !1),
+    s.hasAttribute("role") || s.setAttribute("role", "dialog"),
+    (s.show = this.show.bind(this)),
+    (s.showModal = this.showModal.bind(this)),
+    (s.close = this.close.bind(this)),
+    s.addEventListener("submit", Cr, !1),
+    "returnValue" in s || (s.returnValue = ""),
+    "MutationObserver" in window)
+  ) {
+    var t = new MutationObserver(this.maybeHideModal.bind(this));
+    t.observe(s, { attributes: !0, attributeFilter: ["open"] });
+  } else {
+    var e = !1,
+      n = function () {
+        (e ? this.downgradeModal() : this.maybeHideModal(), (e = !1));
+      }.bind(this),
+      l,
+      a = function (r) {
+        if (r.target === s) {
+          var f = "DOMNodeRemoved";
+          ((e |= r.type.substr(0, f.length) === f), window.clearTimeout(l), (l = window.setTimeout(n, 0)));
+        }
+      };
+    ["DOMAttrModified", "DOMNodeRemoved", "DOMNodeRemovedFromDocument"].forEach(function (r) {
+      s.addEventListener(r, a);
+    });
+  }
+  (Object.defineProperty(s, "open", { set: this.setOpen.bind(this), get: s.hasAttribute.bind(s, "open") }),
+    (this.backdrop_ = document.createElement("div")),
+    (this.backdrop_.className = "backdrop"),
+    this.backdrop_.addEventListener("mouseup", this.backdropMouseEvent_.bind(this)),
+    this.backdrop_.addEventListener("mousedown", this.backdropMouseEvent_.bind(this)),
+    this.backdrop_.addEventListener("click", this.backdropMouseEvent_.bind(this)));
+}
+zo.prototype = {
+  get dialog() {
+    return this.dialog_;
+  },
+  maybeHideModal: function () {
+    (this.dialog_.hasAttribute("open") && gi(this.dialog_)) || this.downgradeModal();
+  },
+  downgradeModal: function () {
+    !this.openAsModal_ ||
+      ((this.openAsModal_ = !1),
+      (this.dialog_.style.zIndex = ""),
+      this.replacedStyleTop_ && ((this.dialog_.style.top = ""), (this.replacedStyleTop_ = !1)),
+      this.backdrop_.parentNode && this.backdrop_.parentNode.removeChild(this.backdrop_),
+      Ct.dm.removeDialog(this));
+  },
+  setOpen: function (s) {
+    s
+      ? this.dialog_.hasAttribute("open") || this.dialog_.setAttribute("open", "")
+      : (this.dialog_.removeAttribute("open"), this.maybeHideModal());
+  },
+  backdropMouseEvent_: function (s) {
+    if (this.dialog_.hasAttribute("tabindex")) this.dialog_.focus();
+    else {
+      var t = document.createElement("div");
+      (this.dialog_.insertBefore(t, this.dialog_.firstChild),
+        (t.tabIndex = -1),
+        t.focus(),
+        this.dialog_.removeChild(t));
+    }
+    var e = document.createEvent("MouseEvents");
+    (e.initMouseEvent(
+      s.type,
+      s.bubbles,
+      s.cancelable,
+      window,
+      s.detail,
+      s.screenX,
+      s.screenY,
+      s.clientX,
+      s.clientY,
+      s.ctrlKey,
+      s.altKey,
+      s.shiftKey,
+      s.metaKey,
+      s.button,
+      s.relatedTarget,
+    ),
+      this.dialog_.dispatchEvent(e),
+      s.stopPropagation());
+  },
+  focus_: function () {
+    var s = this.dialog_.querySelector("[autofocus]:not([disabled])");
+    (!s && this.dialog_.tabIndex >= 0 && (s = this.dialog_),
+      s || (s = Wo(this.dialog_)),
+      Yo(document.activeElement),
+      s && s.focus());
+  },
+  updateZIndex: function (s, t) {
+    if (s < t) throw new Error("dialogZ should never be < backdropZ");
+    ((this.dialog_.style.zIndex = s), (this.backdrop_.style.zIndex = t));
+  },
+  show: function () {
+    this.dialog_.open || (this.setOpen(!0), this.focus_());
+  },
+  showModal: function () {
+    if (this.dialog_.hasAttribute("open"))
+      throw new Error(
+        "Failed to execute 'showModal' on dialog: The element is already open, and therefore cannot be opened modally.",
+      );
+    if (!gi(this.dialog_))
+      throw new Error("Failed to execute 'showModal' on dialog: The element is not in a Document.");
+    if (!Ct.dm.pushDialog(this))
+      throw new Error("Failed to execute 'showModal' on dialog: There are too many open modal dialogs.");
+    (wr(this.dialog_.parentElement) &&
+      console.warn(
+        "A dialog is being shown inside a stacking context. This may cause it to be unusable. For more information, see this link: https://github.com/GoogleChrome/dialog-polyfill/#stacking-context",
+      ),
+      this.setOpen(!0),
+      (this.openAsModal_ = !0),
+      Ct.needsCentering(this.dialog_)
+        ? (Ct.reposition(this.dialog_), (this.replacedStyleTop_ = !0))
+        : (this.replacedStyleTop_ = !1),
+      this.dialog_.parentNode.insertBefore(this.backdrop_, this.dialog_.nextSibling),
+      this.focus_());
+  },
+  close: function (s) {
+    if (!this.dialog_.hasAttribute("open"))
+      throw new Error(
+        "Failed to execute 'close' on dialog: The element does not have an 'open' attribute, and therefore cannot be closed.",
+      );
+    (this.setOpen(!1), s !== void 0 && (this.dialog_.returnValue = s));
+    var t = new en("close", { bubbles: !1, cancelable: !1 });
+    Ko(this.dialog_, t);
+  },
+};
+var Ct = {};
+Ct.reposition = function (s) {
+  var t = document.body.scrollTop || document.documentElement.scrollTop,
+    e = t + (window.innerHeight - s.offsetHeight) / 2;
+  s.style.top = Math.max(t, e) + "px";
+};
+Ct.isInlinePositionSetByStylesheet = function (s) {
+  for (var t = 0; t < document.styleSheets.length; ++t) {
+    var e = document.styleSheets[t],
+      n = null;
+    try {
+      n = e.cssRules;
+    } catch {}
+    if (!!n)
+      for (var l = 0; l < n.length; ++l) {
+        var a = n[l],
+          r = null;
+        try {
+          r = document.querySelectorAll(a.selectorText);
+        } catch {}
+        if (!(!r || !Ar(r, s))) {
+          var f = a.style.getPropertyValue("top"),
+            u = a.style.getPropertyValue("bottom");
+          if ((f && f !== "auto") || (u && u !== "auto")) return !0;
+        }
+      }
+  }
+  return !1;
+};
+Ct.needsCentering = function (s) {
+  var t = window.getComputedStyle(s);
+  return t.position !== "absolute" ||
+    (s.style.top !== "auto" && s.style.top !== "") ||
+    (s.style.bottom !== "auto" && s.style.bottom !== "")
+    ? !1
+    : !Ct.isInlinePositionSetByStylesheet(s);
+};
+Ct.forceRegisterDialog = function (s) {
+  if (
+    ((window.HTMLDialogElement || s.showModal) &&
+      console.warn("This browser already supports <dialog>, the polyfill may not work correctly", s),
+    s.localName !== "dialog")
+  )
+    throw new Error("Failed to register dialog: The element is not a dialog.");
+  new zo(s);
+};
+Ct.registerDialog = function (s) {
+  s.showModal || Ct.forceRegisterDialog(s);
+};
+Ct.DialogManager = function () {
+  this.pendingDialogStack = [];
+  var s = this.checkDOM_.bind(this);
+  ((this.overlay = document.createElement("div")),
+    (this.overlay.className = "_dialog_overlay"),
+    this.overlay.addEventListener(
+      "click",
+      function (t) {
+        ((this.forwardTab_ = void 0), t.stopPropagation(), s([]));
+      }.bind(this),
+    ),
+    (this.handleKey_ = this.handleKey_.bind(this)),
+    (this.handleFocus_ = this.handleFocus_.bind(this)),
+    (this.zIndexLow_ = 1e5),
+    (this.zIndexHigh_ = 1e5 + 150),
+    (this.forwardTab_ = void 0),
+    "MutationObserver" in window &&
+      (this.mo_ = new MutationObserver(function (t) {
+        var e = [];
+        (t.forEach(function (n) {
+          for (var l = 0, a; (a = n.removedNodes[l]); ++l) {
+            if (a instanceof Element) a.localName === "dialog" && e.push(a);
+            else continue;
+            e = e.concat(a.querySelectorAll("dialog"));
+          }
+        }),
+          e.length && s(e));
+      })));
+};
+Ct.DialogManager.prototype.blockDocument = function () {
+  (document.documentElement.addEventListener("focus", this.handleFocus_, !0),
+    document.addEventListener("keydown", this.handleKey_),
+    this.mo_ && this.mo_.observe(document, { childList: !0, subtree: !0 }));
+};
+Ct.DialogManager.prototype.unblockDocument = function () {
+  (document.documentElement.removeEventListener("focus", this.handleFocus_, !0),
+    document.removeEventListener("keydown", this.handleKey_),
+    this.mo_ && this.mo_.disconnect());
+};
+Ct.DialogManager.prototype.updateStacking = function () {
+  for (var s = this.zIndexHigh_, t = 0, e; (e = this.pendingDialogStack[t]); ++t)
+    (e.updateZIndex(--s, --s), t === 0 && (this.overlay.style.zIndex = --s));
+  var n = this.pendingDialogStack[0];
+  if (n) {
+    var l = n.dialog.parentNode || document.body;
+    l.appendChild(this.overlay);
+  } else this.overlay.parentNode && this.overlay.parentNode.removeChild(this.overlay);
+};
+Ct.DialogManager.prototype.containedByTopDialog_ = function (s) {
+  for (; (s = an(s)); ) {
+    for (var t = 0, e; (e = this.pendingDialogStack[t]); ++t) if (e.dialog === s) return t === 0;
+    s = s.parentElement;
+  }
+  return !1;
+};
+Ct.DialogManager.prototype.handleFocus_ = function (s) {
+  var t = s.composedPath ? s.composedPath()[0] : s.target;
+  if (
+    !this.containedByTopDialog_(t) &&
+    document.activeElement !== document.documentElement &&
+    (s.preventDefault(), s.stopPropagation(), Yo(t), this.forwardTab_ !== void 0)
+  ) {
+    var e = this.pendingDialogStack[0],
+      n = e.dialog,
+      l = n.compareDocumentPosition(t);
+    return (
+      l & Node.DOCUMENT_POSITION_PRECEDING &&
+        (this.forwardTab_ ? e.focus_() : t !== document.documentElement && document.documentElement.focus()),
+      !1
+    );
+  }
+};
+Ct.DialogManager.prototype.handleKey_ = function (s) {
+  if (((this.forwardTab_ = void 0), s.keyCode === 27)) {
+    (s.preventDefault(), s.stopPropagation());
+    var t = new en("cancel", { bubbles: !1, cancelable: !0 }),
+      e = this.pendingDialogStack[0];
+    e && Ko(e.dialog, t) && e.dialog.close();
+  } else s.keyCode === 9 && (this.forwardTab_ = !s.shiftKey);
+};
+Ct.DialogManager.prototype.checkDOM_ = function (s) {
+  var t = this.pendingDialogStack.slice();
+  t.forEach(function (e) {
+    s.indexOf(e.dialog) !== -1 ? e.downgradeModal() : e.maybeHideModal();
+  });
+};
+Ct.DialogManager.prototype.pushDialog = function (s) {
+  var t = (this.zIndexHigh_ - this.zIndexLow_) / 2 - 1;
+  return this.pendingDialogStack.length >= t
+    ? !1
+    : (this.pendingDialogStack.unshift(s) === 1 && this.blockDocument(), this.updateStacking(), !0);
+};
+Ct.DialogManager.prototype.removeDialog = function (s) {
+  var t = this.pendingDialogStack.indexOf(s);
+  t !== -1 &&
+    (this.pendingDialogStack.splice(t, 1),
+    this.pendingDialogStack.length === 0 && this.unblockDocument(),
+    this.updateStacking());
+};
+Ct.dm = new Ct.DialogManager();
+Ct.formSubmitter = null;
+Ct.imagemapUseValue = null;
+if (window.HTMLDialogElement === void 0) {
+  var vi = document.createElement("form");
+  if ((vi.setAttribute("method", "dialog"), vi.method !== "dialog")) {
+    var $s = Object.getOwnPropertyDescriptor(HTMLFormElement.prototype, "method");
+    if ($s) {
+      var qr = $s.get;
+      $s.get = function () {
+        return ei(this) ? "dialog" : qr.call(this);
+      };
+      var yr = $s.set;
+      (($s.set = function (s) {
+        return typeof s == "string" && s.toLowerCase() === "dialog"
+          ? this.setAttribute("method", s)
+          : yr.call(this, s);
+      }),
+        Object.defineProperty(HTMLFormElement.prototype, "method", $s));
+    }
+  }
+  (document.addEventListener(
+    "click",
+    function (s) {
+      if (((Ct.formSubmitter = null), (Ct.imagemapUseValue = null), !s.defaultPrevented)) {
+        var t = s.target;
+        if ("composedPath" in s) {
+          var e = s.composedPath();
+          t = e.shift() || t;
+        }
+        if (!(!t || !ei(t.form))) {
+          var n = t.type === "submit" && ["button", "input"].indexOf(t.localName) > -1;
+          if (!n) {
+            if (!(t.localName === "input" && t.type === "image")) return;
+            Ct.imagemapUseValue = s.offsetX + "," + s.offsetY;
+          }
+          var l = an(t);
+          !l || (Ct.formSubmitter = t);
+        }
+      }
+    },
+    !1,
+  ),
+    document.addEventListener("submit", function (s) {
+      var t = s.target,
+        e = an(t);
+      if (!e) {
+        var n = Qo(s),
+          l = (n && n.getAttribute("formmethod")) || t.getAttribute("method");
+        l === "dialog" && s.preventDefault();
+      }
+    }));
+  var Tr = HTMLFormElement.prototype.submit,
+    Sr = function () {
+      if (!ei(this)) return Tr.call(this);
+      var s = an(this);
+      s && s.close();
+    };
+  HTMLFormElement.prototype.submit = Sr;
+}
+function _i(s) {
+  let t;
+  return {
+    c() {
+      t = T(s[1]);
+    },
+    m(e, n) {
+      v(e, t, n);
+    },
+    p(e, n) {
+      n & 2 && $(t, e[1]);
+    },
+    d(e) {
+      e && g(t);
+    },
+  };
+}
+function bi(s) {
+  let t, e, n;
+  return {
+    c() {
+      ((t = c("button")), (t.textContent = "\u2716"), i(t, "class", "close-btn svelte-3u0nyb"));
+    },
+    m(l, a) {
+      (v(l, t, a), e || ((n = se(t, "click", s[6])), (e = !0)));
+    },
+    p: be,
+    d(l) {
+      (l && g(t), (e = !1), n());
+    },
+  };
+}
+function kr(s) {
+  let t,
+    e,
+    n,
+    l,
+    a,
+    r,
+    f,
+    u,
+    h,
+    d,
+    p,
+    m,
+    _ = s[1] && _i(s),
+    w = s[0] && bi(s);
+  const q = s[11].default,
+    C = $o(q, s, s[10], null);
+  return {
+    c() {
+      ((t = c("dialog")),
+        (e = c("header")),
+        _ && _.c(),
+        (n = S()),
+        (l = c("div")),
+        (a = T(s[2])),
+        (r = S()),
+        w && w.c(),
+        (f = S()),
+        (u = c("main")),
+        C && C.c(),
+        i(l, "class", "title svelte-3u0nyb"),
+        i(e, "class", "svelte-3u0nyb"),
+        i(u, "class", "svelte-3u0nyb"),
+        i(t, "class", (h = Ts(s[4]) + " svelte-3u0nyb")));
+    },
+    m(A, b) {
+      (v(A, t, b),
+        o(t, e),
+        _ && _.m(e, null),
+        o(e, n),
+        o(e, l),
+        o(l, a),
+        o(e, r),
+        w && w.m(e, null),
+        o(t, f),
+        o(t, u),
+        C && C.m(u, null),
+        s[12](t),
+        (d = !0),
+        p || ((m = se(t, "close", s[5])), (p = !0)));
+    },
+    p(A, [b]) {
+      (A[1] ? (_ ? _.p(A, b) : ((_ = _i(A)), _.c(), _.m(e, n))) : _ && (_.d(1), (_ = null)),
+        (!d || b & 4) && $(a, A[2]),
+        A[0] ? (w ? w.p(A, b) : ((w = bi(A)), w.c(), w.m(e, null))) : w && (w.d(1), (w = null)),
+        C && C.p && (!d || b & 1024) && tr(C, q, A, A[10], d ? er(q, A[10], b, null) : lr(A[10]), null),
+        (!d || (b & 16 && h !== (h = Ts(A[4]) + " svelte-3u0nyb"))) && i(t, "class", h));
+    },
+    i(A) {
+      d || (Fe(C, A), (d = !0));
+    },
+    o(A) {
+      (Ie(C, A), (d = !1));
+    },
+    d(A) {
+      (A && g(t), _ && _.d(), w && w.d(), C && C.d(A), s[12](null), (p = !1), m());
+    },
+  };
+}
+function Mr(s, t, e) {
+  let n,
+    { $$slots: l = {}, $$scope: a } = t,
+    { canClose: r = !0 } = t,
+    { className: f = "" } = t,
+    { dialog: u = void 0 } = t,
+    { icon: h = void 0 } = t,
+    { title: d } = t,
+    { data: p = {} } = t,
+    m;
+  const _ = Po();
+  ko(() => {
+    (Ct.registerDialog(m), e(7, (u = m)));
+  });
+  function w() {
+    _("close");
+  }
+  function q() {
+    m.close();
+  }
+  function C(A) {
+    ft[A ? "unshift" : "push"](() => {
+      ((m = A), e(3, m));
+    });
+  }
+  return (
+    (s.$$set = (A) => {
+      ("canClose" in A && e(0, (r = A.canClose)),
+        "className" in A && e(8, (f = A.className)),
+        "dialog" in A && e(7, (u = A.dialog)),
+        "icon" in A && e(1, (h = A.icon)),
+        "title" in A && e(2, (d = A.title)),
+        "data" in A && e(9, (p = A.data)),
+        "$$scope" in A && e(10, (a = A.$$scope)));
+    }),
+    (s.$$.update = () => {
+      s.$$.dirty & 256 && e(4, (n = "dialog" + (f ? " " + f : "")));
+    }),
+    [r, h, d, m, n, w, q, u, f, p, a, l, C]
+  );
+}
+class ml extends Nl {
+  constructor(t) {
+    (super(), El(this, t, Mr, kr, yl, { canClose: 0, className: 8, dialog: 7, icon: 1, title: 2, data: 9 }));
+  }
+}
+function Pr(s) {
+  let t, e, n, l, a, r, f, u, h, d, p, m, _, w, q;
+  return {
+    c() {
+      ((t = T("Select partial if only a portion of the complete circular sequence is entered.")),
+        (e = c("br")),
+        (n = S()),
+        (l = c("br")),
+        (a = T(`
+  		Selecting the "Partial" checkbox tells NEBaseChanger that it should not assume `)),
+        (r = c("br")),
+        (f = T(`
+			a complete circular sequence, allowing the entry of a much shorter sequence.  `)),
+        (u = c("br")),
+        (h = T(`
+			However, partial sequences will need to include sufficient sequence flanking the mutation site, `)),
+        (d = c("br")),
+        (p = T(`
+			currently set at a minimum of 35 nt 5\u2032 and 25 nt 3\u2032. Mutations will be prohibited `)),
+        (m = c("br")),
+        (_ = T(`
+			from being too close to the ends of the provided partial sequence fragment `)),
+        (w = c("br")),
+        (q = T(`
+			and cannot span the ends of the fragment.`)),
+        i(e, "class", "svelte-1y8wm9u"),
+        i(l, "class", "svelte-1y8wm9u"),
+        i(r, "class", "svelte-1y8wm9u"),
+        i(u, "class", "svelte-1y8wm9u"),
+        i(d, "class", "svelte-1y8wm9u"),
+        i(m, "class", "svelte-1y8wm9u"),
+        i(w, "class", "svelte-1y8wm9u"));
+    },
+    m(C, A) {
+      (v(C, t, A),
+        v(C, e, A),
+        v(C, n, A),
+        v(C, l, A),
+        v(C, a, A),
+        v(C, r, A),
+        v(C, f, A),
+        v(C, u, A),
+        v(C, h, A),
+        v(C, d, A),
+        v(C, p, A),
+        v(C, m, A),
+        v(C, _, A),
+        v(C, w, A),
+        v(C, q, A));
+    },
+    p: be,
+    d(C) {
+      (C && g(t),
+        C && g(e),
+        C && g(n),
+        C && g(l),
+        C && g(a),
+        C && g(r),
+        C && g(f),
+        C && g(u),
+        C && g(h),
+        C && g(d),
+        C && g(p),
+        C && g(m),
+        C && g(_),
+        C && g(w),
+        C && g(q));
+    },
+  };
+}
+function wi(s) {
+  let t;
+  return {
+    c() {
+      ((t = c("span")),
+        (t.textContent = "Invalid sequence - NON-CANONICAL BASES - please re-enter."),
+        i(t, "class", "warn svelte-1y8wm9u"));
+    },
+    m(e, n) {
+      v(e, t, n);
+    },
+    d(e) {
+      e && g(t);
+    },
+  };
+}
+function Lr(s) {
+  let t,
+    e,
+    n,
+    l,
+    a,
+    r,
+    f,
+    u,
+    h,
+    d,
+    p,
+    m,
+    _,
+    w,
+    q,
+    C,
+    A,
+    b,
+    y,
+    k,
+    M,
+    P,
+    L,
+    G,
+    R,
+    N,
+    U,
+    B,
+    F,
+    I,
+    H,
+    W,
+    D,
+    V,
+    Q,
+    Z,
+    oe,
+    X,
+    re,
+    x,
+    le,
+    z,
+    fe,
+    de,
+    pe,
+    ye,
+    ve,
+    Se,
+    me,
+    we,
+    _e,
+    j,
+    O,
+    te,
+    K,
+    he,
+    xe,
+    ke,
+    Ye,
+    Me,
+    Ue,
+    Je,
+    st,
+    nt,
+    Pt,
+    He,
+    et,
+    Le,
+    je,
+    ct,
+    Xt,
+    tt,
+    We,
+    Ke,
+    De,
+    Ee,
+    Qe,
+    St,
+    _t,
+    Ut,
+    qt,
+    Ae,
+    lt,
+    yt,
+    ht,
+    Tt,
+    Lt,
+    al,
+    gl,
+    dt,
+    vl,
+    Re,
+    xl,
+    ze,
+    mt,
+    xt,
+    Jl,
+    Gl,
+    cl,
+    bt,
+    Zl,
+    ul,
+    $l,
+    Et,
+    es,
+    nl,
+    tl,
+    pt,
+    fl,
+    Ht,
+    ts,
+    Nt,
+    Tl,
+    Jt,
+    Zt,
+    gt,
+    ls,
+    Kt,
+    ss,
+    jt,
+    Hl,
+    Fl,
+    jl,
+    Vl,
+    _l,
+    bl,
+    ns,
+    Yt,
+    is,
+    Sl,
+    os,
+    kt,
+    Rt,
+    Rl,
+    Ul,
+    kl,
+    rs,
+    il,
+    Wt,
+    It,
+    Il,
+    Dl,
+    Qt,
+    Ol,
+    as,
+    Ss,
+    ds,
+    Es,
+    Ns,
+    ps,
+    wt,
+    hs,
+    ms,
+    Gt,
+    Hs,
+    dl,
+    js,
+    Ml,
+    Bl,
+    Is,
+    gs,
+    ks,
+    cs,
+    vs,
+    _s,
+    Kl,
+    bs,
+    ws,
+    Ds,
+    wl,
+    us,
+    ol,
+    Yl,
+    fs,
+    As,
+    Cs,
+    ll = s[0].seq.length + "",
+    Wl,
+    pl,
+    sl,
+    qs,
+    Ql,
+    Vs,
+    Al,
+    Os,
+    Cl,
+    Ms,
+    zl,
+    Ps,
+    Gs,
+    Us;
+  function zt(Be) {
+    s[15](Be);
+  }
+  let $t = { title: "Partial Sequence Help ", $$slots: { default: [Pr] }, $$scope: { ctx: s } };
+  (s[10] !== void 0 && ($t.dialog = s[10]), (t = new ml({ props: $t })), ft.push(() => Bt(t, "dialog", zt)));
+  let rl = s[9] && wi();
+  return {
+    c() {
+      (ut(t.$$.fragment),
+        (n = S()),
+        (l = c("div")),
+        (a = c("div")),
+        (r = c("form")),
+        (f = c("input")),
+        (u = T(`
+	    	 or paste/type sequence below.`)),
+        (h = S()),
+        (d = c("div")),
+        (p = c("select")),
+        (m = c("option")),
+        (m.textContent = "Sample Vectors"),
+        (_ = c("option")),
+        (_.textContent = "lambda_gt11"),
+        (w = c("option")),
+        (w.textContent = "LITMUS_U"),
+        (q = c("option")),
+        (q.textContent = "LITMUS28"),
+        (C = c("option")),
+        (C.textContent = "LITMUS28i"),
+        (A = c("option")),
+        (A.textContent = "LITMUS29"),
+        (b = c("option")),
+        (b.textContent = "LITMUS38"),
+        (y = c("option")),
+        (y.textContent = "LITMUS38i"),
+        (k = c("option")),
+        (k.textContent = "LITMUS39"),
+        (M = c("option")),
+        (M.textContent = "M13KE"),
+        (P = c("option")),
+        (P.textContent = "M13KO7"),
+        (L = c("option")),
+        (L.textContent = "M13mp18"),
+        (G = c("option")),
+        (G.textContent = "pACP-GPI"),
+        (R = c("option")),
+        (R.textContent = "pACPm"),
+        (N = c("option")),
+        (N.textContent = "pACYC177"),
+        (U = c("option")),
+        (U.textContent = "pACYC184"),
+        (B = c("option")),
+        (B.textContent = "pAd2-AvrII"),
+        (F = c("option")),
+        (F.textContent = "pAd2-BsaBI"),
+        (I = c("option")),
+        (I.textContent = "pASI3"),
+        (H = c("option")),
+        (H.textContent = "pBAD24"),
+        (W = c("option")),
+        (W.textContent = "pBeloBAC11"),
+        (D = c("option")),
+        (D.textContent = "pBR322"),
+        (V = c("option")),
+        (V.textContent = "pCLIP-H2B"),
+        (Q = c("option")),
+        (Q.textContent = "pCLIP-NK1R"),
+        (Z = c("option")),
+        (Z.textContent = "pCLIPm"),
+        (oe = c("option")),
+        (oe.textContent = "pCMV-GLuc"),
+        (X = c("option")),
+        (X.textContent = "pCYB1"),
+        (re = c("option")),
+        (re.textContent = "pCYB2"),
+        (x = c("option")),
+        (x.textContent = "pCYB3"),
+        (le = c("option")),
+        (le.textContent = "pCYB4"),
+        (z = c("option")),
+        (z.textContent = "pET11c"),
+        (fe = c("option")),
+        (fe.textContent = "pET-21(+)"),
+        (de = c("option")),
+        (de.textContent = "pET21a(+)"),
+        (pe = c("option")),
+        (pe.textContent = "pFOS1"),
+        (ye = c("option")),
+        (ye.textContent = "pGLO"),
+        (ve = c("option")),
+        (ve.textContent = "pGLuc-Basic"),
+        (Se = c("option")),
+        (Se.textContent = "pGLuc-Mini-TK"),
+        (me = c("option")),
+        (me.textContent = "pGPS1.1"),
+        (we = c("option")),
+        (we.textContent = "pGPS2.1"),
+        (_e = c("option")),
+        (_e.textContent = "pGPS3"),
+        (j = c("option")),
+        (j.textContent = "pGPS4"),
+        (O = c("option")),
+        (O.textContent = "pGPS5"),
+        (te = c("option")),
+        (te.textContent = "pGT-N28"),
+        (K = c("option")),
+        (K.textContent = "pGT-N29"),
+        (he = c("option")),
+        (he.textContent = "pGT-N38"),
+        (xe = c("option")),
+        (xe.textContent = "pGT-N39"),
+        (ke = c("option")),
+        (ke.textContent = "PhiX174"),
+        (Ye = c("option")),
+        (Ye.textContent = "pKLAC-malE"),
+        (Me = c("option")),
+        (Me.textContent = "FJ010198"),
+        (Ue = c("option")),
+        (Ue.textContent = "pKLAC1"),
+        (Je = c("option")),
+        (Je.textContent = "EU196354"),
+        (st = c("option")),
+        (st.textContent = "pKYB1"),
+        (nt = c("option")),
+        (nt.textContent = "pMAL-c"),
+        (Pt = c("option")),
+        (Pt.textContent = "pMAL-c2"),
+        (He = c("option")),
+        (He.textContent = "pMAL-c2E"),
+        (et = c("option")),
+        (et.textContent = "pMAL-c2G"),
+        (Le = c("option")),
+        (Le.textContent = "pMAL-c2X"),
+        (je = c("option")),
+        (je.textContent = "pMAL-c4E"),
+        (ct = c("option")),
+        (ct.textContent = "pMAL-c4G"),
+        (Xt = c("option")),
+        (Xt.textContent = "pMAL-c4X"),
+        (tt = c("option")),
+        (tt.textContent = "pMAL-c5E"),
+        (We = c("option")),
+        (We.textContent = "pMAL-c5G"),
+        (Ke = c("option")),
+        (Ke.textContent = "pMAL-c5X"),
+        (De = c("option")),
+        (De.textContent = "pMAL-cRI"),
+        (Ee = c("option")),
+        (Ee.textContent = "pMAL-p"),
+        (Qe = c("option")),
+        (Qe.textContent = "pMAL-p2"),
+        (St = c("option")),
+        (St.textContent = "pMAL-p2E"),
+        (_t = c("option")),
+        (_t.textContent = "pMAL-p2G"),
+        (Ut = c("option")),
+        (Ut.textContent = "pMAL-p2X"),
+        (qt = c("option")),
+        (qt.textContent = "pMAL-p4E"),
+        (Ae = c("option")),
+        (Ae.textContent = "pMAL-p4G"),
+        (lt = c("option")),
+        (lt.textContent = "pMAL-p4X"),
+        (yt = c("option")),
+        (yt.textContent = "pMAL-p5E"),
+        (ht = c("option")),
+        (ht.textContent = "pMAL-p5G"),
+        (Tt = c("option")),
+        (Tt.textContent = "pMAL-p5X"),
+        (Lt = c("option")),
+        (Lt.textContent = "pMAL-pIII"),
+        (al = c("option")),
+        (al.textContent = "pMCP-GPI"),
+        (gl = c("option")),
+        (gl.textContent = "pMCPm"),
+        (dt = c("option")),
+        (dt.textContent = "pMXB10"),
+        (vl = c("option")),
+        (vl.textContent = "pMYB5"),
+        (Re = c("option")),
+        (Re.textContent = "pNEB193"),
+        (xl = c("option")),
+        (xl.textContent = "pNEB205a"),
+        (ze = c("option")),
+        (ze.textContent = "pNEB206a"),
+        (mt = c("option")),
+        (mt.textContent = "pNEBR-R1"),
+        (xt = c("option")),
+        (xt.textContent = "pNEBR-R1Puro"),
+        (Jl = c("option")),
+        (Jl.textContent = "pNEBR-X1"),
+        (Gl = c("option")),
+        (Gl.textContent = "pNEBR-X1GLuc"),
+        (cl = c("option")),
+        (cl.textContent = "pNEBR-X1Hygro"),
+        (bt = c("option")),
+        (bt.textContent = "PRS303"),
+        (Zl = c("option")),
+        (Zl.textContent = "PRS304"),
+        (ul = c("option")),
+        (ul.textContent = "PRS305"),
+        ($l = c("option")),
+        ($l.textContent = "PRS306"),
+        (Et = c("option")),
+        (Et.textContent = "PRS313"),
+        (es = c("option")),
+        (es.textContent = "PRS314"),
+        (nl = c("option")),
+        (nl.textContent = "PRS315"),
+        (tl = c("option")),
+        (tl.textContent = "PRS316"),
+        (pt = c("option")),
+        (pt.textContent = "pRS413"),
+        (fl = c("option")),
+        (fl.textContent = "pRS414"),
+        (Ht = c("option")),
+        (Ht.textContent = "pRS415"),
+        (ts = c("option")),
+        (ts.textContent = "pRS416"),
+        (Nt = c("option")),
+        (Nt.textContent = "pSNAP-ADRB2"),
+        (Tl = c("option")),
+        (Tl.textContent = "pSNAP-H2B"),
+        (Jt = c("option")),
+        (Jt.textContent = "pSNAPm"),
+        (Zt = c("option")),
+        (Zt.textContent = "pT7-SNAP"),
+        (gt = c("option")),
+        (gt.textContent = "pTK-GLuc"),
+        (ls = c("option")),
+        (ls.textContent = "pTWIN-MBP"),
+        (Kt = c("option")),
+        (Kt.textContent = "pTWIN1"),
+        (ss = c("option")),
+        (ss.textContent = "pTWIN2"),
+        (jt = c("option")),
+        (jt.textContent = "pTXB1"),
+        (Hl = c("option")),
+        (Hl.textContent = "pTXB3"),
+        (Fl = c("option")),
+        (Fl.textContent = "pTYB1"),
+        (jl = c("option")),
+        (jl.textContent = "pTYB11"),
+        (Vl = c("option")),
+        (Vl.textContent = "pTYB12"),
+        (_l = c("option")),
+        (_l.textContent = "pTYB2"),
+        (bl = c("option")),
+        (bl.textContent = "pTYB21"),
+        (ns = c("option")),
+        (ns.textContent = "pTYB22"),
+        (Yt = c("option")),
+        (Yt.textContent = "pTYB3"),
+        (is = c("option")),
+        (is.textContent = "pTYB4"),
+        (Sl = c("option")),
+        (Sl.textContent = "SYNPUC18CV"),
+        (os = c("option")),
+        (os.textContent = "pUC19"),
+        (kt = c("option")),
+        (kt.textContent = "pUPS"),
+        (Rt = c("option")),
+        (Rt.textContent = "PureExpress DHFR Control Template"),
+        (Rl = c("option")),
+        (Rl.textContent = "SV40"),
+        (Ul = c("option")),
+        (Ul.textContent = "X75457"),
+        (kl = c("option")),
+        (kl.textContent = "X75455"),
+        (rs = c("option")),
+        (rs.textContent = "X75456"),
+        (il = c("option")),
+        (il.textContent = "YEp24"),
+        (Wt = c("option")),
+        (Wt.textContent = "X75458"),
+        (It = c("option")),
+        (It.textContent = "X75460"),
+        (Il = c("option")),
+        (Il.textContent = "X75459"),
+        (Dl = c("option")),
+        (Dl.textContent = "X75463"),
+        (Qt = c("option")),
+        (Qt.textContent = "X75461"),
+        (Ol = c("option")),
+        (Ol.textContent = "X75462"),
+        (as = S()),
+        (Ss = c("div")),
+        (ds = S()),
+        (Es = c("br")),
+        (Ns = S()),
+        (ps = c("div")),
+        (wt = c("div")),
+        (hs = T(`\xA0\xA0\xA0
+	    	`)),
+        (ms = c("span")),
+        (Gt = c("input")),
+        (Hs = S()),
+        (dl = c("label")),
+        (dl.textContent = "Use Reverse Complement"),
+        (js = T(`
+        \xA0\xA0\xA0
+        `)),
+        (Ml = c("span")),
+        (Bl = c("input")),
+        (Is = S()),
+        (gs = c("label")),
+        (gs.textContent = "Partial sequence"),
+        (ks = S()),
+        (cs = c("img")),
+        (_s = T(`
+        \xA0\xA0\xA0
+	    	`)),
+        (Kl = c("span")),
+        (bs = c("button")),
+        (bs.innerHTML = `<span class="glyphicon glyphicon-refresh svelte-1y8wm9u">x</span>
+          Clear`),
+        (ws = S()),
+        rl && rl.c(),
+        (Ds = S()),
+        (wl = c("div")),
+        (us = c("div")),
+        (ol = c("textarea")),
+        (Yl = S()),
+        (fs = c("div")),
+        (As = c("div")),
+        (Cs = T("Length: ")),
+        (Wl = T(ll)),
+        (pl = T(" bp \xA0\xA0")),
+        (sl = S()),
+        (qs = c("div")),
+        (Ql = c("div")),
+        (Vs = T("Sequence Name/ID: ")),
+        (Al = c("input")),
+        (Os = S()),
+        (Cl = c("div")),
+        (Cl.innerHTML =
+          '<div id="design" class="svelte-1y8wm9u"><div id="inputsequence" unselectable="on" class="svelte-1y8wm9u"></div></div>'),
+        (Ms = S()),
+        (zl = c("div")),
+        (zl.innerHTML = '<div class="col svelte-1y8wm9u"></div>'),
+        i(f, "id", "fileinput"),
+        i(f, "type", "file"),
+        i(f, "class", "svelte-1y8wm9u"),
+        i(r, "id", "fileform"),
+        i(r, "name", "fileform"),
+        i(r, "class", "svelte-1y8wm9u"),
+        i(a, "class", "col svelte-1y8wm9u"),
+        (m.__value = "unselected"),
+        (m.value = m.__value),
+        i(m, "class", "svelte-1y8wm9u"),
+        (_.__value = "Lambda_gt11.fasta.txt"),
+        (_.value = _.__value),
+        i(_, "class", "svelte-1y8wm9u"),
+        (w.__value = "LITMUS-U.fasta.txt"),
+        (w.value = w.__value),
+        i(w, "class", "svelte-1y8wm9u"),
+        (q.__value = "LITMUS28.fasta.txt"),
+        (q.value = q.__value),
+        i(q, "class", "svelte-1y8wm9u"),
+        (C.__value = "LITMUS28i.fasta.txt"),
+        (C.value = C.__value),
+        i(C, "class", "svelte-1y8wm9u"),
+        (A.__value = "LITMUS29.fasta.txt"),
+        (A.value = A.__value),
+        i(A, "class", "svelte-1y8wm9u"),
+        (b.__value = "LITMUS38.fasta.txt"),
+        (b.value = b.__value),
+        i(b, "class", "svelte-1y8wm9u"),
+        (y.__value = "LITMUS38i.fasta.txt"),
+        (y.value = y.__value),
+        i(y, "class", "svelte-1y8wm9u"),
+        (k.__value = "LITMUS39.fasta.txt"),
+        (k.value = k.__value),
+        i(k, "class", "svelte-1y8wm9u"),
+        (M.__value = "M13KE.fasta.txt"),
+        (M.value = M.__value),
+        i(M, "class", "svelte-1y8wm9u"),
+        (P.__value = "M13KO7.fasta.txt"),
+        (P.value = P.__value),
+        i(P, "class", "svelte-1y8wm9u"),
+        (L.__value = "M13mp18.fasta.txt"),
+        (L.value = L.__value),
+        i(L, "class", "svelte-1y8wm9u"),
+        (G.__value = "pACP-GPI.fasta.txt"),
+        (G.value = G.__value),
+        i(G, "class", "svelte-1y8wm9u"),
+        (R.__value = "pACPm.fasta.txt"),
+        (R.value = R.__value),
+        i(R, "class", "svelte-1y8wm9u"),
+        (N.__value = "pACYC177.fasta.txt"),
+        (N.value = N.__value),
+        i(N, "class", "svelte-1y8wm9u"),
+        (U.__value = "pACYC184.fasta.txt"),
+        (U.value = U.__value),
+        i(U, "class", "svelte-1y8wm9u"),
+        (B.__value = "pAd2-AvrII.fasta.txt"),
+        (B.value = B.__value),
+        i(B, "class", "svelte-1y8wm9u"),
+        (F.__value = "pAd2-BsaBI.fasta.txt"),
+        (F.value = F.__value),
+        i(F, "class", "svelte-1y8wm9u"),
+        (I.__value = "pASI3.fasta.txt"),
+        (I.value = I.__value),
+        i(I, "class", "svelte-1y8wm9u"),
+        (H.__value = "pBAD24.fasta.txt"),
+        (H.value = H.__value),
+        i(H, "class", "svelte-1y8wm9u"),
+        (W.__value = "pBeloBAC11.fasta.txt"),
+        (W.value = W.__value),
+        i(W, "class", "svelte-1y8wm9u"),
+        (D.__value = "pBR322.fasta.txt"),
+        (D.value = D.__value),
+        i(D, "class", "svelte-1y8wm9u"),
+        (V.__value = "pCLIP-H2B.fasta.txt"),
+        (V.value = V.__value),
+        i(V, "class", "svelte-1y8wm9u"),
+        (Q.__value = "pCLIP-NK1R.fasta.txt"),
+        (Q.value = Q.__value),
+        i(Q, "class", "svelte-1y8wm9u"),
+        (Z.__value = "pCLIPm.fasta.txt"),
+        (Z.value = Z.__value),
+        i(Z, "class", "svelte-1y8wm9u"),
+        (oe.__value = "pCMV-GLuc.fasta.txt"),
+        (oe.value = oe.__value),
+        i(oe, "class", "svelte-1y8wm9u"),
+        (X.__value = "pCYB1.fasta.txt"),
+        (X.value = X.__value),
+        i(X, "class", "svelte-1y8wm9u"),
+        (re.__value = "pCYB2.fasta.txt"),
+        (re.value = re.__value),
+        i(re, "class", "svelte-1y8wm9u"),
+        (x.__value = "pCYB3.fasta.txt"),
+        (x.value = x.__value),
+        i(x, "class", "svelte-1y8wm9u"),
+        (le.__value = "pCYB4.fasta.txt"),
+        (le.value = le.__value),
+        i(le, "class", "svelte-1y8wm9u"),
+        (z.__value = "pET11c.fasta.txt"),
+        (z.value = z.__value),
+        i(z, "class", "svelte-1y8wm9u"),
+        (fe.__value = "pet21.fasta.txt"),
+        (fe.value = fe.__value),
+        i(fe, "class", "svelte-1y8wm9u"),
+        (de.__value = "pet21a__.fasta.txt"),
+        (de.value = de.__value),
+        i(de, "class", "svelte-1y8wm9u"),
+        (pe.__value = "pFOS1.fasta.txt"),
+        (pe.value = pe.__value),
+        i(pe, "class", "svelte-1y8wm9u"),
+        (ye.__value = "pGLO.fasta.txt"),
+        (ye.value = ye.__value),
+        i(ye, "class", "svelte-1y8wm9u"),
+        (ve.__value = "pGLuc-Basic.fasta.txt"),
+        (ve.value = ve.__value),
+        i(ve, "class", "svelte-1y8wm9u"),
+        (Se.__value = "pGLuc_Mini-TK.fasta.txt"),
+        (Se.value = Se.__value),
+        i(Se, "class", "svelte-1y8wm9u"),
+        (me.__value = "pGPS1.1.fasta.txt"),
+        (me.value = me.__value),
+        i(me, "class", "svelte-1y8wm9u"),
+        (we.__value = "pGPS2.1.fasta.txt"),
+        (we.value = we.__value),
+        i(we, "class", "svelte-1y8wm9u"),
+        (_e.__value = "pGPS3.fasta.txt"),
+        (_e.value = _e.__value),
+        i(_e, "class", "svelte-1y8wm9u"),
+        (j.__value = "pGPS4.fasta.txt"),
+        (j.value = j.__value),
+        i(j, "class", "svelte-1y8wm9u"),
+        (O.__value = "pGPS5.fasta.txt"),
+        (O.value = O.__value),
+        i(O, "class", "svelte-1y8wm9u"),
+        (te.__value = "pGT-N28.fasta.txt"),
+        (te.value = te.__value),
+        i(te, "class", "svelte-1y8wm9u"),
+        (K.__value = "pGT-N29.fasta.txt"),
+        (K.value = K.__value),
+        i(K, "class", "svelte-1y8wm9u"),
+        (he.__value = "pGT-N38.fasta.txt"),
+        (he.value = he.__value),
+        i(he, "class", "svelte-1y8wm9u"),
+        (xe.__value = "pGT-N39.fasta.txt"),
+        (xe.value = xe.__value),
+        i(xe, "class", "svelte-1y8wm9u"),
+        (ke.__value = "PhiX174.fasta.txt"),
+        (ke.value = ke.__value),
+        i(ke, "class", "svelte-1y8wm9u"),
+        (Ye.__value = "pKLAC-malE.fasta.txt"),
+        (Ye.value = Ye.__value),
+        i(Ye, "class", "svelte-1y8wm9u"),
+        (Me.__value = "pKLAC1-GLuc.fasta.txt"),
+        (Me.value = Me.__value),
+        i(Me, "class", "svelte-1y8wm9u"),
+        (Ue.__value = "pKLAC1.fasta.txt"),
+        (Ue.value = Ue.__value),
+        i(Ue, "class", "svelte-1y8wm9u"),
+        (Je.__value = "pKLAC2.fasta.txt"),
+        (Je.value = Je.__value),
+        i(Je, "class", "svelte-1y8wm9u"),
+        (st.__value = "pKYB1.fasta.txt"),
+        (st.value = st.__value),
+        i(st, "class", "svelte-1y8wm9u"),
+        (nt.__value = "pMAL-c.fasta.txt"),
+        (nt.value = nt.__value),
+        i(nt, "class", "svelte-1y8wm9u"),
+        (Pt.__value = "pMAL-c2.fasta.txt"),
+        (Pt.value = Pt.__value),
+        i(Pt, "class", "svelte-1y8wm9u"),
+        (He.__value = "pMAL-c2E.fasta.txt"),
+        (He.value = He.__value),
+        i(He, "class", "svelte-1y8wm9u"),
+        (et.__value = "pMAL-c2G.fasta.txt"),
+        (et.value = et.__value),
+        i(et, "class", "svelte-1y8wm9u"),
+        (Le.__value = "pMAL-c2X.fasta.txt"),
+        (Le.value = Le.__value),
+        i(Le, "class", "svelte-1y8wm9u"),
+        (je.__value = "pMAL-c4E.fasta.txt"),
+        (je.value = je.__value),
+        i(je, "class", "svelte-1y8wm9u"),
+        (ct.__value = "pMAL-c4G.fasta.txt"),
+        (ct.value = ct.__value),
+        i(ct, "class", "svelte-1y8wm9u"),
+        (Xt.__value = "pMAL-c4X.fasta.txt"),
+        (Xt.value = Xt.__value),
+        i(Xt, "class", "svelte-1y8wm9u"),
+        (tt.__value = "pMAL-c5E.fasta.txt"),
+        (tt.value = tt.__value),
+        i(tt, "class", "svelte-1y8wm9u"),
+        (We.__value = "pMAL-c5G.fasta.txt"),
+        (We.value = We.__value),
+        i(We, "class", "svelte-1y8wm9u"),
+        (Ke.__value = "pMAL-c5X.fasta.txt"),
+        (Ke.value = Ke.__value),
+        i(Ke, "class", "svelte-1y8wm9u"),
+        (De.__value = "pMAL-cRI.fasta.txt"),
+        (De.value = De.__value),
+        i(De, "class", "svelte-1y8wm9u"),
+        (Ee.__value = "pMAL-p.fasta.txt"),
+        (Ee.value = Ee.__value),
+        i(Ee, "class", "svelte-1y8wm9u"),
+        (Qe.__value = "pMAL-p2.fasta.txt"),
+        (Qe.value = Qe.__value),
+        i(Qe, "class", "svelte-1y8wm9u"),
+        (St.__value = "pMAL-p2E.fasta.txt"),
+        (St.value = St.__value),
+        i(St, "class", "svelte-1y8wm9u"),
+        (_t.__value = "pMAL-p2G.fasta.txt"),
+        (_t.value = _t.__value),
+        i(_t, "class", "svelte-1y8wm9u"),
+        (Ut.__value = "pMAL-p2X.fasta.txt"),
+        (Ut.value = Ut.__value),
+        i(Ut, "class", "svelte-1y8wm9u"),
+        (qt.__value = "pMAL-p4E.fasta.txt"),
+        (qt.value = qt.__value),
+        i(qt, "class", "svelte-1y8wm9u"),
+        (Ae.__value = "pMAL-p4G.fasta.txt"),
+        (Ae.value = Ae.__value),
+        i(Ae, "class", "svelte-1y8wm9u"),
+        (lt.__value = "pMAL-p4X.fasta.txt"),
+        (lt.value = lt.__value),
+        i(lt, "class", "svelte-1y8wm9u"),
+        (yt.__value = "pMAL-p5E.fasta.txt"),
+        (yt.value = yt.__value),
+        i(yt, "class", "svelte-1y8wm9u"),
+        (ht.__value = "pMAL-p5G.fasta.txt"),
+        (ht.value = ht.__value),
+        i(ht, "class", "svelte-1y8wm9u"),
+        (Tt.__value = "pMAL-p5X.fasta.txt"),
+        (Tt.value = Tt.__value),
+        i(Tt, "class", "svelte-1y8wm9u"),
+        (Lt.__value = "pMAL-pIII.fasta.txt"),
+        (Lt.value = Lt.__value),
+        i(Lt, "class", "svelte-1y8wm9u"),
+        (al.__value = "pMCP-GPI.fasta.txt"),
+        (al.value = al.__value),
+        i(al, "class", "svelte-1y8wm9u"),
+        (gl.__value = "pMCPm.fasta.txt"),
+        (gl.value = gl.__value),
+        i(gl, "class", "svelte-1y8wm9u"),
+        (dt.__value = "pMXB10.fasta.txt"),
+        (dt.value = dt.__value),
+        i(dt, "class", "svelte-1y8wm9u"),
+        (vl.__value = "pMYB5.fasta.txt"),
+        (vl.value = vl.__value),
+        i(vl, "class", "svelte-1y8wm9u"),
+        (Re.__value = "pNEB193.fasta.txt"),
+        (Re.value = Re.__value),
+        i(Re, "class", "svelte-1y8wm9u"),
+        (xl.__value = "pNEB205a.fasta.txt"),
+        (xl.value = xl.__value),
+        i(xl, "class", "svelte-1y8wm9u"),
+        (ze.__value = "pNEB206a.fasta.txt"),
+        (ze.value = ze.__value),
+        i(ze, "class", "svelte-1y8wm9u"),
+        (mt.__value = "pNEBR-R1.fasta.txt"),
+        (mt.value = mt.__value),
+        i(mt, "class", "svelte-1y8wm9u"),
+        (xt.__value = "pNEBR-R1Puro.fasta.txt"),
+        (xt.value = xt.__value),
+        i(xt, "class", "svelte-1y8wm9u"),
+        (Jl.__value = "pNEBR-X1.fasta.txt"),
+        (Jl.value = Jl.__value),
+        i(Jl, "class", "svelte-1y8wm9u"),
+        (Gl.__value = "pNEBR-X1GLuc.fasta.txt"),
+        (Gl.value = Gl.__value),
+        i(Gl, "class", "svelte-1y8wm9u"),
+        (cl.__value = "pNEBR-X1Hygro.fasta.txt"),
+        (cl.value = cl.__value),
+        i(cl, "class", "svelte-1y8wm9u"),
+        (bt.__value = "pRS303.fasta.txt"),
+        (bt.value = bt.__value),
+        i(bt, "class", "svelte-1y8wm9u"),
+        (Zl.__value = "pRS304.fasta.txt"),
+        (Zl.value = Zl.__value),
+        i(Zl, "class", "svelte-1y8wm9u"),
+        (ul.__value = "pRS305.fasta.txt"),
+        (ul.value = ul.__value),
+        i(ul, "class", "svelte-1y8wm9u"),
+        ($l.__value = "pRS306.fasta.txt"),
+        ($l.value = $l.__value),
+        i($l, "class", "svelte-1y8wm9u"),
+        (Et.__value = "pRS313.fasta.txt"),
+        (Et.value = Et.__value),
+        i(Et, "class", "svelte-1y8wm9u"),
+        (es.__value = "pRS314.fasta.txt"),
+        (es.value = es.__value),
+        i(es, "class", "svelte-1y8wm9u"),
+        (nl.__value = "pRS315.fasta.txt"),
+        (nl.value = nl.__value),
+        i(nl, "class", "svelte-1y8wm9u"),
+        (tl.__value = "pRS316.fasta.txt"),
+        (tl.value = tl.__value),
+        i(tl, "class", "svelte-1y8wm9u"),
+        (pt.__value = "pRS413.fasta.txt"),
+        (pt.value = pt.__value),
+        i(pt, "class", "svelte-1y8wm9u"),
+        (fl.__value = "pRS414.fasta.txt"),
+        (fl.value = fl.__value),
+        i(fl, "class", "svelte-1y8wm9u"),
+        (Ht.__value = "pRS415.fasta.txt"),
+        (Ht.value = Ht.__value),
+        i(Ht, "class", "svelte-1y8wm9u"),
+        (ts.__value = "pRS416.fasta.txt"),
+        (ts.value = ts.__value),
+        i(ts, "class", "svelte-1y8wm9u"),
+        (Nt.__value = "pSNAP-ADRB2.fasta.txt"),
+        (Nt.value = Nt.__value),
+        i(Nt, "class", "svelte-1y8wm9u"),
+        (Tl.__value = "pSNAP-H2B.fasta.txt"),
+        (Tl.value = Tl.__value),
+        i(Tl, "class", "svelte-1y8wm9u"),
+        (Jt.__value = "pSNAPm.fasta.txt"),
+        (Jt.value = Jt.__value),
+        i(Jt, "class", "svelte-1y8wm9u"),
+        (Zt.__value = "pT7-SNAP.fasta.txt"),
+        (Zt.value = Zt.__value),
+        i(Zt, "class", "svelte-1y8wm9u"),
+        (gt.__value = "pTK-GLuc.fasta.txt"),
+        (gt.value = gt.__value),
+        i(gt, "class", "svelte-1y8wm9u"),
+        (ls.__value = "pTWIN-MBP1.fasta.txt"),
+        (ls.value = ls.__value),
+        i(ls, "class", "svelte-1y8wm9u"),
+        (Kt.__value = "pTWIN1.fasta.txt"),
+        (Kt.value = Kt.__value),
+        i(Kt, "class", "svelte-1y8wm9u"),
+        (ss.__value = "pTWIN2.fasta.txt"),
+        (ss.value = ss.__value),
+        i(ss, "class", "svelte-1y8wm9u"),
+        (jt.__value = "pTXB1.fasta.txt"),
+        (jt.value = jt.__value),
+        i(jt, "class", "svelte-1y8wm9u"),
+        (Hl.__value = "pTXB3.fasta.txt"),
+        (Hl.value = Hl.__value),
+        i(Hl, "class", "svelte-1y8wm9u"),
+        (Fl.__value = "pTYB1.fasta.txt"),
+        (Fl.value = Fl.__value),
+        i(Fl, "class", "svelte-1y8wm9u"),
+        (jl.__value = "pTYB11.fasta.txt"),
+        (jl.value = jl.__value),
+        i(jl, "class", "svelte-1y8wm9u"),
+        (Vl.__value = "pTYB12.fasta.txt"),
+        (Vl.value = Vl.__value),
+        i(Vl, "class", "svelte-1y8wm9u"),
+        (_l.__value = "pTYB2.fasta.txt"),
+        (_l.value = _l.__value),
+        i(_l, "class", "svelte-1y8wm9u"),
+        (bl.__value = "pTYB21.fasta.txt"),
+        (bl.value = bl.__value),
+        i(bl, "class", "svelte-1y8wm9u"),
+        (ns.__value = "pTYB22.fasta.txt"),
+        (ns.value = ns.__value),
+        i(ns, "class", "svelte-1y8wm9u"),
+        (Yt.__value = "pTYB3.fasta.txt"),
+        (Yt.value = Yt.__value),
+        i(Yt, "class", "svelte-1y8wm9u"),
+        (is.__value = "pTYB4.fasta.txt"),
+        (is.value = is.__value),
+        i(is, "class", "svelte-1y8wm9u"),
+        (Sl.__value = "pUC18.fasta.txt"),
+        (Sl.value = Sl.__value),
+        i(Sl, "class", "svelte-1y8wm9u"),
+        (os.__value = "pUC19.fasta.txt"),
+        (os.value = os.__value),
+        i(os, "class", "svelte-1y8wm9u"),
+        (kt.__value = "pUPS.fasta.txt"),
+        (kt.value = kt.__value),
+        i(kt, "class", "svelte-1y8wm9u"),
+        (Rt.__value = "PURExpr_DHFR_ctrl.fasta.txt"),
+        (Rt.value = Rt.__value),
+        i(Rt, "class", "svelte-1y8wm9u"),
+        (Rl.__value = "SV40.fasta.txt"),
+        (Rl.value = Rl.__value),
+        i(Rl, "class", "svelte-1y8wm9u"),
+        (Ul.__value = "YCplac111.fasta.txt"),
+        (Ul.value = Ul.__value),
+        i(Ul, "class", "svelte-1y8wm9u"),
+        (kl.__value = "YCplac22.fasta.txt"),
+        (kl.value = kl.__value),
+        i(kl, "class", "svelte-1y8wm9u"),
+        (rs.__value = "YCplac33.fasta.txt"),
+        (rs.value = rs.__value),
+        i(rs, "class", "svelte-1y8wm9u"),
+        (il.__value = "YEp24.fasta.txt"),
+        (il.value = il.__value),
+        i(il, "class", "svelte-1y8wm9u"),
+        (Wt.__value = "YEplac112.fasta.txt"),
+        (Wt.value = Wt.__value),
+        i(Wt, "class", "svelte-1y8wm9u"),
+        (It.__value = "YEplac181.fasta.txt"),
+        (It.value = It.__value),
+        i(It, "class", "svelte-1y8wm9u"),
+        (Il.__value = "YEplac195.fasta.txt"),
+        (Il.value = Il.__value),
+        i(Il, "class", "svelte-1y8wm9u"),
+        (Dl.__value = "YIplac128.fasta.txt"),
+        (Dl.value = Dl.__value),
+        i(Dl, "class", "svelte-1y8wm9u"),
+        (Qt.__value = "YIplac204.fasta.txt"),
+        (Qt.value = Qt.__value),
+        i(Qt, "class", "svelte-1y8wm9u"),
+        (Ol.__value = "YIplac211.fasta.txt"),
+        (Ol.value = Ol.__value),
+        i(Ol, "class", "svelte-1y8wm9u"),
+        i(p, "id", "samplevectors"),
+        i(p, "class", "dropdown neb-dropdown svelte-1y8wm9u"),
+        s[5] === void 0 && zs(() => s[19].call(p)),
+        i(d, "class", "col svelte-1y8wm9u"),
+        i(Ss, "class", "col svelte-1y8wm9u"),
+        i(l, "class", "row svelte-1y8wm9u"),
+        i(Es, "class", "svelte-1y8wm9u"),
+        i(Gt, "class", " svelte-1y8wm9u"),
+        i(Gt, "type", "checkbox"),
+        i(Gt, "id", "useRevComp"),
+        i(dl, "for", "useRevComp"),
+        i(dl, "class", "svelte-1y8wm9u"),
+        i(ms, "class", "svelte-1y8wm9u"),
+        i(Bl, "class", " svelte-1y8wm9u"),
+        i(Bl, "type", "checkbox"),
+        i(Bl, "id", "partialseq"),
+        i(gs, "for", "partialseq"),
+        i(gs, "class", "svelte-1y8wm9u"),
+        i(cs, "class", "helpicon svelte-1y8wm9u"),
+        Ft(cs.src, (vs = ql)) || i(cs, "src", vs),
+        i(cs, "height", "20px"),
+        i(Ml, "class", "svelte-1y8wm9u"),
+        i(bs, "class", "button btn btn-link neb-blue svelte-1y8wm9u"),
+        i(bs, "id", "clearSeq"),
+        i(Kl, "class", "svelte-1y8wm9u"),
+        i(wt, "class", "col svelte-1y8wm9u"),
+        i(ps, "class", "row svelte-1y8wm9u"),
+        i(ol, "id", "target"),
+        i(ol, "type", "text"),
+        i(ol, "class", "longseqinput svelte-1y8wm9u"),
+        i(ol, "placeholder", "FASTA or raw sequence. ACGT and spaces accepted; no ambiguous bases allowed."),
+        i(us, "class", "col svelte-1y8wm9u"),
+        i(wl, "class", "row svelte-1y8wm9u"),
+        i(As, "class", "col svelte-1y8wm9u"),
+        i(fs, "class", "row svelte-1y8wm9u"),
+        i(Al, "type", "text"),
+        i(Al, "id", "seqid"),
+        i(Al, "class", " svelte-1y8wm9u"),
+        i(Ql, "class", "col svelte-1y8wm9u"),
+        i(qs, "class", "row svelte-1y8wm9u"),
+        i(Cl, "class", "row svelte-1y8wm9u"),
+        i(zl, "class", "row svelte-1y8wm9u"));
+    },
+    m(Be, vt) {
+      (rt(t, Be, vt),
+        v(Be, n, vt),
+        v(Be, l, vt),
+        o(l, a),
+        o(a, r),
+        o(r, f),
+        s[17](r),
+        o(a, u),
+        o(l, h),
+        o(l, d),
+        o(d, p),
+        o(p, m),
+        o(p, _),
+        o(p, w),
+        o(p, q),
+        o(p, C),
+        o(p, A),
+        o(p, b),
+        o(p, y),
+        o(p, k),
+        o(p, M),
+        o(p, P),
+        o(p, L),
+        o(p, G),
+        o(p, R),
+        o(p, N),
+        o(p, U),
+        o(p, B),
+        o(p, F),
+        o(p, I),
+        o(p, H),
+        o(p, W),
+        o(p, D),
+        o(p, V),
+        o(p, Q),
+        o(p, Z),
+        o(p, oe),
+        o(p, X),
+        o(p, re),
+        o(p, x),
+        o(p, le),
+        o(p, z),
+        o(p, fe),
+        o(p, de),
+        o(p, pe),
+        o(p, ye),
+        o(p, ve),
+        o(p, Se),
+        o(p, me),
+        o(p, we),
+        o(p, _e),
+        o(p, j),
+        o(p, O),
+        o(p, te),
+        o(p, K),
+        o(p, he),
+        o(p, xe),
+        o(p, ke),
+        o(p, Ye),
+        o(p, Me),
+        o(p, Ue),
+        o(p, Je),
+        o(p, st),
+        o(p, nt),
+        o(p, Pt),
+        o(p, He),
+        o(p, et),
+        o(p, Le),
+        o(p, je),
+        o(p, ct),
+        o(p, Xt),
+        o(p, tt),
+        o(p, We),
+        o(p, Ke),
+        o(p, De),
+        o(p, Ee),
+        o(p, Qe),
+        o(p, St),
+        o(p, _t),
+        o(p, Ut),
+        o(p, qt),
+        o(p, Ae),
+        o(p, lt),
+        o(p, yt),
+        o(p, ht),
+        o(p, Tt),
+        o(p, Lt),
+        o(p, al),
+        o(p, gl),
+        o(p, dt),
+        o(p, vl),
+        o(p, Re),
+        o(p, xl),
+        o(p, ze),
+        o(p, mt),
+        o(p, xt),
+        o(p, Jl),
+        o(p, Gl),
+        o(p, cl),
+        o(p, bt),
+        o(p, Zl),
+        o(p, ul),
+        o(p, $l),
+        o(p, Et),
+        o(p, es),
+        o(p, nl),
+        o(p, tl),
+        o(p, pt),
+        o(p, fl),
+        o(p, Ht),
+        o(p, ts),
+        o(p, Nt),
+        o(p, Tl),
+        o(p, Jt),
+        o(p, Zt),
+        o(p, gt),
+        o(p, ls),
+        o(p, Kt),
+        o(p, ss),
+        o(p, jt),
+        o(p, Hl),
+        o(p, Fl),
+        o(p, jl),
+        o(p, Vl),
+        o(p, _l),
+        o(p, bl),
+        o(p, ns),
+        o(p, Yt),
+        o(p, is),
+        o(p, Sl),
+        o(p, os),
+        o(p, kt),
+        o(p, Rt),
+        o(p, Rl),
+        o(p, Ul),
+        o(p, kl),
+        o(p, rs),
+        o(p, il),
+        o(p, Wt),
+        o(p, It),
+        o(p, Il),
+        o(p, Dl),
+        o(p, Qt),
+        o(p, Ol),
+        s[18](p),
+        Ks(p, s[5]),
+        o(l, as),
+        o(l, Ss),
+        v(Be, ds, vt),
+        v(Be, Es, vt),
+        v(Be, Ns, vt),
+        v(Be, ps, vt),
+        o(ps, wt),
+        o(wt, hs),
+        o(wt, ms),
+        o(ms, Gt),
+        (Gt.checked = s[2]),
+        o(ms, Hs),
+        o(ms, dl),
+        o(wt, js),
+        o(wt, Ml),
+        o(Ml, Bl),
+        (Bl.checked = s[3]),
+        o(Ml, Is),
+        o(Ml, gs),
+        o(Ml, ks),
+        o(Ml, cs),
+        o(wt, _s),
+        o(wt, Kl),
+        o(Kl, bs),
+        o(wt, ws),
+        rl && rl.m(wt, null),
+        v(Be, Ds, vt),
+        v(Be, wl, vt),
+        o(wl, us),
+        o(us, ol),
+        $e(ol, s[1]),
+        v(Be, Yl, vt),
+        v(Be, fs, vt),
+        o(fs, As),
+        o(As, Cs),
+        o(As, Wl),
+        o(As, pl),
+        v(Be, sl, vt),
+        v(Be, qs, vt),
+        o(qs, Ql),
+        o(Ql, Vs),
+        o(Ql, Al),
+        $e(Al, s[4]),
+        v(Be, Os, vt),
+        v(Be, Cl, vt),
+        v(Be, Ms, vt),
+        v(Be, zl, vt),
+        (Ps = !0),
+        Gs ||
+          ((Us = [
+            se(f, "change", s[16]),
+            se(f, "change", s[11]),
+            se(p, "change", s[19]),
+            se(p, "change", function () {
+              ii(s[12](s[5])) && s[12](s[5]).apply(this, arguments);
+            }),
+            se(Gt, "change", s[20]),
+            se(Bl, "change", s[21]),
+            se(cs, "click", s[22]),
+            se(bs, "click", s[13]),
+            se(ol, "input", s[23]),
+            se(Al, "input", s[24]),
+          ]),
+          (Gs = !0)));
+    },
+    p(Be, vt) {
+      s = Be;
+      const Pl = {};
+      (vt[1] & 64 && (Pl.$$scope = { dirty: vt, ctx: s }),
+        !e && vt[0] & 1024 && ((e = !0), (Pl.dialog = s[10]), Ot(() => (e = !1))),
+        t.$set(Pl),
+        vt[0] & 32 && Ks(p, s[5]),
+        vt[0] & 4 && (Gt.checked = s[2]),
+        vt[0] & 8 && (Bl.checked = s[3]),
+        s[9] ? rl || ((rl = wi()), rl.c(), rl.m(wt, null)) : rl && (rl.d(1), (rl = null)),
+        vt[0] & 2 && $e(ol, s[1]),
+        (!Ps || vt[0] & 1) && ll !== (ll = s[0].seq.length + "") && $(Wl, ll),
+        vt[0] & 16 && Al.value !== s[4] && $e(Al, s[4]));
+    },
+    i(Be) {
+      Ps || (Fe(t.$$.fragment, Be), (Ps = !0));
+    },
+    o(Be) {
+      (Ie(t.$$.fragment, Be), (Ps = !1));
+    },
+    d(Be) {
+      (at(t, Be),
+        Be && g(n),
+        Be && g(l),
+        s[17](null),
+        s[18](null),
+        Be && g(ds),
+        Be && g(Es),
+        Be && g(Ns),
+        Be && g(ps),
+        rl && rl.d(),
+        Be && g(Ds),
+        Be && g(wl),
+        Be && g(Yl),
+        Be && g(fs),
+        Be && g(sl),
+        Be && g(qs),
+        Be && g(Os),
+        Be && g(Cl),
+        Be && g(Ms),
+        Be && g(zl),
+        (Gs = !1),
+        Vt(Us));
+    },
+  };
+}
+function Er(s, t, e) {
+  let {
+    seqrec: n = {
+      seq: "",
+      id: "unknown",
+      format: "unknown",
+      header: "",
+      isCircular: !0,
+      useRevComp: !1,
+      isVector: !0,
+      type: "dna",
+      len: 0,
+      start: 0,
+      end: 0,
+      frag: null,
+    },
+  } = t;
+  var l = "",
+    a = !1,
+    r = !1,
+    f,
+    u = "unselected",
+    h,
+    d,
+    p = "",
+    m = "INPUTSEQ",
+    _ = !1,
+    w;
+  const q = function () {
+      (h && h.reset(), e(5, (u = "unselected")));
+    },
+    C = function (V) {
+      var Z = V.target.result;
+      (console.log("Finished Loading!"), console.log("Result:", Z), e(1, (l = Z)), (V.target.value = ""));
+    },
+    A = function (V) {
+      console.log("Error: " + V.target.error.name);
+    },
+    b = function (V) {
+      console.log("processFile");
+      const Q = new FileReader();
+      (Q.readAsText(V), Q.addEventListener("loadend", C), Q.addEventListener("error", A));
+    };
+  var y = function () {
+      console.log("loadVecFromFile");
+      const V = document.getElementById("fileinput").files[0];
+      V && b(V);
+    },
+    k = async function (V) {
+      console.log("loadSampleVec called with ", V);
+      var Z = await (await fetch("/seqs/" + V)).text();
+      (console.log(Z), e(1, (l = Z)));
+    },
+    M = function (V, Q, Z, oe) {
+      if ((console.log("resetSeq called with ", Q, Z, oe), oe || (oe = !1), !V || !Q))
+        try {
+          V = new Vo.Fragment("", { srctopology: oe ? "linear" : "circular", srctype: "synth" });
+        } catch (re) {
+          return (console.log("unable to create fragment ", re.message), null);
+        }
+      var X = br.parseSeqFile(Q, null, null);
+      console.log(X);
+      try {
+        (V.updateSrcseq(X.seq), e(9, (_ = !1)));
+      } catch {
+        (V.updateSrcseq(""), e(9, (_ = !0)));
+      }
+      return (
+        console.log("seq reset to ", V.srcseq.wseq),
+        Z && V.updateSrcseq(qe.revcomp(V.srcseq.wseq)),
+        (V.id = X.id),
+        console.log("fragment.id", V.id),
+        (V.isCircular = !oe),
+        console.log("fragment.isCircular set to ", V.isCircular),
+        e(0, (n.frag = V), n),
+        e(0, (n.seq = X.seq), n),
+        e(0, (n.len = X.len), n),
+        e(0, (n.id = X.id), n),
+        e(4, (m = n.id)),
+        q(),
+        V
+      );
+    },
+    P = function () {
+      (e(1, (l = "")),
+        e(
+          0,
+          (n = {
+            seq: "",
+            id: "unknown",
+            format: "unknown",
+            header: "",
+            isCircular: !0,
+            useRevComp: !1,
+            isVector: !0,
+            type: "dna",
+            len: 0,
+            start: 0,
+            end: 0,
+            frag: null,
+          }),
+        ),
+        e(3, (r = !1)),
+        e(2, (a = !1)));
+    },
+    L = function (V) {
+      return (
+        console.log("updateSeqId"),
+        !V && !n.id && (V = "INPUTSEQ_" + n.len + "bp"),
+        V !== n.id && (e(0, (n.id = V), n), e(14, (f.id = n.id), f)),
+        console.log("id", V),
+        console.log("seqid", m),
+        console.log("seqrec.id", n.id),
+        console.log("frag.id", f.id),
+        V
+      );
+    };
+  function G(V) {
+    ((w = V), e(10, w));
+  }
+  function R() {
+    ((p = this.value), e(8, p));
+  }
+  function N(V) {
+    ft[V ? "unshift" : "push"](() => {
+      ((h = V), e(6, h));
+    });
+  }
+  function U(V) {
+    ft[V ? "unshift" : "push"](() => {
+      ((d = V), e(7, d));
+    });
+  }
+  function B() {
+    ((u = nn(this)), e(5, u));
+  }
+  function F() {
+    ((a = this.checked), e(2, a));
+  }
+  function I() {
+    ((r = this.checked), e(3, r));
+  }
+  const H = () => w.showModal();
+  function W() {
+    ((l = this.value), e(1, l));
+  }
+  function D() {
+    ((m = this.value), e(4, m), e(36, L));
+  }
+  return (
+    (s.$$set = (V) => {
+      "seqrec" in V && e(0, (n = V.seqrec));
+    }),
+    (s.$$.update = () => {
+      (s.$$.dirty[0] & 16398 && e(14, (f = M(f, l, a, r))),
+        s.$$.dirty[0] & 4 && e(0, (n.useRevComp = a), n),
+        s.$$.dirty[0] & 16384 && e(0, (n.frag = f), n),
+        s.$$.dirty[0] & 16384 && e(0, (n.seq = f ? f.srcseq.wseq : ""), n),
+        s.$$.dirty[0] & 8 && e(0, (n.isCircular = !r), n),
+        s.$$.dirty[0] & 16 && e(4, (m = L(m))),
+        s.$$.dirty[0] & 16 && e(0, (n.id = m), n));
+    }),
+    [n, l, a, r, m, u, h, d, p, _, w, y, k, P, f, G, R, N, U, B, F, I, H, W, D]
+  );
+}
+class Nr extends Nl {
+  constructor(t) {
+    (super(), El(this, t, Er, Lr, yl, { seqrec: 0 }, null, [-1, -1]));
+  }
+}
+function Ai(s, t, e) {
+  const n = s.slice();
+  return ((n[4] = t[e]), (n[6] = e), n);
+}
+function Ci(s) {
+  let t,
+    e,
+    n,
+    l,
+    a,
+    r,
+    f,
+    u = s[1],
+    h = [];
+  for (let d = 0; d < u.length; d += 1) h[d] = qi(Ai(s, u, d));
+  return {
+    c() {
+      ((t = c("div")),
+        (e = c("table")),
+        (n = c("thead")),
+        (n.innerHTML = `<tr class="svelte-oeg76i"><th class="svelte-oeg76i">View</th> 
+				<th class="svelte-oeg76i">Description</th> 
+	        	<th class="svelte-oeg76i">ID (F/R)</th> 
+	            <th class="svelte-oeg76i">Oligo (lowercase = mutation)</th> 
+	            <th class="svelte-oeg76i">Len</th> 
+	            <th class="svelte-oeg76i">Tm</th> 
+	            <th class="svelte-oeg76i">Ta *</th></tr>`),
+        (l = S()),
+        (a = c("tbody")));
+      for (let d = 0; d < h.length; d += 1) h[d].c();
+      ((r = S()),
+        (f = c("div")),
+        (f.innerHTML = "* <small>Annealing temperature</small>"),
+        i(n, "class", "svelte-oeg76i"),
+        i(e, "id", "oligotable"),
+        i(e, "class", " svelte-oeg76i"));
+    },
+    m(d, p) {
+      (v(d, t, p), o(t, e), o(e, n), o(e, l), o(e, a));
+      for (let m = 0; m < h.length; m += 1) h[m].m(a, null);
+      (o(t, r), o(t, f));
+    },
+    p(d, p) {
+      if (p & 3) {
+        u = d[1];
+        let m;
+        for (m = 0; m < u.length; m += 1) {
+          const _ = Ai(d, u, m);
+          h[m] ? h[m].p(_, p) : ((h[m] = qi(_)), h[m].c(), h[m].m(a, null));
+        }
+        for (; m < h.length; m += 1) h[m].d(1);
+        h.length = u.length;
+      }
+    },
+    d(d) {
+      (d && g(t), Ys(h, d));
+    },
+  };
+}
+function qi(s) {
+  let t,
+    e,
+    n,
+    l,
+    a,
+    r = s[4].description + "",
+    f,
+    u,
+    h,
+    d = s[4].idprefix + ":" + (s[6] + 1),
+    p,
+    m,
+    _,
+    w,
+    q = s[4].seqfpflap + "",
+    C,
+    A = s[4].seqfanneal + "",
+    b,
+    y,
+    k,
+    M = s[4].lenf + "",
+    P,
+    L,
+    G,
+    R = Math.round(s[4].tmf) + "",
+    N,
+    U,
+    B,
+    F = Math.round(s[4].ta) + "",
+    I,
+    H,
+    W,
+    D,
+    V = s[4].idprefix + ":" + (s[6] + 1),
+    Q,
+    Z,
+    oe,
+    X,
+    re = s[4].seqrpflap + "",
+    x,
+    le = s[4].seqranneal + "",
+    z,
+    fe,
+    de,
+    pe = s[4].lenr + "",
+    ye,
+    ve,
+    Se,
+    me = Math.round(s[4].tmr) + "",
+    we,
+    _e,
+    j,
+    O;
+  return {
+    c() {
+      ((t = c("tr")),
+        (e = c("td")),
+        (n = c("input")),
+        (l = S()),
+        (a = c("td")),
+        (f = T(r)),
+        (u = S()),
+        (h = c("td")),
+        (p = T(d)),
+        (m = T("_FWD")),
+        (_ = S()),
+        (w = c("td")),
+        (C = T(q)),
+        (b = T(A)),
+        (y = S()),
+        (k = c("td")),
+        (P = T(M)),
+        (L = S()),
+        (G = c("td")),
+        (N = T(R)),
+        (U = S()),
+        (B = c("td")),
+        (I = T(F)),
+        (H = S()),
+        (W = c("tr")),
+        (D = c("td")),
+        (Q = T(V)),
+        (Z = T("_REV")),
+        (oe = S()),
+        (X = c("td")),
+        (x = T(re)),
+        (z = T(le)),
+        (fe = S()),
+        (de = c("td")),
+        (ye = T(pe)),
+        (ve = S()),
+        (Se = c("td")),
+        (we = T(me)),
+        (_e = S()),
+        i(n, "type", "radio"),
+        i(n, "name", "vwtxl"),
+        (n.__value = s[6]),
+        (n.value = n.__value),
+        s[3][0].push(n),
+        i(e, "rowspan", "2"),
+        i(e, "class", "svelte-oeg76i"),
+        i(a, "rowspan", "2"),
+        i(a, "class", "tblcoldesc svelte-oeg76i"),
+        i(h, "class", "svelte-oeg76i"),
+        i(w, "class", "tblcolseq f1b svelte-oeg76i"),
+        i(k, "class", "svelte-oeg76i"),
+        i(G, "class", "svelte-oeg76i"),
+        i(B, "rowspan", "2"),
+        i(B, "class", "tblta svelte-oeg76i"),
+        i(t, "class", "svelte-oeg76i"),
+        i(D, "class", "svelte-oeg76i"),
+        i(X, "class", "tblcolseq f3b svelte-oeg76i"),
+        i(de, "class", "svelte-oeg76i"),
+        i(Se, "class", "svelte-oeg76i"),
+        i(W, "class", "svelte-oeg76i"));
+    },
+    m(te, K) {
+      (v(te, t, K),
+        o(t, e),
+        o(e, n),
+        (n.checked = n.__value === s[0]),
+        o(t, l),
+        o(t, a),
+        o(a, f),
+        o(t, u),
+        o(t, h),
+        o(h, p),
+        o(h, m),
+        o(t, _),
+        o(t, w),
+        o(w, C),
+        o(w, b),
+        o(t, y),
+        o(t, k),
+        o(k, P),
+        o(t, L),
+        o(t, G),
+        o(G, N),
+        o(t, U),
+        o(t, B),
+        o(B, I),
+        v(te, H, K),
+        v(te, W, K),
+        o(W, D),
+        o(D, Q),
+        o(D, Z),
+        o(W, oe),
+        o(W, X),
+        o(X, x),
+        o(X, z),
+        o(W, fe),
+        o(W, de),
+        o(de, ye),
+        o(W, ve),
+        o(W, Se),
+        o(Se, we),
+        o(W, _e),
+        j || ((O = se(n, "change", s[2])), (j = !0)));
+    },
+    p(te, K) {
+      (K & 1 && (n.checked = n.__value === te[0]),
+        K & 2 && r !== (r = te[4].description + "") && $(f, r),
+        K & 2 && d !== (d = te[4].idprefix + ":" + (te[6] + 1)) && $(p, d),
+        K & 2 && q !== (q = te[4].seqfpflap + "") && $(C, q),
+        K & 2 && A !== (A = te[4].seqfanneal + "") && $(b, A),
+        K & 2 && M !== (M = te[4].lenf + "") && $(P, M),
+        K & 2 && R !== (R = Math.round(te[4].tmf) + "") && $(N, R),
+        K & 2 && F !== (F = Math.round(te[4].ta) + "") && $(I, F),
+        K & 2 && V !== (V = te[4].idprefix + ":" + (te[6] + 1)) && $(Q, V),
+        K & 2 && re !== (re = te[4].seqrpflap + "") && $(x, re),
+        K & 2 && le !== (le = te[4].seqranneal + "") && $(z, le),
+        K & 2 && pe !== (pe = te[4].lenr + "") && $(ye, pe),
+        K & 2 && me !== (me = Math.round(te[4].tmr) + "") && $(we, me));
+    },
+    d(te) {
+      (te && g(t), s[3][0].splice(s[3][0].indexOf(n), 1), te && g(H), te && g(W), (j = !1), O());
+    },
+  };
+}
+function Gr(s) {
+  let t,
+    e = s[1].length > 0 && Ci(s);
+  return {
+    c() {
+      (e && e.c(), (t = Xl()));
+    },
+    m(n, l) {
+      (e && e.m(n, l), v(n, t, l));
+    },
+    p(n, [l]) {
+      n[1].length > 0
+        ? e
+          ? e.p(n, l)
+          : ((e = Ci(n)), e.c(), e.m(t.parentNode, t))
+        : e && (e.d(1), (e = null));
+    },
+    i: be,
+    o: be,
+    d(n) {
+      (e && e.d(n), n && g(t));
+    },
+  };
+}
+function Fr(s, t, e) {
+  let { primers: n = [] } = t,
+    { selectedtxl: l = 0 } = t;
+  const a = [[]];
+  function r() {
+    ((l = this.__value), e(0, l));
+  }
+  return (
+    (s.$$set = (f) => {
+      ("primers" in f && e(1, (n = f.primers)), "selectedtxl" in f && e(0, (l = f.selectedtxl)));
+    }),
+    [l, n, r, a]
+  );
+}
+class Rr extends Nl {
+  constructor(t) {
+    (super(), El(this, t, Fr, Gr, yl, { primers: 1, selectedtxl: 0 }));
+  }
+}
+function yi(s, t, e) {
+  const n = s.slice();
+  return ((n[2] = t[e]), (n[4] = e), n);
+}
+function Ti(s) {
+  let t,
+    e,
+    n,
+    l,
+    a,
+    r,
+    f,
+    u,
+    h,
+    d,
+    p,
+    m = s[0],
+    _ = [];
+  for (let w = 0; w < m.length; w += 1) _[w] = Mi(yi(s, m, w));
+  return {
+    c() {
+      ((t = c("div")),
+        (e = c("table")),
+        (n = c("thead")),
+        (n.innerHTML = `<tr class="svelte-1gr9q7o"><th class="svelte-1gr9q7o"></th> 
+				<th class="svelte-1gr9q7o">Description</th> 
+	        	<th class="svelte-1gr9q7o">ID (F/R)</th> 
+	            <th class="svelte-1gr9q7o">Oligo (lowercase = mutation)</th> 
+	            <th class="svelte-1gr9q7o">Len</th> 
+	            <th class="svelte-1gr9q7o">Tm</th> 
+	            <th class="svelte-1gr9q7o">Ta \xB0C*</th> 
+	            <th class="svelte-1gr9q7o">PCR Frag Len (bp)</th></tr>`),
+        (l = S()),
+        (a = c("tbody")));
+      for (let w = 0; w < _.length; w += 1) _[w].c();
+      ((r = S()),
+        (f = c("div")),
+        (f.innerHTML = "* <small>Annealing temperature</small>"),
+        (u = S()),
+        (h = c("div")),
+        (h.innerHTML =
+          "<small><span>\u21A9</span> Length of fragment that spans sequence origin assumes complete sequence was entered.</small>"),
+        (d = S()),
+        (p = c("div")),
+        (p.innerHTML =
+          "<small><span>\u21B9</span> Fragment length is very short.  Primers may overlap.  NOT RECOMMENDED.</small>"),
+        i(n, "class", "svelte-1gr9q7o"),
+        i(e, "id", "oligotable"),
+        i(e, "class", " svelte-1gr9q7o"));
+    },
+    m(w, q) {
+      (v(w, t, q), o(t, e), o(e, n), o(e, l), o(e, a));
+      for (let C = 0; C < _.length; C += 1) _[C].m(a, null);
+      (o(t, r), o(t, f), o(t, u), o(t, h), o(t, d), o(t, p));
+    },
+    p(w, q) {
+      if (q & 1) {
+        m = w[0];
+        let C;
+        for (C = 0; C < m.length; C += 1) {
+          const A = yi(w, m, C);
+          _[C] ? _[C].p(A, q) : ((_[C] = Mi(A)), _[C].c(), _[C].m(a, null));
+        }
+        for (; C < _.length; C += 1) _[C].d(1);
+        _.length = m.length;
+      }
+    },
+    d(w) {
+      (w && g(t), Ys(_, w));
+    },
+  };
+}
+function Si(s) {
+  let t;
+  return {
+    c() {
+      ((t = c("span")), (t.textContent = "\u21A9"));
+    },
+    m(e, n) {
+      v(e, t, n);
+    },
+    d(e) {
+      e && g(t);
+    },
+  };
+}
+function ki(s) {
+  let t;
+  return {
+    c() {
+      ((t = c("span")), (t.textContent = "\u21B9"), i(t, "class", "warn svelte-1gr9q7o"));
+    },
+    m(e, n) {
+      v(e, t, n);
+    },
+    d(e) {
+      e && g(t);
+    },
+  };
+}
+function Mi(s) {
+  let t,
+    e,
+    n,
+    l,
+    a = s[2].description + "",
+    r,
+    f,
+    u,
+    h = s[2].idprefix + ":" + (s[4] + 1),
+    d,
+    p,
+    m,
+    _,
+    w = s[2].seqfpflap + "",
+    q,
+    C = s[2].seqfanneal + "",
+    A,
+    b,
+    y,
+    k = s[2].lenf + "",
+    M,
+    P,
+    L,
+    G = Math.round(s[2].tmf) + "",
+    R,
+    N,
+    U,
+    B = Math.round(s[2].ta) + "",
+    F,
+    I,
+    H,
+    W = s[2].fraglen + "",
+    D,
+    V,
+    Q,
+    Z,
+    oe,
+    X,
+    re,
+    x = s[2].idprefix + ":" + (s[4] + 1),
+    le,
+    z,
+    fe,
+    de,
+    pe = s[2].seqranneal + "",
+    ye,
+    ve = s[2].seqrpflap + "",
+    Se,
+    me,
+    we,
+    _e = s[2].lenr + "",
+    j,
+    O,
+    te,
+    K = Math.round(s[2].tmr) + "",
+    he,
+    xe,
+    ke = s[2].wraparound && Si(),
+    Ye = s[2].clash && ki();
+  return {
+    c() {
+      ((t = c("tr")),
+        (e = c("td")),
+        (n = S()),
+        (l = c("td")),
+        (r = T(a)),
+        (f = S()),
+        (u = c("td")),
+        (d = T(h)),
+        (p = T("_FWD")),
+        (m = S()),
+        (_ = c("td")),
+        (q = T(w)),
+        (A = T(C)),
+        (b = S()),
+        (y = c("td")),
+        (M = T(k)),
+        (P = S()),
+        (L = c("td")),
+        (R = T(G)),
+        (N = S()),
+        (U = c("td")),
+        (F = T(B)),
+        (I = S()),
+        (H = c("td")),
+        (D = T(W)),
+        (V = S()),
+        ke && ke.c(),
+        (Q = S()),
+        Ye && Ye.c(),
+        (oe = S()),
+        (X = c("tr")),
+        (re = c("td")),
+        (le = T(x)),
+        (z = T("_REV")),
+        (fe = S()),
+        (de = c("td")),
+        (ye = T(pe)),
+        (Se = T(ve)),
+        (me = S()),
+        (we = c("td")),
+        (j = T(_e)),
+        (O = S()),
+        (te = c("td")),
+        (he = T(K)),
+        (xe = S()),
+        i(e, "rowspan", "2"),
+        i(e, "class", "svelte-1gr9q7o"),
+        i(l, "rowspan", "2"),
+        i(l, "class", "tblcoldesc svelte-1gr9q7o"),
+        i(u, "class", "svelte-1gr9q7o"),
+        i(_, "class", "tblcolseq f1b svelte-1gr9q7o"),
+        i(y, "class", "svelte-1gr9q7o"),
+        i(L, "class", "svelte-1gr9q7o"),
+        i(U, "rowspan", "2"),
+        i(U, "class", "tblta svelte-1gr9q7o"),
+        i(H, "rowspan", "2"),
+        i(H, "class", (Z = "tblta " + (s[2].clash ? "invalidinput" : "") + " svelte-1gr9q7o")),
+        i(t, "class", "svelte-1gr9q7o"),
+        i(re, "class", "svelte-1gr9q7o"),
+        i(de, "class", "tblcolseq f3b svelte-1gr9q7o"),
+        i(we, "class", "svelte-1gr9q7o"),
+        i(te, "class", "svelte-1gr9q7o"),
+        i(X, "class", "svelte-1gr9q7o"));
+    },
+    m(Me, Ue) {
+      (v(Me, t, Ue),
+        o(t, e),
+        o(t, n),
+        o(t, l),
+        o(l, r),
+        o(t, f),
+        o(t, u),
+        o(u, d),
+        o(u, p),
+        o(t, m),
+        o(t, _),
+        o(_, q),
+        o(_, A),
+        o(t, b),
+        o(t, y),
+        o(y, M),
+        o(t, P),
+        o(t, L),
+        o(L, R),
+        o(t, N),
+        o(t, U),
+        o(U, F),
+        o(t, I),
+        o(t, H),
+        o(H, D),
+        o(H, V),
+        ke && ke.m(H, null),
+        o(H, Q),
+        Ye && Ye.m(H, null),
+        v(Me, oe, Ue),
+        v(Me, X, Ue),
+        o(X, re),
+        o(re, le),
+        o(re, z),
+        o(X, fe),
+        o(X, de),
+        o(de, ye),
+        o(de, Se),
+        o(X, me),
+        o(X, we),
+        o(we, j),
+        o(X, O),
+        o(X, te),
+        o(te, he),
+        o(X, xe));
+    },
+    p(Me, Ue) {
+      (Ue & 1 && a !== (a = Me[2].description + "") && $(r, a),
+        Ue & 1 && h !== (h = Me[2].idprefix + ":" + (Me[4] + 1)) && $(d, h),
+        Ue & 1 && w !== (w = Me[2].seqfpflap + "") && $(q, w),
+        Ue & 1 && C !== (C = Me[2].seqfanneal + "") && $(A, C),
+        Ue & 1 && k !== (k = Me[2].lenf + "") && $(M, k),
+        Ue & 1 && G !== (G = Math.round(Me[2].tmf) + "") && $(R, G),
+        Ue & 1 && B !== (B = Math.round(Me[2].ta) + "") && $(F, B),
+        Ue & 1 && W !== (W = Me[2].fraglen + "") && $(D, W),
+        Me[2].wraparound ? ke || ((ke = Si()), ke.c(), ke.m(H, Q)) : ke && (ke.d(1), (ke = null)),
+        Me[2].clash ? Ye || ((Ye = ki()), Ye.c(), Ye.m(H, null)) : Ye && (Ye.d(1), (Ye = null)),
+        Ue & 1 &&
+          Z !== (Z = "tblta " + (Me[2].clash ? "invalidinput" : "") + " svelte-1gr9q7o") &&
+          i(H, "class", Z),
+        Ue & 1 && x !== (x = Me[2].idprefix + ":" + (Me[4] + 1)) && $(le, x),
+        Ue & 1 && pe !== (pe = Me[2].seqranneal + "") && $(ye, pe),
+        Ue & 1 && ve !== (ve = Me[2].seqrpflap + "") && $(Se, ve),
+        Ue & 1 && _e !== (_e = Me[2].lenr + "") && $(j, _e),
+        Ue & 1 && K !== (K = Math.round(Me[2].tmr) + "") && $(he, K));
+    },
+    d(Me) {
+      (Me && g(t), ke && ke.d(), Ye && Ye.d(), Me && g(oe), Me && g(X));
+    },
+  };
+}
+function Ir(s) {
+  let t,
+    e = s[0].length > 0 && Ti(s);
+  return {
+    c() {
+      (e && e.c(), (t = Xl()));
+    },
+    m(n, l) {
+      (e && e.m(n, l), v(n, t, l));
+    },
+    p(n, [l]) {
+      n[0].length > 0
+        ? e
+          ? e.p(n, l)
+          : ((e = Ti(n)), e.c(), e.m(t.parentNode, t))
+        : e && (e.d(1), (e = null));
+    },
+    i: be,
+    o: be,
+    d(n) {
+      (e && e.d(n), n && g(t));
+    },
+  };
+}
+function Dr(s, t, e) {
+  let { primers: n = [] } = t,
+    { selectedtxl: l = 0 } = t;
+  return (
+    (s.$$set = (a) => {
+      ("primers" in a && e(0, (n = a.primers)), "selectedtxl" in a && e(1, (l = a.selectedtxl)));
+    }),
+    [n, l]
+  );
+}
+class Or extends Nl {
+  constructor(t) {
+    (super(), El(this, t, Dr, Ir, yl, { primers: 0, selectedtxl: 1 }));
+  }
+}
+function Pi(s) {
+  let t,
+    e,
+    n,
+    l,
+    a = s[7][0] + "",
+    r,
+    f,
+    u,
+    h,
+    d = s[7][1] + "",
+    p,
+    m,
+    _,
+    w,
+    q = s[7][2] + "",
+    C,
+    A,
+    b,
+    y,
+    k,
+    M,
+    P,
+    L,
+    G,
+    R,
+    N,
+    U,
+    B = s[7][5] + "",
+    F,
+    I,
+    H = s[7][6] + "",
+    W,
+    D,
+    V = s[7][7] + "",
+    Q,
+    Z;
+  function oe(fe, de) {
+    return fe[1] === "replace" && fe[5].pflap.length === 0 ? Hr : Br;
+  }
+  let X = oe(s),
+    re = X(s);
+  function x(fe, de) {
+    return fe[1] === "replace" && fe[5].pflap.length === 0 ? Vr : jr;
+  }
+  let le = x(s),
+    z = le(s);
+  return {
+    c() {
+      ((t = c("div")),
+        (e = c("pre")),
+        (n = T("")),
+        (l = c("span")),
+        (r = T(a)),
+        (u = T(`
+`)),
+        (h = c("span")),
+        (p = T(d)),
+        (_ = T(`
+`)),
+        (w = c("span")),
+        (C = T(q)),
+        (b = T(`
+`)),
+        (y = S()),
+        (k = c("div")),
+        (M = c("pre")),
+        (P = T("")),
+        re.c(),
+        (L = T(`
+`)),
+        z.c(),
+        (G = T(`
+`)),
+        (R = S()),
+        (N = c("pre")),
+        (U = T("")),
+        (F = T(B)),
+        (I = T(`
+`)),
+        (W = T(H)),
+        (D = T(`
+`)),
+        (Q = T(V)),
+        (Z = T(`
+
+`)),
+        i(l, "class", (f = Ts(s[4] == 3 ? "yellowbg" : "") + " svelte-chgkuk")),
+        i(h, "class", (m = Ts(s[4] == 2 ? "yellowbg" : "") + " svelte-chgkuk")),
+        i(w, "class", (A = Ts(s[4] == 1 ? "yellowbg" : "") + " svelte-chgkuk")),
+        i(e, "class", "svelte-chgkuk"),
+        i(M, "class", "svelte-chgkuk"),
+        i(k, "class", "dsseqbox svelte-chgkuk"),
+        i(N, "class", "svelte-chgkuk"),
+        i(t, "id", "translation"),
+        i(t, "class", "svelte-chgkuk"));
+    },
+    m(fe, de) {
+      (v(fe, t, de),
+        o(t, e),
+        o(e, n),
+        o(e, l),
+        o(l, r),
+        o(e, u),
+        o(e, h),
+        o(h, p),
+        o(e, _),
+        o(e, w),
+        o(w, C),
+        o(e, b),
+        o(t, y),
+        o(t, k),
+        o(k, M),
+        o(M, P),
+        re.m(M, null),
+        o(M, L),
+        z.m(M, null),
+        o(M, G),
+        o(t, R),
+        o(t, N),
+        o(N, U),
+        o(N, F),
+        o(N, I),
+        o(N, W),
+        o(N, D),
+        o(N, Q),
+        o(N, Z));
+    },
+    p(fe, de) {
+      (de & 128 && a !== (a = fe[7][0] + "") && $(r, a),
+        de & 16 && f !== (f = Ts(fe[4] == 3 ? "yellowbg" : "") + " svelte-chgkuk") && i(l, "class", f),
+        de & 128 && d !== (d = fe[7][1] + "") && $(p, d),
+        de & 16 && m !== (m = Ts(fe[4] == 2 ? "yellowbg" : "") + " svelte-chgkuk") && i(h, "class", m),
+        de & 128 && q !== (q = fe[7][2] + "") && $(C, q),
+        de & 16 && A !== (A = Ts(fe[4] == 1 ? "yellowbg" : "") + " svelte-chgkuk") && i(w, "class", A),
+        X === (X = oe(fe)) && re ? re.p(fe, de) : (re.d(1), (re = X(fe)), re && (re.c(), re.m(M, L))),
+        le === (le = x(fe)) && z ? z.p(fe, de) : (z.d(1), (z = le(fe)), z && (z.c(), z.m(M, G))),
+        de & 128 && B !== (B = fe[7][5] + "") && $(F, B),
+        de & 128 && H !== (H = fe[7][6] + "") && $(W, H),
+        de & 128 && V !== (V = fe[7][7] + "") && $(Q, V));
+    },
+    d(fe) {
+      (fe && g(t), re.d(), z.d());
+    },
+  };
+}
+function Br(s) {
+  let t,
+    e = qe.revcomp(s[6].primer).toUpperCase() + "",
+    n,
+    l,
+    a = qe.revcomp(s[6].pflap).toLowerCase() + "",
+    r,
+    f,
+    u = s[5].pflap.toLowerCase() + "",
+    h,
+    d,
+    p = s[5].primer.toUpperCase() + "",
+    m;
+  return {
+    c() {
+      ((t = c("span")),
+        (n = T(e)),
+        (l = c("span")),
+        (r = T(a)),
+        (f = c("span")),
+        (h = T(u)),
+        (d = c("span")),
+        (m = T(p)),
+        i(t, "class", "primer oligo f0b svelte-chgkuk"),
+        i(l, "class", "pflap oligo f0b svelte-chgkuk"),
+        i(f, "class", "pflap oligo f1b svelte-chgkuk"),
+        i(d, "class", "primer oligo f1b svelte-chgkuk"));
+    },
+    m(_, w) {
+      (v(_, t, w), o(t, n), v(_, l, w), o(l, r), v(_, f, w), o(f, h), v(_, d, w), o(d, m));
+    },
+    p(_, w) {
+      (w & 64 && e !== (e = qe.revcomp(_[6].primer).toUpperCase() + "") && $(n, e),
+        w & 64 && a !== (a = qe.revcomp(_[6].pflap).toLowerCase() + "") && $(r, a),
+        w & 32 && u !== (u = _[5].pflap.toLowerCase() + "") && $(h, u),
+        w & 32 && p !== (p = _[5].primer.toUpperCase() + "") && $(m, p));
+    },
+    d(_) {
+      (_ && g(t), _ && g(l), _ && g(f), _ && g(d));
+    },
+  };
+}
+function Hr(s) {
+  let t,
+    e = qe.revcomp(s[6].primer).toUpperCase() + "",
+    n,
+    l,
+    a = qe.revcomp(s[6].pflap).toLowerCase() + "",
+    r,
+    f,
+    u = s[5].pflap.toLowerCase() + "",
+    h,
+    d,
+    p = s[5].primer.slice(0, s[3]).toUpperCase() + "",
+    m,
+    _,
+    w = s[5].primer.slice(s[3], s[3] + s[2].length).toLowerCase() + "",
+    q,
+    C,
+    A = s[5].primer.slice(s[3] + s[2].length).toUpperCase() + "",
+    b;
+  return {
+    c() {
+      ((t = c("span")),
+        (n = T(e)),
+        (l = c("span")),
+        (r = T(a)),
+        (f = c("span")),
+        (h = T(u)),
+        (d = c("span")),
+        (m = T(p)),
+        (_ = c("span")),
+        (q = T(w)),
+        (C = c("span")),
+        (b = T(A)),
+        i(t, "class", "primer oligo f0b svelte-chgkuk"),
+        i(l, "class", "pflap oligo f0b svelte-chgkuk"),
+        i(f, "class", "pflap oligo f1b svelte-chgkuk"),
+        i(d, "class", "primer oligo f1b svelte-chgkuk"),
+        i(_, "class", "primer oligo pflap f1b svelte-chgkuk"),
+        i(C, "class", "primer oligo f1b svelte-chgkuk"));
+    },
+    m(y, k) {
+      (v(y, t, k),
+        o(t, n),
+        v(y, l, k),
+        o(l, r),
+        v(y, f, k),
+        o(f, h),
+        v(y, d, k),
+        o(d, m),
+        v(y, _, k),
+        o(_, q),
+        v(y, C, k),
+        o(C, b));
+    },
+    p(y, k) {
+      (k & 64 && e !== (e = qe.revcomp(y[6].primer).toUpperCase() + "") && $(n, e),
+        k & 64 && a !== (a = qe.revcomp(y[6].pflap).toLowerCase() + "") && $(r, a),
+        k & 32 && u !== (u = y[5].pflap.toLowerCase() + "") && $(h, u),
+        k & 40 && p !== (p = y[5].primer.slice(0, y[3]).toUpperCase() + "") && $(m, p),
+        k & 44 && w !== (w = y[5].primer.slice(y[3], y[3] + y[2].length).toLowerCase() + "") && $(q, w),
+        k & 44 && A !== (A = y[5].primer.slice(y[3] + y[2].length).toUpperCase() + "") && $(b, A));
+    },
+    d(y) {
+      (y && g(t), y && g(l), y && g(f), y && g(d), y && g(_), y && g(C));
+    },
+  };
+}
+function jr(s) {
+  let t,
+    e = qe.rev(s[6].primer).toUpperCase() + "",
+    n,
+    l,
+    a = qe.rev(s[6].pflap).toLowerCase() + "",
+    r,
+    f,
+    u = qe.comp(s[5].pflap).toLowerCase() + "",
+    h,
+    d,
+    p = qe.comp(s[5].primer).toUpperCase() + "",
+    m;
+  return {
+    c() {
+      ((t = c("span")),
+        (n = T(e)),
+        (l = c("span")),
+        (r = T(a)),
+        (f = c("span")),
+        (h = T(u)),
+        (d = c("span")),
+        (m = T(p)),
+        i(t, "class", "primer oligo f3b svelte-chgkuk"),
+        i(l, "class", "pflap oligo f3b svelte-chgkuk"),
+        i(f, "class", "pflap oligo f0b svelte-chgkuk"),
+        i(d, "class", "primer oligo f0b svelte-chgkuk"));
+    },
+    m(_, w) {
+      (v(_, t, w), o(t, n), v(_, l, w), o(l, r), v(_, f, w), o(f, h), v(_, d, w), o(d, m));
+    },
+    p(_, w) {
+      (w & 64 && e !== (e = qe.rev(_[6].primer).toUpperCase() + "") && $(n, e),
+        w & 64 && a !== (a = qe.rev(_[6].pflap).toLowerCase() + "") && $(r, a),
+        w & 32 && u !== (u = qe.comp(_[5].pflap).toLowerCase() + "") && $(h, u),
+        w & 32 && p !== (p = qe.comp(_[5].primer).toUpperCase() + "") && $(m, p));
+    },
+    d(_) {
+      (_ && g(t), _ && g(l), _ && g(f), _ && g(d));
+    },
+  };
+}
+function Vr(s) {
+  let t,
+    e = qe.rev(s[6].primer).toUpperCase() + "",
+    n,
+    l,
+    a = qe.rev(s[6].pflap).toLowerCase() + "",
+    r,
+    f,
+    u = qe.comp(s[5].primer).slice(0, s[3]).toUpperCase() + "",
+    h,
+    d,
+    p =
+      qe
+        .comp(s[5].primer)
+        .slice(s[3], s[3] + s[2].length)
+        .toLowerCase() + "",
+    m,
+    _,
+    w =
+      qe
+        .comp(s[5].primer)
+        .slice(s[3] + s[2].length)
+        .toUpperCase() + "",
+    q;
+  return {
+    c() {
+      ((t = c("span")),
+        (n = T(e)),
+        (l = c("span")),
+        (r = T(a)),
+        (f = c("span")),
+        (h = T(u)),
+        (d = c("span")),
+        (m = T(p)),
+        (_ = c("span")),
+        (q = T(w)),
+        i(t, "class", "primer oligo f3b svelte-chgkuk"),
+        i(l, "class", "pflap oligo f3b svelte-chgkuk"),
+        i(f, "class", "primer oligo f0b svelte-chgkuk"),
+        i(d, "class", "primer oligo pflap f0b svelte-chgkuk"),
+        i(_, "class", "primer oligo f0b svelte-chgkuk"));
+    },
+    m(C, A) {
+      (v(C, t, A),
+        o(t, n),
+        v(C, l, A),
+        o(l, r),
+        v(C, f, A),
+        o(f, h),
+        v(C, d, A),
+        o(d, m),
+        v(C, _, A),
+        o(_, q));
+    },
+    p(C, A) {
+      (A & 64 && e !== (e = qe.rev(C[6].primer).toUpperCase() + "") && $(n, e),
+        A & 64 && a !== (a = qe.rev(C[6].pflap).toLowerCase() + "") && $(r, a),
+        A & 40 && u !== (u = qe.comp(C[5].primer).slice(0, C[3]).toUpperCase() + "") && $(h, u),
+        A & 44 &&
+          p !==
+            (p =
+              qe
+                .comp(C[5].primer)
+                .slice(C[3], C[3] + C[2].length)
+                .toLowerCase() + "") &&
+          $(m, p),
+        A & 44 &&
+          w !==
+            (w =
+              qe
+                .comp(C[5].primer)
+                .slice(C[3] + C[2].length)
+                .toUpperCase() + "") &&
+          $(q, w));
+    },
+    d(C) {
+      (C && g(t), C && g(l), C && g(f), C && g(d), C && g(_));
+    },
+  };
+}
+function Ur(s) {
+  let t,
+    e = s[0] && Pi(s);
+  return {
+    c() {
+      (e && e.c(), (t = Xl()));
+    },
+    m(n, l) {
+      (e && e.m(n, l), v(n, t, l));
+    },
+    p(n, [l]) {
+      n[0] ? (e ? e.p(n, l) : ((e = Pi(n)), e.c(), e.m(t.parentNode, t))) : e && (e.d(1), (e = null));
+    },
+    i: be,
+    o: be,
+    d(n) {
+      (e && e.d(n), n && g(t));
+    },
+  };
+}
+function Kr(s, t, e) {
+  let { primerpair: n } = t,
+    { seqop: l } = t,
+    { repseq: a = "" } = t,
+    { pad: r = 10 } = t,
+    { hide: f = [] } = t,
+    { show: u = [1, 2, 3, -1, -2, -3] } = t,
+    { nohi: h = 1 } = t;
+  var d = 0,
+    p,
+    m,
+    _,
+    w = function (b, y, k, M) {
+      if (h) return 0;
+      var P = b.pflap + b.primer,
+        L = y.pflap + y.primer,
+        G;
+      (qe.revcomp(L) + P,
+        l == "delete" || l == "insert" || (l == "replace" && b.pflap.length > 0)
+          ? (G = L.length)
+          : (G = L.length + M));
+      var R = (G % 3) + 1;
+      return R;
+    },
+    q = function (b, y, k, M) {
+      var P = "",
+        L = "",
+        G,
+        R = [],
+        N,
+        U,
+        B = [".", " .", "  .", "....", ".....", "......"],
+        F = ["", " ", "  ", "   ", "    ", "     ", "      "],
+        I;
+      if (
+        ((P = b.pflap.toUpperCase() + b.primer.toUpperCase()),
+        (L = y.pflap.toUpperCase() + y.primer.toUpperCase()),
+        (P = qe.revcomp(L) + P),
+        e(4, (d = w(b, y, k, r))),
+        P !== "")
+      ) {
+        for (G = P, U = qe.revcomp(G), N = 3; N >= 1; --N)
+          if (u.length > 0 && u.indexOf(N) != -1 && G.length >= 3)
+            try {
+              R.push(
+                B[N - 1] +
+                  qe
+                    .translate(G, N - 1)
+                    .split("")
+                    .join(".."),
+              );
+            } catch {
+              R.push("");
+            }
+          else R.push("");
+        for (R[3] = G, U.length % 3, R[4] = U.split("").reverse().join(""), N = 1; N < 4; ++N)
+          if (u.length > 0 && u.indexOf(-N) != -1 && U.length >= 3)
+            try {
+              ((I =
+                B[N - 1] +
+                qe
+                  .translate(U, N - 1)
+                  .split("")
+                  .join("..")),
+                I.length < U.length && (I = I + F[U.length - I.length]),
+                (I = I.split("").reverse().join("")),
+                R.push(I));
+            } catch {
+              R.push("");
+            }
+          else R.push("");
+      }
+      return (console.log("translation"), console.info(R), R);
+    },
+    C = function (b) {
+      return { primer: b.seqfanneal, pflap: b.seqfpflap };
+    },
+    A = function (b) {
+      return { primer: b.seqranneal, pflap: b.seqrpflap };
+    };
+  return (
+    (s.$$set = (b) => {
+      ("primerpair" in b && e(0, (n = b.primerpair)),
+        "seqop" in b && e(1, (l = b.seqop)),
+        "repseq" in b && e(2, (a = b.repseq)),
+        "pad" in b && e(3, (r = b.pad)),
+        "hide" in b && e(8, (f = b.hide)),
+        "show" in b && e(9, (u = b.show)),
+        "nohi" in b && e(10, (h = b.nohi)));
+    }),
+    (s.$$.update = () => {
+      (s.$$.dirty & 16 && e(4, d),
+        s.$$.dirty & 1 && e(5, (p = C(n))),
+        s.$$.dirty & 1 && e(6, (m = A(n))),
+        s.$$.dirty & 102 && e(7, (_ = q(p, m, a))));
+    }),
+    [n, l, a, r, d, p, m, _, f, u, h]
+  );
+}
+class Yr extends Nl {
+  constructor(t) {
+    (super(),
+      El(this, t, Kr, Ur, yl, { primerpair: 0, seqop: 1, repseq: 2, pad: 3, hide: 8, show: 9, nohi: 10 }));
+  }
+}
+var ln =
+    typeof globalThis < "u"
+      ? globalThis
+      : typeof window < "u"
+        ? window
+        : typeof global < "u"
+          ? global
+          : typeof self < "u"
+            ? self
+            : {},
+  Xo = { exports: {} };
+(function (s, t) {
+  (function (e, n) {
+    n();
+  })(ln, function () {
+    function e(h, d) {
+      return (
+        typeof d > "u"
+          ? (d = { autoBom: !1 })
+          : typeof d != "object" &&
+            (console.warn("Deprecated: Expected third argument to be a object"), (d = { autoBom: !d })),
+        d.autoBom && /^\s*(?:text\/\S*|application\/xml|\S*\/\S*\+xml)\s*;.*charset\s*=\s*utf-8/i.test(h.type)
+          ? new Blob(["\uFEFF", h], { type: h.type })
+          : h
+      );
+    }
+    function n(h, d, p) {
+      var m = new XMLHttpRequest();
+      (m.open("GET", h),
+        (m.responseType = "blob"),
+        (m.onload = function () {
+          u(m.response, d, p);
+        }),
+        (m.onerror = function () {
+          console.error("could not download file");
+        }),
+        m.send());
+    }
+    function l(h) {
+      var d = new XMLHttpRequest();
+      d.open("HEAD", h, !1);
+      try {
+        d.send();
+      } catch {}
+      return 200 <= d.status && 299 >= d.status;
+    }
+    function a(h) {
+      try {
+        h.dispatchEvent(new MouseEvent("click"));
+      } catch {
+        var d = document.createEvent("MouseEvents");
+        (d.initMouseEvent("click", !0, !0, window, 0, 0, 0, 80, 20, !1, !1, !1, !1, 0, null),
+          h.dispatchEvent(d));
+      }
+    }
+    var r =
+        typeof window == "object" && window.window === window
+          ? window
+          : typeof self == "object" && self.self === self
+            ? self
+            : typeof ln == "object" && ln.global === ln
+              ? ln
+              : void 0,
+      f =
+        r.navigator &&
+        /Macintosh/.test(navigator.userAgent) &&
+        /AppleWebKit/.test(navigator.userAgent) &&
+        !/Safari/.test(navigator.userAgent),
+      u =
+        r.saveAs ||
+        (typeof window != "object" || window !== r
+          ? function () {}
+          : "download" in HTMLAnchorElement.prototype && !f
+            ? function (h, d, p) {
+                var m = r.URL || r.webkitURL,
+                  _ = document.createElement("a");
+                ((d = d || h.name || "download"),
+                  (_.download = d),
+                  (_.rel = "noopener"),
+                  typeof h == "string"
+                    ? ((_.href = h),
+                      _.origin === location.origin
+                        ? a(_)
+                        : l(_.href)
+                          ? n(h, d, p)
+                          : a(_, (_.target = "_blank")))
+                    : ((_.href = m.createObjectURL(h)),
+                      setTimeout(function () {
+                        m.revokeObjectURL(_.href);
+                      }, 4e4),
+                      setTimeout(function () {
+                        a(_);
+                      }, 0)));
+              }
+            : "msSaveOrOpenBlob" in navigator
+              ? function (h, d, p) {
+                  if (((d = d || h.name || "download"), typeof h != "string"))
+                    navigator.msSaveOrOpenBlob(e(h, p), d);
+                  else if (l(h)) n(h, d, p);
+                  else {
+                    var m = document.createElement("a");
+                    ((m.href = h),
+                      (m.target = "_blank"),
+                      setTimeout(function () {
+                        a(m);
+                      }));
+                  }
+                }
+              : function (h, d, p, m) {
+                  if (
+                    ((m = m || open("", "_blank")),
+                    m && (m.document.title = m.document.body.innerText = "downloading..."),
+                    typeof h == "string")
+                  )
+                    return n(h, d, p);
+                  var _ = h.type === "application/octet-stream",
+                    w = /constructor/i.test(r.HTMLElement) || r.safari,
+                    q = /CriOS\/[\d]+/.test(navigator.userAgent);
+                  if ((q || (_ && w) || f) && typeof FileReader < "u") {
+                    var C = new FileReader();
+                    ((C.onloadend = function () {
+                      var y = C.result;
+                      ((y = q ? y : y.replace(/^data:[^;]*;/, "data:attachment/file;")),
+                        m ? (m.location.href = y) : (location = y),
+                        (m = null));
+                    }),
+                      C.readAsDataURL(h));
+                  } else {
+                    var A = r.URL || r.webkitURL,
+                      b = A.createObjectURL(h);
+                    (m ? (m.location = b) : (location.href = b),
+                      (m = null),
+                      setTimeout(function () {
+                        A.revokeObjectURL(b);
+                      }, 4e4));
+                  }
+                });
+    ((r.saveAs = u.saveAs = u), (s.exports = u));
+  });
+})(Xo);
+const sn = Xo.exports;
+function Li(s) {
+  let t,
+    e,
+    n,
+    l,
+    a = s[1][0] + "",
+    r,
+    f,
+    u,
+    h,
+    d,
+    p = s[1][2] + "",
+    m,
+    _,
+    w,
+    q,
+    C,
+    A = s[0][2] + "",
+    b,
+    y,
+    k,
+    M,
+    P,
+    L,
+    G,
+    R,
+    N,
+    U,
+    B = s[0][3].toUpperCase() + "",
+    F,
+    I,
+    H,
+    W,
+    D = s[0][8] + "",
+    V,
+    Q,
+    Z,
+    oe = s[1][1] + "",
+    X,
+    re;
+  return {
+    c() {
+      ((t = c("div")),
+        (e = c("pre")),
+        (n = T("")),
+        (l = c("span")),
+        (r = T(a)),
+        (f = T(`
+`)),
+        (u = c("div")),
+        (h = T(`
+`)),
+        (d = c("span")),
+        (m = T(p)),
+        (_ = T(`
+`)),
+        (w = T(`
+`)),
+        (q = c("div")),
+        (C = T(`
+`)),
+        (b = T(A)),
+        (y = T(`
+`)),
+        (k = T(`
+`)),
+        (M = S()),
+        (P = c("div")),
+        (L = c("pre")),
+        (G = T("")),
+        (R = c("div")),
+        (N = T(`
+`)),
+        (U = c("span")),
+        (F = T(B)),
+        (I = T(`
+`)),
+        (H = T(`
+`)),
+        (W = c("span")),
+        (V = T(D)),
+        (Q = T(`
+`)),
+        (Z = c("span")),
+        (X = T(oe)),
+        (re = T(`
+ 
+`)),
+        i(d, "class", "cdn svelte-bfs72x"),
+        i(u, "id", "codon_orf_fwd"),
+        i(u, "class", "svelte-bfs72x"),
+        i(q, "id", "codon_aa_fwd"),
+        i(q, "class", "svelte-bfs72x"),
+        i(e, "class", "svelte-bfs72x"),
+        i(U, "class", "primer oligo  svelte-bfs72x"),
+        i(R, "id", "codon_fwd_seq"),
+        i(R, "class", "svelte-bfs72x"),
+        i(W, "class", "primer oligo f0b svelte-bfs72x"),
+        i(L, "class", "svelte-bfs72x"),
+        i(P, "class", "dsseqboxc svelte-bfs72x"),
+        i(t, "id", "codontranslation"),
+        i(t, "class", "svelte-bfs72x"));
+    },
+    m(x, le) {
+      (v(x, t, le),
+        o(t, e),
+        o(e, n),
+        o(e, l),
+        o(l, r),
+        o(e, f),
+        o(e, u),
+        o(u, h),
+        o(u, d),
+        o(d, m),
+        o(u, _),
+        o(e, w),
+        o(e, q),
+        o(q, C),
+        o(q, b),
+        o(q, y),
+        o(e, k),
+        o(t, M),
+        o(t, P),
+        o(P, L),
+        o(L, G),
+        o(L, R),
+        o(R, N),
+        o(R, U),
+        o(U, F),
+        o(R, I),
+        o(L, H),
+        o(L, W),
+        o(W, V),
+        o(L, Q),
+        o(L, Z),
+        o(Z, X),
+        o(L, re));
+    },
+    p(x, le) {
+      (le & 2 && a !== (a = x[1][0] + "") && $(r, a),
+        le & 2 && p !== (p = x[1][2] + "") && $(m, p),
+        le & 1 && A !== (A = x[0][2] + "") && $(b, A),
+        le & 1 && B !== (B = x[0][3].toUpperCase() + "") && $(F, B),
+        le & 1 && D !== (D = x[0][8] + "") && $(V, D),
+        le & 2 && oe !== (oe = x[1][1] + "") && $(X, oe));
+    },
+    d(x) {
+      x && g(t);
+    },
+  };
+}
+function Wr(s) {
+  let t,
+    e = s[0].length >= 8 && Li(s);
+  return {
+    c() {
+      (e && e.c(), (t = Xl()));
+    },
+    m(n, l) {
+      (e && e.m(n, l), v(n, t, l));
+    },
+    p(n, [l]) {
+      n[0].length >= 8
+        ? e
+          ? e.p(n, l)
+          : ((e = Li(n)), e.c(), e.m(t.parentNode, t))
+        : e && (e.d(1), (e = null));
+    },
+    i: be,
+    o: be,
+    d(n) {
+      (e && e.d(n), n && g(t));
+    },
+  };
+}
+function Qr(s, t, e) {
+  let { seq: n } = t,
+    { seqrec: l } = t,
+    { start: a = 1 } = t,
+    { orfoffset: r = 1 } = t;
+  var f,
+    u = [];
+  const h = function (_) {
+      if ((console.log("setScrollPos"), !_)) return;
+      (console.log("*********************************"), console.log("seqpos", _));
+      var w = n.length,
+        q = document.getElementById("codontranslation");
+      if (!q) return;
+      var C = q.offsetWidth,
+        A = q.scrollLeft;
+      const b = d();
+      console.log("CHARW", b);
+      let y = Math.ceil(A / b),
+        k = Math.ceil(C / b) + y;
+      console.log("min - max", y, k);
+      var M = _ * b;
+      (console.log("seqpos", "seqlen", "width", "currpos", "newpos"),
+        console.log(_, w, C, A, M),
+        console.log("newpos", M),
+        (_ < y || _ > k - 2 * b) && (console.log("scrolling ..."), (q.scrollLeft = M)));
+    },
+    d = function () {
+      const _ = document.body,
+        w = document.createElement("span"),
+        q = 3;
+      ((w.style.width = "1ch"),
+        (w.style.position = "fixed"),
+        (w.style.fontFamily = "monospace"),
+        (w.style.fontSize = "16px"),
+        _.appendChild(w));
+      const C = w.getBoundingClientRect().width;
+      return (_.removeChild(w), C + q);
+    };
+  var p = function (_) {
+      _ = _ || "";
+      var w = "",
+        q = "",
+        C = [],
+        A,
+        b,
+        y = [".", " .", "  .", "....", ".....", "......"],
+        k = ["", " ", "  ", "   ", "    ", "     ", "      "],
+        M;
+      ((w = _), (q = qe.revcomp(w)));
+      try {
+        if (w !== "") {
+          for (A = 2; A >= 0; --A) C.push(y[A] + qe.translate(w, A).split("").join(".."));
+          for (C[3] = w, b = q.length % 3, C[4] = q.split("").reverse().join(""), A = 0; A < 3; ++A)
+            ((M = y[A] + qe.translate(q, A).split("").join("..")),
+              M.length < q.length && (M = M + k[q.length - M.length]),
+              (M = M.split("").reverse().join("")),
+              C.push(M));
+        }
+        ((C[8] = w.slice().replace(/\w/g, "\u25B2")), (C[9] = q.slice().replace(/\w/g, "\u25BC")));
+      } catch {
+        C = y;
+      }
+      return (console.log("translation"), console.log(C), console.log(C[3]), C);
+    },
+    m = function (_) {
+      (console.log("buildScales"), console.log("start", a), console.log("orfoffset", r), e(2, (a = a || 0)));
+      var w = "",
+        q = "",
+        C = "",
+        A = "<\u25FB\uFE0E>";
+      A = "<=>";
+      var b;
+      if (_.length < 8) return "";
+      var y = _[3].length,
+        k = (_[2].indexOf("*") != -1 ? _[2].indexOf("*") - 1 : y) / 3;
+      k < 0 && (k = 0);
+      for (let M = 0; M < k; M += 5)
+        M > 0 ? (w += " |" + String(M).padEnd(13, " ")) : (w += " |" + String(1).padEnd(10, " "));
+      C = A.repeat(k);
+      for (let M = 0; M < y; M += 10)
+        M > 0
+          ? ((b = (M + a) % l.seq.length), (b = b == 0 ? l.seq.length : b), (q += "|" + String(b).padEnd(9)))
+          : ((b = (1 + a) % l.seq.length), (b = b == 0 ? l.seq.length : b), (q += "|" + String(b).padEnd(8)));
+      return [w, q, C];
+    };
+  return (
+    (s.$$set = (_) => {
+      ("seq" in _ && e(3, (n = _.seq)),
+        "seqrec" in _ && e(4, (l = _.seqrec)),
+        "start" in _ && e(2, (a = _.start)),
+        "orfoffset" in _ && e(5, (r = _.orfoffset)));
+    }),
+    (s.$$.update = () => {
+      (s.$$.dirty & 8 && e(0, (f = p(n))), s.$$.dirty & 1 && e(1, (u = m(f))));
+    }),
+    [f, u, a, n, l, r, h]
+  );
+}
+class xo extends Nl {
+  constructor(t) {
+    (super(), El(this, t, Qr, Wr, yl, { seq: 3, seqrec: 4, start: 2, orfoffset: 5, setScrollPos: 6 }));
+  }
+  get setScrollPos() {
+    return this.$$.ctx[6];
+  }
+}
+function Ei(s) {
+  let t,
+    e,
+    n,
+    l = s[2][0] + "",
+    a,
+    r,
+    f = s[2][1] + "",
+    u,
+    h,
+    d = s[2][2] + "",
+    p,
+    m,
+    _,
+    w,
+    q,
+    C,
+    A,
+    b,
+    y,
+    k,
+    M,
+    P,
+    L = s[2][5] + "",
+    G,
+    R,
+    N = s[2][6] + "",
+    U,
+    B,
+    F = s[2][7] + "",
+    I,
+    H,
+    W,
+    D;
+  function V(oe, X) {
+    return (
+      X & 3 && (A = null),
+      X & 3 && (b = null),
+      A == null && (A = !isNaN(oe[0]) && !isNaN(oe[1]) && oe[0] <= oe[1]),
+      A ? xr : (b == null && (b = !isNaN(oe[0]) && !isNaN(oe[1]) && oe[0] > oe[1]), b ? Xr : zr)
+    );
+  }
+  let Q = V(s, -1),
+    Z = Q(s);
+  return {
+    c() {
+      ((t = c("div")),
+        (e = c("pre")),
+        (n = T("")),
+        (a = T(l)),
+        (r = T(`
+`)),
+        (u = T(f)),
+        (h = T(`
+`)),
+        (p = T(d)),
+        (m = T(`
+`)),
+        (_ = S()),
+        (w = c("div")),
+        (q = c("pre")),
+        (C = T("")),
+        Z.c(),
+        (y = T(`
+`)),
+        (k = S()),
+        (M = c("pre")),
+        (P = T("")),
+        (G = T(L)),
+        (R = T(`
+`)),
+        (U = T(N)),
+        (B = T(`
+`)),
+        (I = T(F)),
+        (H = T(`
+`)),
+        (W = S()),
+        (D = c("br")),
+        i(e, "class", "svelte-16xlwqz"),
+        i(q, "class", "svelte-16xlwqz"),
+        i(w, "id", "dsseqbox"),
+        i(w, "class", "dsseqbox svelte-16xlwqz"),
+        i(M, "class", "svelte-16xlwqz"),
+        i(t, "id", "indeltranslation"),
+        i(t, "class", "svelte-16xlwqz"));
+    },
+    m(oe, X) {
+      (v(oe, t, X),
+        o(t, e),
+        o(e, n),
+        o(e, a),
+        o(e, r),
+        o(e, u),
+        o(e, h),
+        o(e, p),
+        o(e, m),
+        o(t, _),
+        o(t, w),
+        o(w, q),
+        o(q, C),
+        Z.m(q, null),
+        o(q, y),
+        o(t, k),
+        o(t, M),
+        o(M, P),
+        o(M, G),
+        o(M, R),
+        o(M, U),
+        o(M, B),
+        o(M, I),
+        o(M, H),
+        o(t, W),
+        o(t, D));
+    },
+    p(oe, X) {
+      (X & 4 && l !== (l = oe[2][0] + "") && $(a, l),
+        X & 4 && f !== (f = oe[2][1] + "") && $(u, f),
+        X & 4 && d !== (d = oe[2][2] + "") && $(p, d),
+        Q === (Q = V(oe, X)) && Z ? Z.p(oe, X) : (Z.d(1), (Z = Q(oe)), Z && (Z.c(), Z.m(q, y))),
+        X & 4 && L !== (L = oe[2][5] + "") && $(G, L),
+        X & 4 && N !== (N = oe[2][6] + "") && $(U, N),
+        X & 4 && F !== (F = oe[2][7] + "") && $(I, F));
+    },
+    d(oe) {
+      (oe && g(t), Z.d());
+    },
+  };
+}
+function zr(s) {
+  let t,
+    e,
+    n,
+    l,
+    a = s[2][3] + "",
+    r,
+    f,
+    u,
+    h,
+    d = s[2][8] + "",
+    p,
+    m,
+    _,
+    w = s[3][0] + "",
+    q,
+    C,
+    A,
+    b = s[2][9] + "",
+    y,
+    k,
+    M,
+    P,
+    L,
+    G,
+    R = s[2][4] + "",
+    N,
+    U;
+  return {
+    c() {
+      ((t = c("div")),
+        (e = T(`
+`)),
+        (n = c("span")),
+        (l = c("b")),
+        (r = T(a)),
+        (f = T(`
+`)),
+        (u = T(`
+`)),
+        (h = c("span")),
+        (p = T(d)),
+        (m = T(`
+`)),
+        (_ = c("span")),
+        (q = T(w)),
+        (C = T(`
+`)),
+        (A = c("span")),
+        (y = T(b)),
+        (k = T(`
+`)),
+        (M = c("div")),
+        (P = T(`
+`)),
+        (L = c("span")),
+        (G = c("b")),
+        (N = T(R)),
+        (U = T(`
+`)),
+        i(n, "class", "primer oligo svelte-16xlwqz"),
+        i(t, "id", "indel_fwd_seq"),
+        i(t, "class", "svelte-16xlwqz"),
+        i(h, "class", "primer oligo f0b svelte-16xlwqz"),
+        i(A, "class", "primer oligo f0b svelte-16xlwqz"),
+        i(L, "class", "primer oligo svelte-16xlwqz"),
+        i(M, "id", "indel_rev_seq"),
+        i(M, "class", "svelte-16xlwqz"));
+    },
+    m(B, F) {
+      (v(B, t, F),
+        o(t, e),
+        o(t, n),
+        o(n, l),
+        o(l, r),
+        o(t, f),
+        v(B, u, F),
+        v(B, h, F),
+        o(h, p),
+        v(B, m, F),
+        v(B, _, F),
+        o(_, q),
+        v(B, C, F),
+        v(B, A, F),
+        o(A, y),
+        v(B, k, F),
+        v(B, M, F),
+        o(M, P),
+        o(M, L),
+        o(L, G),
+        o(G, N),
+        o(M, U));
+    },
+    p(B, F) {
+      (F & 4 && a !== (a = B[2][3] + "") && $(r, a),
+        F & 4 && d !== (d = B[2][8] + "") && $(p, d),
+        F & 8 && w !== (w = B[3][0] + "") && $(q, w),
+        F & 4 && b !== (b = B[2][9] + "") && $(y, b),
+        F & 4 && R !== (R = B[2][4] + "") && $(N, R));
+    },
+    d(B) {
+      (B && g(t), B && g(u), B && g(h), B && g(m), B && g(_), B && g(C), B && g(A), B && g(k), B && g(M));
+    },
+  };
+}
+function Xr(s) {
+  let t,
+    e,
+    n,
+    l,
+    a = s[2][3] + "",
+    r,
+    f,
+    u,
+    h,
+    d = s[2][8].slice(0, s[1]) + "",
+    p,
+    m,
+    _ = s[2][8][s[1]] + "",
+    w,
+    q,
+    C = s[2][8].slice(s[1] + 1, s[0]) + "",
+    A,
+    b,
+    y = s[2][8][s[0]] + "",
+    k,
+    M,
+    P = s[2][8].slice(s[0] + 1) + "",
+    L,
+    G,
+    R,
+    N = s[3][0] + "",
+    U,
+    B,
+    F,
+    I = s[2][9].slice(0, s[1]) + "",
+    H,
+    W,
+    D = s[2][9][s[1]] + "",
+    V,
+    Q,
+    Z = s[2][9].slice(s[1] + 1, s[0]) + "",
+    oe,
+    X,
+    re = s[2][9][s[0]] + "",
+    x,
+    le,
+    z = s[2][9].slice(s[0] + 1) + "",
+    fe,
+    de,
+    pe,
+    ye,
+    ve,
+    Se,
+    me = s[2][4] + "",
+    we,
+    _e;
+  return {
+    c() {
+      ((t = c("div")),
+        (e = T(`
+`)),
+        (n = c("span")),
+        (l = c("b")),
+        (r = T(a)),
+        (f = T(`
+`)),
+        (u = T(`
+`)),
+        (h = c("span")),
+        (p = T(d)),
+        (m = c("span")),
+        (w = T(_)),
+        (q = c("span")),
+        (A = T(C)),
+        (b = c("span")),
+        (k = T(y)),
+        (M = c("span")),
+        (L = T(P)),
+        (G = T(`
+`)),
+        (R = c("span")),
+        (U = T(N)),
+        (B = T(`
+`)),
+        (F = c("span")),
+        (H = T(I)),
+        (W = c("span")),
+        (V = T(D)),
+        (Q = c("span")),
+        (oe = T(Z)),
+        (X = c("span")),
+        (x = T(re)),
+        (le = c("span")),
+        (fe = T(z)),
+        (de = T(`
+`)),
+        (pe = c("div")),
+        (ye = T(`
+`)),
+        (ve = c("span")),
+        (Se = c("b")),
+        (we = T(me)),
+        (_e = T(`
+`)),
+        i(n, "class", "primer oligo svelte-16xlwqz"),
+        i(t, "id", "indel_fwd_seq"),
+        i(t, "class", "svelte-16xlwqz"),
+        i(h, "class", "primer oligo f4b svelte-16xlwqz"),
+        i(m, "class", "primer oligo f1b svelte-16xlwqz"),
+        i(q, "class", "primer oligo f0b svelte-16xlwqz"),
+        i(b, "class", "primer oligo f1b svelte-16xlwqz"),
+        i(M, "class", "primer oligo f4b svelte-16xlwqz"),
+        i(F, "class", "primer oligo f4b svelte-16xlwqz"),
+        i(W, "class", "primer oligo f1b svelte-16xlwqz"),
+        i(Q, "class", "primer oligo f0b svelte-16xlwqz"),
+        i(X, "class", "primer oligo f1b svelte-16xlwqz"),
+        i(le, "class", "primer oligo f4b svelte-16xlwqz"),
+        i(ve, "class", "primer oligo svelte-16xlwqz"),
+        i(pe, "id", "indel_rev_seq"),
+        i(pe, "class", "svelte-16xlwqz"));
+    },
+    m(j, O) {
+      (v(j, t, O),
+        o(t, e),
+        o(t, n),
+        o(n, l),
+        o(l, r),
+        o(t, f),
+        v(j, u, O),
+        v(j, h, O),
+        o(h, p),
+        v(j, m, O),
+        o(m, w),
+        v(j, q, O),
+        o(q, A),
+        v(j, b, O),
+        o(b, k),
+        v(j, M, O),
+        o(M, L),
+        v(j, G, O),
+        v(j, R, O),
+        o(R, U),
+        v(j, B, O),
+        v(j, F, O),
+        o(F, H),
+        v(j, W, O),
+        o(W, V),
+        v(j, Q, O),
+        o(Q, oe),
+        v(j, X, O),
+        o(X, x),
+        v(j, le, O),
+        o(le, fe),
+        v(j, de, O),
+        v(j, pe, O),
+        o(pe, ye),
+        o(pe, ve),
+        o(ve, Se),
+        o(Se, we),
+        o(pe, _e));
+    },
+    p(j, O) {
+      (O & 4 && a !== (a = j[2][3] + "") && $(r, a),
+        O & 6 && d !== (d = j[2][8].slice(0, j[1]) + "") && $(p, d),
+        O & 6 && _ !== (_ = j[2][8][j[1]] + "") && $(w, _),
+        O & 7 && C !== (C = j[2][8].slice(j[1] + 1, j[0]) + "") && $(A, C),
+        O & 5 && y !== (y = j[2][8][j[0]] + "") && $(k, y),
+        O & 5 && P !== (P = j[2][8].slice(j[0] + 1) + "") && $(L, P),
+        O & 8 && N !== (N = j[3][0] + "") && $(U, N),
+        O & 6 && I !== (I = j[2][9].slice(0, j[1]) + "") && $(H, I),
+        O & 6 && D !== (D = j[2][9][j[1]] + "") && $(V, D),
+        O & 7 && Z !== (Z = j[2][9].slice(j[1] + 1, j[0]) + "") && $(oe, Z),
+        O & 5 && re !== (re = j[2][9][j[0]] + "") && $(x, re),
+        O & 5 && z !== (z = j[2][9].slice(j[0] + 1) + "") && $(fe, z),
+        O & 4 && me !== (me = j[2][4] + "") && $(we, me));
+    },
+    d(j) {
+      (j && g(t),
+        j && g(u),
+        j && g(h),
+        j && g(m),
+        j && g(q),
+        j && g(b),
+        j && g(M),
+        j && g(G),
+        j && g(R),
+        j && g(B),
+        j && g(F),
+        j && g(W),
+        j && g(Q),
+        j && g(X),
+        j && g(le),
+        j && g(de),
+        j && g(pe));
+    },
+  };
+}
+function xr(s) {
+  let t,
+    e,
+    n,
+    l,
+    a = s[2][3] + "",
+    r,
+    f,
+    u,
+    h,
+    d = s[2][8].slice(0, s[0]) + "",
+    p,
+    m,
+    _ = s[2][8][s[0]] + "",
+    w,
+    q,
+    C = s[2][8].slice(s[0] + 1, s[1]) + "",
+    A,
+    b,
+    y = s[2][8][s[1]] + "",
+    k,
+    M,
+    P = s[2][8].slice(s[1] + 1) + "",
+    L,
+    G,
+    R,
+    N = s[3][0] + "",
+    U,
+    B,
+    F,
+    I = s[2][9].slice(0, s[0]) + "",
+    H,
+    W,
+    D = s[2][9][s[0]] + "",
+    V,
+    Q,
+    Z = s[2][9].slice(s[0] + 1, s[1]) + "",
+    oe,
+    X,
+    re = s[2][9][s[1]] + "",
+    x,
+    le,
+    z = s[2][9].slice(s[1] + 1) + "",
+    fe,
+    de,
+    pe,
+    ye,
+    ve,
+    Se,
+    me = s[2][4] + "",
+    we,
+    _e;
+  return {
+    c() {
+      ((t = c("div")),
+        (e = T(`
+`)),
+        (n = c("span")),
+        (l = c("b")),
+        (r = T(a)),
+        (f = T(`
+`)),
+        (u = T(`
+`)),
+        (h = c("span")),
+        (p = T(d)),
+        (m = c("span")),
+        (w = T(_)),
+        (q = c("span")),
+        (A = T(C)),
+        (b = c("span")),
+        (k = T(y)),
+        (M = c("span")),
+        (L = T(P)),
+        (G = T(`
+`)),
+        (R = c("span")),
+        (U = T(N)),
+        (B = T(`
+`)),
+        (F = c("span")),
+        (H = T(I)),
+        (W = c("span")),
+        (V = T(D)),
+        (Q = c("span")),
+        (oe = T(Z)),
+        (X = c("span")),
+        (x = T(re)),
+        (le = c("span")),
+        (fe = T(z)),
+        (de = T(`
+`)),
+        (pe = c("div")),
+        (ye = T(`
+`)),
+        (ve = c("span")),
+        (Se = c("b")),
+        (we = T(me)),
+        (_e = T(`
+`)),
+        i(n, "class", "primer oligo svelte-16xlwqz"),
+        i(t, "id", "indel_fwd_seq"),
+        i(t, "class", "svelte-16xlwqz"),
+        i(h, "class", "primer oligo f0b svelte-16xlwqz"),
+        i(m, "class", "primer oligo f1b svelte-16xlwqz"),
+        i(q, "class", "primer oligo f4b svelte-16xlwqz"),
+        i(b, "class", "primer oligo f1b svelte-16xlwqz"),
+        i(M, "class", "primer oligo f0b svelte-16xlwqz"),
+        i(F, "class", "primer oligo f0b svelte-16xlwqz"),
+        i(W, "class", "primer oligo f1b svelte-16xlwqz"),
+        i(Q, "class", "primer oligo f4b svelte-16xlwqz"),
+        i(X, "class", "primer oligo f1b svelte-16xlwqz"),
+        i(le, "class", "primer oligo f0b svelte-16xlwqz"),
+        i(ve, "class", "primer oligo svelte-16xlwqz"),
+        i(pe, "id", "indel_rev_seq"),
+        i(pe, "class", "svelte-16xlwqz"));
+    },
+    m(j, O) {
+      (v(j, t, O),
+        o(t, e),
+        o(t, n),
+        o(n, l),
+        o(l, r),
+        o(t, f),
+        v(j, u, O),
+        v(j, h, O),
+        o(h, p),
+        v(j, m, O),
+        o(m, w),
+        v(j, q, O),
+        o(q, A),
+        v(j, b, O),
+        o(b, k),
+        v(j, M, O),
+        o(M, L),
+        v(j, G, O),
+        v(j, R, O),
+        o(R, U),
+        v(j, B, O),
+        v(j, F, O),
+        o(F, H),
+        v(j, W, O),
+        o(W, V),
+        v(j, Q, O),
+        o(Q, oe),
+        v(j, X, O),
+        o(X, x),
+        v(j, le, O),
+        o(le, fe),
+        v(j, de, O),
+        v(j, pe, O),
+        o(pe, ye),
+        o(pe, ve),
+        o(ve, Se),
+        o(Se, we),
+        o(pe, _e));
+    },
+    p(j, O) {
+      (O & 4 && a !== (a = j[2][3] + "") && $(r, a),
+        O & 5 && d !== (d = j[2][8].slice(0, j[0]) + "") && $(p, d),
+        O & 5 && _ !== (_ = j[2][8][j[0]] + "") && $(w, _),
+        O & 7 && C !== (C = j[2][8].slice(j[0] + 1, j[1]) + "") && $(A, C),
+        O & 6 && y !== (y = j[2][8][j[1]] + "") && $(k, y),
+        O & 6 && P !== (P = j[2][8].slice(j[1] + 1) + "") && $(L, P),
+        O & 8 && N !== (N = j[3][0] + "") && $(U, N),
+        O & 5 && I !== (I = j[2][9].slice(0, j[0]) + "") && $(H, I),
+        O & 5 && D !== (D = j[2][9][j[0]] + "") && $(V, D),
+        O & 7 && Z !== (Z = j[2][9].slice(j[0] + 1, j[1]) + "") && $(oe, Z),
+        O & 6 && re !== (re = j[2][9][j[1]] + "") && $(x, re),
+        O & 6 && z !== (z = j[2][9].slice(j[1] + 1) + "") && $(fe, z),
+        O & 4 && me !== (me = j[2][4] + "") && $(we, me));
+    },
+    d(j) {
+      (j && g(t),
+        j && g(u),
+        j && g(h),
+        j && g(m),
+        j && g(q),
+        j && g(b),
+        j && g(M),
+        j && g(G),
+        j && g(R),
+        j && g(B),
+        j && g(F),
+        j && g(W),
+        j && g(Q),
+        j && g(X),
+        j && g(le),
+        j && g(de),
+        j && g(pe));
+    },
+  };
+}
+function Jr(s) {
+  let t,
+    e = s[2].length >= 8 && Ei(s);
+  return {
+    c() {
+      (e && e.c(), (t = Xl()));
+    },
+    m(n, l) {
+      (e && e.m(n, l), v(n, t, l));
+    },
+    p(n, [l]) {
+      n[2].length >= 8
+        ? e
+          ? e.p(n, l)
+          : ((e = Ei(n)), e.c(), e.m(t.parentNode, t))
+        : e && (e.d(1), (e = null));
+    },
+    i: be,
+    o: be,
+    d(n) {
+      (e && e.d(n), n && g(t));
+    },
+  };
+}
+function Zr(s, t, e) {
+  let { seq: n } = t,
+    { start: l } = t,
+    { end: a } = t;
+  const r = function (m) {
+      if ((console.log("setScrollPos"), !m)) return;
+      (console.log("*********************************"), console.log("seqpos", m));
+      var _ = n.length,
+        w = document.getElementById("indeltranslation");
+      if (!w) return;
+      var q = w.offsetWidth,
+        C = w.scrollLeft;
+      const A = f();
+      console.log("CHARW", A);
+      let b = Math.ceil(C / A),
+        y = Math.ceil(q / A) + b;
+      console.log("min - max", b, y);
+      var k = m * A;
+      (console.log("seqpos", "seqlen", "width", "currpos", "newpos"),
+        console.log(m, _, q, C, k),
+        console.log("newpos", k),
+        (m < b || m > y) && (console.log("scrolling ..."), (w.scrollLeft = k)));
+    },
+    f = function () {
+      const m = document.body,
+        _ = document.createElement("span"),
+        w = 3;
+      ((_.style.width = "1ch"),
+        (_.style.position = "fixed"),
+        (_.style.fontFamily = "monospace"),
+        (_.style.fontSize = "16px"),
+        m.appendChild(_));
+      const q = _.getBoundingClientRect().width;
+      return (m.removeChild(_), q + w);
+    };
+  var u,
+    h = [],
+    d = function (m) {
+      (console.log("IndelView", "start", l, "end", a), (m = m || ""));
+      var _ = "",
+        w = "",
+        q = [],
+        C,
+        A = [".", " .", "  .", "....", ".....", "......"],
+        b = ["", " ", "  ", "   ", "    ", "     ", "      "],
+        y;
+      if (((_ = m), (w = qe.revcomp(_)), console.log("seqlen", m.length), _ !== "")) {
+        for (C = 2; C >= 0; --C) q.push(A[C] + qe.translate(_, C).split("").join(".."));
+        for (
+          console.log(q[2].length, q[1].length, q[0].length),
+            q[3] = _,
+            w.length % 3,
+            q[4] = w.split("").reverse().join(""),
+            C = 0;
+          C < 3;
+          ++C
+        )
+          ((y = A[C] + qe.translate(w, C).split("").join("..")),
+            y.length < w.length && (y = y + b[w.length - y.length]),
+            (y = y.split("").reverse().join("")),
+            q.push(y));
+      }
+      return (
+        (q[8] = _.slice().replace(/\w/g, "\u25B2")),
+        (q[9] = w.slice().replace(/\w/g, "\u25BC")),
+        console.log("translation"),
+        console.log(q),
+        q
+      );
+    },
+    p = function (m) {
+      var _ = "";
+      if (m.length < 8) return "";
+      var w = m[3].length;
+      for (let q = 0; q < w; q += 10)
+        q > 0 ? (_ += "|" + String(q).padEnd(9)) : (_ += "|" + String(1).padEnd(8));
+      return [_];
+    };
+  return (
+    document.getElementById("slide"),
+    console.log("IndelView start", l),
+    console.log("IndelView end", a),
+    (s.$$set = (m) => {
+      ("seq" in m && e(4, (n = m.seq)), "start" in m && e(0, (l = m.start)), "end" in m && e(1, (a = m.end)));
+    }),
+    (s.$$.update = () => {
+      (s.$$.dirty & 16 && e(2, (u = d(n))),
+        s.$$.dirty & 4 && e(3, (h = p(u))),
+        s.$$.dirty & 1 && e(0, (l = Number(l))),
+        s.$$.dirty & 1 && r(l),
+        s.$$.dirty & 2 && e(1, (a = Number(a))));
+    }),
+    [l, a, u, h, n, r]
+  );
+}
+class $r extends Nl {
+  constructor(t) {
+    (super(), El(this, t, Zr, Jr, yl, { seq: 4, start: 0, end: 1, setScrollPos: 5 }));
+  }
+  get setScrollPos() {
+    return this.$$.ctx[5];
+  }
+}
+function Ni(s) {
+  let t,
+    e,
+    n,
+    l = s[2][0] + "",
+    a,
+    r,
+    f = s[2][1] + "",
+    u,
+    h,
+    d = s[2][2] + "",
+    p,
+    m,
+    _,
+    w,
+    q,
+    C,
+    A,
+    b,
+    y,
+    k,
+    M,
+    P,
+    L;
+  function G(U, B) {
+    return (
+      B & 3 && (A = null),
+      B & 3 && (b = null),
+      A == null && (A = !isNaN(U[0]) && !isNaN(U[1]) && U[0] <= U[1]),
+      A ? la : (b == null && (b = !isNaN(U[0]) && !isNaN(U[1]) && U[0] > U[1]), b ? ta : ea)
+    );
+  }
+  let R = G(s, -1),
+    N = R(s);
+  return {
+    c() {
+      ((t = c("div")),
+        (e = c("pre")),
+        (n = T("")),
+        (a = T(l)),
+        (r = T(`
+`)),
+        (u = T(f)),
+        (h = T(`
+`)),
+        (p = T(d)),
+        (m = T(`
+`)),
+        (_ = S()),
+        (w = c("div")),
+        (q = c("pre")),
+        (C = T("")),
+        N.c(),
+        (y = T(`
+`)),
+        (k = S()),
+        (M = c("pre")),
+        (M.textContent = `
+`),
+        (P = S()),
+        (L = c("br")),
+        i(e, "class", "svelte-b3eop4"),
+        i(q, "class", "svelte-b3eop4"),
+        i(w, "id", "dsseqboxl"),
+        i(w, "class", "dsseqboxl svelte-b3eop4"),
+        i(M, "class", "svelte-b3eop4"),
+        i(t, "id", "legacytranslation"),
+        i(t, "class", "svelte-b3eop4"));
+    },
+    m(U, B) {
+      (v(U, t, B),
+        o(t, e),
+        o(e, n),
+        o(e, a),
+        o(e, r),
+        o(e, u),
+        o(e, h),
+        o(e, p),
+        o(e, m),
+        o(t, _),
+        o(t, w),
+        o(w, q),
+        o(q, C),
+        N.m(q, null),
+        o(q, y),
+        o(t, k),
+        o(t, M),
+        o(t, P),
+        o(t, L));
+    },
+    p(U, B) {
+      (B & 4 && l !== (l = U[2][0] + "") && $(a, l),
+        B & 4 && f !== (f = U[2][1] + "") && $(u, f),
+        B & 4 && d !== (d = U[2][2] + "") && $(p, d),
+        R === (R = G(U, B)) && N ? N.p(U, B) : (N.d(1), (N = R(U)), N && (N.c(), N.m(q, y))));
+    },
+    d(U) {
+      (U && g(t), N.d());
+    },
+  };
+}
+function ea(s) {
+  let t,
+    e,
+    n,
+    l,
+    a = s[2][3] + "",
+    r,
+    f,
+    u,
+    h,
+    d = s[2][8] + "",
+    p,
+    m,
+    _,
+    w = s[3][0] + "",
+    q,
+    C;
+  return {
+    c() {
+      ((t = c("div")),
+        (e = T(`
+`)),
+        (n = c("span")),
+        (l = c("b")),
+        (r = T(a)),
+        (f = T(`
+`)),
+        (u = T(`
+`)),
+        (h = c("span")),
+        (p = T(d)),
+        (m = T(`
+`)),
+        (_ = c("span")),
+        (q = T(w)),
+        (C = T(`
+`)),
+        i(n, "class", "primer oligo svelte-b3eop4"),
+        i(t, "id", "legacy_fwd_seq"),
+        i(t, "class", "svelte-b3eop4"),
+        i(h, "class", "primer oligo f0b svelte-b3eop4"));
+    },
+    m(A, b) {
+      (v(A, t, b),
+        o(t, e),
+        o(t, n),
+        o(n, l),
+        o(l, r),
+        o(t, f),
+        v(A, u, b),
+        v(A, h, b),
+        o(h, p),
+        v(A, m, b),
+        v(A, _, b),
+        o(_, q),
+        v(A, C, b));
+    },
+    p(A, b) {
+      (b & 4 && a !== (a = A[2][3] + "") && $(r, a),
+        b & 4 && d !== (d = A[2][8] + "") && $(p, d),
+        b & 8 && w !== (w = A[3][0] + "") && $(q, w));
+    },
+    d(A) {
+      (A && g(t), A && g(u), A && g(h), A && g(m), A && g(_), A && g(C));
+    },
+  };
+}
+function ta(s) {
+  let t,
+    e,
+    n,
+    l,
+    a = s[2][3] + "",
+    r,
+    f,
+    u,
+    h,
+    d = s[2][8].slice(0, s[1]) + "",
+    p,
+    m,
+    _ = s[2][8][s[1]] + "",
+    w,
+    q,
+    C = s[2][8].slice(s[1] + 1, s[0]) + "",
+    A,
+    b,
+    y = s[2][8][s[0]] + "",
+    k,
+    M,
+    P = s[2][8].slice(s[0] + 1) + "",
+    L,
+    G,
+    R,
+    N = s[3][0] + "",
+    U,
+    B;
+  return {
+    c() {
+      ((t = c("div")),
+        (e = T(`
+`)),
+        (n = c("span")),
+        (l = c("b")),
+        (r = T(a)),
+        (f = T(`
+`)),
+        (u = T(`
+`)),
+        (h = c("span")),
+        (p = T(d)),
+        (m = c("span")),
+        (w = T(_)),
+        (q = c("span")),
+        (A = T(C)),
+        (b = c("span")),
+        (k = T(y)),
+        (M = c("span")),
+        (L = T(P)),
+        (G = T(`
+`)),
+        (R = c("span")),
+        (U = T(N)),
+        (B = T(`
+`)),
+        i(n, "class", "primer oligo svelte-b3eop4"),
+        i(t, "id", "legacy_fwd_seq"),
+        i(t, "class", "svelte-b3eop4"),
+        i(h, "class", "primer oligo f4b svelte-b3eop4"),
+        i(m, "class", "primer oligo f1b svelte-b3eop4"),
+        i(q, "class", "primer oligo f0b svelte-b3eop4"),
+        i(b, "class", "primer oligo f1b svelte-b3eop4"),
+        i(M, "class", "primer oligo f4b svelte-b3eop4"));
+    },
+    m(F, I) {
+      (v(F, t, I),
+        o(t, e),
+        o(t, n),
+        o(n, l),
+        o(l, r),
+        o(t, f),
+        v(F, u, I),
+        v(F, h, I),
+        o(h, p),
+        v(F, m, I),
+        o(m, w),
+        v(F, q, I),
+        o(q, A),
+        v(F, b, I),
+        o(b, k),
+        v(F, M, I),
+        o(M, L),
+        v(F, G, I),
+        v(F, R, I),
+        o(R, U),
+        v(F, B, I));
+    },
+    p(F, I) {
+      (I & 4 && a !== (a = F[2][3] + "") && $(r, a),
+        I & 6 && d !== (d = F[2][8].slice(0, F[1]) + "") && $(p, d),
+        I & 6 && _ !== (_ = F[2][8][F[1]] + "") && $(w, _),
+        I & 7 && C !== (C = F[2][8].slice(F[1] + 1, F[0]) + "") && $(A, C),
+        I & 5 && y !== (y = F[2][8][F[0]] + "") && $(k, y),
+        I & 5 && P !== (P = F[2][8].slice(F[0] + 1) + "") && $(L, P),
+        I & 8 && N !== (N = F[3][0] + "") && $(U, N));
+    },
+    d(F) {
+      (F && g(t),
+        F && g(u),
+        F && g(h),
+        F && g(m),
+        F && g(q),
+        F && g(b),
+        F && g(M),
+        F && g(G),
+        F && g(R),
+        F && g(B));
+    },
+  };
+}
+function la(s) {
+  let t,
+    e,
+    n,
+    l,
+    a = s[2][3] + "",
+    r,
+    f,
+    u,
+    h,
+    d = s[2][8].slice(0, s[0]) + "",
+    p,
+    m,
+    _ = s[2][8][s[0]] + "",
+    w,
+    q,
+    C = s[2][8].slice(s[0] + 1, s[1]) + "",
+    A,
+    b,
+    y = s[2][8][s[1]] + "",
+    k,
+    M,
+    P = s[2][8].slice(s[1] + 1) + "",
+    L,
+    G,
+    R,
+    N = s[3][0] + "",
+    U,
+    B;
+  return {
+    c() {
+      ((t = c("div")),
+        (e = T(`
+`)),
+        (n = c("span")),
+        (l = c("b")),
+        (r = T(a)),
+        (f = T(`
+`)),
+        (u = T(`
+`)),
+        (h = c("span")),
+        (p = T(d)),
+        (m = c("span")),
+        (w = T(_)),
+        (q = c("span")),
+        (A = T(C)),
+        (b = c("span")),
+        (k = T(y)),
+        (M = c("span")),
+        (L = T(P)),
+        (G = T(`
+`)),
+        (R = c("span")),
+        (U = T(N)),
+        (B = T(`
+`)),
+        i(n, "class", "primer oligo svelte-b3eop4"),
+        i(t, "id", "legacy_fwd_seq"),
+        i(t, "class", "svelte-b3eop4"),
+        i(h, "class", "primer oligo f0b svelte-b3eop4"),
+        i(m, "class", "primer oligo f1b svelte-b3eop4"),
+        i(q, "class", "primer oligo f4b svelte-b3eop4"),
+        i(b, "class", "primer oligo f1b svelte-b3eop4"),
+        i(M, "class", "primer oligo f0b svelte-b3eop4"));
+    },
+    m(F, I) {
+      (v(F, t, I),
+        o(t, e),
+        o(t, n),
+        o(n, l),
+        o(l, r),
+        o(t, f),
+        v(F, u, I),
+        v(F, h, I),
+        o(h, p),
+        v(F, m, I),
+        o(m, w),
+        v(F, q, I),
+        o(q, A),
+        v(F, b, I),
+        o(b, k),
+        v(F, M, I),
+        o(M, L),
+        v(F, G, I),
+        v(F, R, I),
+        o(R, U),
+        v(F, B, I));
+    },
+    p(F, I) {
+      (I & 4 && a !== (a = F[2][3] + "") && $(r, a),
+        I & 5 && d !== (d = F[2][8].slice(0, F[0]) + "") && $(p, d),
+        I & 5 && _ !== (_ = F[2][8][F[0]] + "") && $(w, _),
+        I & 7 && C !== (C = F[2][8].slice(F[0] + 1, F[1]) + "") && $(A, C),
+        I & 6 && y !== (y = F[2][8][F[1]] + "") && $(k, y),
+        I & 6 && P !== (P = F[2][8].slice(F[1] + 1) + "") && $(L, P),
+        I & 8 && N !== (N = F[3][0] + "") && $(U, N));
+    },
+    d(F) {
+      (F && g(t),
+        F && g(u),
+        F && g(h),
+        F && g(m),
+        F && g(q),
+        F && g(b),
+        F && g(M),
+        F && g(G),
+        F && g(R),
+        F && g(B));
+    },
+  };
+}
+function sa(s) {
+  let t,
+    e = s[2].length >= 8 && Ni(s);
+  return {
+    c() {
+      (e && e.c(), (t = Xl()));
+    },
+    m(n, l) {
+      (e && e.m(n, l), v(n, t, l));
+    },
+    p(n, [l]) {
+      n[2].length >= 8
+        ? e
+          ? e.p(n, l)
+          : ((e = Ni(n)), e.c(), e.m(t.parentNode, t))
+        : e && (e.d(1), (e = null));
+    },
+    i: be,
+    o: be,
+    d(n) {
+      (e && e.d(n), n && g(t));
+    },
+  };
+}
+function na(s, t, e) {
+  let { seq: n } = t,
+    { start: l } = t,
+    { end: a } = t,
+    { selstart: r } = t,
+    { selend: f } = t;
+  const u = function (w) {
+      if ((console.log("setScrollPos"), !w)) return;
+      (console.log("*********************************"), console.log("seqpos", w));
+      var q = n.length,
+        C = document.getElementById("legacytranslation");
+      if (!C) return;
+      var A = C.offsetWidth,
+        b = C.scrollLeft;
+      const y = h();
+      console.log("CHARW", y);
+      let k = Math.ceil(b / y),
+        M = Math.ceil(A / y) + k;
+      console.log("min - max", k, M);
+      var P = w * y;
+      (console.log("seqpos", "seqlen", "width", "currpos", "newpos"),
+        console.log(w, q, A, b, P),
+        console.log("newpos", P),
+        (w < k || w > M) && (console.log("scrolling ..."), (C.scrollLeft = P)));
+    },
+    h = function () {
+      const w = document.body,
+        q = document.createElement("span"),
+        C = 3;
+      ((q.style.width = "1ch"),
+        (q.style.position = "fixed"),
+        (q.style.fontFamily = "monospace"),
+        (q.style.fontSize = "16px"),
+        w.appendChild(q));
+      const A = q.getBoundingClientRect().width;
+      return (w.removeChild(q), A + C);
+    };
+  var d,
+    p = [],
+    m = function (w) {
+      (console.log("LegacyView", "start", l, "end", a, "selstart", r, "selend", f), (w = w || ""));
+      var q = "",
+        C = "",
+        A = [],
+        b,
+        y = [".", " .", "  .", "....", ".....", "......"],
+        k = ["", " ", "  ", "   ", "    ", "     ", "      "],
+        M;
+      if (((q = w), (C = qe.revcomp(q)), console.log("seqlen", w.length), q !== "")) {
+        for (b = 2; b >= 0; --b) A.push(y[b] + qe.translate(q, b).split("").join(".."));
+        for (
+          console.log(A[2].length, A[1].length, A[0].length),
+            A[3] = q,
+            C.length % 3,
+            A[4] = C.split("").reverse().join(""),
+            b = 0;
+          b < 3;
+          ++b
+        )
+          ((M = y[b] + qe.translate(C, b).split("").join("..")),
+            M.length < C.length && (M = M + k[C.length - M.length]),
+            (M = M.split("").reverse().join("")),
+            A.push(M));
+      }
+      return (
+        (A[8] = q.slice().replace(/\w/g, "\u25B2")),
+        (A[9] = C.slice().replace(/\w/g, "\u25BC")),
+        console.log("translation"),
+        console.log(A),
+        A
+      );
+    },
+    _ = function (w) {
+      var q = "";
+      if (w.length < 8) return "";
+      var C = w[3].length;
+      for (let A = 0; A < C; A += 10)
+        A > 0 ? (q += "|" + String(A).padEnd(9)) : (q += "|" + String(1).padEnd(8));
+      return [q];
+    };
+  return (
+    document.getElementById("slide"),
+    console.log("LegacyView start", l),
+    console.log("LegacyView end", a),
+    (s.$$set = (w) => {
+      ("seq" in w && e(4, (n = w.seq)),
+        "start" in w && e(0, (l = w.start)),
+        "end" in w && e(1, (a = w.end)),
+        "selstart" in w && e(5, (r = w.selstart)),
+        "selend" in w && e(6, (f = w.selend)));
+    }),
+    (s.$$.update = () => {
+      (s.$$.dirty & 16 && e(2, (d = m(n))),
+        s.$$.dirty & 4 && e(3, (p = _(d))),
+        s.$$.dirty & 1 && e(0, (l = Number(l))),
+        s.$$.dirty & 1 && u(l),
+        s.$$.dirty & 2 && e(1, (a = Number(a))));
+    }),
+    [l, a, d, p, n, r, f, u]
+  );
+}
+class ia extends Nl {
+  constructor(t) {
+    (super(), El(this, t, na, sa, yl, { seq: 4, start: 0, end: 1, selstart: 5, selend: 6, setScrollPos: 7 }));
+  }
+  get setScrollPos() {
+    return this.$$.ctx[7];
+  }
+}
+function Gi(s, t, e) {
+  const n = s.slice();
+  return ((n[229] = t[e]), (n[231] = e), n);
+}
+function Fi(s, t, e) {
+  const n = s.slice();
+  return ((n[229] = t[e]), (n[231] = e), n);
+}
+function Ri(s, t, e) {
+  const n = s.slice();
+  return ((n[232] = t[e]), n);
+}
+function Ii(s, t, e) {
+  const n = s.slice();
+  return ((n[229] = t[e]), (n[231] = e), n);
+}
+function Di(s, t, e) {
+  const n = s.slice();
+  return ((n[229] = t[e]), (n[231] = e), n);
+}
+function Oi(s, t, e) {
+  const n = s.slice();
+  return ((n[232] = t[e]), n);
+}
+function Bi(s, t, e) {
+  const n = s.slice();
+  return ((n[232] = t[e]), n);
+}
+function Hi(s) {
+  let t;
+  return {
+    c() {
+      ((t = c("div")),
+        (t.textContent = "Sequence length is too short - minimum length is 60 bp"),
+        i(t, "class", "seqwarn svelte-1oen5g6"));
+    },
+    m(e, n) {
+      v(e, t, n);
+    },
+    d(e) {
+      e && g(t);
+    },
+  };
+}
+function ji(s) {
+  let t;
+  return {
+    c() {
+      ((t = c("div")),
+        (t.textContent = "Sequence length too long - maximum length is 50 Kbp - SEQUENCE TRUNCATED!"),
+        i(t, "class", "seqwarn svelte-1oen5g6"));
+    },
+    m(e, n) {
+      v(e, t, n);
+    },
+    d(e) {
+      e && g(t);
+    },
+  };
+}
+function oa(s) {
+  let t, e, n, l, a, r, f, u, h, d, p, m, _, w, q, C, A, b, y, k, M, P, L, G, R, N, U, B, F;
+  return {
+    c() {
+      ((t = T("Enter a DNA sequence by copying and pasting it into the sequence text area ")),
+        (e = c("br")),
+        (n = T(`
+				or uploading a file from your computer. Acceptable formats for the DNA sequence are:`)),
+        (l = c("br")),
+        (a = S()),
+        (r = c("br")),
+        (f = T(`
+				raw -- plain text without IDs and descriptions or numbers `)),
+        (u = c("br")),
+        (h = T(` 
+				FASTA -- first line consisting of ">ID optional description" `)),
+        (d = c("br")),
+        (p = T(` 
+				GenBank -- standard GenBank (LOCUS and ORIGIN lines expected). `)),
+        (m = c("br")),
+        (_ = S()),
+        (w = c("br")),
+        (q = T(`
+
+				Selecting the "Use Reverse Complement" checkbox instructs NEBaseChanger to use `)),
+        (C = c("br")),
+        (A = T(`
+				the reverse complement of the sequence entered in the sequence text area. `)),
+        (b = c("br")),
+        (y = T(`
+				Selecting the "Partial" checkbox tells NEBaseChanger that it should not assume `)),
+        (k = c("br")),
+        (M = T(`
+				a complete circular sequence, allowing the entry of a much shorter sequence.  `)),
+        (P = c("br")),
+        (L = T(`
+				However, partial sequences will need to include sufficient sequence flanking the mutation site, `)),
+        (G = c("br")),
+        (R = T(`
+				currently set at a minimum of 35 nt 5\u2032 and 25 nt 3\u2032. Mutations will be prohibited `)),
+        (N = c("br")),
+        (U = T(`
+				from being too close to the ends of the provided partial sequence fragment `)),
+        (B = c("br")),
+        (F = T(`
+				and cannot span the ends of the fragment.`)),
+        i(e, "class", "svelte-1oen5g6"),
+        i(l, "class", "svelte-1oen5g6"),
+        i(r, "class", "svelte-1oen5g6"),
+        i(u, "class", "svelte-1oen5g6"),
+        i(d, "class", "svelte-1oen5g6"),
+        i(m, "class", "svelte-1oen5g6"),
+        i(w, "class", "svelte-1oen5g6"),
+        i(C, "class", "svelte-1oen5g6"),
+        i(b, "class", "svelte-1oen5g6"),
+        i(k, "class", "svelte-1oen5g6"),
+        i(P, "class", "svelte-1oen5g6"),
+        i(G, "class", "svelte-1oen5g6"),
+        i(N, "class", "svelte-1oen5g6"),
+        i(B, "class", "svelte-1oen5g6"));
+    },
+    m(I, H) {
+      (v(I, t, H),
+        v(I, e, H),
+        v(I, n, H),
+        v(I, l, H),
+        v(I, a, H),
+        v(I, r, H),
+        v(I, f, H),
+        v(I, u, H),
+        v(I, h, H),
+        v(I, d, H),
+        v(I, p, H),
+        v(I, m, H),
+        v(I, _, H),
+        v(I, w, H),
+        v(I, q, H),
+        v(I, C, H),
+        v(I, A, H),
+        v(I, b, H),
+        v(I, y, H),
+        v(I, k, H),
+        v(I, M, H),
+        v(I, P, H),
+        v(I, L, H),
+        v(I, G, H),
+        v(I, R, H),
+        v(I, N, H),
+        v(I, U, H),
+        v(I, B, H),
+        v(I, F, H));
+    },
+    p: be,
+    d(I) {
+      (I && g(t),
+        I && g(e),
+        I && g(n),
+        I && g(l),
+        I && g(a),
+        I && g(r),
+        I && g(f),
+        I && g(u),
+        I && g(h),
+        I && g(d),
+        I && g(p),
+        I && g(m),
+        I && g(_),
+        I && g(w),
+        I && g(q),
+        I && g(C),
+        I && g(A),
+        I && g(b),
+        I && g(y),
+        I && g(k),
+        I && g(M),
+        I && g(P),
+        I && g(L),
+        I && g(G),
+        I && g(R),
+        I && g(N),
+        I && g(U),
+        I && g(B),
+        I && g(F));
+    },
+  };
+}
+function ra(s) {
+  let t, e, n, l, a, r, f, u, h, d, p, m, _, w, q, C, A, b, y, k, M;
+  return {
+    c() {
+      ((t = T('After entering the starting plasmid sequence, choose either "AA Point Mutation", ')),
+        (e = c("br")),
+        (n = T(`
+				"Indel/Substitution", "Batch", or "Legacy". Point mutation mode is most convenient `)),
+        (l = c("br")),
+        (a = T(`
+				if the mutagenesis is limited to one or more single codons, whereas the general `)),
+        (r = c("br")),
+        (f = T(`
+				Indel/Substitution mode works with larger (and smaller) single insertions and substitutions `)),
+        (u = c("br")),
+        (h = T(`
+				and also allows deletions. Batch mode is designed for a longer list of mutations `)),
+        (d = c("br")),
+        (p = T(`
+				and allows mixing of point and indel styles of entry. `)),
+        (m = c("br")),
+        (_ = S()),
+        (w = c("br")),
+        (q = T(`
+				Legacy mode is intended to emulate NEBaseChanger V1 and produce results that are consistent `)),
+        (C = c("br")),
+        (A = T(`
+				with the parameters used in V1. Principally, the minimum primer length is reset to 18 nt `)),
+        (b = c("br")),
+        (y = T(`
+				and insertions are always in the 5\u2032 tails.  Legacy mode has a simpler interface `)),
+        (k = c("br")),
+        (M = T(`
+				that will be familiar to users of V1, but it is limited in functionality.`)),
+        i(e, "class", "svelte-1oen5g6"),
+        i(l, "class", "svelte-1oen5g6"),
+        i(r, "class", "svelte-1oen5g6"),
+        i(u, "class", "svelte-1oen5g6"),
+        i(d, "class", "svelte-1oen5g6"),
+        i(m, "class", "svelte-1oen5g6"),
+        i(w, "class", "svelte-1oen5g6"),
+        i(C, "class", "svelte-1oen5g6"),
+        i(b, "class", "svelte-1oen5g6"),
+        i(k, "class", "svelte-1oen5g6"));
+    },
+    m(P, L) {
+      (v(P, t, L),
+        v(P, e, L),
+        v(P, n, L),
+        v(P, l, L),
+        v(P, a, L),
+        v(P, r, L),
+        v(P, f, L),
+        v(P, u, L),
+        v(P, h, L),
+        v(P, d, L),
+        v(P, p, L),
+        v(P, m, L),
+        v(P, _, L),
+        v(P, w, L),
+        v(P, q, L),
+        v(P, C, L),
+        v(P, A, L),
+        v(P, b, L),
+        v(P, y, L),
+        v(P, k, L),
+        v(P, M, L));
+    },
+    p: be,
+    d(P) {
+      (P && g(t),
+        P && g(e),
+        P && g(n),
+        P && g(l),
+        P && g(a),
+        P && g(r),
+        P && g(f),
+        P && g(u),
+        P && g(h),
+        P && g(d),
+        P && g(p),
+        P && g(m),
+        P && g(_),
+        P && g(w),
+        P && g(q),
+        P && g(C),
+        P && g(A),
+        P && g(b),
+        P && g(y),
+        P && g(k),
+        P && g(M));
+    },
+  };
+}
+function aa(s) {
+  let t,
+    e,
+    n,
+    l,
+    a,
+    r,
+    f,
+    u,
+    h,
+    d,
+    p,
+    m,
+    _,
+    w,
+    q,
+    C,
+    A,
+    b,
+    y,
+    k,
+    M,
+    P,
+    L,
+    G,
+    R,
+    N,
+    U,
+    B,
+    F,
+    I,
+    H,
+    W,
+    D,
+    V,
+    Q,
+    Z,
+    oe,
+    X,
+    re,
+    x,
+    le,
+    z,
+    fe,
+    de,
+    pe,
+    ye,
+    ve,
+    Se,
+    me,
+    we,
+    _e,
+    j,
+    O,
+    te;
+  return {
+    c() {
+      ((t = T("LEGACY MODE ---")),
+        (e = c("br")),
+        (n = S()),
+        (l = c("br")),
+        (a = T(`
+	            Legacy mode is intended to emulate NEBaseChanger V1 and produce results `)),
+        (r = c("br")),
+        (f = T(`
+	            that are consistent with the parameters used in V1. Principally, the minimum `)),
+        (u = c("br")),
+        (h = T(`
+	            primer length is reset to 18nt and insertions are always in the 5\u2032 tails.`)),
+        (d = c("br")),
+        (p = S()),
+        (m = c("br")),
+        (_ = T(`
+		  		Insert/delete/substitute operations require a 5' `)),
+        (w = c("i")),
+        (w.textContent = "flanking"),
+        (q = T(" position (start), ")),
+        (C = c("br")),
+        (A = T(`
+		  		3' `)),
+        (b = c("i")),
+        (b.textContent = "flanking"),
+        (y = T(" position (end); the target sequence to be mutatated is ")),
+        (k = c("br")),
+        (M = S()),
+        (P = c("b")),
+        (P.textContent = "between"),
+        (L = T(" the start and end positions.")),
+        (G = c("br")),
+        (R = T("This differs from V1 where substitutions ")),
+        (N = c("br")),
+        (U = T(`
+		  		and deletions were identified by the coordinates of the target itself. `)),
+        (B = c("br")),
+        (F = S()),
+        (I = c("br")),
+        (H = T(`
+		  		In addition to manualy setting the start/end coordinates of the target,`)),
+        (W = c("br")),
+        (D = T(`
+				the target sequence may be selected by click and drag (text selection) `)),
+        (V = c("br")),
+        (Q = T(`
+				in the DNA sequence row. For insertions, clicking between two bases will select the `)),
+        (Z = c("br")),
+        (oe = T(`
+				proper flanking bases. The target sequence may also be located using the search field.`)),
+        (X = c("br")),
+        (re = S()),
+        (x = c("br")),
+        (le = T(`
+		  		For deletions, leave the replacement sequence blank.`)),
+        (z = c("br")),
+        (fe = S()),
+        (de = c("br")),
+        (pe = T(`
+		  		Ambiguous base codes can be entered in the replacement sequence (N,Y,S,W, etc) `)),
+        (ye = c("br")),
+        (ve = T(`
+		  		and will be expanded combinatorialy. `)),
+        (Se = c("br")),
+        (me = S()),
+        (we = c("br")),
+        (_e = T(`
+		  		For example, a replacement sequence containing NS will be expanded to 8 sequences `)),
+        (j = c("br")),
+        (O = T(`
+		  		containing: AC, CC, GC, TC, AG, CG, GG, and TG, generating 8 primer pairs.`)),
+        (te = c("br")),
+        i(e, "class", "svelte-1oen5g6"),
+        i(l, "class", "svelte-1oen5g6"),
+        i(r, "class", "svelte-1oen5g6"),
+        i(u, "class", "svelte-1oen5g6"),
+        i(d, "class", "svelte-1oen5g6"),
+        i(m, "class", "svelte-1oen5g6"),
+        i(w, "class", "svelte-1oen5g6"),
+        i(C, "class", "svelte-1oen5g6"),
+        i(b, "class", "svelte-1oen5g6"),
+        i(k, "class", "svelte-1oen5g6"),
+        i(P, "class", "svelte-1oen5g6"),
+        i(G, "class", "svelte-1oen5g6"),
+        i(N, "class", "svelte-1oen5g6"),
+        i(B, "class", "svelte-1oen5g6"),
+        i(I, "class", "svelte-1oen5g6"),
+        i(W, "class", "svelte-1oen5g6"),
+        i(V, "class", "svelte-1oen5g6"),
+        i(Z, "class", "svelte-1oen5g6"),
+        i(X, "class", "svelte-1oen5g6"),
+        i(x, "class", "svelte-1oen5g6"),
+        i(z, "class", "svelte-1oen5g6"),
+        i(de, "class", "svelte-1oen5g6"),
+        i(ye, "class", "svelte-1oen5g6"),
+        i(Se, "class", "svelte-1oen5g6"),
+        i(we, "class", "svelte-1oen5g6"),
+        i(j, "class", "svelte-1oen5g6"),
+        i(te, "class", "svelte-1oen5g6"));
+    },
+    m(K, he) {
+      (v(K, t, he),
+        v(K, e, he),
+        v(K, n, he),
+        v(K, l, he),
+        v(K, a, he),
+        v(K, r, he),
+        v(K, f, he),
+        v(K, u, he),
+        v(K, h, he),
+        v(K, d, he),
+        v(K, p, he),
+        v(K, m, he),
+        v(K, _, he),
+        v(K, w, he),
+        v(K, q, he),
+        v(K, C, he),
+        v(K, A, he),
+        v(K, b, he),
+        v(K, y, he),
+        v(K, k, he),
+        v(K, M, he),
+        v(K, P, he),
+        v(K, L, he),
+        v(K, G, he),
+        v(K, R, he),
+        v(K, N, he),
+        v(K, U, he),
+        v(K, B, he),
+        v(K, F, he),
+        v(K, I, he),
+        v(K, H, he),
+        v(K, W, he),
+        v(K, D, he),
+        v(K, V, he),
+        v(K, Q, he),
+        v(K, Z, he),
+        v(K, oe, he),
+        v(K, X, he),
+        v(K, re, he),
+        v(K, x, he),
+        v(K, le, he),
+        v(K, z, he),
+        v(K, fe, he),
+        v(K, de, he),
+        v(K, pe, he),
+        v(K, ye, he),
+        v(K, ve, he),
+        v(K, Se, he),
+        v(K, me, he),
+        v(K, we, he),
+        v(K, _e, he),
+        v(K, j, he),
+        v(K, O, he),
+        v(K, te, he));
+    },
+    p: be,
+    d(K) {
+      (K && g(t),
+        K && g(e),
+        K && g(n),
+        K && g(l),
+        K && g(a),
+        K && g(r),
+        K && g(f),
+        K && g(u),
+        K && g(h),
+        K && g(d),
+        K && g(p),
+        K && g(m),
+        K && g(_),
+        K && g(w),
+        K && g(q),
+        K && g(C),
+        K && g(A),
+        K && g(b),
+        K && g(y),
+        K && g(k),
+        K && g(M),
+        K && g(P),
+        K && g(L),
+        K && g(G),
+        K && g(R),
+        K && g(N),
+        K && g(U),
+        K && g(B),
+        K && g(F),
+        K && g(I),
+        K && g(H),
+        K && g(W),
+        K && g(D),
+        K && g(V),
+        K && g(Q),
+        K && g(Z),
+        K && g(oe),
+        K && g(X),
+        K && g(re),
+        K && g(x),
+        K && g(le),
+        K && g(z),
+        K && g(fe),
+        K && g(de),
+        K && g(pe),
+        K && g(ye),
+        K && g(ve),
+        K && g(Se),
+        K && g(me),
+        K && g(we),
+        K && g(_e),
+        K && g(j),
+        K && g(O),
+        K && g(te));
+    },
+  };
+}
+function ca(s) {
+  let t, e, n, l, a, r, f, u, h, d, p, m, _, w, q, C, A, b, y, k, M, P, L, G, R, N, U, B, F, I, H, W;
+  return {
+    c() {
+      ((t = T("Insert/delete/substitute (indel) operations require a 5' flanking position (start), ")),
+        (e = c("br")),
+        (n = T(`
+		  		3' flanking position (end), and a replacement sequence. The target sequence to be `)),
+        (l = c("br")),
+        (a = T(`
+		  		replaced is `)),
+        (r = c("b")),
+        (r.textContent = "between"),
+        (f = T(" the start and end positions.")),
+        (u = c("br")),
+        (h = c("br")),
+        (d = T(`
+		  		To delete a sequence, leave the replacement sequence blank.`)),
+        (p = c("br")),
+        (m = c("br")),
+        (_ = T(`
+		  		To insert a sequence, the start and end should be consecutive positions.`)),
+        (w = c("br")),
+        (q = T(` 
+		  		The replacement sequence will be inserted between them. `)),
+        (C = c("br")),
+        (A = c("br")),
+        (b = T(`
+		  		For example, if start/end is 234/239 and the replacement sequence is ACGT, `)),
+        (y = c("br")),
+        (k = T(`
+		  		the operation will substitute the sequence between bases 234 and 239 with ACGT. `)),
+        (M = c("br")),
+        (P = S()),
+        (L = c("br")),
+        (G = T(`
+		  		Ambiguous base codes can be entered in the replacement sequence (N,Y,S,W, etc) `)),
+        (R = c("br")),
+        (N = T(`
+		  		and will be expanded combinatorialy. `)),
+        (U = c("br")),
+        (B = c("br")),
+        (F = T(`
+		  		For example, a replacement sequence containing NS will be expanded to 8 sequences `)),
+        (I = c("br")),
+        (H = T(`
+		  		containing: AC, CC, GC, TC, AG, CG, GG, and TG, generating 8 primer pairs.`)),
+        (W = c("br")),
+        i(e, "class", "svelte-1oen5g6"),
+        i(l, "class", "svelte-1oen5g6"),
+        i(r, "class", "svelte-1oen5g6"),
+        i(u, "class", "svelte-1oen5g6"),
+        i(h, "class", "svelte-1oen5g6"),
+        i(p, "class", "svelte-1oen5g6"),
+        i(m, "class", "svelte-1oen5g6"),
+        i(w, "class", "svelte-1oen5g6"),
+        i(C, "class", "svelte-1oen5g6"),
+        i(A, "class", "svelte-1oen5g6"),
+        i(y, "class", "svelte-1oen5g6"),
+        i(M, "class", "svelte-1oen5g6"),
+        i(L, "class", "svelte-1oen5g6"),
+        i(R, "class", "svelte-1oen5g6"),
+        i(U, "class", "svelte-1oen5g6"),
+        i(B, "class", "svelte-1oen5g6"),
+        i(I, "class", "svelte-1oen5g6"),
+        i(W, "class", "svelte-1oen5g6"));
+    },
+    m(D, V) {
+      (v(D, t, V),
+        v(D, e, V),
+        v(D, n, V),
+        v(D, l, V),
+        v(D, a, V),
+        v(D, r, V),
+        v(D, f, V),
+        v(D, u, V),
+        v(D, h, V),
+        v(D, d, V),
+        v(D, p, V),
+        v(D, m, V),
+        v(D, _, V),
+        v(D, w, V),
+        v(D, q, V),
+        v(D, C, V),
+        v(D, A, V),
+        v(D, b, V),
+        v(D, y, V),
+        v(D, k, V),
+        v(D, M, V),
+        v(D, P, V),
+        v(D, L, V),
+        v(D, G, V),
+        v(D, R, V),
+        v(D, N, V),
+        v(D, U, V),
+        v(D, B, V),
+        v(D, F, V),
+        v(D, I, V),
+        v(D, H, V),
+        v(D, W, V));
+    },
+    p: be,
+    d(D) {
+      (D && g(t),
+        D && g(e),
+        D && g(n),
+        D && g(l),
+        D && g(a),
+        D && g(r),
+        D && g(f),
+        D && g(u),
+        D && g(h),
+        D && g(d),
+        D && g(p),
+        D && g(m),
+        D && g(_),
+        D && g(w),
+        D && g(q),
+        D && g(C),
+        D && g(A),
+        D && g(b),
+        D && g(y),
+        D && g(k),
+        D && g(M),
+        D && g(P),
+        D && g(L),
+        D && g(G),
+        D && g(R),
+        D && g(N),
+        D && g(U),
+        D && g(B),
+        D && g(F),
+        D && g(I),
+        D && g(H),
+        D && g(W));
+    },
+  };
+}
+function ua(s) {
+  let t, e, n, l, a, r, f, u, h, d, p, m, _, w, q, C, A, b, y, k, M, P, L, G, R, N, U, B, F, I, H, W;
+  return {
+    c() {
+      ((t = T("First, enter the start position of the ORF, either directly by entering the coordinate")),
+        (e = c("br")),
+        (n = T(`
+	    		or by clicking in the DNA sequence row of the codon view. Setting the ORF start `)),
+        (l = c("br")),
+        (a = T(`
+	    		position will highlight the ORF.`)),
+        (r = c("br")),
+        (f = S()),
+        (u = c("br")),
+        (h = T(`
+	    		Next, enter one or more mutations of the form [old AA][codon #][new AA], `)),
+        (d = c("br")),
+        (p = T(`
+	    		for example, M2A, F32H, C45Y, etc. The codon # is relative to the selected `)),
+        (m = c("br")),
+        (_ = T(`
+	    		ORF start.  Optionally, specify the exact triplet replacement by appending `)),
+        (w = c("br")),
+        (q = T(`
+	    		a colon followed by the triplet, for example, M2G:GGG, A34F:TTC. Exact triplets, `)),
+        (C = c("br")),
+        (A = T(`
+	    		will override automatic selection. Multiple mutations can be entered, separated by spaces, commas or semicolons.`)),
+        (b = c("br")),
+        (y = S()),
+        (k = c("br")),
+        (M = T(`
+	    		Clicking on an amino acid in the codon view will initiate a dialog to select the replacement`)),
+        (P = c("br")),
+        (L = T(`
+	    		amino acid, including the exact triplet, and will add it to the list of mutations.`)),
+        (G = c("br")),
+        (R = S()),
+        (N = c("br")),
+        (U = T(`
+	    		The old AA is checked, but processing is not halted if the old AA does not match`)),
+        (B = c("br")),
+        (F = T(`
+	    		the indicated codon #. The codon number takes presidence. Also, the ORF start`)),
+        (I = c("br")),
+        (H = T(` 
+	    		can be set arbitrarily and is not checked for validity.`)),
+        (W = c("br")),
+        i(e, "class", "svelte-1oen5g6"),
+        i(l, "class", "svelte-1oen5g6"),
+        i(r, "class", "svelte-1oen5g6"),
+        i(u, "class", "svelte-1oen5g6"),
+        i(d, "class", "svelte-1oen5g6"),
+        i(m, "class", "svelte-1oen5g6"),
+        i(w, "class", "svelte-1oen5g6"),
+        i(C, "class", "svelte-1oen5g6"),
+        i(b, "class", "svelte-1oen5g6"),
+        i(k, "class", "svelte-1oen5g6"),
+        i(P, "class", "svelte-1oen5g6"),
+        i(G, "class", "svelte-1oen5g6"),
+        i(N, "class", "svelte-1oen5g6"),
+        i(B, "class", "svelte-1oen5g6"),
+        i(I, "class", "svelte-1oen5g6"),
+        i(W, "class", "svelte-1oen5g6"));
+    },
+    m(D, V) {
+      (v(D, t, V),
+        v(D, e, V),
+        v(D, n, V),
+        v(D, l, V),
+        v(D, a, V),
+        v(D, r, V),
+        v(D, f, V),
+        v(D, u, V),
+        v(D, h, V),
+        v(D, d, V),
+        v(D, p, V),
+        v(D, m, V),
+        v(D, _, V),
+        v(D, w, V),
+        v(D, q, V),
+        v(D, C, V),
+        v(D, A, V),
+        v(D, b, V),
+        v(D, y, V),
+        v(D, k, V),
+        v(D, M, V),
+        v(D, P, V),
+        v(D, L, V),
+        v(D, G, V),
+        v(D, R, V),
+        v(D, N, V),
+        v(D, U, V),
+        v(D, B, V),
+        v(D, F, V),
+        v(D, I, V),
+        v(D, H, V),
+        v(D, W, V));
+    },
+    p: be,
+    d(D) {
+      (D && g(t),
+        D && g(e),
+        D && g(n),
+        D && g(l),
+        D && g(a),
+        D && g(r),
+        D && g(f),
+        D && g(u),
+        D && g(h),
+        D && g(d),
+        D && g(p),
+        D && g(m),
+        D && g(_),
+        D && g(w),
+        D && g(q),
+        D && g(C),
+        D && g(A),
+        D && g(b),
+        D && g(y),
+        D && g(k),
+        D && g(M),
+        D && g(P),
+        D && g(L),
+        D && g(G),
+        D && g(R),
+        D && g(N),
+        D && g(U),
+        D && g(B),
+        D && g(F),
+        D && g(I),
+        D && g(H),
+        D && g(W));
+    },
+  };
+}
+function fa(s) {
+  let t,
+    e,
+    n,
+    l,
+    a,
+    r,
+    f,
+    u,
+    h,
+    d,
+    p,
+    m,
+    _,
+    w,
+    q,
+    C,
+    A,
+    b,
+    y,
+    k,
+    M,
+    P,
+    L,
+    G,
+    R,
+    N,
+    U,
+    B,
+    F,
+    I,
+    H,
+    W,
+    D,
+    V,
+    Q,
+    Z,
+    oe,
+    X,
+    re,
+    x,
+    le,
+    z,
+    fe,
+    de,
+    pe,
+    ye,
+    ve,
+    Se,
+    me,
+    we,
+    _e,
+    j;
+  return {
+    c() {
+      ((t = T("Batch input mode allows multiple command line style operations to be applied ")),
+        (e = c("br")),
+        (n = T(`
+	    		to the currently loaded sequence. It is intended to facilitate the entry `)),
+        (l = c("br")),
+        (a = T(`
+	    		of large numbers of mutations on a single input sequence.`)),
+        (r = c("br")),
+        (f = S()),
+        (u = c("br")),
+        (h = T(`
+	    		Batch commands can be loaded from a text file, pasted into the text area, or typed in directly. `)),
+        (d = c("br")),
+        (p = S()),
+        (m = c("br")),
+        (_ = T(`
+	    		All batch input operates on the currently loaded sequence. Each batch command `)),
+        (w = c("br")),
+        (q = T(`
+	    		should be on a separate line. The following commands are supported in Batch mode: `)),
+        (C = c("br")),
+        (A = T(`
+	    		1. ORF: [start]`)),
+        (b = c("br")),
+        (y = T(`
+	    		2. [old AA][codon #][new AA]:[triplet]`)),
+        (k = c("br")),
+        (M = T(`
+	    		3. [ID] [start] [end] [replacement]`)),
+        (P = c("br")),
+        (L = S()),
+        (G = c("br")),
+        (R = S()),
+        (N = c("dt")),
+        (N.textContent = "ORF: [start]"),
+        (U = S()),
+        (B = c("dd")),
+        (B.innerHTML = `Specifies the coordinate of the first base of the ORF. Required for subsequent AA point mutations. <br class="svelte-1oen5g6"/> 
+		            <br class="svelte-1oen5g6"/>
+	    			Examples:<br class="svelte-1oen5g6"/>
+	    			ORF: 1256<br class="svelte-1oen5g6"/>
+	    			ORF: 2<br class="svelte-1oen5g6"/> 
+	    			<br class="svelte-1oen5g6"/>
+	    			[start] must be a positive number in the range 1 to sequence length. <br class="svelte-1oen5g6"/>
+	    			All subsequent point mutation commands will be relative to the specified ORF start.<br class="svelte-1oen5g6"/> 
+	    			<br class="svelte-1oen5g6"/><br class="svelte-1oen5g6"/>`),
+        (F = S()),
+        (I = c("dt")),
+        (I.textContent = "[old AA][codon #][new AA]:[triplet]"),
+        (H = S()),
+        (W = c("dd")),
+        (W.innerHTML = `Specifies an AA point mutation at a specific codon.<br class="svelte-1oen5g6"/> 
+	    			<br class="svelte-1oen5g6"/>
+	    			Examples:<br class="svelte-1oen5g6"/>
+	    			A2F<br class="svelte-1oen5g6"/>
+	    			A2F:TTT<br class="svelte-1oen5g6"/> 
+	    			<br class="svelte-1oen5g6"/>
+	    			[Old AA] and [new AA] are single letter codes for the current and mutated AA, respectively.<br class="svelte-1oen5g6"/> 
+	    			[codon #] counts triplets from the last specified ORF start coordinate. <br class="svelte-1oen5g6"/>
+	    			The :[triplet] specifier is optional. If provided, it should consist of <br class="svelte-1oen5g6"/>
+	    			a colon followed immediately by the triplet replacement sequence. If not specified,<br class="svelte-1oen5g6"/> 
+	    			(leave off the colon) the replacement triplet will be the codon with the highest usage <br class="svelte-1oen5g6"/>
+	    			in <i class="svelte-1oen5g6">E. coli</i> K12. Exact triplets, will override automatic selection.<br class="svelte-1oen5g6"/> 
+	    			<br class="svelte-1oen5g6"/><br class="svelte-1oen5g6"/>`),
+        (D = S()),
+        (V = c("dt")),
+        (V.textContent = "[ID] [start] [end] [replacement]"),
+        (Q = S()),
+        (Z = c("dd")),
+        (Z.innerHTML = `Specifies a general indel/substitution operation. <br class="svelte-1oen5g6"/> 
+					<br class="svelte-1oen5g6"/>
+	    		    Examples:<br class="svelte-1oen5g6"/>
+	    			ID1 234 239 <i class="svelte-1oen5g6">deletes</i> the sequence <i class="svelte-1oen5g6">between</i> bases 234 and 239. <br class="svelte-1oen5g6"/>
+	    			ID2 234 239 ACGT <i class="svelte-1oen5g6">substitutes</i> ACGT for the sequence <i class="svelte-1oen5g6">between</i> bases 234 and 239. <br class="svelte-1oen5g6"/>
+	    			ID3 234 235 ACGT <i class="svelte-1oen5g6">inserts</i> ACGT <i class="svelte-1oen5g6">between</i> bases 234 and 235. <br class="svelte-1oen5g6"/> 
+	    			<br class="svelte-1oen5g6"/>
+					[Start] and [end] are the base positions <i class="svelte-1oen5g6">flanking</i> the target sequence <br class="svelte-1oen5g6"/>
+					to be replaced. If [replacement] is omitted, the target sequence will be deleted.<br class="svelte-1oen5g6"/>  
+					To insert a sequence, [start] and [end] should be consecutive positions.<br class="svelte-1oen5g6"/> 
+	    		    <br class="svelte-1oen5g6"/><br class="svelte-1oen5g6"/>`),
+        (oe = T(`
+	    		Any ambiguous base codes (N,Y,S,W, etc) will be expanded combinatorialy `)),
+        (X = c("br")),
+        (re = T(`
+	    		unless "Preserve degenerate bases" is checked.`)),
+        (x = c("br")),
+        (le = T(`
+	    		For example, a replacement sequence containing NS will be expanded to 8 sequences `)),
+        (z = c("br")),
+        (fe = T(`
+	    		containing: AC, CC, GC, TC, AG, CG, GG, and TG, generating 8 primer pairs.`)),
+        (de = c("br")),
+        (pe = S()),
+        (ye = c("br")),
+        (ve = T(`
+	    		The following is an example of a valid set of batch commands:`)),
+        (Se = c("br")),
+        (me = S()),
+        (we = c("br")),
+        (_e = S()),
+        (j = c("b")),
+        (j.innerHTML = `ORF: 100<br class="svelte-1oen5g6"/>
+					M1Y<br class="svelte-1oen5g6"/>
+					A42S<br class="svelte-1oen5g6"/>
+					P24F:TTT<br class="svelte-1oen5g6"/>
+					setA 200 205 NNA<br class="svelte-1oen5g6"/>
+					InSetB 400 401 AACGGTGTN<br class="svelte-1oen5g6"/>
+					Site1 100 105 ACGT<br class="svelte-1oen5g6"/>
+					D1 1000 1200 <br class="svelte-1oen5g6"/>
+					setE 1800 200 ATNCG<br class="svelte-1oen5g6"/>`),
+        i(e, "class", "svelte-1oen5g6"),
+        i(l, "class", "svelte-1oen5g6"),
+        i(r, "class", "svelte-1oen5g6"),
+        i(u, "class", "svelte-1oen5g6"),
+        i(d, "class", "svelte-1oen5g6"),
+        i(m, "class", "svelte-1oen5g6"),
+        i(w, "class", "svelte-1oen5g6"),
+        i(C, "class", "svelte-1oen5g6"),
+        i(b, "class", "svelte-1oen5g6"),
+        i(k, "class", "svelte-1oen5g6"),
+        i(P, "class", "svelte-1oen5g6"),
+        i(G, "class", "svelte-1oen5g6"),
+        i(N, "class", "svelte-1oen5g6"),
+        i(B, "class", "svelte-1oen5g6"),
+        i(I, "class", "svelte-1oen5g6"),
+        i(W, "class", "svelte-1oen5g6"),
+        i(V, "class", "svelte-1oen5g6"),
+        i(Z, "class", "svelte-1oen5g6"),
+        i(X, "class", "svelte-1oen5g6"),
+        i(x, "class", "svelte-1oen5g6"),
+        i(z, "class", "svelte-1oen5g6"),
+        i(de, "class", "svelte-1oen5g6"),
+        i(ye, "class", "svelte-1oen5g6"),
+        i(Se, "class", "svelte-1oen5g6"),
+        i(we, "class", "svelte-1oen5g6"),
+        i(j, "class", "svelte-1oen5g6"));
+    },
+    m(O, te) {
+      (v(O, t, te),
+        v(O, e, te),
+        v(O, n, te),
+        v(O, l, te),
+        v(O, a, te),
+        v(O, r, te),
+        v(O, f, te),
+        v(O, u, te),
+        v(O, h, te),
+        v(O, d, te),
+        v(O, p, te),
+        v(O, m, te),
+        v(O, _, te),
+        v(O, w, te),
+        v(O, q, te),
+        v(O, C, te),
+        v(O, A, te),
+        v(O, b, te),
+        v(O, y, te),
+        v(O, k, te),
+        v(O, M, te),
+        v(O, P, te),
+        v(O, L, te),
+        v(O, G, te),
+        v(O, R, te),
+        v(O, N, te),
+        v(O, U, te),
+        v(O, B, te),
+        v(O, F, te),
+        v(O, I, te),
+        v(O, H, te),
+        v(O, W, te),
+        v(O, D, te),
+        v(O, V, te),
+        v(O, Q, te),
+        v(O, Z, te),
+        v(O, oe, te),
+        v(O, X, te),
+        v(O, re, te),
+        v(O, x, te),
+        v(O, le, te),
+        v(O, z, te),
+        v(O, fe, te),
+        v(O, de, te),
+        v(O, pe, te),
+        v(O, ye, te),
+        v(O, ve, te),
+        v(O, Se, te),
+        v(O, me, te),
+        v(O, we, te),
+        v(O, _e, te),
+        v(O, j, te));
+    },
+    p: be,
+    d(O) {
+      (O && g(t),
+        O && g(e),
+        O && g(n),
+        O && g(l),
+        O && g(a),
+        O && g(r),
+        O && g(f),
+        O && g(u),
+        O && g(h),
+        O && g(d),
+        O && g(p),
+        O && g(m),
+        O && g(_),
+        O && g(w),
+        O && g(q),
+        O && g(C),
+        O && g(A),
+        O && g(b),
+        O && g(y),
+        O && g(k),
+        O && g(M),
+        O && g(P),
+        O && g(L),
+        O && g(G),
+        O && g(R),
+        O && g(N),
+        O && g(U),
+        O && g(B),
+        O && g(F),
+        O && g(I),
+        O && g(H),
+        O && g(W),
+        O && g(D),
+        O && g(V),
+        O && g(Q),
+        O && g(Z),
+        O && g(oe),
+        O && g(X),
+        O && g(re),
+        O && g(x),
+        O && g(le),
+        O && g(z),
+        O && g(fe),
+        O && g(de),
+        O && g(pe),
+        O && g(ye),
+        O && g(ve),
+        O && g(Se),
+        O && g(me),
+        O && g(we),
+        O && g(_e),
+        O && g(j));
+    },
+  };
+}
+function da(s) {
+  let t, e, n, l, a, r, f, u, h, d, p, m, _, w, q, C, A, b, y, k, M, P, L, G;
+  return {
+    c() {
+      ((t = T("All batch input operates on the currently loaded sequence. Each batch command ")),
+        (e = c("br")),
+        (n = T(`
+	    		should be on a separate line. The following commands are supported in Batch mode: `)),
+        (l = c("br")),
+        (a = T(`
+	    		1. ORF: [start]`)),
+        (r = c("br")),
+        (f = T(`
+	    		2. [old AA][codon #][new AA]:[triplet]`)),
+        (u = c("br")),
+        (h = T(`
+	    		3. [ID] [start] [end] [replacement]`)),
+        (d = c("br")),
+        (p = S()),
+        (m = c("br")),
+        (_ = S()),
+        (w = c("dt")),
+        (w.textContent = "ORF: [start]"),
+        (q = S()),
+        (C = c("dd")),
+        (C.innerHTML = `Specifies the coordinate of the first base of the ORF. Required for subsequent AA point mutations. <br class="svelte-1oen5g6"/> 
+		            <br class="svelte-1oen5g6"/>
+	    			Examples:<br class="svelte-1oen5g6"/>
+	    			ORF: 1256<br class="svelte-1oen5g6"/>
+	    			ORF: 2<br class="svelte-1oen5g6"/> 
+	    			<br class="svelte-1oen5g6"/>
+	    			[start] must be a positive number in the range 1 to sequence length. <br class="svelte-1oen5g6"/>
+	    			All subsequent point mutation commands will be relative to the specified ORF start.<br class="svelte-1oen5g6"/> 
+	    			<br class="svelte-1oen5g6"/><br class="svelte-1oen5g6"/>`),
+        (A = S()),
+        (b = c("dt")),
+        (b.textContent = "[old AA][codon #][new AA]:[triplet]"),
+        (y = S()),
+        (k = c("dd")),
+        (k.innerHTML = `Specifies an AA point mutation at a specific codon.<br class="svelte-1oen5g6"/> 
+	    			<br class="svelte-1oen5g6"/>
+	    			Examples:<br class="svelte-1oen5g6"/>
+	    			A2F<br class="svelte-1oen5g6"/>
+	    			A2F:TTT<br class="svelte-1oen5g6"/> 
+	    			<br class="svelte-1oen5g6"/>
+	    			[Old AA] and [new AA] are single letter codes for the current and mutated AA, respectively.<br class="svelte-1oen5g6"/> 
+	    			[codon #] counts triplets from the last specified ORF start coordinate. <br class="svelte-1oen5g6"/>
+	    			The :[triplet] specifier is optional. If provided, it should consist of <br class="svelte-1oen5g6"/>
+	    			a colon followed immediately by the triplet replacement sequence. If not specified,<br class="svelte-1oen5g6"/> 
+	    			(leave off the colon) the replacement triplet will be the codon with the highest usage <br class="svelte-1oen5g6"/>
+	    			in <i class="svelte-1oen5g6">E. coli</i> K12. Exact triplets, will override automatic selection.<br class="svelte-1oen5g6"/> 
+	    			<br class="svelte-1oen5g6"/><br class="svelte-1oen5g6"/>`),
+        (M = S()),
+        (P = c("dt")),
+        (P.textContent = "[ID] [start] [end] [replacement]"),
+        (L = S()),
+        (G = c("dd")),
+        (G.innerHTML = `Specifies a general indel/substitution operation. <br class="svelte-1oen5g6"/> 
+					<br class="svelte-1oen5g6"/>
+	    		    Examples:<br class="svelte-1oen5g6"/>
+	    			ID1 234 239 <i class="svelte-1oen5g6">deletes</i> the sequence <i class="svelte-1oen5g6">between</i> bases 234 and 239. <br class="svelte-1oen5g6"/>
+	    			ID2 234 239 ACGT <i class="svelte-1oen5g6">substitutes</i> ACGT for the sequence <i class="svelte-1oen5g6">between</i> bases 234 and 239. <br class="svelte-1oen5g6"/>
+	    			ID3 234 235 ACGT <i class="svelte-1oen5g6">inserts</i> ACGT <i class="svelte-1oen5g6">between</i> bases 234 and 235. <br class="svelte-1oen5g6"/> 
+	    			<br class="svelte-1oen5g6"/>
+					[Start] and [end] are the base positions <i class="svelte-1oen5g6">flanking</i> the target sequence <br class="svelte-1oen5g6"/>
+					to be replaced. If [replacement] is omitted, the target sequence will be deleted.<br class="svelte-1oen5g6"/>  
+					To insert a sequence, [start] and [end] should be consecutive positions.<br class="svelte-1oen5g6"/> 
+	    		    <br class="svelte-1oen5g6"/><br class="svelte-1oen5g6"/>`),
+        i(e, "class", "svelte-1oen5g6"),
+        i(l, "class", "svelte-1oen5g6"),
+        i(r, "class", "svelte-1oen5g6"),
+        i(u, "class", "svelte-1oen5g6"),
+        i(d, "class", "svelte-1oen5g6"),
+        i(m, "class", "svelte-1oen5g6"),
+        i(w, "class", "svelte-1oen5g6"),
+        i(C, "class", "svelte-1oen5g6"),
+        i(b, "class", "svelte-1oen5g6"),
+        i(k, "class", "svelte-1oen5g6"),
+        i(P, "class", "svelte-1oen5g6"),
+        i(G, "class", "svelte-1oen5g6"));
+    },
+    m(R, N) {
+      (v(R, t, N),
+        v(R, e, N),
+        v(R, n, N),
+        v(R, l, N),
+        v(R, a, N),
+        v(R, r, N),
+        v(R, f, N),
+        v(R, u, N),
+        v(R, h, N),
+        v(R, d, N),
+        v(R, p, N),
+        v(R, m, N),
+        v(R, _, N),
+        v(R, w, N),
+        v(R, q, N),
+        v(R, C, N),
+        v(R, A, N),
+        v(R, b, N),
+        v(R, y, N),
+        v(R, k, N),
+        v(R, M, N),
+        v(R, P, N),
+        v(R, L, N),
+        v(R, G, N));
+    },
+    p: be,
+    d(R) {
+      (R && g(t),
+        R && g(e),
+        R && g(n),
+        R && g(l),
+        R && g(a),
+        R && g(r),
+        R && g(f),
+        R && g(u),
+        R && g(h),
+        R && g(d),
+        R && g(p),
+        R && g(m),
+        R && g(_),
+        R && g(w),
+        R && g(q),
+        R && g(C),
+        R && g(A),
+        R && g(b),
+        R && g(y),
+        R && g(k),
+        R && g(M),
+        R && g(P),
+        R && g(L),
+        R && g(G));
+    },
+  };
+}
+function pa(s) {
+  let t, e, n, l, a, r, f, u, h, d, p, m, _, w, q, C, A, b, y;
+  return {
+    c() {
+      ((t = T('If the "Confine mutations to primer 5\u2032 tails" option is selected, ')),
+        (e = c("br")),
+        (n = T(`
+		  		the replacement sequence will always be attached to the 5\u2032 end `)),
+        (l = c("br")),
+        (a = T(`
+		  		of the primers, regardless of the length of the substitution. `)),
+        (r = c("br")),
+        (f = T(`
+		  		Normally, for substitutions, if the target region is longer than 6 nucleotides, `)),
+        (u = c("br")),
+        (h = T(`
+		  		the substitution sequence will be split between the two primers, attached `)),
+        (d = c("br")),
+        (p = T(`
+		  		to the 5\u2032 end of the primers as non-annealing tails. The 5\u2032 ends `)),
+        (m = c("br")),
+        (_ = T(`
+		  		of the annealing portions of the primers align with the edges of the target region. `)),
+        (w = c("br")),
+        (q = T(`
+		  		If the target region encompasses 6 or fewer nucleotides, the replacement sequence `)),
+        (C = c("br")),
+        (A = T(`
+		  		will be placed in the forward primer with 10 or more bases of annealing sequence `)),
+        (b = c("br")),
+        (y = T(`
+		  		flanking the inserted bases.`)),
+        i(e, "class", "svelte-1oen5g6"),
+        i(l, "class", "svelte-1oen5g6"),
+        i(r, "class", "svelte-1oen5g6"),
+        i(u, "class", "svelte-1oen5g6"),
+        i(d, "class", "svelte-1oen5g6"),
+        i(m, "class", "svelte-1oen5g6"),
+        i(w, "class", "svelte-1oen5g6"),
+        i(C, "class", "svelte-1oen5g6"),
+        i(b, "class", "svelte-1oen5g6"));
+    },
+    m(k, M) {
+      (v(k, t, M),
+        v(k, e, M),
+        v(k, n, M),
+        v(k, l, M),
+        v(k, a, M),
+        v(k, r, M),
+        v(k, f, M),
+        v(k, u, M),
+        v(k, h, M),
+        v(k, d, M),
+        v(k, p, M),
+        v(k, m, M),
+        v(k, _, M),
+        v(k, w, M),
+        v(k, q, M),
+        v(k, C, M),
+        v(k, A, M),
+        v(k, b, M),
+        v(k, y, M));
+    },
+    p: be,
+    d(k) {
+      (k && g(t),
+        k && g(e),
+        k && g(n),
+        k && g(l),
+        k && g(a),
+        k && g(r),
+        k && g(f),
+        k && g(u),
+        k && g(h),
+        k && g(d),
+        k && g(p),
+        k && g(m),
+        k && g(_),
+        k && g(w),
+        k && g(q),
+        k && g(C),
+        k && g(A),
+        k && g(b),
+        k && g(y));
+    },
+  };
+}
+function ha(s) {
+  let t, e, n, l, a, r, f, u, h;
+  return {
+    c() {
+      ((t = T("This option keeps degenerate/ambiguous base codes in the primer sequence when selecting ")),
+        (e = c("br")),
+        (n = T(`
+		  		the amino acid "X" representing all possible amino acids, in targeted saturation mutagenesis.  `)),
+        (l = c("br")),
+        (a = T(`
+		  		Normally, the ambiguous bases (NNK) are expanded to create 32 primer pairs with only canonical bases. `)),
+        (r = c("br")),
+        (f = T(`
+		  		With this option selected, only one primer pair will be generated containing "NNK". `)),
+        (u = c("br")),
+        (h = T(`
+		  		This option is currently only compatible with mutations confined to the 5\u2032 primer tail.`)),
+        i(e, "class", "svelte-1oen5g6"),
+        i(l, "class", "svelte-1oen5g6"),
+        i(r, "class", "svelte-1oen5g6"),
+        i(u, "class", "svelte-1oen5g6"));
+    },
+    m(d, p) {
+      (v(d, t, p),
+        v(d, e, p),
+        v(d, n, p),
+        v(d, l, p),
+        v(d, a, p),
+        v(d, r, p),
+        v(d, f, p),
+        v(d, u, p),
+        v(d, h, p));
+    },
+    p: be,
+    d(d) {
+      (d && g(t), d && g(e), d && g(n), d && g(l), d && g(a), d && g(r), d && g(f), d && g(u), d && g(h));
+    },
+  };
+}
+function ma(s) {
+  let t, e, n, l, a, r, f, u, h, d, p, m, _, w, q, C, A;
+  return {
+    c() {
+      ((t = T("This option merges point mutations to keep them within a single primer pair.")),
+        (e = c("br")),
+        (n = T(`
+		  		Mutations are entered normally in the form [old AA][codon #][new AA], `)),
+        (l = c("br")),
+        (a = T(`
+	    		for example, M1A, D3H, C4Y, etc., separated by spaces, commas or semicolons.`)),
+        (r = c("br")),
+        (f = S()),
+        (u = c("br")),
+        (h = T(`
+		  		If the mutations are close together, generally not separated by more than 6 bases, `)),
+        (d = c("br")),
+        (p = T(`
+		  		the mutations are merged and treated as a sequence replacement operation. `)),
+        (m = c("br")),
+        (_ = T(`
+		  		In the example above, all 3 mutations would be embedded in a single primer pair.`)),
+        (w = c("br")),
+        (q = S()),
+        (C = c("br")),
+        (A = T(`
+		  		This option is currently only compatible with mutations confined to the 5\u2032 primer tail.`)),
+        i(e, "class", "svelte-1oen5g6"),
+        i(l, "class", "svelte-1oen5g6"),
+        i(r, "class", "svelte-1oen5g6"),
+        i(u, "class", "svelte-1oen5g6"),
+        i(d, "class", "svelte-1oen5g6"),
+        i(m, "class", "svelte-1oen5g6"),
+        i(w, "class", "svelte-1oen5g6"),
+        i(C, "class", "svelte-1oen5g6"));
+    },
+    m(b, y) {
+      (v(b, t, y),
+        v(b, e, y),
+        v(b, n, y),
+        v(b, l, y),
+        v(b, a, y),
+        v(b, r, y),
+        v(b, f, y),
+        v(b, u, y),
+        v(b, h, y),
+        v(b, d, y),
+        v(b, p, y),
+        v(b, m, y),
+        v(b, _, y),
+        v(b, w, y),
+        v(b, q, y),
+        v(b, C, y),
+        v(b, A, y));
+    },
+    p: be,
+    d(b) {
+      (b && g(t),
+        b && g(e),
+        b && g(n),
+        b && g(l),
+        b && g(a),
+        b && g(r),
+        b && g(f),
+        b && g(u),
+        b && g(h),
+        b && g(d),
+        b && g(p),
+        b && g(m),
+        b && g(_),
+        b && g(w),
+        b && g(q),
+        b && g(C),
+        b && g(A));
+    },
+  };
+}
+function ga(s) {
+  let t, e, n, l, a;
+  return {
+    c() {
+      ((t = T('If Codon Selection is set to "codon usage", NEBaseChanger will use codon usage tables ')),
+        (e = c("br")),
+        (n = T(`
+		  		for E. coli K12 to select the codon that has the highest usage. If multiple codons have `)),
+        (l = c("br")),
+        (a = T(`
+		  		the same usage frequency, the choice between them is not defined and could be random.`)),
+        i(e, "class", "svelte-1oen5g6"),
+        i(l, "class", "svelte-1oen5g6"));
+    },
+    m(r, f) {
+      (v(r, t, f), v(r, e, f), v(r, n, f), v(r, l, f), v(r, a, f));
+    },
+    p: be,
+    d(r) {
+      (r && g(t), r && g(e), r && g(n), r && g(l), r && g(a));
+    },
+  };
+}
+function va(s) {
+  let t, e, n, l, a, r, f;
+  return {
+    c() {
+      ((t = T('If Codon Selection is set to "parsimony", NEBaseChanger will select the codon that has ')),
+        (e = c("br")),
+        (n = T(`
+		  		the maximum parsimony defined here as the fewest base changes relative to the codon `)),
+        (l = c("br")),
+        (a = T(`
+		  		being replaced. If multiple codons have the same minimum distance, the choice between them `)),
+        (r = c("br")),
+        (f = T(`
+		  		is not defined and could be random.`)),
+        i(e, "class", "svelte-1oen5g6"),
+        i(l, "class", "svelte-1oen5g6"),
+        i(r, "class", "svelte-1oen5g6"));
+    },
+    m(u, h) {
+      (v(u, t, h), v(u, e, h), v(u, n, h), v(u, l, h), v(u, a, h), v(u, r, h), v(u, f, h));
+    },
+    p: be,
+    d(u) {
+      (u && g(t), u && g(e), u && g(n), u && g(l), u && g(a), u && g(r), u && g(f));
+    },
+  };
+}
+function _a(s) {
+  let t, e, n, l, a, r, f, u, h, d, p, m;
+  return {
+    c() {
+      ((t = T("By selecting this option, NEBaseChanger will generate primer pairs compatible with ")),
+        (e = c("br")),
+        (n = T(`
+		  		the NEBuilder HiFi DNA Assembly Master Mix to simplify the execution of multiple `)),
+        (l = c("br")),
+        (a = T(`
+		  		site-directed mutagenesis in a single reaction. `)),
+        (r = c("br")),
+        (f = S()),
+        (u = c("br")),
+        (h = T(`
+		  		Details are available `)),
+        (d = c("a")),
+        (d.textContent = "here"),
+        (p = T(".")),
+        (m = c("br")),
+        i(e, "class", "svelte-1oen5g6"),
+        i(l, "class", "svelte-1oen5g6"),
+        i(r, "class", "svelte-1oen5g6"),
+        i(u, "class", "svelte-1oen5g6"),
+        i(
+          d,
+          "href",
+          "https://www.neb.com/-/media/nebus/files/application-notes/appnote_improved_methods_for_sdm_using_nebuilder_hifi_dna_assembly_master_mix.pdf?rev=918a4c52177641cbb8e2087a1286b9f4",
+        ),
+        i(d, "target", "_blank"),
+        i(d, "class", "svelte-1oen5g6"),
+        i(m, "class", "svelte-1oen5g6"));
+    },
+    m(_, w) {
+      (v(_, t, w),
+        v(_, e, w),
+        v(_, n, w),
+        v(_, l, w),
+        v(_, a, w),
+        v(_, r, w),
+        v(_, f, w),
+        v(_, u, w),
+        v(_, h, w),
+        v(_, d, w),
+        v(_, p, w),
+        v(_, m, w));
+    },
+    p: be,
+    d(_) {
+      (_ && g(t),
+        _ && g(e),
+        _ && g(n),
+        _ && g(l),
+        _ && g(a),
+        _ && g(r),
+        _ && g(f),
+        _ && g(u),
+        _ && g(h),
+        _ && g(d),
+        _ && g(p),
+        _ && g(m));
+    },
+  };
+}
+function ba(s) {
+  let t, e, n, l, a, r, f, u, h, d, p, m, _, w, q, C, A;
+  return {
+    c() {
+      ((t = T("Enter one or more mutations of the form ")),
+        (e = c("br")),
+        (n = T(`
+		  		[old AA][codon #][new AA], for example, M2A, F32H, C45Y, etc. `)),
+        (l = c("br")),
+        (a = T(`
+		  		Optionally, specify the exact triplet replacement by appending a colon followed by the triplet, `)),
+        (r = c("br")),
+        (f = T(`
+		  		for example, M2G:GGG, A34F:TTC. Exact triplets, when specified, will override automatic selection.`)),
+        (u = c("br")),
+        (h = S()),
+        (d = c("br")),
+        (p = S()),
+        (m = c("br")),
+        (_ = T(`
+		  		Allowed one letter codes:`)),
+        (w = c("br")),
+        (q = c("br")),
+        (C = S()),
+        (A = c("code")),
+        (A.innerHTML = `A : Ala (Alanine)<br class="svelte-1oen5g6"/>
+		        
+		        C : Cys (Cysteine)<br class="svelte-1oen5g6"/>
+		        D : Asp (Aspartic Acid)<br class="svelte-1oen5g6"/>
+		        E : Glu (Glutamic Acid)<br class="svelte-1oen5g6"/>
+		        F : Phe (Phenylalanine)<br class="svelte-1oen5g6"/>
+		        G : Gly (Glycine)<br class="svelte-1oen5g6"/>
+		        H : His (Histidine)<br class="svelte-1oen5g6"/>
+		        I : Ile (Isoleucine)<br class="svelte-1oen5g6"/>
+		        
+		        K : Lys (Lysine)<br class="svelte-1oen5g6"/>
+		        L : Leu (Leucine)<br class="svelte-1oen5g6"/>
+		        M : Met (Methionine)<br class="svelte-1oen5g6"/>
+		        N : Asn (Asparagine)<br class="svelte-1oen5g6"/>
+		        
+		        P : Pro (Proline)<br class="svelte-1oen5g6"/>
+		        Q : Gln (Glutamine)<br class="svelte-1oen5g6"/>
+		        R : Arg (Arginine)<br class="svelte-1oen5g6"/>
+		        S : Ser (Serine)<br class="svelte-1oen5g6"/>
+		        T : Thr (Threonine)<br class="svelte-1oen5g6"/>
+		        
+		        V : Val (Valine)<br class="svelte-1oen5g6"/>
+		        W : Trp (Tryptophan)<br class="svelte-1oen5g6"/>
+		        X : Xaa (NNK - Any amino acid)<br class="svelte-1oen5g6"/>
+		        Y : Tyr (Tyrosine)<br class="svelte-1oen5g6"/>
+		        
+		        * : Ter	(Termination)`),
+        i(e, "class", "svelte-1oen5g6"),
+        i(l, "class", "svelte-1oen5g6"),
+        i(r, "class", "svelte-1oen5g6"),
+        i(u, "class", "svelte-1oen5g6"),
+        i(d, "class", "svelte-1oen5g6"),
+        i(m, "class", "svelte-1oen5g6"),
+        i(w, "class", "svelte-1oen5g6"),
+        i(q, "class", "svelte-1oen5g6"),
+        i(A, "class", "svelte-1oen5g6"));
+    },
+    m(b, y) {
+      (v(b, t, y),
+        v(b, e, y),
+        v(b, n, y),
+        v(b, l, y),
+        v(b, a, y),
+        v(b, r, y),
+        v(b, f, y),
+        v(b, u, y),
+        v(b, h, y),
+        v(b, d, y),
+        v(b, p, y),
+        v(b, m, y),
+        v(b, _, y),
+        v(b, w, y),
+        v(b, q, y),
+        v(b, C, y),
+        v(b, A, y));
+    },
+    p: be,
+    d(b) {
+      (b && g(t),
+        b && g(e),
+        b && g(n),
+        b && g(l),
+        b && g(a),
+        b && g(r),
+        b && g(f),
+        b && g(u),
+        b && g(h),
+        b && g(d),
+        b && g(p),
+        b && g(m),
+        b && g(_),
+        b && g(w),
+        b && g(q),
+        b && g(C),
+        b && g(A));
+    },
+  };
+}
+function wa(s) {
+  let t;
+  return {
+    c() {
+      ((t = c("p")),
+        (t.innerHTML = `The default minimum primer length is 15 nt. Raising this value <br class="svelte-1oen5g6"/>
+		  			will increase the specificity of the primers.  When modifications <br class="svelte-1oen5g6"/>
+		  			are constrained to the 5\u2032 tails, the minimum primer length <br class="svelte-1oen5g6"/>
+		  			only applies to the annealing portion of the primer. To match the <br class="svelte-1oen5g6"/>
+		  			specifications used in NEBaseChanger v1, set the minimum to 18 nt. <br class="svelte-1oen5g6"/>
+		  			The minimum allowed value is 15 nt.`),
+        i(t, "class", "svelte-1oen5g6"));
+    },
+    m(e, n) {
+      v(e, t, n);
+    },
+    p: be,
+    d(e) {
+      e && g(t);
+    },
+  };
+}
+function Aa(s) {
+  let t;
+  return {
+    c() {
+      ((t = c("p")),
+        (t.innerHTML = `The default minimum temperature for primer melting (Tm) is 55\xB0C.<br class="svelte-1oen5g6"/>
+		  			If higher primer binding specificity is desired or a tighter range <br class="svelte-1oen5g6"/>
+		  			of Tm values across a larger set of primers is desired, raise the <br class="svelte-1oen5g6"/>
+		  			minimum Tm value.  Primer lengths will be longer at higher minimum <br class="svelte-1oen5g6"/>
+		  			Tm values. The minimum allowed value is 55\xB0C. Maximum allowed <br class="svelte-1oen5g6"/>
+		  			value is 72\xB0C.`),
+        i(t, "class", "svelte-1oen5g6"));
+    },
+    m(e, n) {
+      v(e, t, n);
+    },
+    p: be,
+    d(e) {
+      e && g(t);
+    },
+  };
+}
+function Ca(s) {
+  let t, e, n, l, a, r, f, u, h;
+  return {
+    c() {
+      ((t = c("p")),
+        (t.textContent =
+          "Successful primer generation output from NEBaseChanger can be viewed in multiple ways:"),
+        (e = S()),
+        (n = c("h4")),
+        (n.textContent = "Required Primers Table"),
+        (l = S()),
+        (a = c("p")),
+        (a.innerHTML = `Displayed near the bottom of the page. In addition to the primer sequence, <br class="svelte-1oen5g6"/>
+					the length, % GC, calculated melting temperature (Tm) and suggested <br class="svelte-1oen5g6"/>
+					annealing temperature (Ta) are displayed. The primer display is automatically <br class="svelte-1oen5g6"/>
+					updated whenever the mutation region or desired sequence is changed. Forward and <br class="svelte-1oen5g6"/>
+					reverse primers are color coded and the 3-frame coding sequence is shown <br class="svelte-1oen5g6"/>
+					allowing the user to verify that the desired mutation is incorporated.`),
+        (r = S()),
+        (f = c("h4")),
+        (f.textContent = "Downloadable formats"),
+        (u = S()),
+        (h = c("dl")),
+        (h.innerHTML = `<dt class="svelte-1oen5g6">Summary table</dt><dd class="svelte-1oen5g6">A tab-delimited table containing information comparable to the Primer Result table.
+					</dd><dt class="svelte-1oen5g6">All primers</dt><dd class="svelte-1oen5g6">A tab-delimited plain text list of the required primers (name, sequence, note), suitable for common oligonucleotide order forms.
+					</dd><dt class="svelte-1oen5g6">Selected primers</dt><dd class="svelte-1oen5g6">A tab-delimited plain text list of the required primers (name, sequence, note), suitable for common oligonucleotide order forms. Lited to just the selected primer pair.
+					</dd><dt class="svelte-1oen5g6">All sequence</dt><dd class="svelte-1oen5g6">All result sequences in multi-FASTA format as a local text file.
+					</dd><dt class="svelte-1oen5g6">Selected sequence</dt><dd class="svelte-1oen5g6">The result sequence for the selected primer pair in FASTA format as a local text file.</dd>`),
+        i(t, "class", "svelte-1oen5g6"),
+        i(n, "class", "svelte-1oen5g6"),
+        i(a, "class", "svelte-1oen5g6"),
+        i(f, "class", "svelte-1oen5g6"),
+        i(h, "class", "svelte-1oen5g6"));
+    },
+    m(d, p) {
+      (v(d, t, p),
+        v(d, e, p),
+        v(d, n, p),
+        v(d, l, p),
+        v(d, a, p),
+        v(d, r, p),
+        v(d, f, p),
+        v(d, u, p),
+        v(d, h, p));
+    },
+    p: be,
+    d(d) {
+      (d && g(t), d && g(e), d && g(n), d && g(l), d && g(a), d && g(r), d && g(f), d && g(u), d && g(h));
+    },
+  };
+}
+function qa(s) {
+  let t,
+    e = qe.cut.Ecoli_K12.slice().sort(wo),
+    n = [];
+  for (let l = 0; l < e.length; l += 1) n[l] = Vi(Oi(s, e, l));
+  return {
+    c() {
+      for (let l = 0; l < n.length; l += 1) n[l].c();
+      t = Xl();
+    },
+    m(l, a) {
+      for (let r = 0; r < n.length; r += 1) n[r].m(l, a);
+      v(l, t, a);
+    },
+    p(l, a) {
+      if (a & 0) {
+        e = qe.cut.Ecoli_K12.slice().sort(wo);
+        let r;
+        for (r = 0; r < e.length; r += 1) {
+          const f = Oi(l, e, r);
+          n[r] ? n[r].p(f, a) : ((n[r] = Vi(f)), n[r].c(), n[r].m(t.parentNode, t));
+        }
+        for (; r < n.length; r += 1) n[r].d(1);
+        n.length = e.length;
+      }
+    },
+    d(l) {
+      (Ys(n, l), l && g(t));
+    },
+  };
+}
+function ya(s) {
+  let t,
+    e = qe.cut.Ecoli_K12,
+    n = [];
+  for (let l = 0; l < e.length; l += 1) n[l] = Ui(Bi(s, e, l));
+  return {
+    c() {
+      for (let l = 0; l < n.length; l += 1) n[l].c();
+      t = Xl();
+    },
+    m(l, a) {
+      for (let r = 0; r < n.length; r += 1) n[r].m(l, a);
+      v(l, t, a);
+    },
+    p(l, a) {
+      if (a & 0) {
+        e = qe.cut.Ecoli_K12;
+        let r;
+        for (r = 0; r < e.length; r += 1) {
+          const f = Bi(l, e, r);
+          n[r] ? n[r].p(f, a) : ((n[r] = Ui(f)), n[r].c(), n[r].m(t.parentNode, t));
+        }
+        for (; r < n.length; r += 1) n[r].d(1);
+        n.length = e.length;
+      }
+    },
+    d(l) {
+      (Ys(n, l), l && g(t));
+    },
+  };
+}
+function Vi(s) {
+  let t,
+    e,
+    n = s[232][1] + "",
+    l,
+    a,
+    r = s[232][0] + "",
+    f;
+  return {
+    c() {
+      ((t = c("option")),
+        (e = c("span")),
+        (l = T(n)),
+        (a = T(" -- ")),
+        (f = T(r)),
+        i(e, "class", "tagname svelte-1oen5g6"),
+        (t.__value = s[232][1]),
+        (t.value = t.__value),
+        i(t, "class", "svelte-1oen5g6"));
+    },
+    m(u, h) {
+      (v(u, t, h), o(t, e), o(e, l), o(e, a), o(e, f));
+    },
+    p: be,
+    d(u) {
+      u && g(t);
+    },
+  };
+}
+function Ui(s) {
+  let t,
+    e,
+    n = s[232][0] + "",
+    l,
+    a,
+    r = s[232][1] + "",
+    f;
+  return {
+    c() {
+      ((t = c("option")),
+        (e = c("span")),
+        (l = T(n)),
+        (a = T(" -- ")),
+        (f = T(r)),
+        i(e, "class", "tagname svelte-1oen5g6"),
+        (t.__value = s[232][1]),
+        (t.value = t.__value),
+        i(t, "class", "svelte-1oen5g6"));
+    },
+    m(u, h) {
+      (v(u, t, h), o(t, e), o(e, l), o(e, a), o(e, f));
+    },
+    p: be,
+    d(u) {
+      u && g(t);
+    },
+  };
+}
+function Ki(s) {
+  let t, e, n, l;
+  return {
+    c() {
+      ((t = c("button")),
+        (e = T("Confirm")),
+        i(t, "class", "button btn btn-link-cta svelte-1oen5g6"),
+        (t.value = s[6]),
+        i(t, "formmethod", "dialog"));
+    },
+    m(a, r) {
+      (v(a, t, r), o(t, e), n || ((l = se(t, "click", s[110])), (n = !0)));
+    },
+    p(a, r) {
+      r[0] & 64 && (t.value = a[6]);
+    },
+    d(a) {
+      (a && g(t), (n = !1), l());
+    },
+  };
+}
+function Ta(s) {
+  let t,
+    e,
+    n = s[51].cdn + "",
+    l,
+    a,
+    r = s[51].orfstart + "",
+    f,
+    u,
+    h,
+    d,
+    p,
+    m,
+    _,
+    w = s[51].srcaa3 + "",
+    q,
+    C,
+    A = s[51].srccdn + "",
+    b,
+    y,
+    k,
+    M,
+    P,
+    L,
+    G,
+    R,
+    N,
+    U,
+    B,
+    F,
+    I,
+    H,
+    W,
+    D,
+    V,
+    Q;
+  function Z(x, le) {
+    return x[51].order == "cut" ? ya : qa;
+  }
+  let oe = Z(s),
+    X = oe(s),
+    re = s[6] != "" && Ki(s);
+  return {
+    c() {
+      ((t = c("br")),
+        (e = T(`
+		  		codon `)),
+        (l = T(n)),
+        (a = T(" in ORF starting at ")),
+        (f = T(r)),
+        (u = S()),
+        (h = c("br")),
+        (d = S()),
+        (p = c("br")),
+        (m = T(`
+		  		Change `)),
+        (_ = c("b")),
+        (q = T(w)),
+        (C = T(" -- ")),
+        (b = T(A)),
+        (y = T(`. to:
+	            `)),
+        (k = c("br")),
+        (M = S()),
+        (P = c("br")),
+        (L = S()),
+        (G = c("form")),
+        (R = c("select")),
+        (N = c("option")),
+        (N.innerHTML = '<strong class="svelte-1oen5g6">AA Codons \xA0\xA0\xA0</strong>'),
+        X.c(),
+        (U = S()),
+        (B = c("br")),
+        (F = c("br")),
+        (I = S()),
+        (H = c("div")),
+        re && re.c(),
+        (W = S()),
+        (D = c("button")),
+        (D.textContent = "Cancel"),
+        i(t, "class", "svelte-1oen5g6"),
+        i(h, "class", "svelte-1oen5g6"),
+        i(p, "class", "svelte-1oen5g6"),
+        i(_, "class", "svelte-1oen5g6"),
+        i(k, "class", "svelte-1oen5g6"),
+        i(P, "class", "svelte-1oen5g6"),
+        (N.__value = ""),
+        (N.value = N.__value),
+        (N.selected = "selected"),
+        i(N, "class", "svelte-1oen5g6"),
+        i(R, "id", "codontag"),
+        i(R, "class", "dropdown neb-dropdown svelte-1oen5g6"),
+        s[6] === void 0 && zs(() => s[109].call(R)),
+        i(B, "class", "svelte-1oen5g6"),
+        i(F, "class", "svelte-1oen5g6"),
+        i(D, "class", "button btn btn-link svelte-1oen5g6"),
+        (D.value = ""),
+        i(D, "formmethod", "dialog"),
+        i(H, "class", "svelte-1oen5g6"),
+        i(G, "method", "dialog"),
+        i(G, "class", "svelte-1oen5g6"));
+    },
+    m(x, le) {
+      (v(x, t, le),
+        v(x, e, le),
+        v(x, l, le),
+        v(x, a, le),
+        v(x, f, le),
+        v(x, u, le),
+        v(x, h, le),
+        v(x, d, le),
+        v(x, p, le),
+        v(x, m, le),
+        v(x, _, le),
+        o(_, q),
+        o(_, C),
+        o(_, b),
+        v(x, y, le),
+        v(x, k, le),
+        v(x, M, le),
+        v(x, P, le),
+        v(x, L, le),
+        v(x, G, le),
+        o(G, R),
+        o(R, N),
+        X.m(R, null),
+        Ks(R, s[6]),
+        o(G, U),
+        o(G, B),
+        o(G, F),
+        o(G, I),
+        o(G, H),
+        re && re.m(H, null),
+        o(H, W),
+        o(H, D),
+        V || ((Q = [se(R, "change", s[109]), se(D, "click", s[111])]), (V = !0)));
+    },
+    p(x, le) {
+      (le[1] & 1048576 && n !== (n = x[51].cdn + "") && $(l, n),
+        le[1] & 1048576 && r !== (r = x[51].orfstart + "") && $(f, r),
+        le[1] & 1048576 && w !== (w = x[51].srcaa3 + "") && $(q, w),
+        le[1] & 1048576 && A !== (A = x[51].srccdn + "") && $(b, A),
+        oe === (oe = Z(x)) && X ? X.p(x, le) : (X.d(1), (X = oe(x)), X && (X.c(), X.m(R, null))),
+        le[0] & 64 && Ks(R, x[6]),
+        x[6] != "" ? (re ? re.p(x, le) : ((re = Ki(x)), re.c(), re.m(H, W))) : re && (re.d(1), (re = null)));
+    },
+    d(x) {
+      (x && g(t),
+        x && g(e),
+        x && g(l),
+        x && g(a),
+        x && g(f),
+        x && g(u),
+        x && g(h),
+        x && g(d),
+        x && g(p),
+        x && g(m),
+        x && g(_),
+        x && g(y),
+        x && g(k),
+        x && g(M),
+        x && g(P),
+        x && g(L),
+        x && g(G),
+        X.d(),
+        re && re.d(),
+        (V = !1),
+        Vt(Q));
+    },
+  };
+}
+function Sa(s) {
+  let t;
+  return {
+    c() {
+      ((t = c("p")),
+        (t.innerHTML = `NEBuilder Calculator (https://nebuildercalculator.neb.com) can be used to generate <br class="svelte-1oen5g6"/>
+		  			a customized protocol for the NEBuilder HiFi DNA Assembly Master Mix with calculated <br class="svelte-1oen5g6"/>
+		  			optimal volumes of input DNA fragment sequences of each fragment.<br class="svelte-1oen5g6"/>
+		  			The primers generated with the NEBuilder HiFi option selected are used to calculate <br class="svelte-1oen5g6"/>
+		  			the expected PCR fragment lengths. This data is sent to NEBuilder Calculator <br class="svelte-1oen5g6"/>
+		  			and opened in a new browser tab.`),
+        i(t, "class", "svelte-1oen5g6"));
+    },
+    m(e, n) {
+      v(e, t, n);
+    },
+    p: be,
+    d(e) {
+      e && g(t);
+    },
+  };
+}
+function ka(s) {
+  let t,
+    e,
+    n,
+    l,
+    a,
+    r,
+    f,
+    u,
+    h,
+    d,
+    p,
+    m,
+    _,
+    w,
+    q,
+    C,
+    A,
+    b,
+    y,
+    k,
+    M,
+    P = s[29].length > 0 && Yi(s);
+  return {
+    c() {
+      ((t = c("hr")),
+        (e = S()),
+        (n = c("div")),
+        (l = c("div")),
+        (a = c("span")),
+        (a.textContent = "Type/paste operations below or load from file:"),
+        (r = S()),
+        (f = c("img")),
+        (h = S()),
+        (d = c("form")),
+        (p = c("input")),
+        (m = S()),
+        (_ = c("br")),
+        (w = S()),
+        (q = c("textarea")),
+        (C = S()),
+        (A = c("div")),
+        P && P.c(),
+        (b = S()),
+        (y = c("hr")),
+        i(t, "class", "svelte-1oen5g6"),
+        i(a, "class", "svelte-1oen5g6"),
+        i(f, "class", "helpicon svelte-1oen5g6"),
+        Ft(f.src, (u = ql)) || i(f, "src", u),
+        i(f, "height", "20px"),
+        i(p, "id", "batchfileinput"),
+        i(p, "type", "file"),
+        i(p, "class", "svelte-1oen5g6"),
+        i(d, "id", "batchfileform"),
+        i(d, "name", "batchfileform"),
+        i(d, "class", "svelte-1oen5g6"),
+        i(l, "id", "fileinputcontainer"),
+        i(l, "class", "svelte-1oen5g6"),
+        i(_, "class", "svelte-1oen5g6"),
+        i(q, "id", "batchinputops"),
+        i(q, "type", "text"),
+        i(q, "class", "longseqinput svelte-1oen5g6"),
+        i(q, "placeholder", "Check Help for command specifications and formatting"),
+        i(A, "class", "svelte-1oen5g6"),
+        i(n, "id", "batchinput"),
+        i(n, "class", "svelte-1oen5g6"),
+        i(y, "class", "svelte-1oen5g6"));
+    },
+    m(L, G) {
+      (v(L, t, G),
+        v(L, e, G),
+        v(L, n, G),
+        o(n, l),
+        o(l, a),
+        o(l, r),
+        o(l, f),
+        o(l, h),
+        o(l, d),
+        o(d, p),
+        s[162](d),
+        o(n, m),
+        o(n, _),
+        o(n, w),
+        o(n, q),
+        $e(q, s[20]),
+        o(n, C),
+        o(n, A),
+        P && P.m(A, null),
+        v(L, b, G),
+        v(L, y, G),
+        k ||
+          ((M = [
+            se(f, "click", s[160]),
+            se(p, "change", s[161]),
+            se(p, "change", s[60]),
+            se(q, "input", s[163]),
+            se(q, "blur", s[71]),
+          ]),
+          (k = !0)));
+    },
+    p(L, G) {
+      (G[0] & 1048576 && $e(q, L[20]),
+        L[29].length > 0 ? (P ? P.p(L, G) : ((P = Yi(L)), P.c(), P.m(A, null))) : P && (P.d(1), (P = null)));
+    },
+    i: be,
+    o: be,
+    d(L) {
+      (L && g(t), L && g(e), L && g(n), s[162](null), P && P.d(), L && g(b), L && g(y), (k = !1), Vt(M));
+    },
+  };
+}
+function Ma(s) {
+  let t,
+    e,
+    n,
+    l,
+    a,
+    r,
+    f,
+    u,
+    h,
+    d,
+    p,
+    m,
+    _,
+    w,
+    q,
+    C,
+    A,
+    b,
+    y,
+    k,
+    M,
+    P,
+    L,
+    G,
+    R,
+    N,
+    U,
+    B,
+    F,
+    I,
+    H,
+    W,
+    D,
+    V,
+    Q,
+    Z,
+    oe,
+    X,
+    re,
+    x,
+    le,
+    z,
+    fe,
+    de,
+    pe,
+    ye,
+    ve,
+    Se,
+    me,
+    we,
+    _e,
+    j,
+    O,
+    te,
+    K,
+    he,
+    xe =
+      !s[7] &&
+      !s[14].toUpperCase().match(/[A-Z]\d+[X]/) &&
+      s[14]
+        .toUpperCase()
+        .trim()
+        .split(/[\s,;]+/).length > 1,
+    ke,
+    Ye,
+    Me,
+    Ue,
+    Je;
+  const st = [Na, Ea],
+    nt = [];
+  function Pt(Le, je) {
+    return Le[0] && Le[0].length > 0 ? 0 : 1;
+  }
+  ((A = Pt(s)), (b = nt[A] = st[A](s)));
+  let He = s[29].length > 0 && Qi(s),
+    et = xe && Xi(s);
+  return {
+    c() {
+      ((t = c("hr")),
+        (e = S()),
+        (n = c("div")),
+        (l = c("div")),
+        (a = c("span")),
+        (a.textContent = "ORF start position:"),
+        (r = S()),
+        (f = c("input")),
+        (u = S()),
+        (h = c("button")),
+        (h.innerHTML = '<strong class="svelte-1oen5g6">reset to 1</strong>'),
+        (d = S()),
+        (p = c("button")),
+        (p.innerHTML = '<strong class="svelte-1oen5g6">&lt;&lt; prev</strong>'),
+        (m = S()),
+        (_ = c("button")),
+        (_.innerHTML = '<strong class="svelte-1oen5g6">next &gt;&gt;</strong>'),
+        (w = S()),
+        (q = c("br")),
+        (C = S()),
+        b.c(),
+        (y = S()),
+        (k = c("div")),
+        (M = T(`Codon selection: \xA0\xA0
+	      				`)),
+        (P = c("span")),
+        (L = c("input")),
+        (G = S()),
+        (R = c("label")),
+        (R.textContent = "codon usage"),
+        (N = S()),
+        (U = c("img")),
+        (F = S()),
+        (I = c("span")),
+        (H = c("input")),
+        (W = S()),
+        (D = c("label")),
+        (D.textContent = "parsimony"),
+        (V = S()),
+        (Q = c("img")),
+        (oe = S()),
+        (X = c("br")),
+        (re = S()),
+        (x = c("div")),
+        (le = c("label")),
+        (z = T("Enter mutations: ")),
+        (fe = c("img")),
+        (pe = c("br")),
+        (ye = S()),
+        (ve = c("input")),
+        (Se = S()),
+        (me = c("button")),
+        (me.innerHTML = '<strong class="svelte-1oen5g6">clear X</strong>'),
+        (we = S()),
+        (_e = c("br")),
+        (j = S()),
+        (O = c("div")),
+        (O.textContent = "\xA0"),
+        (te = S()),
+        (K = c("div")),
+        He && He.c(),
+        (he = S()),
+        et && et.c(),
+        (ke = S()),
+        (Ye = c("hr")),
+        i(t, "class", "svelte-1oen5g6"),
+        i(a, "class", "svelte-1oen5g6"),
+        i(f, "type", "number"),
+        i(f, "id", "offset"),
+        i(f, "min", "1"),
+        i(f, "class", "svelte-1oen5g6"),
+        i(h, "class", "button btn btn-link svelte-1oen5g6"),
+        i(p, "class", "button btn btn-link svelte-1oen5g6"),
+        i(_, "class", "button btn btn-link svelte-1oen5g6"),
+        i(l, "id", "ORFoffset"),
+        i(l, "class", "range-holder svelte-1oen5g6"),
+        i(q, "class", "svelte-1oen5g6"),
+        i(L, "type", "radio"),
+        i(L, "id", "maxcut"),
+        i(L, "name", "cdnsort"),
+        (L.__value = "maxcut"),
+        (L.value = L.__value),
+        i(L, "class", "svelte-1oen5g6"),
+        s[117][1].push(L),
+        i(R, "for", "maxcut"),
+        i(R, "class", "svelte-1oen5g6"),
+        i(P, "class", "svelte-1oen5g6"),
+        i(U, "class", "helpicon svelte-1oen5g6"),
+        Ft(U.src, (B = ql)) || i(U, "src", B),
+        i(U, "height", "20px"),
+        i(H, "type", "radio"),
+        i(H, "id", "mindist"),
+        i(H, "name", "cdnsort"),
+        (H.__value = "mindist"),
+        (H.value = H.__value),
+        i(H, "class", "svelte-1oen5g6"),
+        s[117][1].push(H),
+        i(D, "for", "mindist"),
+        i(D, "class", "svelte-1oen5g6"),
+        i(I, "class", "svelte-1oen5g6"),
+        i(Q, "class", "helpicon svelte-1oen5g6"),
+        Ft(Q.src, (Z = ql)) || i(Q, "src", Z),
+        i(Q, "height", "20px"),
+        i(k, "class", " svelte-1oen5g6"),
+        i(X, "class", "svelte-1oen5g6"),
+        i(fe, "class", "helpicon svelte-1oen5g6"),
+        Ft(fe.src, (de = ql)) || i(fe, "src", de),
+        i(fe, "height", "20px"),
+        i(pe, "class", "svelte-1oen5g6"),
+        i(ve, "type", "text"),
+        i(ve, "id", "codonops"),
+        i(ve, "class", "longinput svelte-1oen5g6"),
+        i(ve, "placeholder", "L2R G31H T37Y"),
+        i(me, "class", "button btn btn-link svelte-1oen5g6"),
+        i(le, "for", "codonops"),
+        i(le, "class", "svelte-1oen5g6"),
+        i(_e, "class", "svelte-1oen5g6"),
+        i(O, "id", "codonnotesindicator"),
+        i(O, "class", "svelte-1oen5g6"),
+        i(x, "id", "codonchanges"),
+        i(x, "class", "svelte-1oen5g6"),
+        i(n, "id", "singleinput_codon"),
+        i(n, "class", "svelte-1oen5g6"),
+        i(K, "class", "svelte-1oen5g6"),
+        i(Ye, "class", "svelte-1oen5g6"));
+    },
+    m(Le, je) {
+      (v(Le, t, je),
+        v(Le, e, je),
+        v(Le, n, je),
+        o(n, l),
+        o(l, a),
+        o(l, r),
+        o(l, f),
+        $e(f, s[15]),
+        o(l, u),
+        o(l, h),
+        o(l, d),
+        o(l, p),
+        o(l, m),
+        o(l, _),
+        o(n, w),
+        o(n, q),
+        o(n, C),
+        nt[A].m(n, null),
+        o(n, y),
+        o(n, k),
+        o(k, M),
+        o(k, P),
+        o(P, L),
+        (L.checked = L.__value === s[16]),
+        o(P, G),
+        o(P, R),
+        o(k, N),
+        o(k, U),
+        o(k, F),
+        o(k, I),
+        o(I, H),
+        (H.checked = H.__value === s[16]),
+        o(I, W),
+        o(I, D),
+        o(k, V),
+        o(k, Q),
+        o(n, oe),
+        o(n, X),
+        o(n, re),
+        o(n, x),
+        o(x, le),
+        o(le, z),
+        o(le, fe),
+        o(le, pe),
+        o(le, ye),
+        o(le, ve),
+        $e(ve, s[14]),
+        o(le, Se),
+        o(le, me),
+        o(x, we),
+        o(x, _e),
+        o(x, j),
+        o(x, O),
+        v(Le, te, je),
+        v(Le, K, je),
+        He && He.m(K, null),
+        v(Le, he, je),
+        et && et.m(Le, je),
+        v(Le, ke, je),
+        v(Le, Ye, je),
+        (Me = !0),
+        Ue ||
+          ((Je = [
+            se(f, "input", s[150]),
+            se(f, "change", s[84]),
+            se(h, "click", s[85]),
+            se(p, "click", s[79]),
+            se(_, "click", s[80]),
+            se(L, "change", s[151]),
+            se(U, "click", s[152]),
+            se(H, "change", s[153]),
+            se(Q, "click", s[154]),
+            se(fe, "click", s[155]),
+            se(ve, "input", s[156]),
+            se(ve, "blur", s[157]),
+            se(me, "click", s[84]),
+          ]),
+          (Ue = !0)));
+    },
+    p(Le, je) {
+      je[0] & 32768 && ys(f.value) !== Le[15] && $e(f, Le[15]);
+      let ct = A;
+      ((A = Pt(Le)),
+        A === ct
+          ? nt[A].p(Le, je)
+          : (Fs(),
+            Ie(nt[ct], 1, 1, () => {
+              nt[ct] = null;
+            }),
+            Rs(),
+            (b = nt[A]),
+            b ? b.p(Le, je) : ((b = nt[A] = st[A](Le)), b.c()),
+            Fe(b, 1),
+            b.m(n, y)),
+        je[0] & 65536 && (L.checked = L.__value === Le[16]),
+        je[0] & 65536 && (H.checked = H.__value === Le[16]),
+        je[0] & 16384 && ve.value !== Le[14] && $e(ve, Le[14]),
+        Le[29].length > 0
+          ? He
+            ? He.p(Le, je)
+            : ((He = Qi(Le)), He.c(), He.m(K, null))
+          : He && (He.d(1), (He = null)),
+        je[0] & 16512 &&
+          (xe =
+            !Le[7] &&
+            !Le[14].toUpperCase().match(/[A-Z]\d+[X]/) &&
+            Le[14]
+              .toUpperCase()
+              .trim()
+              .split(/[\s,;]+/).length > 1),
+        xe
+          ? et
+            ? et.p(Le, je)
+            : ((et = Xi(Le)), et.c(), et.m(ke.parentNode, ke))
+          : et && (et.d(1), (et = null)));
+    },
+    i(Le) {
+      Me || (Fe(b), (Me = !0));
+    },
+    o(Le) {
+      (Ie(b), (Me = !1));
+    },
+    d(Le) {
+      (Le && g(t),
+        Le && g(e),
+        Le && g(n),
+        nt[A].d(),
+        s[117][1].splice(s[117][1].indexOf(L), 1),
+        s[117][1].splice(s[117][1].indexOf(H), 1),
+        Le && g(te),
+        Le && g(K),
+        He && He.d(),
+        Le && g(he),
+        et && et.d(Le),
+        Le && g(ke),
+        Le && g(Ye),
+        (Ue = !1),
+        Vt(Je));
+    },
+  };
+}
+function Pa(s) {
+  let t,
+    e,
+    n,
+    l =
+      navigator.userAgent.includes("Safari") && !navigator.userAgent.includes("Chrome") && s[0].length > 1e4,
+    a,
+    r,
+    f,
+    u,
+    h,
+    d,
+    p,
+    m,
+    _,
+    w,
+    q,
+    C,
+    A,
+    b,
+    y,
+    k,
+    M,
+    P,
+    L,
+    G,
+    R,
+    N,
+    U,
+    B,
+    F,
+    I,
+    H,
+    W,
+    D,
+    V,
+    Q,
+    Z,
+    oe,
+    X,
+    re,
+    x,
+    le,
+    z,
+    fe,
+    de,
+    pe,
+    ye,
+    ve,
+    Se,
+    me,
+    we,
+    _e,
+    j,
+    O,
+    te,
+    K,
+    he,
+    xe,
+    ke,
+    Ye,
+    Me,
+    Ue,
+    Je,
+    st,
+    nt,
+    Pt,
+    He,
+    et,
+    Le,
+    je,
+    ct,
+    Xt,
+    tt,
+    We = l && xi(),
+    Ke = s[54].length > 0 && Ji(s),
+    De = s[54].length > 0 && Zi(s);
+  const Ee = [Ia, Ra],
+    Qe = [];
+  function St(Ae, lt) {
+    return Ae[0] && Ae[0].length > 0 ? 0 : 1;
+  }
+  ((Q = St(s)), (Z = Qe[Q] = Ee[Q](s)));
+  let _t = s[29].length > 0 && $i(s),
+    Ut = qe.cut.Ecoli_K12,
+    qt = [];
+  for (let Ae = 0; Ae < Ut.length; Ae += 1) qt[Ae] = to(Ri(s, Ut, Ae));
+  return {
+    c() {
+      ((t = c("hr")),
+        (e = S()),
+        (n = c("div")),
+        We && We.c(),
+        (a = S()),
+        (r = c("div")),
+        (f = c("span")),
+        (f.textContent = "[optional] Search for target sequence:"),
+        (u = T(`\xA0\xA0
+	            	`)),
+        Ke && Ke.c(),
+        (h = S()),
+        (d = c("br")),
+        (p = S()),
+        (m = c("input")),
+        (_ = S()),
+        (w = c("button")),
+        (w.innerHTML = '<strong class="svelte-1oen5g6">find &gt;</strong>'),
+        (q = S()),
+        (C = c("button")),
+        (C.innerHTML = '<strong class="svelte-1oen5g6">clear X</strong>'),
+        (A = S()),
+        De && De.c(),
+        (b = S()),
+        (y = c("br")),
+        (k = S()),
+        (M = c("div")),
+        (M.innerHTML =
+          'Enter the coordinates of the bases <u class="svelte-1oen5g6">flanking</u> the targeted mutation site.'),
+        (P = S()),
+        (L = c("div")),
+        (G = c("span")),
+        (G.innerHTML =
+          '5\u2032 <em class="svelte-1oen5g6"><u class="svelte-1oen5g6">flank coord.</u></em> (start)'),
+        (R = S()),
+        (N = c("input")),
+        (U = T(`
+	                \xA0 \xA0
+	                `)),
+        (B = c("span")),
+        (B.innerHTML =
+          '3\u2032 <em class="svelte-1oen5g6"><u class="svelte-1oen5g6">flank coord.</u></em> (end)'),
+        (F = S()),
+        (I = c("input")),
+        (H = T(`
+	                \xA0 \xA0`)),
+        (W = S()),
+        (D = c("br")),
+        (V = S()),
+        Z.c(),
+        (oe = S()),
+        (X = c("div")),
+        _t && _t.c(),
+        (re = S()),
+        (x = c("br")),
+        (le = S()),
+        (z = c("div")),
+        (fe = c("label")),
+        (de = T("Replacement Sequence (ambiguity allowed) -- leave blank if deleting target.")),
+        (pe = c("br")),
+        (ye = S()),
+        (ve = c("input")),
+        (Se = T(`
+	                \xA0\xA0
+	                `)),
+        (me = c("select")),
+        (we = c("option")),
+        (we.innerHTML = '<strong class="svelte-1oen5g6">Common Peptide Tags</strong>'),
+        (_e = c("option")),
+        (_e.innerHTML = `<span class="tagname svelte-1oen5g6">6x His</span>
+	                        --
+	                        <span class="tagaa svelte-1oen5g6">HHHHHH</span> 
+	                    `),
+        (j = c("option")),
+        (j.innerHTML = `<span class="tagname svelte-1oen5g6">MYC</span>
+	                        --
+	                        <span class="tagaa svelte-1oen5g6">EQKLISEEDL</span> 
+	                    `),
+        (O = c("option")),
+        (O.innerHTML = `<span class="tagname svelte-1oen5g6">FLAG</span>
+	                        --
+	                        <span class="tagaa svelte-1oen5g6">DYKDDDDK</span> 
+	                    `),
+        (te = c("option")),
+        (te.innerHTML = `<span class="tagname svelte-1oen5g6">HA</span>
+	                        --
+	                        <span class="tagaa svelte-1oen5g6">YPYDVPDYA</span> 
+	                    `),
+        (K = c("option")),
+        (K.innerHTML = `<span class="tagname svelte-1oen5g6">Strep</span>
+	                        --
+	                        <span class="tagaa svelte-1oen5g6">WSHPQFEK</span> 
+	                    `),
+        (he = c("option")),
+        (he.innerHTML = `<span class="tagname svelte-1oen5g6">Xpress</span>
+	                        --
+	                        <span class="tagaa svelte-1oen5g6">DLYDDDDK</span> 
+	                    `),
+        (xe = c("option")),
+        (xe.innerHTML = `<span class="tagname svelte-1oen5g6">AviTag</span>
+	                        --
+	                        <span class="tagaa svelte-1oen5g6">GLNDIFEAQKIEWH</span> 
+	                    `),
+        (ke = c("option")),
+        (ke.innerHTML = `<span class="tagname svelte-1oen5g6">V5</span>
+	                        --
+	                        <span class="tagaa svelte-1oen5g6">GKPIPNPLLGLDST</span> 
+	                    `),
+        (Ye = c("option")),
+        (Ye.innerHTML = `<span class="tagname svelte-1oen5g6">NLS</span>
+	                        --
+	                        <span class="tagaa svelte-1oen5g6">PKKKRKV</span> 
+	                    `),
+        (Me = c("option")),
+        (Me.innerHTML = `<span class="tagname svelte-1oen5g6">SPOT</span>
+	                        --
+	                        <span class="tagaa svelte-1oen5g6">PDRVRAVSHWSS</span>`),
+        (Ue = S()),
+        (Je = c("select")),
+        (st = c("option")),
+        (st.innerHTML = '<strong class="svelte-1oen5g6">AA -- Codon \xA0\xA0\xA0</strong>'));
+      for (let Ae = 0; Ae < qt.length; Ae += 1) qt[Ae].c();
+      ((nt = T(`
+	                \xA0\xA0
+	                `)),
+        (Pt = c("button")),
+        (Pt.innerHTML = '<strong class="svelte-1oen5g6">clear X</strong>'),
+        (He = S()),
+        (et = c("div")),
+        (et.textContent = "\xA0"),
+        (Le = S()),
+        (je = c("hr")),
+        i(t, "class", "svelte-1oen5g6"),
+        i(f, "class", "svelte-1oen5g6"),
+        i(d, "class", "svelte-1oen5g6"),
+        i(m, "type", "text"),
+        i(m, "class", "targetinput svelte-1oen5g6"),
+        i(w, "class", "button btn btn-link svelte-1oen5g6"),
+        i(C, "class", "button btn btn-link svelte-1oen5g6"),
+        i(r, "id", "searchbox"),
+        i(r, "class", "svelte-1oen5g6"),
+        i(y, "class", "svelte-1oen5g6"),
+        i(M, "class", "svelte-1oen5g6"),
+        i(G, "class", "svelte-1oen5g6"),
+        i(N, "type", "number"),
+        i(N, "min", "1"),
+        i(N, "id", "selStart"),
+        i(N, "class", "svelte-1oen5g6"),
+        i(B, "class", "svelte-1oen5g6"),
+        i(I, "type", "number"),
+        i(I, "min", "1"),
+        i(I, "id", "selEnd"),
+        i(I, "class", "svelte-1oen5g6"),
+        i(L, "id", "range"),
+        i(L, "class", "range-holder svelte-1oen5g6"),
+        i(D, "class", "svelte-1oen5g6"),
+        i(X, "class", "svelte-1oen5g6"),
+        i(x, "class", "svelte-1oen5g6"),
+        i(pe, "class", "svelte-1oen5g6"),
+        i(ve, "type", "text"),
+        i(ve, "id", "repseq"),
+        i(ve, "class", "longinput svelte-1oen5g6"),
+        i(fe, "for", "repseq"),
+        i(fe, "class", "svelte-1oen5g6"),
+        (we.__value = ""),
+        (we.value = we.__value),
+        (we.selected = "selected"),
+        i(we, "class", "svelte-1oen5g6"),
+        (_e.__value = "CAT CAT CAT CAC CAC CAC"),
+        (_e.value = _e.__value),
+        i(_e, "class", "svelte-1oen5g6"),
+        (j.__value = "GAA CAG AAA CTG ATT AGC GAA GAA GAT CTG"),
+        (j.value = j.__value),
+        i(j, "class", "svelte-1oen5g6"),
+        (O.__value = "GAT TAT AAA GAT GAT GAT GAT AAA"),
+        (O.value = O.__value),
+        i(O, "class", "svelte-1oen5g6"),
+        (te.__value = "TAT CCG TAT GAT GTG CCG GAT TAT GCG"),
+        (te.value = te.__value),
+        i(te, "class", "svelte-1oen5g6"),
+        (K.__value = "TGG AGC CAT CCG CAG TTT GAA AAA"),
+        (K.value = K.__value),
+        i(K, "class", "svelte-1oen5g6"),
+        (he.__value = "GAT CTG TAT GAT GAT GAT GAT AAA"),
+        (he.value = he.__value),
+        i(he, "class", "svelte-1oen5g6"),
+        (xe.__value = "GGC CTG AAC GAT ATT TTT GAA GCG CAG AAA ATT GAA TGG CAT GAA"),
+        (xe.value = xe.__value),
+        i(xe, "class", "svelte-1oen5g6"),
+        (ke.__value = "GGC AAA CCG ATT CCG AAC CCG CTG CTG GGC CTG GAT AGC ACC"),
+        (ke.value = ke.__value),
+        i(ke, "class", "svelte-1oen5g6"),
+        (Ye.__value = "CCG AAA AAA AAA CGC AAA GTG"),
+        (Ye.value = Ye.__value),
+        i(Ye, "class", "svelte-1oen5g6"),
+        (Me.__value = " CCG GAC CGT GTC CGT GCA GTC TCT CAC TGG TCC TCG "),
+        (Me.value = Me.__value),
+        i(Me, "class", "svelte-1oen5g6"),
+        i(me, "id", "peptag"),
+        i(me, "class", "dropdown neb-dropdown svelte-1oen5g6"),
+        s[5] === void 0 && zs(() => s[148].call(me)),
+        (st.__value = ""),
+        (st.value = st.__value),
+        (st.selected = "selected"),
+        i(st, "class", "svelte-1oen5g6"),
+        i(Je, "id", "codontag"),
+        i(Je, "class", "dropdown neb-dropdown svelte-1oen5g6"),
+        s[6] === void 0 && zs(() => s[149].call(Je)),
+        i(Pt, "class", "button btn btn-link svelte-1oen5g6"),
+        i(et, "id", "notesindicator"),
+        i(et, "class", "svelte-1oen5g6"),
+        i(z, "id", "replacement"),
+        i(z, "class", "svelte-1oen5g6"),
+        i(n, "id", "singleinput_general"),
+        i(n, "class", "svelte-1oen5g6"),
+        i(je, "class", "svelte-1oen5g6"));
+    },
+    m(Ae, lt) {
+      (v(Ae, t, lt),
+        v(Ae, e, lt),
+        v(Ae, n, lt),
+        We && We.m(n, null),
+        o(n, a),
+        o(n, r),
+        o(r, f),
+        o(r, u),
+        Ke && Ke.m(r, null),
+        o(r, h),
+        o(r, d),
+        o(r, p),
+        o(r, m),
+        $e(m, s[21]),
+        o(r, _),
+        o(r, w),
+        o(r, q),
+        o(r, C),
+        o(r, A),
+        De && De.m(r, null),
+        o(n, b),
+        o(n, y),
+        o(n, k),
+        o(n, M),
+        o(n, P),
+        o(n, L),
+        o(L, G),
+        o(L, R),
+        o(L, N),
+        $e(N, s[2]),
+        o(L, U),
+        o(L, B),
+        o(L, F),
+        o(L, I),
+        $e(I, s[3]),
+        o(L, H),
+        o(n, W),
+        o(n, D),
+        o(n, V),
+        Qe[Q].m(n, null),
+        o(n, oe),
+        o(n, X),
+        _t && _t.m(X, null),
+        o(n, re),
+        o(n, x),
+        o(n, le),
+        o(n, z),
+        o(z, fe),
+        o(fe, de),
+        o(fe, pe),
+        o(fe, ye),
+        o(fe, ve),
+        $e(ve, s[4]),
+        o(z, Se),
+        o(z, me),
+        o(me, we),
+        o(me, _e),
+        o(me, j),
+        o(me, O),
+        o(me, te),
+        o(me, K),
+        o(me, he),
+        o(me, xe),
+        o(me, ke),
+        o(me, Ye),
+        o(me, Me),
+        Ks(me, s[5]),
+        o(z, Ue),
+        o(z, Je),
+        o(Je, st));
+      for (let yt = 0; yt < qt.length; yt += 1) qt[yt].m(Je, null);
+      (Ks(Je, s[6]),
+        o(z, nt),
+        o(z, Pt),
+        o(z, He),
+        o(z, et),
+        v(Ae, Le, lt),
+        v(Ae, je, lt),
+        (ct = !0),
+        Xt ||
+          ((tt = [
+            se(m, "input", s[142]),
+            se(m, "change", s[143]),
+            se(w, "click", s[73]),
+            se(C, "click", s[81]),
+            se(N, "input", s[144]),
+            se(I, "input", s[145]),
+            se(ve, "input", s[147]),
+            se(ve, "blur", s[72]),
+            se(me, "change", s[148]),
+            se(Je, "change", s[149]),
+            se(Pt, "click", s[82]),
+          ]),
+          (Xt = !0)));
+    },
+    p(Ae, lt) {
+      (lt[0] & 1 &&
+        (l =
+          navigator.userAgent.includes("Safari") &&
+          !navigator.userAgent.includes("Chrome") &&
+          Ae[0].length > 1e4),
+        l ? We || ((We = xi()), We.c(), We.m(n, a)) : We && (We.d(1), (We = null)),
+        Ae[54].length > 0
+          ? Ke
+            ? Ke.p(Ae, lt)
+            : ((Ke = Ji(Ae)), Ke.c(), Ke.m(r, h))
+          : Ke && (Ke.d(1), (Ke = null)),
+        lt[0] & 2097152 && m.value !== Ae[21] && $e(m, Ae[21]),
+        Ae[54].length > 0
+          ? De
+            ? De.p(Ae, lt)
+            : ((De = Zi(Ae)), De.c(), De.m(r, null))
+          : De && (De.d(1), (De = null)),
+        lt[0] & 4 && ys(N.value) !== Ae[2] && $e(N, Ae[2]),
+        lt[0] & 8 && ys(I.value) !== Ae[3] && $e(I, Ae[3]));
+      let yt = Q;
+      if (
+        ((Q = St(Ae)),
+        Q === yt
+          ? Qe[Q].p(Ae, lt)
+          : (Fs(),
+            Ie(Qe[yt], 1, 1, () => {
+              Qe[yt] = null;
+            }),
+            Rs(),
+            (Z = Qe[Q]),
+            Z ? Z.p(Ae, lt) : ((Z = Qe[Q] = Ee[Q](Ae)), Z.c()),
+            Fe(Z, 1),
+            Z.m(n, oe)),
+        Ae[29].length > 0
+          ? _t
+            ? _t.p(Ae, lt)
+            : ((_t = $i(Ae)), _t.c(), _t.m(X, null))
+          : _t && (_t.d(1), (_t = null)),
+        lt[0] & 16 && ve.value !== Ae[4] && $e(ve, Ae[4]),
+        lt[0] & 32 && Ks(me, Ae[5]),
+        lt & 0)
+      ) {
+        Ut = qe.cut.Ecoli_K12;
+        let ht;
+        for (ht = 0; ht < Ut.length; ht += 1) {
+          const Tt = Ri(Ae, Ut, ht);
+          qt[ht] ? qt[ht].p(Tt, lt) : ((qt[ht] = to(Tt)), qt[ht].c(), qt[ht].m(Je, null));
+        }
+        for (; ht < qt.length; ht += 1) qt[ht].d(1);
+        qt.length = Ut.length;
+      }
+      lt[0] & 64 && Ks(Je, Ae[6]);
+    },
+    i(Ae) {
+      ct || (Fe(Z), (ct = !0));
+    },
+    o(Ae) {
+      (Ie(Z), (ct = !1));
+    },
+    d(Ae) {
+      (Ae && g(t),
+        Ae && g(e),
+        Ae && g(n),
+        We && We.d(),
+        Ke && Ke.d(),
+        De && De.d(),
+        Qe[Q].d(),
+        _t && _t.d(),
+        Ys(qt, Ae),
+        Ae && g(Le),
+        Ae && g(je),
+        (Xt = !1),
+        Vt(tt));
+    },
+  };
+}
+function La(s) {
+  let t,
+    e,
+    n,
+    l,
+    a,
+    r,
+    f,
+    u,
+    h,
+    d,
+    p,
+    m,
+    _,
+    w,
+    q,
+    C,
+    A,
+    b,
+    y,
+    k,
+    M,
+    P,
+    L,
+    G,
+    R,
+    N,
+    U,
+    B,
+    F,
+    I,
+    H,
+    W,
+    D,
+    V,
+    Q,
+    Z,
+    oe,
+    X,
+    re,
+    x,
+    le,
+    z,
+    fe = s[58][s[22]] + "",
+    de,
+    pe,
+    ye,
+    ve,
+    Se,
+    me,
+    we,
+    _e,
+    j,
+    O,
+    te,
+    K,
+    he,
+    xe,
+    ke,
+    Ye,
+    Me,
+    Ue,
+    Je,
+    st,
+    nt,
+    Pt,
+    He,
+    et,
+    Le;
+  const je = [Oa, Da],
+    ct = [];
+  function Xt(Ee, Qe) {
+    return Ee[0] && Ee[0].length > 0 ? 0 : 1;
+  }
+  ((a = Xt(s)), (r = ct[a] = je[a](s)));
+  let tt = s[54].length > 0 && so(s),
+    We = s[54].length > 0 && no(s),
+    Ke = s[29].length > 0 && io(s),
+    De = s[22] != "Deletion" && ro(s);
+  return {
+    c() {
+      ((t = c("hr")),
+        (e = S()),
+        (n = c("div")),
+        (l = c("div")),
+        r.c(),
+        (f = S()),
+        (u = c("div")),
+        (h = c("div")),
+        (d = c("button")),
+        (p = T("Substitution")),
+        (_ = S()),
+        (w = c("button")),
+        (q = T("Insertion")),
+        (A = S()),
+        (b = c("button")),
+        (y = T("Deletion")),
+        (M = S()),
+        (P = c("br")),
+        (L = S()),
+        (G = c("div")),
+        (R = c("span")),
+        (R.textContent = "[optional] Search for target sequence:"),
+        (N = T(`\xA0\xA0
+		            	`)),
+        tt && tt.c(),
+        (U = S()),
+        (B = c("br")),
+        (F = S()),
+        (I = c("input")),
+        (H = S()),
+        (W = c("button")),
+        (W.innerHTML = '<strong class="svelte-1oen5g6">find &gt;</strong>'),
+        (D = S()),
+        (V = c("button")),
+        (V.innerHTML = '<strong class="svelte-1oen5g6">clear X</strong>'),
+        (Q = S()),
+        (Z = c("br")),
+        (oe = S()),
+        We && We.c(),
+        (X = S()),
+        (re = c("br")),
+        (x = c("br")),
+        (le = S()),
+        (z = c("div")),
+        (de = T(fe)),
+        (pe = S()),
+        (ye = c("div")),
+        (ve = c("span")),
+        (ve.innerHTML =
+          '5\u2032 <em class="svelte-1oen5g6"><u class="svelte-1oen5g6"><b class="svelte-1oen5g6">flank</b> coord.</u></em> (start)'),
+        (Se = S()),
+        (me = c("input")),
+        (we = T(`
+		                \xA0 \xA0
+		                `)),
+        (_e = c("span")),
+        (_e.innerHTML =
+          '3\u2032 <em class="svelte-1oen5g6"><u class="svelte-1oen5g6"><b class="svelte-1oen5g6">flank</b> coord.</u></em> (end)'),
+        (j = S()),
+        (O = c("input")),
+        (te = T(`
+		                \xA0 \xA0`)),
+        (K = S()),
+        (he = c("br")),
+        (xe = S()),
+        (ke = c("br")),
+        (Ye = S()),
+        (Me = c("div")),
+        Ke && Ke.c(),
+        (Ue = S()),
+        (Je = c("br")),
+        (st = S()),
+        De && De.c(),
+        (nt = S()),
+        (Pt = c("hr")),
+        i(t, "class", "svelte-1oen5g6"),
+        i(l, "class", "column-left svelte-1oen5g6"),
+        i(d, "class", (m = Ts(s[22] === "Substitution" ? "active" : "") + " svelte-1oen5g6")),
+        i(w, "class", (C = Ts(s[22] === "Insertion" ? "active" : "") + " svelte-1oen5g6")),
+        i(b, "class", (k = Ts(s[22] === "Deletion" ? "active" : "") + " svelte-1oen5g6")),
+        i(h, "class", "button-bar svelte-1oen5g6"),
+        i(P, "class", "svelte-1oen5g6"),
+        i(R, "class", "svelte-1oen5g6"),
+        i(B, "class", "svelte-1oen5g6"),
+        i(I, "type", "text"),
+        i(I, "class", "targetinput svelte-1oen5g6"),
+        i(W, "class", "button btn btn-link svelte-1oen5g6"),
+        i(V, "class", "button btn btn-link svelte-1oen5g6"),
+        i(Z, "class", "svelte-1oen5g6"),
+        i(G, "id", "searchbox"),
+        i(G, "class", "svelte-1oen5g6"),
+        i(re, "class", "svelte-1oen5g6"),
+        i(x, "class", "svelte-1oen5g6"),
+        i(z, "class", "svelte-1oen5g6"),
+        i(ve, "class", "svelte-1oen5g6"),
+        i(me, "type", "number"),
+        i(me, "min", "1"),
+        i(me, "id", "selStart"),
+        i(me, "class", "svelte-1oen5g6"),
+        i(_e, "class", "svelte-1oen5g6"),
+        i(O, "type", "number"),
+        i(O, "min", "1"),
+        i(O, "id", "selEnd"),
+        i(O, "class", "svelte-1oen5g6"),
+        i(ye, "id", "range"),
+        i(ye, "class", "range-holder svelte-1oen5g6"),
+        i(he, "class", "svelte-1oen5g6"),
+        i(ke, "class", "svelte-1oen5g6"),
+        i(Me, "class", "svelte-1oen5g6"),
+        i(Je, "class", "svelte-1oen5g6"),
+        i(u, "class", "column-right svelte-1oen5g6"),
+        i(n, "id", "singleinput_legacy"),
+        i(n, "class", "flex-container svelte-1oen5g6"),
+        i(Pt, "class", "svelte-1oen5g6"));
+    },
+    m(Ee, Qe) {
+      (v(Ee, t, Qe),
+        v(Ee, e, Qe),
+        v(Ee, n, Qe),
+        o(n, l),
+        ct[a].m(l, null),
+        o(n, f),
+        o(n, u),
+        o(u, h),
+        o(h, d),
+        o(d, p),
+        o(h, _),
+        o(h, w),
+        o(w, q),
+        o(h, A),
+        o(h, b),
+        o(b, y),
+        o(u, M),
+        o(u, P),
+        o(u, L),
+        o(u, G),
+        o(G, R),
+        o(G, N),
+        tt && tt.m(G, null),
+        o(G, U),
+        o(G, B),
+        o(G, F),
+        o(G, I),
+        $e(I, s[21]),
+        o(G, H),
+        o(G, W),
+        o(G, D),
+        o(G, V),
+        o(G, Q),
+        o(G, Z),
+        o(G, oe),
+        We && We.m(G, null),
+        o(u, X),
+        o(u, re),
+        o(u, x),
+        o(u, le),
+        o(u, z),
+        o(z, de),
+        o(u, pe),
+        o(u, ye),
+        o(ye, ve),
+        o(ye, Se),
+        o(ye, me),
+        $e(me, s[2]),
+        o(ye, we),
+        o(ye, _e),
+        o(ye, j),
+        o(ye, O),
+        $e(O, s[3]),
+        o(ye, te),
+        o(u, K),
+        o(u, he),
+        o(u, xe),
+        o(u, ke),
+        o(u, Ye),
+        o(u, Me),
+        Ke && Ke.m(Me, null),
+        o(u, Ue),
+        o(u, Je),
+        o(u, st),
+        De && De.m(u, null),
+        v(Ee, nt, Qe),
+        v(Ee, Pt, Qe),
+        (He = !0),
+        et ||
+          ((Le = [
+            se(d, "click", s[133]),
+            se(w, "click", s[134]),
+            se(b, "click", s[135]),
+            se(I, "input", s[136]),
+            se(I, "change", s[137]),
+            se(W, "click", s[76]),
+            se(V, "click", s[81]),
+            se(me, "input", s[138]),
+            se(O, "input", s[139]),
+          ]),
+          (et = !0)));
+    },
+    p(Ee, Qe) {
+      let St = a;
+      ((a = Xt(Ee)),
+        a === St
+          ? ct[a].p(Ee, Qe)
+          : (Fs(),
+            Ie(ct[St], 1, 1, () => {
+              ct[St] = null;
+            }),
+            Rs(),
+            (r = ct[a]),
+            r ? r.p(Ee, Qe) : ((r = ct[a] = je[a](Ee)), r.c()),
+            Fe(r, 1),
+            r.m(l, null)),
+        (!He ||
+          (Qe[0] & 4194304 &&
+            m !== (m = Ts(Ee[22] === "Substitution" ? "active" : "") + " svelte-1oen5g6"))) &&
+          i(d, "class", m),
+        (!He ||
+          (Qe[0] & 4194304 && C !== (C = Ts(Ee[22] === "Insertion" ? "active" : "") + " svelte-1oen5g6"))) &&
+          i(w, "class", C),
+        (!He ||
+          (Qe[0] & 4194304 && k !== (k = Ts(Ee[22] === "Deletion" ? "active" : "") + " svelte-1oen5g6"))) &&
+          i(b, "class", k),
+        Ee[54].length > 0
+          ? tt
+            ? tt.p(Ee, Qe)
+            : ((tt = so(Ee)), tt.c(), tt.m(G, U))
+          : tt && (tt.d(1), (tt = null)),
+        Qe[0] & 2097152 && I.value !== Ee[21] && $e(I, Ee[21]),
+        Ee[54].length > 0
+          ? We
+            ? We.p(Ee, Qe)
+            : ((We = no(Ee)), We.c(), We.m(G, null))
+          : We && (We.d(1), (We = null)),
+        (!He || Qe[0] & 4194304) && fe !== (fe = Ee[58][Ee[22]] + "") && $(de, fe),
+        Qe[0] & 4 && ys(me.value) !== Ee[2] && $e(me, Ee[2]),
+        Qe[0] & 8 && ys(O.value) !== Ee[3] && $e(O, Ee[3]),
+        Ee[29].length > 0
+          ? Ke
+            ? Ke.p(Ee, Qe)
+            : ((Ke = io(Ee)), Ke.c(), Ke.m(Me, null))
+          : Ke && (Ke.d(1), (Ke = null)),
+        Ee[22] != "Deletion"
+          ? De
+            ? De.p(Ee, Qe)
+            : ((De = ro(Ee)), De.c(), De.m(u, null))
+          : De && (De.d(1), (De = null)));
+    },
+    i(Ee) {
+      He || (Fe(r), (He = !0));
+    },
+    o(Ee) {
+      (Ie(r), (He = !1));
+    },
+    d(Ee) {
+      (Ee && g(t),
+        Ee && g(e),
+        Ee && g(n),
+        ct[a].d(),
+        tt && tt.d(),
+        We && We.d(),
+        Ke && Ke.d(),
+        De && De.d(),
+        Ee && g(nt),
+        Ee && g(Pt),
+        (et = !1),
+        Vt(Le));
+    },
+  };
+}
+function Yi(s) {
+  let t,
+    e,
+    n = s[29],
+    l = [];
+  for (let a = 0; a < n.length; a += 1) l[a] = Wi(Gi(s, n, a));
+  return {
+    c() {
+      ((t = T(`Warnings:
+					`)),
+        (e = c("ul")));
+      for (let a = 0; a < l.length; a += 1) l[a].c();
+      i(e, "class", "svelte-1oen5g6");
+    },
+    m(a, r) {
+      (v(a, t, r), v(a, e, r));
+      for (let f = 0; f < l.length; f += 1) l[f].m(e, null);
+    },
+    p(a, r) {
+      if (r[0] & 536870912) {
+        n = a[29];
+        let f;
+        for (f = 0; f < n.length; f += 1) {
+          const u = Gi(a, n, f);
+          l[f] ? l[f].p(u, r) : ((l[f] = Wi(u)), l[f].c(), l[f].m(e, null));
+        }
+        for (; f < l.length; f += 1) l[f].d(1);
+        l.length = n.length;
+      }
+    },
+    d(a) {
+      (a && g(t), a && g(e), Ys(l, a));
+    },
+  };
+}
+function Wi(s) {
+  let t,
+    e,
+    n = s[29][s[231]] + "",
+    l;
+  return {
+    c() {
+      ((t = c("li")),
+        (e = c("span")),
+        (l = T(n)),
+        i(e, "class", "warn svelte-1oen5g6"),
+        i(t, "class", "svelte-1oen5g6"));
+    },
+    m(a, r) {
+      (v(a, t, r), o(t, e), o(e, l));
+    },
+    p(a, r) {
+      r[0] & 536870912 && n !== (n = a[29][a[231]] + "") && $(l, n);
+    },
+    d(a) {
+      a && g(t);
+    },
+  };
+}
+function Ea(s) {
+  let t;
+  return {
+    c() {
+      ((t = c("div")),
+        (t.innerHTML = '<strong class="svelte-1oen5g6">Please enter a valid sequence in step 1.</strong>'),
+        i(t, "class", "warn svelte-1oen5g6"));
+    },
+    m(e, n) {
+      v(e, t, n);
+    },
+    p: be,
+    i: be,
+    o: be,
+    d(e) {
+      e && g(t);
+    },
+  };
+}
+function Na(s) {
+  let t, e, n, l;
+  const a = [Fa, Ga],
+    r = [];
+  function f(u, h) {
+    return u[1].isCircular ? 0 : 1;
+  }
+  return (
+    (t = f(s)),
+    (e = r[t] = a[t](s)),
+    {
+      c() {
+        (e.c(), (n = Xl()));
+      },
+      m(u, h) {
+        (r[t].m(u, h), v(u, n, h), (l = !0));
+      },
+      p(u, h) {
+        let d = t;
+        ((t = f(u)),
+          t === d
+            ? r[t].p(u, h)
+            : (Fs(),
+              Ie(r[d], 1, 1, () => {
+                r[d] = null;
+              }),
+              Rs(),
+              (e = r[t]),
+              e ? e.p(u, h) : ((e = r[t] = a[t](u)), e.c()),
+              Fe(e, 1),
+              e.m(n.parentNode, n)));
+      },
+      i(u) {
+        l || (Fe(e), (l = !0));
+      },
+      o(u) {
+        (Ie(e), (l = !1));
+      },
+      d(u) {
+        (r[t].d(u), u && g(n));
+      },
+    }
+  );
+}
+function Ga(s) {
+  let t, e;
+  return (
+    (t = new xo({ props: { seq: s[0].slice(s[15] - 1), start: s[15] - 1, orfoffset: s[15], seqrec: s[1] } })),
+    {
+      c() {
+        ut(t.$$.fragment);
+      },
+      m(n, l) {
+        (rt(t, n, l), (e = !0));
+      },
+      p(n, l) {
+        const a = {};
+        (l[0] & 32769 && (a.seq = n[0].slice(n[15] - 1)),
+          l[0] & 32768 && (a.start = n[15] - 1),
+          l[0] & 32768 && (a.orfoffset = n[15]),
+          l[0] & 2 && (a.seqrec = n[1]),
+          t.$set(a));
+      },
+      i(n) {
+        e || (Fe(t.$$.fragment, n), (e = !0));
+      },
+      o(n) {
+        (Ie(t.$$.fragment, n), (e = !1));
+      },
+      d(n) {
+        at(t, n);
+      },
+    }
+  );
+}
+function Fa(s) {
+  let t, e;
+  return (
+    (t = new xo({
+      props: {
+        seq: s[0].slice(s[15] - 1) + s[0].slice(0, s[15] - 1),
+        start: s[15] - 1,
+        orfoffset: s[15],
+        seqrec: s[1],
+      },
+    })),
+    {
+      c() {
+        ut(t.$$.fragment);
+      },
+      m(n, l) {
+        (rt(t, n, l), (e = !0));
+      },
+      p(n, l) {
+        const a = {};
+        (l[0] & 32769 && (a.seq = n[0].slice(n[15] - 1) + n[0].slice(0, n[15] - 1)),
+          l[0] & 32768 && (a.start = n[15] - 1),
+          l[0] & 32768 && (a.orfoffset = n[15]),
+          l[0] & 2 && (a.seqrec = n[1]),
+          t.$set(a));
+      },
+      i(n) {
+        e || (Fe(t.$$.fragment, n), (e = !0));
+      },
+      o(n) {
+        (Ie(t.$$.fragment, n), (e = !1));
+      },
+      d(n) {
+        at(t, n);
+      },
+    }
+  );
+}
+function Qi(s) {
+  let t,
+    e,
+    n = s[29],
+    l = [];
+  for (let a = 0; a < n.length; a += 1) l[a] = zi(Fi(s, n, a));
+  return {
+    c() {
+      ((t = T(`Warnings:
+				`)),
+        (e = c("ul")));
+      for (let a = 0; a < l.length; a += 1) l[a].c();
+      i(e, "class", "svelte-1oen5g6");
+    },
+    m(a, r) {
+      (v(a, t, r), v(a, e, r));
+      for (let f = 0; f < l.length; f += 1) l[f].m(e, null);
+    },
+    p(a, r) {
+      if (r[0] & 536870912) {
+        n = a[29];
+        let f;
+        for (f = 0; f < n.length; f += 1) {
+          const u = Fi(a, n, f);
+          l[f] ? l[f].p(u, r) : ((l[f] = zi(u)), l[f].c(), l[f].m(e, null));
+        }
+        for (; f < l.length; f += 1) l[f].d(1);
+        l.length = n.length;
+      }
+    },
+    d(a) {
+      (a && g(t), a && g(e), Ys(l, a));
+    },
+  };
+}
+function zi(s) {
+  let t,
+    e,
+    n = s[29][s[231]] + "",
+    l;
+  return {
+    c() {
+      ((t = c("li")),
+        (e = c("span")),
+        (l = T(n)),
+        i(e, "class", "warn svelte-1oen5g6"),
+        i(t, "class", "svelte-1oen5g6"));
+    },
+    m(a, r) {
+      (v(a, t, r), o(t, e), o(e, l));
+    },
+    p(a, r) {
+      r[0] & 536870912 && n !== (n = a[29][a[231]] + "") && $(l, n);
+    },
+    d(a) {
+      a && g(t);
+    },
+  };
+}
+function Xi(s) {
+  let t, e, n, l, a, r, f, u, h, d;
+  return {
+    c() {
+      ((t = c("div")),
+        (e = c("input")),
+        (n = S()),
+        (l = c("label")),
+        (l.textContent = "Generate primers for NEBuilder HiFi"),
+        (a = T(`
+				\xA0\xA0
+				`)),
+        (r = c("img")),
+        (u = T(`   
+				\xA0\xA0`)),
+        i(e, "class", " svelte-1oen5g6"),
+        i(e, "type", "checkbox"),
+        i(e, "id", "nebuildercheck"),
+        i(l, "for", "nebuildercheck"),
+        i(l, "class", "svelte-1oen5g6"),
+        i(r, "class", "helpicon svelte-1oen5g6"),
+        Ft(r.src, (f = ql)) || i(r, "src", f),
+        i(r, "height", "20px"),
+        i(t, "class", "svelte-1oen5g6"));
+    },
+    m(p, m) {
+      (v(p, t, m),
+        o(t, e),
+        (e.checked = s[17]),
+        o(t, n),
+        o(t, l),
+        o(t, a),
+        o(t, r),
+        o(t, u),
+        h || ((d = [se(e, "change", s[158]), se(e, "change", s[71]), se(r, "click", s[159])]), (h = !0)));
+    },
+    p(p, m) {
+      m[0] & 131072 && (e.checked = p[17]);
+    },
+    d(p) {
+      (p && g(t), (h = !1), Vt(d));
+    },
+  };
+}
+function xi(s) {
+  let t;
+  return {
+    c() {
+      ((t = c("span")),
+        (t.textContent =
+          "Text selection within long sequences (>10kb) fails on Safari.  Use Chrome, Edge, or Firefox if you need this feature."),
+        i(t, "class", "warn svelte-1oen5g6"));
+    },
+    m(e, n) {
+      v(e, t, n);
+    },
+    d(e) {
+      e && g(t);
+    },
+  };
+}
+function Ji(s) {
+  let t,
+    e,
+    n = s[54].length + "",
+    l,
+    a;
+  return {
+    c() {
+      ((t = c("span")),
+        (e = c("strong")),
+        (l = T(n)),
+        (a = T(" match(es) found.")),
+        i(e, "class", "svelte-1oen5g6"),
+        i(t, "class", "svelte-1oen5g6"));
+    },
+    m(r, f) {
+      (v(r, t, f), o(t, e), o(e, l), o(e, a));
+    },
+    p(r, f) {
+      f[1] & 8388608 && n !== (n = r[54].length + "") && $(l, n);
+    },
+    d(r) {
+      r && g(t);
+    },
+  };
+}
+function Zi(s) {
+  let t, e, n, l, a;
+  return {
+    c() {
+      ((t = c("button")),
+        (t.innerHTML = '<strong class="svelte-1oen5g6">&lt;&lt; prev</strong>'),
+        (e = S()),
+        (n = c("button")),
+        (n.innerHTML = '<strong class="svelte-1oen5g6">next &gt;&gt;</strong>'),
+        i(t, "class", "button btn btn-link svelte-1oen5g6"),
+        i(n, "class", "button btn btn-link svelte-1oen5g6"));
+    },
+    m(r, f) {
+      (v(r, t, f),
+        v(r, e, f),
+        v(r, n, f),
+        l || ((a = [se(t, "click", s[75]), se(n, "click", s[74])]), (l = !0)));
+    },
+    p: be,
+    d(r) {
+      (r && g(t), r && g(e), r && g(n), (l = !1), Vt(a));
+    },
+  };
+}
+function Ra(s) {
+  let t;
+  return {
+    c() {
+      ((t = c("div")),
+        (t.innerHTML = '<strong class="svelte-1oen5g6">Please enter a valid sequence in step 1.</strong>'),
+        i(t, "class", "warn svelte-1oen5g6"));
+    },
+    m(e, n) {
+      v(e, t, n);
+    },
+    p: be,
+    i: be,
+    o: be,
+    d(e) {
+      e && g(t);
+    },
+  };
+}
+function Ia(s) {
+  let t,
+    e,
+    n = { seq: s[0], start: Number(s[2]) - 1, end: Number(s[3]) - 1 };
+  return (
+    (t = new $r({ props: n })),
+    s[146](t),
+    {
+      c() {
+        ut(t.$$.fragment);
+      },
+      m(l, a) {
+        (rt(t, l, a), (e = !0));
+      },
+      p(l, a) {
+        const r = {};
+        (a[0] & 1 && (r.seq = l[0]),
+          a[0] & 4 && (r.start = Number(l[2]) - 1),
+          a[0] & 8 && (r.end = Number(l[3]) - 1),
+          t.$set(r));
+      },
+      i(l) {
+        e || (Fe(t.$$.fragment, l), (e = !0));
+      },
+      o(l) {
+        (Ie(t.$$.fragment, l), (e = !1));
+      },
+      d(l) {
+        (s[146](null), at(t, l));
+      },
+    }
+  );
+}
+function $i(s) {
+  let t,
+    e,
+    n = s[29],
+    l = [];
+  for (let a = 0; a < n.length; a += 1) l[a] = eo(Ii(s, n, a));
+  return {
+    c() {
+      ((t = T(`Warnings:
+					`)),
+        (e = c("ul")));
+      for (let a = 0; a < l.length; a += 1) l[a].c();
+      i(e, "class", "svelte-1oen5g6");
+    },
+    m(a, r) {
+      (v(a, t, r), v(a, e, r));
+      for (let f = 0; f < l.length; f += 1) l[f].m(e, null);
+    },
+    p(a, r) {
+      if (r[0] & 536870912) {
+        n = a[29];
+        let f;
+        for (f = 0; f < n.length; f += 1) {
+          const u = Ii(a, n, f);
+          l[f] ? l[f].p(u, r) : ((l[f] = eo(u)), l[f].c(), l[f].m(e, null));
+        }
+        for (; f < l.length; f += 1) l[f].d(1);
+        l.length = n.length;
+      }
+    },
+    d(a) {
+      (a && g(t), a && g(e), Ys(l, a));
+    },
+  };
+}
+function eo(s) {
+  let t,
+    e,
+    n = s[29][s[231]] + "",
+    l;
+  return {
+    c() {
+      ((t = c("li")),
+        (e = c("span")),
+        (l = T(n)),
+        i(e, "class", "warn svelte-1oen5g6"),
+        i(t, "class", "svelte-1oen5g6"));
+    },
+    m(a, r) {
+      (v(a, t, r), o(t, e), o(e, l));
+    },
+    p(a, r) {
+      r[0] & 536870912 && n !== (n = a[29][a[231]] + "") && $(l, n);
+    },
+    d(a) {
+      a && g(t);
+    },
+  };
+}
+function to(s) {
+  let t,
+    e,
+    n = s[232][0] + "",
+    l,
+    a,
+    r = s[232][1] + "",
+    f;
+  return {
+    c() {
+      ((t = c("option")),
+        (e = c("code")),
+        (l = T(n)),
+        (a = T(" -- ")),
+        (f = T(r)),
+        i(e, "class", "svelte-1oen5g6"),
+        (t.__value = s[232][1]),
+        (t.value = t.__value),
+        i(t, "class", "svelte-1oen5g6"));
+    },
+    m(u, h) {
+      (v(u, t, h), o(t, e), o(e, l), o(e, a), o(e, f));
+    },
+    p: be,
+    d(u) {
+      u && g(t);
+    },
+  };
+}
+function Da(s) {
+  let t;
+  return {
+    c() {
+      ((t = c("div")),
+        (t.innerHTML = '<strong class="svelte-1oen5g6">Please enter a valid sequence in step 1.</strong>'),
+        i(t, "class", "warn svelte-1oen5g6"));
+    },
+    m(e, n) {
+      v(e, t, n);
+    },
+    p: be,
+    i: be,
+    o: be,
+    d(e) {
+      e && g(t);
+    },
+  };
+}
+function Oa(s) {
+  let t,
+    e,
+    n,
+    l =
+      navigator.userAgent.includes("Safari") && !navigator.userAgent.includes("Chrome") && s[0].length > 1e4,
+    a,
+    r,
+    f,
+    u,
+    h,
+    d = l && lo();
+  function p(w) {
+    s[131](w);
+  }
+  function m(w) {
+    s[132](w);
+  }
+  let _ = { seq: s[0], start: Number(s[2]) - 1, end: Number(s[3]) - 1 };
+  return (
+    s[2] !== void 0 && (_.selstart = s[2]),
+    s[3] !== void 0 && (_.selend = s[3]),
+    (r = new ia({ props: _ })),
+    s[130](r),
+    ft.push(() => Bt(r, "selstart", p)),
+    ft.push(() => Bt(r, "selend", m)),
+    {
+      c() {
+        ((t = T("[optional] Click and drag in sequence to select mutagenesis region.")),
+          (e = c("br")),
+          (n = S()),
+          d && d.c(),
+          (a = S()),
+          ut(r.$$.fragment),
+          i(e, "class", "svelte-1oen5g6"));
+      },
+      m(w, q) {
+        (v(w, t, q), v(w, e, q), v(w, n, q), d && d.m(w, q), v(w, a, q), rt(r, w, q), (h = !0));
+      },
+      p(w, q) {
+        (q[0] & 1 &&
+          (l =
+            navigator.userAgent.includes("Safari") &&
+            !navigator.userAgent.includes("Chrome") &&
+            w[0].length > 1e4),
+          l ? d || ((d = lo()), d.c(), d.m(a.parentNode, a)) : d && (d.d(1), (d = null)));
+        const C = {};
+        (q[0] & 1 && (C.seq = w[0]),
+          q[0] & 4 && (C.start = Number(w[2]) - 1),
+          q[0] & 8 && (C.end = Number(w[3]) - 1),
+          !f && q[0] & 4 && ((f = !0), (C.selstart = w[2]), Ot(() => (f = !1))),
+          !u && q[0] & 8 && ((u = !0), (C.selend = w[3]), Ot(() => (u = !1))),
+          r.$set(C));
+      },
+      i(w) {
+        h || (Fe(r.$$.fragment, w), (h = !0));
+      },
+      o(w) {
+        (Ie(r.$$.fragment, w), (h = !1));
+      },
+      d(w) {
+        (w && g(t), w && g(e), w && g(n), d && d.d(w), w && g(a), s[130](null), at(r, w));
+      },
+    }
+  );
+}
+function lo(s) {
+  let t;
+  return {
+    c() {
+      ((t = c("span")),
+        (t.innerHTML =
+          'Text selection within long sequences (&gt;10kb) fails on Safari. <br class="svelte-1oen5g6"/>Use Chrome, Edge, or Firefox if you need this feature.'),
+        i(t, "class", "warn svelte-1oen5g6"));
+    },
+    m(e, n) {
+      v(e, t, n);
+    },
+    d(e) {
+      e && g(t);
+    },
+  };
+}
+function so(s) {
+  let t,
+    e,
+    n = s[54].length + "",
+    l,
+    a;
+  return {
+    c() {
+      ((t = c("span")),
+        (e = c("strong")),
+        (l = T(n)),
+        (a = T(" match(es).")),
+        i(e, "class", "svelte-1oen5g6"),
+        i(t, "class", "svelte-1oen5g6"));
+    },
+    m(r, f) {
+      (v(r, t, f), o(t, e), o(e, l), o(e, a));
+    },
+    p(r, f) {
+      f[1] & 8388608 && n !== (n = r[54].length + "") && $(l, n);
+    },
+    d(r) {
+      r && g(t);
+    },
+  };
+}
+function no(s) {
+  let t, e, n, l, a;
+  return {
+    c() {
+      ((t = c("button")),
+        (t.innerHTML = '<strong class="svelte-1oen5g6">&lt;&lt; prev</strong>'),
+        (e = S()),
+        (n = c("button")),
+        (n.innerHTML = '<strong class="svelte-1oen5g6">next &gt;&gt;</strong>'),
+        i(t, "class", "button btn btn-link svelte-1oen5g6"),
+        i(n, "class", "button btn btn-link svelte-1oen5g6"));
+    },
+    m(r, f) {
+      (v(r, t, f),
+        v(r, e, f),
+        v(r, n, f),
+        l || ((a = [se(t, "click", s[78]), se(n, "click", s[77])]), (l = !0)));
+    },
+    p: be,
+    d(r) {
+      (r && g(t), r && g(e), r && g(n), (l = !1), Vt(a));
+    },
+  };
+}
+function io(s) {
+  let t,
+    e,
+    n = s[29],
+    l = [];
+  for (let a = 0; a < n.length; a += 1) l[a] = oo(Di(s, n, a));
+  return {
+    c() {
+      ((t = T(`Warnings:
+						`)),
+        (e = c("ul")));
+      for (let a = 0; a < l.length; a += 1) l[a].c();
+      i(e, "class", "svelte-1oen5g6");
+    },
+    m(a, r) {
+      (v(a, t, r), v(a, e, r));
+      for (let f = 0; f < l.length; f += 1) l[f].m(e, null);
+    },
+    p(a, r) {
+      if (r[0] & 536870912) {
+        n = a[29];
+        let f;
+        for (f = 0; f < n.length; f += 1) {
+          const u = Di(a, n, f);
+          l[f] ? l[f].p(u, r) : ((l[f] = oo(u)), l[f].c(), l[f].m(e, null));
+        }
+        for (; f < l.length; f += 1) l[f].d(1);
+        l.length = n.length;
+      }
+    },
+    d(a) {
+      (a && g(t), a && g(e), Ys(l, a));
+    },
+  };
+}
+function oo(s) {
+  let t,
+    e,
+    n = s[29][s[231]] + "",
+    l;
+  return {
+    c() {
+      ((t = c("li")),
+        (e = c("span")),
+        (l = T(n)),
+        i(e, "class", "warn svelte-1oen5g6"),
+        i(t, "class", "svelte-1oen5g6"));
+    },
+    m(a, r) {
+      (v(a, t, r), o(t, e), o(e, l));
+    },
+    p(a, r) {
+      r[0] & 536870912 && n !== (n = a[29][a[231]] + "") && $(l, n);
+    },
+    d(a) {
+      a && g(t);
+    },
+  };
+}
+function ro(s) {
+  let t, e, n, l, a, r, f, u, h, d, p, m, _, w, q, C, A, b, y, k, M, P, L, G, R;
+  return {
+    c() {
+      ((t = c("div")),
+        (e = c("label")),
+        (n = T("Desired Sequence (ambiguity allowed) -- leave blank if deleting target.")),
+        (l = c("br")),
+        (a = S()),
+        (r = c("input")),
+        (f = T(`
+	                	\xA0\xA0
+	                	`)),
+        (u = c("button")),
+        (u.innerHTML = '<strong class="svelte-1oen5g6">clear X</strong>'),
+        (h = S()),
+        (d = c("select")),
+        (p = c("option")),
+        (p.innerHTML = '<strong class="svelte-1oen5g6">Common Peptide Tags</strong>'),
+        (m = c("option")),
+        (m.innerHTML = `<span class="tagname svelte-1oen5g6">6x His</span>
+		                        --
+		                        <span class="tagaa svelte-1oen5g6">HHHHHH</span> 
+		                    `),
+        (_ = c("option")),
+        (_.innerHTML = `<span class="tagname svelte-1oen5g6">MYC</span>
+		                        --
+		                        <span class="tagaa svelte-1oen5g6">EQKLISEEDL</span> 
+		                    `),
+        (w = c("option")),
+        (w.innerHTML = `<span class="tagname svelte-1oen5g6">FLAG</span>
+		                        --
+		                        <span class="tagaa svelte-1oen5g6">DYKDDDDK</span> 
+		                    `),
+        (q = c("option")),
+        (q.innerHTML = `<span class="tagname svelte-1oen5g6">HA</span>
+		                        --
+		                        <span class="tagaa svelte-1oen5g6">YPYDVPDYA</span> 
+		                    `),
+        (C = c("option")),
+        (C.innerHTML = `<span class="tagname svelte-1oen5g6">Strep</span>
+		                        --
+		                        <span class="tagaa svelte-1oen5g6">WSHPQFEK</span> 
+		                    `),
+        (A = c("option")),
+        (A.innerHTML = `<span class="tagname svelte-1oen5g6">Xpress</span>
+		                        --
+		                        <span class="tagaa svelte-1oen5g6">DLYDDDDK</span> 
+		                    `),
+        (b = c("option")),
+        (b.innerHTML = `<span class="tagname svelte-1oen5g6">AviTag</span>
+		                        --
+		                        <span class="tagaa svelte-1oen5g6">GLNDIFEAQKIEWH</span> 
+		                    `),
+        (y = c("option")),
+        (y.innerHTML = `<span class="tagname svelte-1oen5g6">V5</span>
+		                        --
+		                        <span class="tagaa svelte-1oen5g6">GKPIPNPLLGLDST</span> 
+		                    `),
+        (k = c("option")),
+        (k.innerHTML = `<span class="tagname svelte-1oen5g6">NLS</span>
+		                        --
+		                        <span class="tagaa svelte-1oen5g6">PKKKRKV</span> 
+		                    `),
+        (M = c("option")),
+        (M.innerHTML = `<span class="tagname svelte-1oen5g6">SPOT</span>
+		                        --
+		                        <span class="tagaa svelte-1oen5g6">PDRVRAVSHWSS</span>`),
+        (P = S()),
+        (L = c("div")),
+        (L.textContent = "\xA0"),
+        i(l, "class", "svelte-1oen5g6"),
+        i(r, "type", "text"),
+        i(r, "id", "repseq"),
+        i(r, "class", "longinput svelte-1oen5g6"),
+        i(e, "for", "repseq"),
+        i(e, "class", "svelte-1oen5g6"),
+        i(u, "class", "button btn btn-link svelte-1oen5g6"),
+        (p.__value = ""),
+        (p.value = p.__value),
+        (p.selected = "selected"),
+        i(p, "class", "svelte-1oen5g6"),
+        (m.__value = "CAT CAT CAT CAC CAC CAC"),
+        (m.value = m.__value),
+        i(m, "class", "svelte-1oen5g6"),
+        (_.__value = "GAA CAG AAA CTG ATT AGC GAA GAA GAT CTG"),
+        (_.value = _.__value),
+        i(_, "class", "svelte-1oen5g6"),
+        (w.__value = "GAT TAT AAA GAT GAT GAT GAT AAA"),
+        (w.value = w.__value),
+        i(w, "class", "svelte-1oen5g6"),
+        (q.__value = "TAT CCG TAT GAT GTG CCG GAT TAT GCG"),
+        (q.value = q.__value),
+        i(q, "class", "svelte-1oen5g6"),
+        (C.__value = "TGG AGC CAT CCG CAG TTT GAA AAA"),
+        (C.value = C.__value),
+        i(C, "class", "svelte-1oen5g6"),
+        (A.__value = "GAT CTG TAT GAT GAT GAT GAT AAA"),
+        (A.value = A.__value),
+        i(A, "class", "svelte-1oen5g6"),
+        (b.__value = "GGC CTG AAC GAT ATT TTT GAA GCG CAG AAA ATT GAA TGG CAT GAA"),
+        (b.value = b.__value),
+        i(b, "class", "svelte-1oen5g6"),
+        (y.__value = "GGC AAA CCG ATT CCG AAC CCG CTG CTG GGC CTG GAT AGC ACC"),
+        (y.value = y.__value),
+        i(y, "class", "svelte-1oen5g6"),
+        (k.__value = "CCG AAA AAA AAA CGC AAA GTG"),
+        (k.value = k.__value),
+        i(k, "class", "svelte-1oen5g6"),
+        (M.__value = " CCG GAC CGT GTC CGT GCA GTC TCT CAC TGG TCC TCG "),
+        (M.value = M.__value),
+        i(M, "class", "svelte-1oen5g6"),
+        i(d, "id", "peptag"),
+        i(d, "class", "dropdown neb-dropdown svelte-1oen5g6"),
+        s[5] === void 0 && zs(() => s[141].call(d)),
+        i(L, "id", "notesindicator"),
+        i(L, "class", "svelte-1oen5g6"),
+        i(t, "id", "replacement"),
+        i(t, "class", "svelte-1oen5g6"));
+    },
+    m(N, U) {
+      (v(N, t, U),
+        o(t, e),
+        o(e, n),
+        o(e, l),
+        o(e, a),
+        o(e, r),
+        $e(r, s[4]),
+        o(t, f),
+        o(t, u),
+        o(t, h),
+        o(t, d),
+        o(d, p),
+        o(d, m),
+        o(d, _),
+        o(d, w),
+        o(d, q),
+        o(d, C),
+        o(d, A),
+        o(d, b),
+        o(d, y),
+        o(d, k),
+        o(d, M),
+        Ks(d, s[5]),
+        o(t, P),
+        o(t, L),
+        G ||
+          ((R = [
+            se(r, "input", s[140]),
+            se(r, "blur", s[72]),
+            se(u, "click", s[82]),
+            se(d, "change", s[141]),
+          ]),
+          (G = !0)));
+    },
+    p(N, U) {
+      (U[0] & 16 && r.value !== N[4] && $e(r, N[4]), U[0] & 32 && Ks(d, N[5]));
+    },
+    d(N) {
+      (N && g(t), (G = !1), Vt(R));
+    },
+  };
+}
+function ao(s) {
+  let t,
+    e,
+    n,
+    l,
+    a,
+    r,
+    f,
+    u,
+    h,
+    d,
+    p,
+    m,
+    _,
+    w,
+    q,
+    C,
+    A,
+    b,
+    y,
+    k = s[13] == "codon" && co(s);
+  return {
+    c() {
+      ((t = c("div")),
+        (e = c("input")),
+        (n = S()),
+        (l = c("label")),
+        (l.textContent = "Confine mutations to primer 5\u2032 tails"),
+        (a = T(`
+		        \xA0\xA0
+		   `)),
+        (r = c("img")),
+        (u = S()),
+        (h = c("div")),
+        (d = c("input")),
+        (p = S()),
+        (m = c("label")),
+        (m.textContent = "Preserve degenerate bases"),
+        (_ = T(`
+		        \xA0\xA0
+		   `)),
+        (w = c("img")),
+        (C = S()),
+        k && k.c(),
+        (A = Xl()),
+        i(e, "class", " svelte-1oen5g6"),
+        i(e, "type", "checkbox"),
+        i(e, "id", "useTailsOnly"),
+        i(l, "for", "useTailsOnly"),
+        i(l, "class", "svelte-1oen5g6"),
+        i(r, "class", "helpicon svelte-1oen5g6"),
+        Ft(r.src, (f = ql)) || i(r, "src", f),
+        i(r, "height", "20px"),
+        i(t, "class", "svelte-1oen5g6"),
+        i(d, "class", " svelte-1oen5g6"),
+        i(d, "type", "checkbox"),
+        i(d, "id", "keepDegenBases"),
+        i(m, "for", "keepDegenBases"),
+        i(m, "class", "svelte-1oen5g6"),
+        i(w, "class", "helpicon svelte-1oen5g6"),
+        Ft(w.src, (q = ql)) || i(w, "src", q),
+        i(w, "height", "20px"),
+        i(h, "class", "svelte-1oen5g6"));
+    },
+    m(M, P) {
+      (v(M, t, P),
+        o(t, e),
+        (e.checked = s[7]),
+        o(t, n),
+        o(t, l),
+        o(t, a),
+        o(t, r),
+        v(M, u, P),
+        v(M, h, P),
+        o(h, d),
+        (d.checked = s[8]),
+        o(h, p),
+        o(h, m),
+        o(h, _),
+        o(h, w),
+        v(M, C, P),
+        k && k.m(M, P),
+        v(M, A, P),
+        b ||
+          ((y = [
+            se(e, "change", s[164]),
+            se(r, "click", s[165]),
+            se(d, "change", s[166]),
+            se(d, "change", s[67]),
+            se(w, "click", s[167]),
+          ]),
+          (b = !0)));
+    },
+    p(M, P) {
+      (P[0] & 128 && (e.checked = M[7]),
+        P[0] & 256 && (d.checked = M[8]),
+        M[13] == "codon"
+          ? k
+            ? k.p(M, P)
+            : ((k = co(M)), k.c(), k.m(A.parentNode, A))
+          : k && (k.d(1), (k = null)));
+    },
+    d(M) {
+      (M && g(t), M && g(u), M && g(h), M && g(C), k && k.d(M), M && g(A), (b = !1), Vt(y));
+    },
+  };
+}
+function co(s) {
+  let t, e, n, l, a, r, f, u, h;
+  return {
+    c() {
+      ((t = c("div")),
+        (e = c("input")),
+        (n = S()),
+        (l = c("label")),
+        (l.textContent = "Merge mutations"),
+        (a = T(`
+		        \xA0\xA0
+		   `)),
+        (r = c("img")),
+        i(e, "class", " svelte-1oen5g6"),
+        i(e, "type", "checkbox"),
+        i(e, "id", "mergeMutations"),
+        i(l, "for", "mergeMutations"),
+        i(l, "class", "svelte-1oen5g6"),
+        i(r, "class", "helpicon svelte-1oen5g6"),
+        Ft(r.src, (f = ql)) || i(r, "src", f),
+        i(r, "height", "20px"),
+        i(t, "class", "svelte-1oen5g6"));
+    },
+    m(d, p) {
+      (v(d, t, p),
+        o(t, e),
+        (e.checked = s[11]),
+        o(t, n),
+        o(t, l),
+        o(t, a),
+        o(t, r),
+        u || ((h = [se(e, "change", s[168]), se(e, "change", s[68]), se(r, "click", s[169])]), (u = !0)));
+    },
+    p(d, p) {
+      p[0] & 2048 && (e.checked = d[11]);
+    },
+    d(d) {
+      (d && g(t), (u = !1), Vt(h));
+    },
+  };
+}
+function uo(s) {
+  let t;
+  return {
+    c() {
+      ((t = c("span")), (t.textContent = "Too low.  Using 15 nt."), i(t, "class", "warn svelte-1oen5g6"));
+    },
+    m(e, n) {
+      v(e, t, n);
+    },
+    d(e) {
+      e && g(t);
+    },
+  };
+}
+function fo(s) {
+  let t;
+  return {
+    c() {
+      ((t = c("span")), (t.textContent = "Too low.  Using 55\xB0C."), i(t, "class", "warn svelte-1oen5g6"));
+    },
+    m(e, n) {
+      v(e, t, n);
+    },
+    d(e) {
+      e && g(t);
+    },
+  };
+}
+function po(s) {
+  let t;
+  return {
+    c() {
+      ((t = c("span")), (t.textContent = "Too high.  Using 72\xB0C."), i(t, "class", "warn svelte-1oen5g6"));
+    },
+    m(e, n) {
+      v(e, t, n);
+    },
+    d(e) {
+      e && g(t);
+    },
+  };
+}
+function ho(s) {
+  let t;
+  return {
+    c() {
+      ((t = c("div")), (t.textContent = "Please enter a new sequence."), i(t, "class", "svelte-1oen5g6"));
+    },
+    m(e, n) {
+      v(e, t, n);
+    },
+    d(e) {
+      e && g(t);
+    },
+  };
+}
+function Ba(s) {
+  let t;
+  return {
+    c() {
+      ((t = c("div")), (t.textContent = "No primers have been generated."), i(t, "class", "svelte-1oen5g6"));
+    },
+    m(e, n) {
+      v(e, t, n);
+    },
+    p: be,
+    i: be,
+    o: be,
+    d(e) {
+      e && g(t);
+    },
+  };
+}
+function Ha(s) {
+  let t,
+    e,
+    n,
+    l,
+    a,
+    r,
+    f,
+    u,
+    h,
+    d,
+    p,
+    m,
+    _,
+    w,
+    q,
+    C,
+    A,
+    b,
+    y,
+    k,
+    M = s[9].length > 1 && mo(s),
+    P = !s[17] && go(s),
+    L = s[17] && _o(s),
+    G = !s[17] && bo(s);
+  const R = [Ka, Ua],
+    N = [];
+  function U(B, F) {
+    return B[17] ? 0 : 1;
+  }
+  return (
+    (q = U(s)),
+    (C = N[q] = R[q](s)),
+    {
+      c() {
+        ((t = c("div")),
+          (e = c("div")),
+          (n = c("span")),
+          (n.textContent = "Summary Table:"),
+          (l = S()),
+          (a = c("input")),
+          (r = T(`
+					\xA0\xA0
+					`)),
+          (f = c("button")),
+          (f.textContent = "Download"),
+          (u = S()),
+          M && M.c(),
+          (h = S()),
+          P && P.c(),
+          (d = S()),
+          L && L.c(),
+          (p = S()),
+          G && G.c(),
+          (m = S()),
+          (_ = c("h3")),
+          (_.textContent = "Required Primers"),
+          (w = S()),
+          C.c(),
+          (A = Xl()),
+          i(n, "class", "svelte-1oen5g6"),
+          i(a, "type", "text"),
+          i(a, "placeholder", s[28]),
+          i(a, "class", "svelte-1oen5g6"),
+          i(f, "class", "button btn btn-link svelte-1oen5g6"),
+          i(e, "class", "rowf svelte-1oen5g6"),
+          i(t, "id", "downloads-container"),
+          i(t, "class", "svelte-1oen5g6"),
+          i(_, "class", "svelte-1oen5g6"));
+      },
+      m(B, F) {
+        (v(B, t, F),
+          o(t, e),
+          o(e, n),
+          o(e, l),
+          o(e, a),
+          $e(a, s[28]),
+          o(e, r),
+          o(e, f),
+          o(t, u),
+          M && M.m(t, null),
+          o(t, h),
+          P && P.m(t, null),
+          o(t, d),
+          L && L.m(t, null),
+          v(B, p, F),
+          G && G.m(B, F),
+          v(B, m, F),
+          v(B, _, F),
+          v(B, w, F),
+          N[q].m(B, F),
+          v(B, A, F),
+          (b = !0),
+          y || ((k = [se(a, "input", s[175]), se(f, "click", s[65])]), (y = !0)));
+      },
+      p(B, F) {
+        ((!b || F[0] & 268435456) && i(a, "placeholder", B[28]),
+          F[0] & 268435456 && a.value !== B[28] && $e(a, B[28]),
+          B[9].length > 1 ? (M ? M.p(B, F) : ((M = mo(B)), M.c(), M.m(t, h))) : M && (M.d(1), (M = null)),
+          B[17] ? P && (P.d(1), (P = null)) : P ? P.p(B, F) : ((P = go(B)), P.c(), P.m(t, d)),
+          B[17] ? (L ? L.p(B, F) : ((L = _o(B)), L.c(), L.m(t, null))) : L && (L.d(1), (L = null)),
+          B[17]
+            ? G &&
+              (Fs(),
+              Ie(G, 1, 1, () => {
+                G = null;
+              }),
+              Rs())
+            : G
+              ? (G.p(B, F), F[0] & 131072 && Fe(G, 1))
+              : ((G = bo(B)), G.c(), Fe(G, 1), G.m(m.parentNode, m)));
+        let I = q;
+        ((q = U(B)),
+          q === I
+            ? N[q].p(B, F)
+            : (Fs(),
+              Ie(N[I], 1, 1, () => {
+                N[I] = null;
+              }),
+              Rs(),
+              (C = N[q]),
+              C ? C.p(B, F) : ((C = N[q] = R[q](B)), C.c()),
+              Fe(C, 1),
+              C.m(A.parentNode, A)));
+      },
+      i(B) {
+        b || (Fe(G), Fe(C), (b = !0));
+      },
+      o(B) {
+        (Ie(G), Ie(C), (b = !1));
+      },
+      d(B) {
+        (B && g(t),
+          M && M.d(),
+          P && P.d(),
+          L && L.d(),
+          B && g(p),
+          G && G.d(B),
+          B && g(m),
+          B && g(_),
+          B && g(w),
+          N[q].d(B),
+          B && g(A),
+          (y = !1),
+          Vt(k));
+      },
+    }
+  );
+}
+function mo(s) {
+  let t, e, n, l, a, r, f, u;
+  return {
+    c() {
+      ((t = c("div")),
+        (e = c("span")),
+        (e.textContent = "All Primers:"),
+        (n = S()),
+        (l = c("input")),
+        (a = T(`
+					\xA0\xA0
+					`)),
+        (r = c("button")),
+        (r.textContent = "Download"),
+        i(e, "class", "svelte-1oen5g6"),
+        i(l, "type", "text"),
+        i(l, "placeholder", s[24]),
+        i(l, "class", "svelte-1oen5g6"),
+        i(r, "class", "button btn btn-link svelte-1oen5g6"),
+        i(t, "class", "rowf svelte-1oen5g6"));
+    },
+    m(h, d) {
+      (v(h, t, d),
+        o(t, e),
+        o(t, n),
+        o(t, l),
+        $e(l, s[24]),
+        o(t, a),
+        o(t, r),
+        f || ((u = [se(l, "input", s[176]), se(r, "click", s[63])]), (f = !0)));
+    },
+    p(h, d) {
+      (d[0] & 16777216 && i(l, "placeholder", h[24]), d[0] & 16777216 && l.value !== h[24] && $e(l, h[24]));
+    },
+    d(h) {
+      (h && g(t), (f = !1), Vt(u));
+    },
+  };
+}
+function go(s) {
+  let t,
+    e,
+    n,
+    l,
+    a,
+    r,
+    f,
+    u,
+    h,
+    d,
+    p,
+    m,
+    _,
+    w,
+    q,
+    C,
+    A = s[9].length > 1 && vo(s);
+  return {
+    c() {
+      ((t = c("div")),
+        (e = c("span")),
+        (e.textContent = "Selected Primers:"),
+        (n = S()),
+        (l = c("input")),
+        (a = T(`
+					\xA0\xA0
+					`)),
+        (r = c("button")),
+        (r.textContent = "Download"),
+        (f = S()),
+        A && A.c(),
+        (u = S()),
+        (h = c("div")),
+        (d = c("span")),
+        (d.textContent = "Selected Sequence:"),
+        (p = S()),
+        (m = c("input")),
+        (_ = T(`
+					\xA0\xA0
+					`)),
+        (w = c("button")),
+        (w.textContent = "Download"),
+        i(e, "class", "svelte-1oen5g6"),
+        i(l, "type", "text"),
+        i(l, "placeholder", s[25]),
+        i(l, "class", "svelte-1oen5g6"),
+        i(r, "class", "button btn btn-link svelte-1oen5g6"),
+        i(t, "class", "rowf svelte-1oen5g6"),
+        i(d, "class", "svelte-1oen5g6"),
+        i(m, "type", "text"),
+        i(m, "placeholder", s[26]),
+        i(m, "class", "svelte-1oen5g6"),
+        i(w, "class", "button btn btn-link svelte-1oen5g6"),
+        i(h, "class", "rowf svelte-1oen5g6"));
+    },
+    m(b, y) {
+      (v(b, t, y),
+        o(t, e),
+        o(t, n),
+        o(t, l),
+        $e(l, s[25]),
+        o(t, a),
+        o(t, r),
+        v(b, f, y),
+        A && A.m(b, y),
+        v(b, u, y),
+        v(b, h, y),
+        o(h, d),
+        o(h, p),
+        o(h, m),
+        $e(m, s[26]),
+        o(h, _),
+        o(h, w),
+        q ||
+          ((C = [
+            se(l, "input", s[177]),
+            se(r, "click", s[64]),
+            se(m, "input", s[179]),
+            se(w, "click", s[61]),
+          ]),
+          (q = !0)));
+    },
+    p(b, y) {
+      (y[0] & 33554432 && i(l, "placeholder", b[25]),
+        y[0] & 33554432 && l.value !== b[25] && $e(l, b[25]),
+        b[9].length > 1
+          ? A
+            ? A.p(b, y)
+            : ((A = vo(b)), A.c(), A.m(u.parentNode, u))
+          : A && (A.d(1), (A = null)),
+        y[0] & 67108864 && i(m, "placeholder", b[26]),
+        y[0] & 67108864 && m.value !== b[26] && $e(m, b[26]));
+    },
+    d(b) {
+      (b && g(t), b && g(f), A && A.d(b), b && g(u), b && g(h), (q = !1), Vt(C));
+    },
+  };
+}
+function vo(s) {
+  let t, e, n, l, a, r, f, u;
+  return {
+    c() {
+      ((t = c("div")),
+        (e = c("span")),
+        (e.textContent = "All Sequences:"),
+        (n = S()),
+        (l = c("input")),
+        (a = T(`
+					\xA0\xA0
+					`)),
+        (r = c("button")),
+        (r.textContent = "Download"),
+        i(e, "class", "svelte-1oen5g6"),
+        i(l, "type", "text"),
+        i(l, "placeholder", s[27]),
+        i(l, "class", "svelte-1oen5g6"),
+        i(r, "class", "button btn btn-link svelte-1oen5g6"),
+        i(t, "class", "rowf svelte-1oen5g6"));
+    },
+    m(h, d) {
+      (v(h, t, d),
+        o(t, e),
+        o(t, n),
+        o(t, l),
+        $e(l, s[27]),
+        o(t, a),
+        o(t, r),
+        f || ((u = [se(l, "input", s[178]), se(r, "click", s[62])]), (f = !0)));
+    },
+    p(h, d) {
+      (d[0] & 134217728 && i(l, "placeholder", h[27]), d[0] & 134217728 && l.value !== h[27] && $e(l, h[27]));
+    },
+    d(h) {
+      (h && g(t), (f = !1), Vt(u));
+    },
+  };
+}
+function _o(s) {
+  let t, e, n, l, a, r, f, u, h, d;
+  return {
+    c() {
+      ((t = c("br")),
+        (e = c("br")),
+        (n = S()),
+        (l = c("div")),
+        (a = c("button")),
+        (a.textContent = "Generate protocol in NEBuilder Calculator"),
+        (r = S()),
+        (f = c("img")),
+        i(t, "class", "svelte-1oen5g6"),
+        i(e, "class", "svelte-1oen5g6"),
+        i(a, "class", "button btn btn-link svelte-1oen5g6"),
+        i(f, "class", "helpicon svelte-1oen5g6"),
+        Ft(f.src, (u = ql)) || i(f, "src", u),
+        i(f, "height", "20px"),
+        i(l, "class", "rowf svelte-1oen5g6"));
+    },
+    m(p, m) {
+      (v(p, t, m),
+        v(p, e, m),
+        v(p, n, m),
+        v(p, l, m),
+        o(l, a),
+        o(l, r),
+        o(l, f),
+        h || ((d = [se(a, "click", s[66]), se(f, "click", s[180])]), (h = !0)));
+    },
+    p: be,
+    d(p) {
+      (p && g(t), p && g(e), p && g(n), p && g(l), (h = !1), Vt(d));
+    },
+  };
+}
+function bo(s) {
+  let t, e, n, l;
+  const a = [Va, ja],
+    r = [];
+  function f(u, h) {
+    return u[9][u[10]] ? 0 : 1;
+  }
+  return (
+    (t = f(s)),
+    (e = r[t] = a[t](s)),
+    {
+      c() {
+        (e.c(), (n = Xl()));
+      },
+      m(u, h) {
+        (r[t].m(u, h), v(u, n, h), (l = !0));
+      },
+      p(u, h) {
+        let d = t;
+        ((t = f(u)),
+          t === d
+            ? r[t].p(u, h)
+            : (Fs(),
+              Ie(r[d], 1, 1, () => {
+                r[d] = null;
+              }),
+              Rs(),
+              (e = r[t]),
+              e ? e.p(u, h) : ((e = r[t] = a[t](u)), e.c()),
+              Fe(e, 1),
+              e.m(n.parentNode, n)));
+      },
+      i(u) {
+        l || (Fe(e), (l = !0));
+      },
+      o(u) {
+        (Ie(e), (l = !1));
+      },
+      d(u) {
+        (r[t].d(u), u && g(n));
+      },
+    }
+  );
+}
+function ja(s) {
+  let t;
+  return {
+    c() {
+      ((t = c("div")),
+        (t.textContent = "Select a primer result (below, View) to see a detailed view."),
+        i(t, "class", "warn svelte-1oen5g6"));
+    },
+    m(e, n) {
+      v(e, t, n);
+    },
+    p: be,
+    i: be,
+    o: be,
+    d(e) {
+      e && g(t);
+    },
+  };
+}
+function Va(s) {
+  let t,
+    e,
+    n = s[9][s[10]].idprefix + "",
+    l,
+    a,
+    r = s[10] + 1 + "",
+    f,
+    u,
+    h,
+    d,
+    p;
+  return (
+    (d = new Yr({
+      props: {
+        primerpair: s[9][s[10]],
+        seqop: s[9][s[10]].seqop,
+        repseq: s[9][s[10]].repseq,
+        show: [1, 2, 3],
+        nohi: s[55],
+      },
+    })),
+    {
+      c() {
+        ((t = c("br")),
+          (e = S()),
+          (l = T(n)),
+          (a = T(":")),
+          (f = T(r)),
+          (u = c("br")),
+          (h = S()),
+          ut(d.$$.fragment),
+          i(t, "class", "svelte-1oen5g6"),
+          i(u, "class", "svelte-1oen5g6"));
+      },
+      m(m, _) {
+        (v(m, t, _),
+          v(m, e, _),
+          v(m, l, _),
+          v(m, a, _),
+          v(m, f, _),
+          v(m, u, _),
+          v(m, h, _),
+          rt(d, m, _),
+          (p = !0));
+      },
+      p(m, _) {
+        ((!p || _[0] & 1536) && n !== (n = m[9][m[10]].idprefix + "") && $(l, n),
+          (!p || _[0] & 1024) && r !== (r = m[10] + 1 + "") && $(f, r));
+        const w = {};
+        (_[0] & 1536 && (w.primerpair = m[9][m[10]]),
+          _[0] & 1536 && (w.seqop = m[9][m[10]].seqop),
+          _[0] & 1536 && (w.repseq = m[9][m[10]].repseq),
+          _[1] & 16777216 && (w.nohi = m[55]),
+          d.$set(w));
+      },
+      i(m) {
+        p || (Fe(d.$$.fragment, m), (p = !0));
+      },
+      o(m) {
+        (Ie(d.$$.fragment, m), (p = !1));
+      },
+      d(m) {
+        (m && g(t), m && g(e), m && g(l), m && g(a), m && g(f), m && g(u), m && g(h), at(d, m));
+      },
+    }
+  );
+}
+function Ua(s) {
+  let t, e, n, l, a, r;
+  function f(h) {
+    s[182](h);
+  }
+  let u = { primers: s[9] };
+  return (
+    s[10] !== void 0 && (u.selectedtxl = s[10]),
+    (e = new Rr({ props: u })),
+    ft.push(() => Bt(e, "selectedtxl", f)),
+    {
+      c() {
+        ((t = c("div")),
+          ut(e.$$.fragment),
+          (l = S()),
+          (a = c("br")),
+          i(t, "id", "primertablecontainer"),
+          i(t, "class", "svelte-1oen5g6"),
+          i(a, "class", "svelte-1oen5g6"));
+      },
+      m(h, d) {
+        (v(h, t, d), rt(e, t, null), v(h, l, d), v(h, a, d), (r = !0));
+      },
+      p(h, d) {
+        const p = {};
+        (d[0] & 512 && (p.primers = h[9]),
+          !n && d[0] & 1024 && ((n = !0), (p.selectedtxl = h[10]), Ot(() => (n = !1))),
+          e.$set(p));
+      },
+      i(h) {
+        r || (Fe(e.$$.fragment, h), (r = !0));
+      },
+      o(h) {
+        (Ie(e.$$.fragment, h), (r = !1));
+      },
+      d(h) {
+        (h && g(t), at(e), h && g(l), h && g(a));
+      },
+    }
+  );
+}
+function Ka(s) {
+  let t, e, n, l;
+  function a(f) {
+    s[181](f);
+  }
+  let r = { primers: s[23] };
+  return (
+    s[10] !== void 0 && (r.selectedtxl = s[10]),
+    (e = new Or({ props: r })),
+    ft.push(() => Bt(e, "selectedtxl", a)),
+    {
+      c() {
+        ((t = c("div")),
+          ut(e.$$.fragment),
+          i(t, "id", "nbprimertablecontainer"),
+          i(t, "class", "svelte-1oen5g6"));
+      },
+      m(f, u) {
+        (v(f, t, u), rt(e, t, null), (l = !0));
+      },
+      p(f, u) {
+        const h = {};
+        (u[0] & 8388608 && (h.primers = f[23]),
+          !n && u[0] & 1024 && ((n = !0), (h.selectedtxl = f[10]), Ot(() => (n = !1))),
+          e.$set(h));
+      },
+      i(f) {
+        l || (Fe(e.$$.fragment, f), (l = !0));
+      },
+      o(f) {
+        (Ie(e.$$.fragment, f), (l = !1));
+      },
+      d(f) {
+        (f && g(t), at(e));
+      },
+    }
+  );
+}
+function Ya(s) {
+  let t,
+    e,
+    n,
+    l,
+    a,
+    r,
+    f,
+    u,
+    h,
+    d,
+    p,
+    m,
+    _,
+    w,
+    q,
+    C,
+    A,
+    b,
+    y,
+    k,
+    M,
+    P,
+    L,
+    G,
+    R,
+    N,
+    U,
+    B,
+    F,
+    I,
+    H,
+    W,
+    D,
+    V,
+    Q,
+    Z,
+    oe,
+    X,
+    re,
+    x,
+    le,
+    z,
+    fe,
+    de,
+    pe,
+    ye,
+    ve,
+    Se,
+    me,
+    we,
+    _e,
+    j,
+    O,
+    te,
+    K,
+    he,
+    xe,
+    ke,
+    Ye,
+    Me,
+    Ue,
+    Je,
+    st,
+    nt,
+    Pt,
+    He,
+    et,
+    Le,
+    je,
+    ct,
+    Xt,
+    tt,
+    We,
+    Ke,
+    De,
+    Ee,
+    Qe,
+    St,
+    _t,
+    Ut,
+    qt,
+    Ae,
+    lt,
+    yt,
+    ht,
+    Tt,
+    Lt,
+    al,
+    gl,
+    dt,
+    vl,
+    Re,
+    xl,
+    ze,
+    mt,
+    xt,
+    Jl,
+    Gl,
+    cl,
+    bt,
+    Zl,
+    ul,
+    $l,
+    Et,
+    es,
+    nl,
+    tl,
+    pt,
+    fl,
+    Ht,
+    ts,
+    Nt,
+    Tl,
+    Jt,
+    Zt,
+    gt,
+    ls,
+    Kt,
+    ss,
+    jt,
+    Hl,
+    Fl,
+    jl,
+    Vl,
+    _l,
+    bl,
+    ns,
+    Yt,
+    is,
+    Sl,
+    os,
+    kt,
+    Rt,
+    Rl,
+    Ul,
+    kl,
+    rs,
+    il,
+    Wt,
+    It,
+    Il,
+    Dl,
+    Qt,
+    Ol,
+    as,
+    Ss,
+    ds,
+    Es,
+    Ns,
+    ps,
+    wt,
+    hs,
+    ms,
+    Gt,
+    Hs,
+    dl,
+    js,
+    Ml,
+    Bl,
+    Is,
+    gs,
+    ks,
+    cs,
+    vs,
+    _s,
+    Kl,
+    bs,
+    ws,
+    Ds,
+    wl,
+    us,
+    ol,
+    Yl,
+    fs,
+    As,
+    Cs,
+    ll,
+    Wl,
+    pl,
+    sl,
+    qs,
+    Ql,
+    Vs,
+    Al,
+    Os,
+    Cl,
+    Ms,
+    zl,
+    Ps;
+  function Gs(Y) {
+    s[90](Y);
+  }
+  let Us = {};
+  (s[1] !== void 0 && (Us.seqrec = s[1]), (m = new Nr({ props: Us })), ft.push(() => Bt(m, "seqrec", Gs)));
+  let zt = s[30] && s[0] && s[0].length > 1 && Hi(),
+    $t = s[31] && s[0] && s[0].length > 1 && ji();
+  function rl(Y) {
+    s[92](Y);
+  }
+  let Be = { title: "Input Sequence ", data: {}, $$slots: { default: [oa] }, $$scope: { ctx: s } };
+  (s[47] !== void 0 && (Be.dialog = s[47]), (U = new ml({ props: Be })), ft.push(() => Bt(U, "dialog", rl)));
+  function vt(Y) {
+    s[93](Y);
+  }
+  let Pl = { title: "Input Mode ", data: {}, $$slots: { default: [ra] }, $$scope: { ctx: s } };
+  (s[48] !== void 0 && (Pl.dialog = s[48]), (I = new ml({ props: Pl })), ft.push(() => Bt(I, "dialog", vt)));
+  function Xs(Y) {
+    s[94](Y);
+  }
+  let xs = { title: "Legacy Input Help ", data: {}, $$slots: { default: [aa] }, $$scope: { ctx: s } };
+  (s[44] !== void 0 && (xs.dialog = s[44]), (D = new ml({ props: xs })), ft.push(() => Bt(D, "dialog", Xs)));
+  function Tn(Y) {
+    s[95](Y);
+  }
+  let fn = { title: "InDel Input Help ", data: {}, $$slots: { default: [ca] }, $$scope: { ctx: s } };
+  (s[34] !== void 0 && (fn.dialog = s[34]), (Z = new ml({ props: fn })), ft.push(() => Bt(Z, "dialog", Tn)));
+  function Sn(Y) {
+    s[96](Y);
+  }
+  let dn = {
+    title: "AA Point Mutation Input Help ",
+    data: {},
+    $$slots: { default: [ua] },
+    $$scope: { ctx: s },
+  };
+  (s[33] !== void 0 && (dn.dialog = s[33]),
+    (re = new ml({ props: dn })),
+    ft.push(() => Bt(re, "dialog", Sn)));
+  function kn(Y) {
+    s[97](Y);
+  }
+  let pn = { title: "Batch Input Help ", data: {}, $$slots: { default: [fa] }, $$scope: { ctx: s } };
+  (s[32] !== void 0 && (pn.dialog = s[32]), (z = new ml({ props: pn })), ft.push(() => Bt(z, "dialog", kn)));
+  function Mn(Y) {
+    s[98](Y);
+  }
+  let hn = { title: "Allowed Batch Input ", data: {}, $$slots: { default: [da] }, $$scope: { ctx: s } };
+  (s[46] !== void 0 && (hn.dialog = s[46]),
+    (pe = new ml({ props: hn })),
+    ft.push(() => Bt(pe, "dialog", Mn)));
+  function Pn(Y) {
+    s[99](Y);
+  }
+  let mn = {
+    title: "Confine mutations to primer tails",
+    data: {},
+    $$slots: { default: [pa] },
+    $$scope: { ctx: s },
+  };
+  (s[35] !== void 0 && (mn.dialog = s[35]),
+    (Se = new ml({ props: mn })),
+    ft.push(() => Bt(Se, "dialog", Pn)));
+  function Ln(Y) {
+    s[100](Y);
+  }
+  let gn = { title: "Preserve degenerate bases", data: {}, $$slots: { default: [ha] }, $$scope: { ctx: s } };
+  (s[36] !== void 0 && (gn.dialog = s[36]),
+    (_e = new ml({ props: gn })),
+    ft.push(() => Bt(_e, "dialog", Ln)));
+  function En(Y) {
+    s[101](Y);
+  }
+  let vn = {
+    title: "Merge multiple point mutations",
+    data: {},
+    $$slots: { default: [ma] },
+    $$scope: { ctx: s },
+  };
+  (s[43] !== void 0 && (vn.dialog = s[43]),
+    (te = new ml({ props: vn })),
+    ft.push(() => Bt(te, "dialog", En)));
+  function Nn(Y) {
+    s[102](Y);
+  }
+  let _n = {
+    title: "Codon selection: codon usage",
+    data: {},
+    $$slots: { default: [ga] },
+    $$scope: { ctx: s },
+  };
+  (s[37] !== void 0 && (_n.dialog = s[37]),
+    (xe = new ml({ props: _n })),
+    ft.push(() => Bt(xe, "dialog", Nn)));
+  function E(Y) {
+    s[103](Y);
+  }
+  let ee = { title: "Codon selection: parsimony", data: {}, $$slots: { default: [va] }, $$scope: { ctx: s } };
+  (s[38] !== void 0 && (ee.dialog = s[38]), (Me = new ml({ props: ee })), ft.push(() => Bt(Me, "dialog", E)));
+  function ne(Y) {
+    s[104](Y);
+  }
+  let ae = {
+    title: "Generate NEBuilder HiFi primers",
+    data: {},
+    $$slots: { default: [_a] },
+    $$scope: { ctx: s },
+  };
+  (s[39] !== void 0 && (ae.dialog = s[39]),
+    (st = new ml({ props: ae })),
+    ft.push(() => Bt(st, "dialog", ne)));
+  function ue(Y) {
+    s[105](Y);
+  }
+  let ie = { title: "Mutation One-Letter-Codes", data: {}, $$slots: { default: [ba] }, $$scope: { ctx: s } };
+  (s[40] !== void 0 && (ie.dialog = s[40]),
+    (He = new ml({ props: ie })),
+    ft.push(() => Bt(He, "dialog", ue)));
+  function ce(Y) {
+    s[106](Y);
+  }
+  let J = { title: "Minimum Primer Length", data: {}, $$slots: { default: [wa] }, $$scope: { ctx: s } };
+  (s[42] !== void 0 && (J.dialog = s[42]), (je = new ml({ props: J })), ft.push(() => Bt(je, "dialog", ce)));
+  function ge(Y) {
+    s[107](Y);
+  }
+  let Te = { title: "Minimum Primer Tm", data: {}, $$slots: { default: [Aa] }, $$scope: { ctx: s } };
+  (s[41] !== void 0 && (Te.dialog = s[41]),
+    (tt = new ml({ props: Te })),
+    ft.push(() => Bt(tt, "dialog", ge)));
+  function Xe(Y) {
+    s[108](Y);
+  }
+  let el = { title: "Results", data: {}, $$slots: { default: [Ca] }, $$scope: { ctx: s } };
+  (s[49] !== void 0 && (el.dialog = s[49]),
+    (De = new ml({ props: el })),
+    ft.push(() => Bt(De, "dialog", Xe)));
+  function Ve(Y) {
+    s[112](Y);
+  }
+  function it(Y) {
+    s[113](Y);
+  }
+  let At = { title: "Select AA substitution", canClose: !1, $$slots: { default: [Ta] }, $$scope: { ctx: s } };
+  (s[45] !== void 0 && (At.dialog = s[45]),
+    s[51] !== void 0 && (At.data = s[51]),
+    (St = new ml({ props: At })),
+    ft.push(() => Bt(St, "dialog", Ve)),
+    ft.push(() => Bt(St, "data", it)),
+    St.$on("close", s[114]));
+  function ot(Y) {
+    s[115](Y);
+  }
+  let Pe = { title: "Use NEBuilder Calculator", data: {}, $$slots: { default: [Sa] }, $$scope: { ctx: s } };
+  (s[50] !== void 0 && (Pe.dialog = s[50]),
+    (Ae = new ml({ props: Pe })),
+    ft.push(() => Bt(Ae, "dialog", ot)));
+  const Ne = [La, Pa, Ma, ka],
+    Ze = [];
+  function Mt(Y, Ce) {
+    return Y[13] == "legacy" ? 0 : Y[13] == "general" ? 1 : Y[13] == "codon" ? 2 : Y[13] == "batch" ? 3 : -1;
+  }
+  ~(kt = Mt(s)) && (Rt = Ze[kt] = Ne[kt](s));
+  let Ll = !s[17] && ao(s),
+    Dt = s[18] < 15 && uo(),
+    Oe = s[19] < 55 && fo(),
+    hl = s[19] > 72 && po(),
+    Ls = (!s[0] || s[0].length < 1) && ho();
+  const ri = [Ha, Ba],
+    Qs = [];
+  function ai(Y, Ce) {
+    return Y[9] && Y[9].length > 0 ? 0 : 1;
+  }
+  return (
+    (pl = ai(s)),
+    (sl = Qs[pl] = ri[pl](s)),
+    {
+      c() {
+        ((t = c("div")),
+          (e = c("div")),
+          (e.innerHTML = `<div class="col svelte-1oen5g6"><div class="description svelte-1oen5g6">NEBaseChanger assists in the design of primers for site-directed mutagenesis experiments using the Q5 Site-Directed Mutagenesis Kit. 
+        		Additional resources for NEBaseChanger, including related products, videos, tutorials, and application notes are available 
+        		<a href="#/resources" class="svelte-1oen5g6">here</a>.\xA0\xA0</div> 
+      		<br class="svelte-1oen5g6"/> 
+      		<div class="description svelte-1oen5g6"><hr class="orange-line svelte-1oen5g6"/> 
+      			<ul class="svelte-1oen5g6"><li class="svelte-1oen5g6">Need help <b class="svelte-1oen5g6">getting started</b>? Please check the <a href="/#/Help" class="svelte-1oen5g6">Help</a> page and this 
+      					<a href="https://www.neb.com/en-us/tools-and-resources/video-library/nebasechanger-primer-design-tool-tutorial" target="_blank" class="svelte-1oen5g6">video tutorial</a>.</li> 
+      				<li class="svelte-1oen5g6">Need help <b class="svelte-1oen5g6">troubleshooting</b> your site-directed mutagenesis experiment? Try the new <a href="#/troubleshoot" class="svelte-1oen5g6">Troubleshooting Module</a></li></ul> 
+      			<hr class="orange-line svelte-1oen5g6"/></div></div>`),
+          (n = S()),
+          (l = c("div")),
+          (a = c("h2")),
+          (r = T("1. Enter new sequence. ")),
+          (f = c("img")),
+          (h = S()),
+          (d = c("div")),
+          (p = c("div")),
+          ut(m.$$.fragment),
+          (w = S()),
+          (q = c("br")),
+          (C = S()),
+          zt && zt.c(),
+          (A = S()),
+          $t && $t.c(),
+          (b = S()),
+          (y = c("div")),
+          (k = c("h2")),
+          (M = T("2. Select input mode and set mutations. ")),
+          (P = c("img")),
+          (G = S()),
+          (R = c("div")),
+          (N = c("div")),
+          ut(U.$$.fragment),
+          (F = S()),
+          ut(I.$$.fragment),
+          (W = S()),
+          ut(D.$$.fragment),
+          (Q = S()),
+          ut(Z.$$.fragment),
+          (X = S()),
+          ut(re.$$.fragment),
+          (le = S()),
+          ut(z.$$.fragment),
+          (de = S()),
+          ut(pe.$$.fragment),
+          (ve = S()),
+          ut(Se.$$.fragment),
+          (we = S()),
+          ut(_e.$$.fragment),
+          (O = S()),
+          ut(te.$$.fragment),
+          (he = S()),
+          ut(xe.$$.fragment),
+          (Ye = S()),
+          ut(Me.$$.fragment),
+          (Je = S()),
+          ut(st.$$.fragment),
+          (Pt = S()),
+          ut(He.$$.fragment),
+          (Le = S()),
+          ut(je.$$.fragment),
+          (Xt = S()),
+          ut(tt.$$.fragment),
+          (Ke = S()),
+          ut(De.$$.fragment),
+          (Qe = S()),
+          ut(St.$$.fragment),
+          (qt = S()),
+          ut(Ae.$$.fragment),
+          (yt = S()),
+          (ht = c("div")),
+          (Tt = c("div")),
+          (Lt = c("div")),
+          (al = c("div")),
+          (gl = S()),
+          (dt = c("div")),
+          (vl = c("span")),
+          (Re = c("input")),
+          (xl = S()),
+          (ze = c("label")),
+          (ze.textContent = "AA Point Mutation"),
+          (mt = S()),
+          (xt = c("img")),
+          (Gl = S()),
+          (cl = c("span")),
+          (bt = c("input")),
+          (Zl = S()),
+          (ul = c("label")),
+          (ul.textContent = "Indel/Substitution"),
+          ($l = S()),
+          (Et = c("img")),
+          (nl = S()),
+          (tl = c("span")),
+          (pt = c("input")),
+          (fl = S()),
+          (Ht = c("label")),
+          (Ht.textContent = "Batch (mixed)"),
+          (ts = S()),
+          (Nt = c("img")),
+          (Jt = S()),
+          (Zt = c("span")),
+          (gt = c("input")),
+          (ls = S()),
+          (Kt = c("label")),
+          (Kt.textContent = "Legacy (emulate V1)"),
+          (ss = S()),
+          (jt = c("img")),
+          (Fl = S()),
+          (jl = c("br")),
+          (Vl = S()),
+          (_l = c("div")),
+          (bl = c("span")),
+          (bl.textContent = "Primer Set ID:"),
+          (ns = S()),
+          (Yt = c("input")),
+          (is = S()),
+          (Sl = c("br")),
+          (os = S()),
+          Rt && Rt.c(),
+          (Rl = S()),
+          Ll && Ll.c(),
+          (Ul = S()),
+          (kl = c("br")),
+          (rs = S()),
+          (il = c("div")),
+          (Wt = c("div")),
+          (It = c("div")),
+          (Il = c("span")),
+          (Il.textContent = "Minimum Primer Length (nt):"),
+          (Dl = S()),
+          (Qt = c("input")),
+          (Ol = T(`
+	        \xA0\xA0
+		   	`)),
+          (as = c("img")),
+          (ds = S()),
+          Dt && Dt.c(),
+          (Es = T(`
+	    \xA0\xA0`)),
+          (Ns = c("br")),
+          (ps = S()),
+          (wt = c("div")),
+          (hs = c("span")),
+          (hs.textContent = "Minimum Primer Tm (\xB0C):"),
+          (ms = S()),
+          (Gt = c("input")),
+          (Hs = T(`
+	        \xA0\xA0
+		   	`)),
+          (dl = c("img")),
+          (Ml = S()),
+          Oe && Oe.c(),
+          (Bl = S()),
+          hl && hl.c(),
+          (Is = S()),
+          (gs = c("br")),
+          (ks = c("br")),
+          (cs = S()),
+          (vs = c("div")),
+          (_s = c("div")),
+          (Kl = c("button")),
+          (Kl.textContent = "Build Primers"),
+          (bs = S()),
+          (ws = c("button")),
+          (ws.textContent = "Clear Primers"),
+          (Ds = S()),
+          (wl = c("div")),
+          (us = c("h2")),
+          (ol = T("3. Results ")),
+          (Yl = c("img")),
+          (As = S()),
+          (Cs = c("div")),
+          (ll = c("div")),
+          Ls && Ls.c(),
+          (Wl = S()),
+          sl.c(),
+          (qs = S()),
+          (Ql = c("br")),
+          (Vs = S()),
+          (Al = c("br")),
+          (Os = S()),
+          (Cl = c("div")),
+          (Cl.innerHTML = '<div class="col svelte-1oen5g6"><hr class="svelte-1oen5g6"/></div>'),
+          i(e, "class", "row svelte-1oen5g6"),
+          i(f, "class", "helpicon svelte-1oen5g6"),
+          Ft(f.src, (u = ql)) || i(f, "src", u),
+          i(f, "height", "20px"),
+          i(a, "class", "svelte-1oen5g6"),
+          i(q, "class", "svelte-1oen5g6"),
+          i(p, "class", "col svelte-1oen5g6"),
+          i(d, "class", "row svelte-1oen5g6"),
+          i(l, "class", "appsection svelte-1oen5g6"),
+          i(P, "class", "helpicon svelte-1oen5g6"),
+          Ft(P.src, (L = ql)) || i(P, "src", L),
+          i(P, "height", "20px"),
+          i(k, "class", "svelte-1oen5g6"),
+          i(N, "class", "col svelte-1oen5g6"),
+          i(R, "class", "row svelte-1oen5g6"),
+          i(al, "id", "inputsequence"),
+          i(al, "unselectable", "on"),
+          i(al, "class", "svelte-1oen5g6"),
+          i(Re, "type", "radio"),
+          i(Re, "id", "codonin"),
+          i(Re, "name", "inputmode"),
+          (Re.__value = "codon"),
+          (Re.value = Re.__value),
+          i(Re, "class", "svelte-1oen5g6"),
+          s[117][0].push(Re),
+          i(ze, "for", "codonin"),
+          i(ze, "class", "svelte-1oen5g6"),
+          i(vl, "class", "svelte-1oen5g6"),
+          i(xt, "class", "helpicon svelte-1oen5g6"),
+          Ft(xt.src, (Jl = ql)) || i(xt, "src", Jl),
+          i(xt, "height", "20px"),
+          i(bt, "type", "radio"),
+          i(bt, "id", "singlein"),
+          i(bt, "name", "inputmode"),
+          (bt.__value = "general"),
+          (bt.value = bt.__value),
+          i(bt, "class", "svelte-1oen5g6"),
+          s[117][0].push(bt),
+          i(ul, "for", "singlein"),
+          i(ul, "class", "svelte-1oen5g6"),
+          i(cl, "class", "svelte-1oen5g6"),
+          i(Et, "class", "helpicon svelte-1oen5g6"),
+          Ft(Et.src, (es = ql)) || i(Et, "src", es),
+          i(Et, "height", "20px"),
+          i(pt, "type", "radio"),
+          i(pt, "id", "batchin"),
+          i(pt, "name", "inputmode"),
+          (pt.__value = "batch"),
+          (pt.value = pt.__value),
+          i(pt, "class", "svelte-1oen5g6"),
+          s[117][0].push(pt),
+          i(Ht, "for", "batchin"),
+          i(Ht, "class", "svelte-1oen5g6"),
+          i(tl, "class", "svelte-1oen5g6"),
+          i(Nt, "class", "helpicon svelte-1oen5g6"),
+          Ft(Nt.src, (Tl = ql)) || i(Nt, "src", Tl),
+          i(Nt, "height", "20px"),
+          i(gt, "type", "radio"),
+          i(gt, "id", "legacyin"),
+          i(gt, "name", "inputmode"),
+          (gt.__value = "legacy"),
+          (gt.value = gt.__value),
+          i(gt, "class", "svelte-1oen5g6"),
+          s[117][0].push(gt),
+          i(Kt, "for", "legacyin"),
+          i(Kt, "class", "svelte-1oen5g6"),
+          i(Zt, "class", "svelte-1oen5g6"),
+          i(jt, "class", "helpicon svelte-1oen5g6"),
+          Ft(jt.src, (Hl = ql)) || i(jt, "src", Hl),
+          i(jt, "height", "20px"),
+          i(dt, "class", " svelte-1oen5g6"),
+          i(jl, "class", "svelte-1oen5g6"),
+          i(bl, "class", "svelte-1oen5g6"),
+          i(Yt, "type", "text"),
+          i(Yt, "id", "opid"),
+          i(Yt, "placeholder", "ID for primer set"),
+          i(Yt, "class", "svelte-1oen5g6"),
+          i(_l, "class", "svelte-1oen5g6"),
+          i(Sl, "class", "svelte-1oen5g6"),
+          i(Lt, "id", "design"),
+          i(Lt, "class", " svelte-1oen5g6"),
+          i(kl, "class", "svelte-1oen5g6"),
+          i(Tt, "class", "col svelte-1oen5g6"),
+          i(ht, "class", "row svelte-1oen5g6"),
+          i(Il, "class", "svelte-1oen5g6"),
+          i(Qt, "type", "number"),
+          i(Qt, "id", "userminlen"),
+          i(Qt, "min", "15"),
+          i(Qt, "class", "svelte-1oen5g6"),
+          i(as, "class", "helpicon svelte-1oen5g6"),
+          Ft(as.src, (Ss = ql)) || i(as, "src", Ss),
+          i(as, "height", "20px"),
+          i(It, "class", "range-holder svelte-1oen5g6"),
+          i(Ns, "class", "svelte-1oen5g6"),
+          i(hs, "class", "svelte-1oen5g6"),
+          i(Gt, "type", "number"),
+          i(Gt, "id", "usermintm"),
+          i(Gt, "min", "55"),
+          i(Gt, "max", "72"),
+          i(Gt, "class", "svelte-1oen5g6"),
+          i(dl, "class", "helpicon svelte-1oen5g6"),
+          Ft(dl.src, (js = ql)) || i(dl, "src", js),
+          i(dl, "height", "20px"),
+          i(wt, "class", "range-holder svelte-1oen5g6"),
+          i(gs, "class", "svelte-1oen5g6"),
+          i(ks, "class", "svelte-1oen5g6"),
+          i(Wt, "class", "col svelte-1oen5g6"),
+          i(il, "class", "row svelte-1oen5g6"),
+          i(Kl, "class", "button btn btn-link-cta svelte-1oen5g6"),
+          i(ws, "class", "button btn btn-link svelte-1oen5g6"),
+          i(_s, "class", "col svelte-1oen5g6"),
+          i(vs, "class", "row svelte-1oen5g6"),
+          i(y, "class", "appsection svelte-1oen5g6"),
+          i(Yl, "class", "helpicon svelte-1oen5g6"),
+          Ft(Yl.src, (fs = ql)) || i(Yl, "src", fs),
+          i(Yl, "height", "20px"),
+          i(us, "class", "svelte-1oen5g6"),
+          i(Ql, "class", "svelte-1oen5g6"),
+          i(Al, "class", "svelte-1oen5g6"),
+          i(ll, "class", "col svelte-1oen5g6"),
+          i(Cs, "class", "row svelte-1oen5g6"),
+          i(wl, "class", "appsection svelte-1oen5g6"),
+          i(Cl, "class", "row svelte-1oen5g6"),
+          i(t, "class", "container svelte-1oen5g6"));
+      },
+      m(Y, Ce) {
+        (v(Y, t, Ce),
+          o(t, e),
+          o(t, n),
+          o(t, l),
+          o(l, a),
+          o(a, r),
+          o(a, f),
+          o(l, h),
+          o(l, d),
+          o(d, p),
+          rt(m, p, null),
+          o(p, w),
+          o(p, q),
+          o(p, C),
+          zt && zt.m(p, null),
+          o(p, A),
+          $t && $t.m(p, null),
+          o(t, b),
+          o(t, y),
+          o(y, k),
+          o(k, M),
+          o(k, P),
+          o(y, G),
+          o(y, R),
+          o(R, N),
+          rt(U, N, null),
+          o(N, F),
+          rt(I, N, null),
+          o(N, W),
+          rt(D, N, null),
+          o(N, Q),
+          rt(Z, N, null),
+          o(N, X),
+          rt(re, N, null),
+          o(N, le),
+          rt(z, N, null),
+          o(N, de),
+          rt(pe, N, null),
+          o(N, ve),
+          rt(Se, N, null),
+          o(N, we),
+          rt(_e, N, null),
+          o(N, O),
+          rt(te, N, null),
+          o(N, he),
+          rt(xe, N, null),
+          o(N, Ye),
+          rt(Me, N, null),
+          o(N, Je),
+          rt(st, N, null),
+          o(N, Pt),
+          rt(He, N, null),
+          o(N, Le),
+          rt(je, N, null),
+          o(N, Xt),
+          rt(tt, N, null),
+          o(N, Ke),
+          rt(De, N, null),
+          o(N, Qe),
+          rt(St, N, null),
+          o(N, qt),
+          rt(Ae, N, null),
+          o(y, yt),
+          o(y, ht),
+          o(ht, Tt),
+          o(Tt, Lt),
+          o(Lt, al),
+          o(Lt, gl),
+          o(Lt, dt),
+          o(dt, vl),
+          o(vl, Re),
+          (Re.checked = Re.__value === s[13]),
+          o(vl, xl),
+          o(vl, ze),
+          o(dt, mt),
+          o(dt, xt),
+          o(dt, Gl),
+          o(dt, cl),
+          o(cl, bt),
+          (bt.checked = bt.__value === s[13]),
+          o(cl, Zl),
+          o(cl, ul),
+          o(dt, $l),
+          o(dt, Et),
+          o(dt, nl),
+          o(dt, tl),
+          o(tl, pt),
+          (pt.checked = pt.__value === s[13]),
+          o(tl, fl),
+          o(tl, Ht),
+          o(dt, ts),
+          o(dt, Nt),
+          o(dt, Jt),
+          o(dt, Zt),
+          o(Zt, gt),
+          (gt.checked = gt.__value === s[13]),
+          o(Zt, ls),
+          o(Zt, Kt),
+          o(dt, ss),
+          o(dt, jt),
+          o(Lt, Fl),
+          o(Lt, jl),
+          o(Lt, Vl),
+          o(Lt, _l),
+          o(_l, bl),
+          o(_l, ns),
+          o(_l, Yt),
+          $e(Yt, s[12]),
+          o(Lt, is),
+          o(Lt, Sl),
+          o(Tt, os),
+          ~kt && Ze[kt].m(Tt, null),
+          o(Tt, Rl),
+          Ll && Ll.m(Tt, null),
+          o(Tt, Ul),
+          o(Tt, kl),
+          o(y, rs),
+          o(y, il),
+          o(il, Wt),
+          o(Wt, It),
+          o(It, Il),
+          o(It, Dl),
+          o(It, Qt),
+          $e(Qt, s[18]),
+          o(It, Ol),
+          o(It, as),
+          o(It, ds),
+          Dt && Dt.m(It, null),
+          o(Wt, Es),
+          o(Wt, Ns),
+          o(Wt, ps),
+          o(Wt, wt),
+          o(wt, hs),
+          o(wt, ms),
+          o(wt, Gt),
+          $e(Gt, s[19]),
+          o(wt, Hs),
+          o(wt, dl),
+          o(wt, Ml),
+          Oe && Oe.m(wt, null),
+          o(wt, Bl),
+          hl && hl.m(wt, null),
+          o(Wt, Is),
+          o(Wt, gs),
+          o(Wt, ks),
+          o(y, cs),
+          o(y, vs),
+          o(vs, _s),
+          o(_s, Kl),
+          o(_s, bs),
+          o(_s, ws),
+          o(t, Ds),
+          o(t, wl),
+          o(wl, us),
+          o(us, ol),
+          o(us, Yl),
+          o(wl, As),
+          o(wl, Cs),
+          o(Cs, ll),
+          Ls && Ls.m(ll, null),
+          o(ll, Wl),
+          Qs[pl].m(ll, null),
+          o(ll, qs),
+          o(ll, Ql),
+          o(ll, Vs),
+          o(ll, Al),
+          o(t, Os),
+          o(t, Cl),
+          (Ms = !0),
+          zl ||
+            ((Ps = [
+              se(f, "click", s[89]),
+              se(P, "click", s[91]),
+              se(Re, "change", s[116]),
+              se(Re, "change", s[118]),
+              se(xt, "click", s[119]),
+              se(bt, "change", s[120]),
+              se(bt, "change", s[121]),
+              se(Et, "click", s[122]),
+              se(pt, "change", s[123]),
+              se(pt, "change", s[124]),
+              se(Nt, "click", s[125]),
+              se(gt, "change", s[126]),
+              se(gt, "change", s[127]),
+              se(jt, "click", s[128]),
+              se(Yt, "input", s[129]),
+              se(Qt, "input", s[170]),
+              se(Qt, "input", s[69]),
+              se(as, "click", s[171]),
+              se(Gt, "input", s[172]),
+              se(Gt, "input", s[69]),
+              se(dl, "click", s[173]),
+              se(Kl, "click", s[71]),
+              se(ws, "click", s[70]),
+              se(Yl, "click", s[174]),
+            ]),
+            (zl = !0)));
+      },
+      p(Y, Ce) {
+        const ci = {};
+        (!_ && Ce[0] & 2 && ((_ = !0), (ci.seqrec = Y[1]), Ot(() => (_ = !1))),
+          m.$set(ci),
+          Y[30] && Y[0] && Y[0].length > 1
+            ? zt || ((zt = Hi()), zt.c(), zt.m(p, A))
+            : zt && (zt.d(1), (zt = null)),
+          Y[31] && Y[0] && Y[0].length > 1
+            ? $t || (($t = ji()), $t.c(), $t.m(p, null))
+            : $t && ($t.d(1), ($t = null)));
+        const Gn = {};
+        (Ce[7] & 33554432 && (Gn.$$scope = { dirty: Ce, ctx: Y }),
+          !B && Ce[1] & 65536 && ((B = !0), (Gn.dialog = Y[47]), Ot(() => (B = !1))),
+          U.$set(Gn));
+        const Fn = {};
+        (Ce[7] & 33554432 && (Fn.$$scope = { dirty: Ce, ctx: Y }),
+          !H && Ce[1] & 131072 && ((H = !0), (Fn.dialog = Y[48]), Ot(() => (H = !1))),
+          I.$set(Fn));
+        const Rn = {};
+        (Ce[7] & 33554432 && (Rn.$$scope = { dirty: Ce, ctx: Y }),
+          !V && Ce[1] & 8192 && ((V = !0), (Rn.dialog = Y[44]), Ot(() => (V = !1))),
+          D.$set(Rn));
+        const In = {};
+        (Ce[7] & 33554432 && (In.$$scope = { dirty: Ce, ctx: Y }),
+          !oe && Ce[1] & 8 && ((oe = !0), (In.dialog = Y[34]), Ot(() => (oe = !1))),
+          Z.$set(In));
+        const Dn = {};
+        (Ce[7] & 33554432 && (Dn.$$scope = { dirty: Ce, ctx: Y }),
+          !x && Ce[1] & 4 && ((x = !0), (Dn.dialog = Y[33]), Ot(() => (x = !1))),
+          re.$set(Dn));
+        const On = {};
+        (Ce[7] & 33554432 && (On.$$scope = { dirty: Ce, ctx: Y }),
+          !fe && Ce[1] & 2 && ((fe = !0), (On.dialog = Y[32]), Ot(() => (fe = !1))),
+          z.$set(On));
+        const Bn = {};
+        (Ce[7] & 33554432 && (Bn.$$scope = { dirty: Ce, ctx: Y }),
+          !ye && Ce[1] & 32768 && ((ye = !0), (Bn.dialog = Y[46]), Ot(() => (ye = !1))),
+          pe.$set(Bn));
+        const Hn = {};
+        (Ce[7] & 33554432 && (Hn.$$scope = { dirty: Ce, ctx: Y }),
+          !me && Ce[1] & 16 && ((me = !0), (Hn.dialog = Y[35]), Ot(() => (me = !1))),
+          Se.$set(Hn));
+        const jn = {};
+        (Ce[7] & 33554432 && (jn.$$scope = { dirty: Ce, ctx: Y }),
+          !j && Ce[1] & 32 && ((j = !0), (jn.dialog = Y[36]), Ot(() => (j = !1))),
+          _e.$set(jn));
+        const Vn = {};
+        (Ce[7] & 33554432 && (Vn.$$scope = { dirty: Ce, ctx: Y }),
+          !K && Ce[1] & 4096 && ((K = !0), (Vn.dialog = Y[43]), Ot(() => (K = !1))),
+          te.$set(Vn));
+        const Un = {};
+        (Ce[7] & 33554432 && (Un.$$scope = { dirty: Ce, ctx: Y }),
+          !ke && Ce[1] & 64 && ((ke = !0), (Un.dialog = Y[37]), Ot(() => (ke = !1))),
+          xe.$set(Un));
+        const Kn = {};
+        (Ce[7] & 33554432 && (Kn.$$scope = { dirty: Ce, ctx: Y }),
+          !Ue && Ce[1] & 128 && ((Ue = !0), (Kn.dialog = Y[38]), Ot(() => (Ue = !1))),
+          Me.$set(Kn));
+        const Yn = {};
+        (Ce[7] & 33554432 && (Yn.$$scope = { dirty: Ce, ctx: Y }),
+          !nt && Ce[1] & 256 && ((nt = !0), (Yn.dialog = Y[39]), Ot(() => (nt = !1))),
+          st.$set(Yn));
+        const Wn = {};
+        (Ce[7] & 33554432 && (Wn.$$scope = { dirty: Ce, ctx: Y }),
+          !et && Ce[1] & 512 && ((et = !0), (Wn.dialog = Y[40]), Ot(() => (et = !1))),
+          He.$set(Wn));
+        const Qn = {};
+        (Ce[7] & 33554432 && (Qn.$$scope = { dirty: Ce, ctx: Y }),
+          !ct && Ce[1] & 2048 && ((ct = !0), (Qn.dialog = Y[42]), Ot(() => (ct = !1))),
+          je.$set(Qn));
+        const zn = {};
+        (Ce[7] & 33554432 && (zn.$$scope = { dirty: Ce, ctx: Y }),
+          !We && Ce[1] & 1024 && ((We = !0), (zn.dialog = Y[41]), Ot(() => (We = !1))),
+          tt.$set(zn));
+        const Xn = {};
+        (Ce[7] & 33554432 && (Xn.$$scope = { dirty: Ce, ctx: Y }),
+          !Ee && Ce[1] & 262144 && ((Ee = !0), (Xn.dialog = Y[49]), Ot(() => (Ee = !1))),
+          De.$set(Xn));
+        const bn = {};
+        ((Ce[0] & 64) | (Ce[1] & 1064960) | (Ce[7] & 33554432) && (bn.$$scope = { dirty: Ce, ctx: Y }),
+          !_t && Ce[1] & 16384 && ((_t = !0), (bn.dialog = Y[45]), Ot(() => (_t = !1))),
+          !Ut && Ce[1] & 1048576 && ((Ut = !0), (bn.data = Y[51]), Ot(() => (Ut = !1))),
+          St.$set(bn));
+        const xn = {};
+        (Ce[7] & 33554432 && (xn.$$scope = { dirty: Ce, ctx: Y }),
+          !lt && Ce[1] & 524288 && ((lt = !0), (xn.dialog = Y[50]), Ot(() => (lt = !1))),
+          Ae.$set(xn),
+          Ce[0] & 8192 && (Re.checked = Re.__value === Y[13]),
+          Ce[0] & 8192 && (bt.checked = bt.__value === Y[13]),
+          Ce[0] & 8192 && (pt.checked = pt.__value === Y[13]),
+          Ce[0] & 8192 && (gt.checked = gt.__value === Y[13]),
+          Ce[0] & 4096 && Yt.value !== Y[12] && $e(Yt, Y[12]));
+        let Jn = kt;
+        ((kt = Mt(Y)),
+          kt === Jn
+            ? ~kt && Ze[kt].p(Y, Ce)
+            : (Rt &&
+                (Fs(),
+                Ie(Ze[Jn], 1, 1, () => {
+                  Ze[Jn] = null;
+                }),
+                Rs()),
+              ~kt
+                ? ((Rt = Ze[kt]),
+                  Rt ? Rt.p(Y, Ce) : ((Rt = Ze[kt] = Ne[kt](Y)), Rt.c()),
+                  Fe(Rt, 1),
+                  Rt.m(Tt, Rl))
+                : (Rt = null)),
+          Y[17] ? Ll && (Ll.d(1), (Ll = null)) : Ll ? Ll.p(Y, Ce) : ((Ll = ao(Y)), Ll.c(), Ll.m(Tt, Ul)),
+          Ce[0] & 262144 && ys(Qt.value) !== Y[18] && $e(Qt, Y[18]),
+          Y[18] < 15 ? Dt || ((Dt = uo()), Dt.c(), Dt.m(It, null)) : Dt && (Dt.d(1), (Dt = null)),
+          Ce[0] & 524288 && ys(Gt.value) !== Y[19] && $e(Gt, Y[19]),
+          Y[19] < 55 ? Oe || ((Oe = fo()), Oe.c(), Oe.m(wt, Bl)) : Oe && (Oe.d(1), (Oe = null)),
+          Y[19] > 72 ? hl || ((hl = po()), hl.c(), hl.m(wt, null)) : hl && (hl.d(1), (hl = null)),
+          !Y[0] || Y[0].length < 1
+            ? Ls || ((Ls = ho()), Ls.c(), Ls.m(ll, Wl))
+            : Ls && (Ls.d(1), (Ls = null)));
+        let Zn = pl;
+        ((pl = ai(Y)),
+          pl === Zn
+            ? Qs[pl].p(Y, Ce)
+            : (Fs(),
+              Ie(Qs[Zn], 1, 1, () => {
+                Qs[Zn] = null;
+              }),
+              Rs(),
+              (sl = Qs[pl]),
+              sl ? sl.p(Y, Ce) : ((sl = Qs[pl] = ri[pl](Y)), sl.c()),
+              Fe(sl, 1),
+              sl.m(ll, qs)));
+      },
+      i(Y) {
+        Ms ||
+          (Fe(m.$$.fragment, Y),
+          Fe(U.$$.fragment, Y),
+          Fe(I.$$.fragment, Y),
+          Fe(D.$$.fragment, Y),
+          Fe(Z.$$.fragment, Y),
+          Fe(re.$$.fragment, Y),
+          Fe(z.$$.fragment, Y),
+          Fe(pe.$$.fragment, Y),
+          Fe(Se.$$.fragment, Y),
+          Fe(_e.$$.fragment, Y),
+          Fe(te.$$.fragment, Y),
+          Fe(xe.$$.fragment, Y),
+          Fe(Me.$$.fragment, Y),
+          Fe(st.$$.fragment, Y),
+          Fe(He.$$.fragment, Y),
+          Fe(je.$$.fragment, Y),
+          Fe(tt.$$.fragment, Y),
+          Fe(De.$$.fragment, Y),
+          Fe(St.$$.fragment, Y),
+          Fe(Ae.$$.fragment, Y),
+          Fe(Rt),
+          Fe(sl),
+          (Ms = !0));
+      },
+      o(Y) {
+        (Ie(m.$$.fragment, Y),
+          Ie(U.$$.fragment, Y),
+          Ie(I.$$.fragment, Y),
+          Ie(D.$$.fragment, Y),
+          Ie(Z.$$.fragment, Y),
+          Ie(re.$$.fragment, Y),
+          Ie(z.$$.fragment, Y),
+          Ie(pe.$$.fragment, Y),
+          Ie(Se.$$.fragment, Y),
+          Ie(_e.$$.fragment, Y),
+          Ie(te.$$.fragment, Y),
+          Ie(xe.$$.fragment, Y),
+          Ie(Me.$$.fragment, Y),
+          Ie(st.$$.fragment, Y),
+          Ie(He.$$.fragment, Y),
+          Ie(je.$$.fragment, Y),
+          Ie(tt.$$.fragment, Y),
+          Ie(De.$$.fragment, Y),
+          Ie(St.$$.fragment, Y),
+          Ie(Ae.$$.fragment, Y),
+          Ie(Rt),
+          Ie(sl),
+          (Ms = !1));
+      },
+      d(Y) {
+        (Y && g(t),
+          at(m),
+          zt && zt.d(),
+          $t && $t.d(),
+          at(U),
+          at(I),
+          at(D),
+          at(Z),
+          at(re),
+          at(z),
+          at(pe),
+          at(Se),
+          at(_e),
+          at(te),
+          at(xe),
+          at(Me),
+          at(st),
+          at(He),
+          at(je),
+          at(tt),
+          at(De),
+          at(St),
+          at(Ae),
+          s[117][0].splice(s[117][0].indexOf(Re), 1),
+          s[117][0].splice(s[117][0].indexOf(bt), 1),
+          s[117][0].splice(s[117][0].indexOf(pt), 1),
+          s[117][0].splice(s[117][0].indexOf(gt), 1),
+          ~kt && Ze[kt].d(),
+          Ll && Ll.d(),
+          Dt && Dt.d(),
+          Oe && Oe.d(),
+          hl && hl.d(),
+          Ls && Ls.d(),
+          Qs[pl].d(),
+          (zl = !1),
+          Vt(Ps));
+      },
+    }
+  );
+}
+const Wa = "multiple",
+  Qa = 200,
+  wo = (s, t) => t[1] < s[1];
+function za(s, t, e) {
+  let n;
+  var l = " ",
+    a,
+    r = {
+      seq: "",
+      id: "unknown",
+      format: "unknown",
+      header: "",
+      isCircular: !0,
+      useRevComp: !1,
+      isVector: !0,
+      type: "dna",
+      len: 0,
+      start: 0,
+      end: 0,
+      frag: null,
+    },
+    f,
+    u,
+    h,
+    d = "",
+    p = [],
+    m,
+    _,
+    w = "",
+    q = !1,
+    C = !1,
+    A = [],
+    b = [],
+    y = 0,
+    k = !1;
+  let M = "sdmprimers.txt",
+    P = "sdmprimer.txt",
+    L = "sdmfinalseq.fa",
+    G = "sdmfinalallseqs.fa",
+    R = "sdmsummary.txt";
+  var N = "",
+    U = "codon",
+    B = "",
+    F = 1,
+    I = "maxcut",
+    H = !1,
+    W = [],
+    D = !1,
+    V = !1,
+    Q = 15,
+    Z = 55,
+    oe = {
+      Substitution: "Start and end coordinates should flank the sequence to be replaced.",
+      Insertion: "Start and end coordinates should be consecutive and flank the insertion site.",
+      Deletion: "Start and end coordinates should flank the sequence to be deleted.",
+    },
+    X = {};
+  ((X.input = {}),
+    (X.input.keepDegen = C),
+    (X.input.idv = nl),
+    (X.input.opid = N),
+    (X.input.seqrec = r),
+    (X.input.seq = l),
+    (X.input.selectedIdx = y),
+    (X.input.selstart = u),
+    (X.input.selend = h),
+    (X.input.orfoffset = F),
+    (X.input.repseq = d),
+    (X.input.peptag = m),
+    (X.input.codontag = _),
+    (X.input.tailsonly = q),
+    (X.input.cdnsort = I),
+    (X.input.nebuilder = H),
+    (X.input.mergeMutations = k),
+    (X.input.primers = A),
+    (X.input.rawbatchinput = Je),
+    (X.input.codonops = B),
+    (X.input.inputmode = U));
+  var re,
+    x,
+    le,
+    z,
+    fe,
+    de,
+    pe,
+    ye,
+    ve,
+    Se,
+    me,
+    we,
+    _e,
+    j,
+    O,
+    te,
+    K,
+    he,
+    xe,
+    ke = {},
+    Ye = function (E) {
+      return (
+        console.log("get [" + E + "]"),
+        (E = E.toUpperCase()),
+        {
+          GCG: ["Ala"],
+          GCC: ["Ala"],
+          GCA: ["Ala"],
+          GCT: ["Ala"],
+          CGC: ["Arg"],
+          CGT: ["Arg"],
+          CGG: ["Arg"],
+          CGA: ["Arg"],
+          AGA: ["Arg"],
+          AGG: ["Arg"],
+          AAC: ["Asn"],
+          AAT: ["Asn"],
+          GAT: ["Asp"],
+          GAC: ["Asp"],
+          TGC: ["Cys"],
+          TGT: ["Cys"],
+          CAG: ["Gln"],
+          CAA: ["Gln"],
+          GAA: ["Glu"],
+          GAG: ["Glu"],
+          GGC: ["Gly"],
+          GGT: ["Gly"],
+          GGG: ["Gly"],
+          GGA: ["Gly"],
+          CAT: ["His"],
+          CAC: ["His"],
+          ATT: ["Ile"],
+          ATC: ["Ile"],
+          ATA: ["Ile"],
+          CTG: ["Leu"],
+          TTG: ["Leu"],
+          TTA: ["Leu"],
+          CTT: ["Leu"],
+          CTC: ["Leu"],
+          CTA: ["Leu"],
+          AAA: ["Lys"],
+          AAG: ["Lys"],
+          ATG: ["Met"],
+          TTT: ["Phe"],
+          TTC: ["Phe"],
+          CCG: ["Pro"],
+          CCA: ["Pro"],
+          CCT: ["Pro"],
+          CCC: ["Pro"],
+          AGC: ["Ser"],
+          AGT: ["Ser"],
+          TCG: ["Ser"],
+          TCT: ["Ser"],
+          TCC: ["Ser"],
+          TCA: ["Ser"],
+          ACC: ["Thr"],
+          ACG: ["Thr"],
+          ACT: ["Thr"],
+          ACA: ["Thr"],
+          TGG: ["Trp"],
+          TAT: ["Tyr"],
+          TAC: ["Tyr"],
+          GTG: ["Val"],
+          GTT: ["Val"],
+          GTC: ["Val"],
+          GTA: ["Val"],
+          TAA: ["Ter"],
+          TGA: ["Ter"],
+          TAG: ["Ter"],
+          NNK: ["All"],
+        }[E][0] || "NNK"
+      );
+    },
+    Me = function (E) {
+      (console.log("getCodonForAA_cut"), console.log("olc", E));
+      var ee = qe.AMINO_ACID_OLC[E];
+      console.log("tlc", ee);
+      var ne;
+      return (
+        (ne = qe.cut.Ecoli_K12.filter((ae) => ae[0] == ee)),
+        ne.sort((ae, ue) => ue[2] - ae[2]),
+        ne[0][1]
+      );
+    },
+    Ue = function (E, ee) {
+      (console.log("getCodonForAA_mindist ", E, ee), (ee = ee.toUpperCase()));
+      var ne = qe.AMINO_ACID_OLC[E],
+        ae = [],
+        ue = function (ie, ce) {
+          var J = 0;
+          return (
+            (J += ie[0] == ce[0] ? 0 : 1),
+            (J += ie[1] == ce[1] ? 0 : 1),
+            (J += ie[2] == ce[2] ? 0 : 1),
+            console.log(ie, ce, J),
+            J
+          );
+        };
+      return (
+        console.log("tlc", ne),
+        (ae = qe.cut.Ecoli_K12.filter((ie) => ie[0] == ne)),
+        console.log(ae),
+        ae.sort((ie, ce) => ue(ie[1], ee) - ue(ce[1], ee)),
+        console.log("sorted"),
+        console.log(ae),
+        ae[0][1]
+      );
+    },
+    Je = "",
+    st = "",
+    nt;
+  const Pt = function (E) {
+      var ne = E.target.result;
+      (console.log("Finished Loading!"), console.log("Result:", ne), e(20, (Je = ne)), (E.target.value = ""));
+    },
+    He = function (E) {
+      console.log("Error: " + E.target.error.name);
+    },
+    et = function (E) {
+      console.log("processFile");
+      const ee = new FileReader();
+      (ee.readAsText(E), ee.addEventListener("loadend", Pt), ee.addEventListener("error", He));
+    };
+  var Le = function () {
+      console.log("loadBatchInput");
+      const E = document.getElementById("batchfileinput").files[0];
+      E && et(E);
+    },
+    je = function () {
+      if (
+        (console.log("saveFinalSeq - export seq to file"),
+        console.log("saveData - export data to file"),
+        L || e(26, (L = "sdmfinalseq.fa")),
+        L.endsWith(".fa") || e(26, (L += ".fa")),
+        A.length != 0)
+      ) {
+        var E,
+          ee,
+          ne,
+          ae = [];
+        ((ne = A[y]),
+          console.log(ne),
+          ae.push(Xt(a, ne.selstart, ne.selend, ne.seqop, ne.repseq, ne.idprefix, ne.description)),
+          (E = ae.join(`
+`)),
+          (ee = new Blob([E], { type: "text/plain;charset=utf-8" })),
+          sn(ee, L, !0));
+      }
+    },
+    ct = function () {
+      if (
+        (console.log("saveFinalSeq - export seq to file"),
+        console.log("saveData - export data to file"),
+        G || e(27, (G = "sdmfinalallseqs.fa")),
+        G.endsWith(".fa") || e(27, (G += ".fa")),
+        A.length != 0)
+      ) {
+        var E,
+          ee,
+          ne,
+          ae = [];
+        for (let ue = 0; ue < A.length; ++ue)
+          ((ne = A[ue]),
+            console.log(ne),
+            ae.push(Xt(a, ne.selstart, ne.selend, ne.seqop, ne.repseq, ne.idprefix, ne.description)));
+        ((E = ae.join(`
+`)),
+          (ee = new Blob([E], { type: "text/plain;charset=utf-8" })),
+          sn(ee, G, !0));
+      }
+    },
+    Xt = function (E, ee, ne, ae, ue, ie, ce) {
+      if (
+        (console.log("buildFinalSeq"),
+        console.log(E),
+        console.log(ee, ne),
+        console.log(ae),
+        console.log(ue),
+        (ie = ie || "resultseq"),
+        (ce = ce || ae),
+        !E || ee == null || ne == null)
+      )
+        return "";
+      ue = ue || "";
+      var J = "",
+        ge = ">" + E.id + "_" + ie + "  " + ce,
+        Te = new qe.NASeq(E.srcseq.wseq, { topology: "circular" }),
+        Xe = ee - 1,
+        el = ne - 1;
+      return (
+        ae == "delete"
+          ? ((ge += "deleted " + (ee + 1) + " to " + (ne - 1)), Te.delete(Xe + 1, el))
+          : ae == "insert"
+            ? ((ge += "inserted " + ue + " after " + ee), Te.insert(ue, Xe))
+            : ae == "replace" &&
+              ((ge += "replaced " + (ee + 1) + " to " + (ne - 1) + " with " + ue),
+              Te.replace(Xe + 1, el - 1, ue)),
+        (J =
+          ge +
+          `
+` +
+          Te.wseq),
+        J
+      );
+    },
+    tt = function () {
+      if (
+        (console.log("saveData - export data to file"),
+        M || e(24, (M = "sdmprimers.txt")),
+        M.endsWith(".txt") || e(24, (M += ".txt")),
+        A.length != 0)
+      ) {
+        var E, ee;
+        (H && b.length > 0 ? (E = Ke(b)) : (E = Ke(A)),
+          (ee = new Blob([E], { type: "text/plain;charset=utf-8" })),
+          sn(ee, M, !0));
+      }
+    },
+    We = function () {
+      if (
+        (console.log("saveData1 - export data to file"),
+        P || e(25, (P = "sdmprimer.txt")),
+        P.endsWith(".txt") || e(25, (P += ".txt")),
+        A.length != 0)
+      ) {
+        var E, ee;
+        ((E = Ke(A.slice(y, y + 1))),
+          (ee = new Blob([E], { type: "text/plain;charset=utf-8" })),
+          sn(ee, P, !0));
+      }
+    },
+    Ke = function (E) {
+      if ((console.log("buildDownloadList"), console.log(E), E.length == 0)) return "";
+      var ee = "",
+        ne,
+        ae;
+      for (let ue = 0; ue < E.length; ++ue)
+        ((ne = E[ue]),
+          (ae = ne.idprefix + (ue + 1)),
+          (ee += `${ae}_fwd	${ne.seqf}	Tm=${Math.round(ne.tmf)} Ta=${Math.round(ne.ta)}
+`),
+          (ee += `${ae}_rev	${ne.seqr}	Tm=${Math.round(ne.tmr)} Ta=${Math.round(ne.ta)}
+`));
+      return (console.log(ee), ee);
+    },
+    De = function (E, ee) {
+      if ((console.log("buildSummary"), E.length == 0)) return "";
+      var ne = "",
+        ae = [],
+        ue,
+        ie,
+        ce,
+        J,
+        ge,
+        Te,
+        Xe,
+        el,
+        Ve,
+        it,
+        At,
+        ot,
+        Pe =
+          [
+            "ID",
+            "Description",
+            "Fwd Primer ID",
+            "Fwd Primer Seq",
+            "Length",
+            "Tm Fwd",
+            "Rev Primer ID",
+            "Rev Primer Seq",
+            "Length",
+            "Tm Rev",
+            "Ta",
+          ].join("	") +
+          `
+`;
+      ne += Pe;
+      for (let Ne = 0; Ne < E.length; ++Ne)
+        ((ue = E[Ne]),
+          (ie = ue.idprefix),
+          (ce = ue.idprefix + ":" + (Ne + 1) + "_F"),
+          (J = ue.idprefix + ":" + (Ne + 1) + "_R"),
+          (ge = ue.seqfpflap.toLowerCase() + ue.seqfanneal),
+          (Te = ue.seqrpflap.toLowerCase() + ue.seqranneal),
+          (Xe = ue.description),
+          (At = ue.lenf),
+          (ot = ue.lenr),
+          (el = Math.round(ue.tmf)),
+          (Ve = Math.round(ue.tmr)),
+          (it = Math.round(ue.ta)),
+          (ae = [ie, Xe, ce, ge, At, el, J, Te, ot, Ve, it]),
+          (ne +=
+            ae.join("	") +
+            `
+`));
+      return (console.log(ne), ne);
+    },
+    Ee = function () {
+      if (
+        (console.log("saveSummary - export data to file"),
+        R || e(28, (R = "sdmsummary.txt")),
+        R.endsWith(".txt") || e(28, (R += ".txt")),
+        A.length != 0)
+      ) {
+        var E, ee;
+        (H && b.length > 0 ? (E = De(b)) : (E = E = De(A)),
+          (ee = new Blob([E], { type: "text/plain;charset=utf-8" })),
+          sn(ee, R, !0));
+      }
+    },
+    Qe = function () {
+      console.log("runNEBuilderCalc ");
+      let E = document.createElement("a");
+      ((E.target = "_blank"), E.setAttribute("id", "dynamicNBPLink"));
+      let ee = "https://nebuildercalculator.neb.com/?",
+        ne = [];
+      for (let ue = 0; ue < b.length; ++ue)
+        (console.log(b[ue]),
+          ne.push({ name: "frag_" + b[ue].idprefix.replace(/:.../g, ""), bplength: b[ue].fraglen }));
+      let ae = encodeURIComponent(JSON.stringify(ne));
+      (console.log(ae), (E.href = ee + ae), E.click(), E.remove());
+    },
+    St = function () {
+      (console.log("setKeepDegen", C),
+        C && (e(7, (q = !0)), e(17, (H = !1)), console.log("resetting tailsonly")));
+    },
+    _t = function () {
+      (console.log("setMergeMutations", k),
+        k && (e(7, (q = !0)), e(17, (H = !1)), console.log("resetting tailsonly")));
+    };
+  let Ut;
+  const qt = function (E) {
+    (clearTimeout(Ut),
+      (Ut = setTimeout(() => {
+        console.log(E.target.value);
+      }, 2e3)));
+  };
+  var Ae = function (E, ee, ne, ae) {
+      (console.log("setTplseq"), console.log(ee, ne));
+      var ue = ee - 1,
+        ie = ne - 1;
+      return (
+        (ue = ue % E.length),
+        (ie = ie % E.length),
+        r.isCircular
+          ? (ue < 0 && (ue += E.length),
+            ie < 0 && (ie += E.length),
+            ae == "replace"
+              ? ie > ue
+                ? (w = E.slice(ue + 1, ie))
+                : ie < ue && (w = E.slice(ue + 1) + E.slice(0, ie))
+              : (w = ""))
+          : ue < 0 || ie < 0 || ie <= ue
+            ? (w = "")
+            : ae == "replace"
+              ? (w = E.slice(ue + 1, ie))
+              : (w = ""),
+        w
+      );
+    },
+    lt = function (E, ee, ne) {
+      return (
+        console.log("setSeqop"),
+        console.log(E, ee),
+        E < 0 || E == null || ee < 0 || ee == null
+          ? (console.log("seqop not_ready"), (f = "not_ready"))
+          : (!ne || ne.length === 0
+              ? (console.log("seqop delete"), (f = "delete"))
+              : ee - E === 1 && ne.length > 0
+                ? (console.log("seqop insert"), (f = "insert"))
+                : (console.log("seqop replace"), (f = "replace")),
+            f)
+      );
+    },
+    yt = function () {
+      e(9, (A = []));
+    },
+    ht = function () {
+      (console.log("rebuildPrimers"), yt(), e(29, (W = [])));
+      var E,
+        ee = [],
+        ne = [],
+        ae = !r.isCircular;
+      if (l.length < 60) {
+        e(30, (D = !0));
+        return;
+      } else e(30, (D = !1));
+      if (l.length > 5e4) {
+        (e(31, (V = !0)), e(0, (l = l.slice(0, 5e4))));
+        return;
+      } else e(31, (V = !1));
+      if (U == "general" || U == "legacy") {
+        if (
+          (console.log("general  or legacy inputmode"),
+          e(17, (H = !1)),
+          e(55, (tl = !0)),
+          lt(u, h, d),
+          (w = Ae(l, u, h, f)),
+          console.log("begin checks for partial"),
+          console.log(ae, u, h, l.length),
+          !ae && l.length - w.length < 60)
+        ) {
+          (console.log("seq.length - tplseq.length) < 60"),
+            W.push("insufficient flanking sequence space to build primers"));
+          return;
+        }
+        if (!ae && h < u && u - h < 60) {
+          (console.log("!partial && (selend < selstart) && ((selstart - selend) < 60"),
+            W.push("insufficient flanking sequence space to build primers"));
+          return;
+        }
+        if (ae && h <= u) {
+          (console.log("end < start && partial"),
+            W.push("invalid range (end coord < start coord) for partial sequence"));
+          return;
+        }
+        if (ae && u < 35) {
+          (console.log("partial && selstart < 35"),
+            W.push("insufficient 5' flanking sequence to build primers for partial sequence"));
+          return;
+        }
+        if (ae && h > l.length - 25) {
+          (console.log("partial && selend > seq.length - 25"),
+            W.push("insufficient 3' flanking sequence to build primers for partial sequence"));
+          return;
+        }
+        return Tt(f, w, u, h, d, q, N, C, Q, Z, ae, U);
+      } else if (U == "codon") {
+        (console.log("codon  inputmode"), console.log("codonops", B), e(55, (tl = !1)));
+        let ue = Number(F),
+          ie = [],
+          ce = B.toUpperCase()
+            .trim()
+            .split(/[\s,;]+/),
+          J = "",
+          ge = 0,
+          Te = 0,
+          Xe = "",
+          el,
+          Ve = "",
+          it,
+          At,
+          ot = "";
+        if (k) {
+          e(7, (q = !0));
+          let Pe = [];
+          console.log(ce);
+          for (let Ne = 0; Ne < ce.length; ++Ne)
+            if ((console.log(ce[Ne]), ce[Ne].toUpperCase().match(/[A-Z*]\d+[A-Z*]/)))
+              (console.log("pattern matched"),
+                (ie = ce[Ne].toUpperCase()
+                  .replace(/([A-Z*])(\d+)([A-Z*])/, "$1:$2:$3")
+                  .split(":")),
+                console.log("parts", ie),
+                console.log("offset", ue),
+                ie.length == 4 && ie[3].match(/[ACGT]{3}/) && qe.translate(ie[3]) == ie[2]
+                  ? (ot = ie[3])
+                  : (ot = ""),
+                console.log("_target", ot),
+                (ge = (ue + (Number(ie[1]) - 1) * 3 - 1) % l.length),
+                (Te = (ge + 4) % l.length),
+                (Xe = "replace"),
+                (el = ce[Ne]),
+                (it = ge < Te ? l.slice(ge, Te - 1) : l.slice(ge) + l.slice(0, Te - 1)),
+                (At = qe.translate(it)),
+                console.log(it, At, ie[0]),
+                ot ? (J = ot) : I == "mindist" ? (J = Ue(ie[2], it)) : (J = Me(ie[2])),
+                At != ie[0] && W.push(ce[Ne] + ": " + At + " found at " + ie[1] + " instead of " + ie[0]),
+                console.log(ie[1], ge, Te, J),
+                Pe.push([ie[1], ge, Te, J]));
+            else {
+              (console.log("skipping op ", ce[Ne]),
+                ce[Ne] != "" && W.push("skipping op [" + ce[Ne] + "] - unable to parse"));
+              continue;
+            }
+          (Pe.sort((Ne, Ze) => Ne[0] - Ze[0]),
+            console.log(Pe),
+            (ge = Pe.at(0)[1]),
+            (Te = Pe.at(-1)[2]),
+            (Xe = "replace"),
+            console.log("_selstart, _selend, _seqop"),
+            console.log(ge, Te, Xe),
+            (Ve = Ae(l, ge, Te, Xe)),
+            console.log("_tplseq", Ve),
+            (J = ""));
+          for (let Ne = 0, Ze = ge; Ne < Pe.length; ++Ne)
+            (console.log("cur", Ze, "oplist[i][1]", Pe[Ne][1]),
+              console.log("slice", Ze, Pe[Ne][1]),
+              (J += l.slice(Ze, Pe[Ne][1])),
+              console.log("_repseq", J),
+              console.log("oplist[i][3]", Pe[Ne][3]),
+              (J += Pe[Ne][3]),
+              console.log("_repseq", J),
+              (Ze = ge + J.length),
+              console.log("updated cur", Ze));
+          if (Te - ge > Pe.length * 8) {
+            (console.log("_selend - _selstart > oplist.length * 7"),
+              W.push("mutations are too widely spread to safely merge"));
+            return;
+          }
+          if (l.length - Ve.length < 60) {
+            (console.log("seq.length - _tplseq.length) < 60"),
+              W.push("insufficient flanking sequence space to build primers"));
+            return;
+          }
+          if (ae && ge < 35) {
+            (console.log("partial && _selstart < 60"),
+              W.push("insufficient 5' flanking sequence to build primers for partial sequence"));
+            return;
+          }
+          if (ae && Te > l.length - 25) {
+            (console.log("partial && _selend > seq.length - 60"),
+              W.push("insufficient 3' flanking sequence to build primers for partial sequence"));
+            return;
+          }
+          ((ee = Tt(Xe, Ve, ge, Te, J, q, ce.join("_"), C, Q, Z, ae)),
+            (f = Xe),
+            e(2, (u = ge)),
+            e(3, (h = Te)),
+            e(4, (d = J)),
+            console.info(ee),
+            A.concat(ee));
+        } else {
+          console.log(ce);
+          for (let Pe = 0; Pe < ce.length; ++Pe)
+            if ((console.log(ce[Pe]), ce[Pe].toUpperCase().match(/[A-Z*]\d+[A-Z*]|[A-Z*]\d+[A-Z*]/))) {
+              if (
+                (console.log("pattern matched"),
+                (ie = ce[Pe].toUpperCase()
+                  .replace(/([A-Z*])(\d+)([A-Z*])/, "$1:$2:$3")
+                  .split(":")),
+                console.log("parts", ie),
+                console.log("offset", ue),
+                ie.length == 4 && ie[3].match(/[ACGT]{3}/) && qe.translate(ie[3]) == ie[2]
+                  ? (ot = ie[3])
+                  : (ot = ""),
+                console.log("_target", ot),
+                (ge = (ue + (Number(ie[1]) - 1) * 3 - 1) % l.length),
+                (Te = (ge + 4) % l.length),
+                (Xe = "replace"),
+                (el = ce[Pe]),
+                (it = ge < Te ? l.slice(ge, Te - 1) : l.slice(ge) + l.slice(0, Te - 1)),
+                (At = qe.translate(it)),
+                console.log(it, At, ie[0]),
+                ot ? (J = ot) : I == "mindist" ? (J = Ue(ie[2], it)) : (J = Me(ie[2])),
+                At != ie[0] && W.push(ce[Pe] + ": " + At + " found at " + ie[1] + " instead of " + ie[0]),
+                console.log(ge, Te, Xe),
+                (Ve = Ae(l, ge, Te, Xe)),
+                console.log(Ve),
+                l.length - Ve.length < 60)
+              ) {
+                (console.log("seq.length - tplseq.length) < 60"),
+                  W.push("insufficient flanking sequence space to build primers"));
+                return;
+              }
+              if (ae && ge < 35) {
+                (console.log("partial && _selstart < 60"),
+                  W.push("insufficient 5' flanking sequence to build primers for partial sequence"));
+                return;
+              }
+              if (ae && Te > l.length - 25) {
+                (console.log("partial && _selend > seq.length - 60"),
+                  W.push("insufficient 3' flanking sequence to build primers for partial sequence"));
+                return;
+              }
+              ((ee = Tt(Xe, Ve, ge, Te, J, q, (N ? N + "_" : "") + el, C, Q, Z, ae)),
+                (f = Xe),
+                e(2, (u = ge)),
+                e(3, (h = Te)),
+                e(4, (d = J)),
+                console.info(ee),
+                A.concat(ee));
+            } else {
+              console.log("skipping");
+              continue;
+            }
+        }
+        return (console.info(A), A);
+      } else if (U == "batch") {
+        (console.log("batch inputmode"), console.log(Je), e(17, (H = !1)), e(55, (tl = !0)));
+        let ue = 1,
+          ie = [],
+          ce = Je.split(`
+`),
+          J = "",
+          ge = 0,
+          Te = 0,
+          Xe = "",
+          el,
+          Ve = "",
+          it,
+          At,
+          ot = "";
+        for (let Pe = 0; Pe < ce.length; ++Pe) {
+          if ((console.log(Pe, ">" + ce[Pe] + "<"), ce[Pe].toUpperCase().startsWith("ORF"))) {
+            (console.log("starts with ORF"),
+              (E = ce[Pe].split(/[:\s]+/)),
+              (ue = Number(E[1])),
+              console.log("offset set to", ue));
+            continue;
+          }
+          if (((E = ce[Pe].toUpperCase().split(/[,\s;]+/)), console.log("args", E), E.length < 3))
+            if (E.length == 1 && E[0].toUpperCase().match(/[A-Z*]\d+[A-Z*]|[A-Z*]\d+[A-Z*]/))
+              ((ie = E[0]
+                .toUpperCase()
+                .replace(/([A-Z*])(\d+)([A-Z*])/, "$1:$2:$3")
+                .split(":")),
+                console.log("parts", ie),
+                ie.length == 4 && ie[3].match(/[ACGT]{3}/) && qe.translate(ie[3]) == ie[2]
+                  ? (ot = ie[3])
+                  : (ot = ""),
+                console.log("_target", ot),
+                (ge = (ue + (Number(ie[1]) - 1) * 3 - 1) % l.length),
+                (Te = (ge + 4) % l.length),
+                (Xe = "replace"),
+                (el = E[0]),
+                (it = ge < Te ? l.slice(ge, Te - 1) : l.slice(ge) + l.slice(0, Te - 1)),
+                (At = qe.translate(it)),
+                console.log(it, At, ie[0]),
+                ot ? (J = ot) : I == "mindist" ? (J = Ue(ie[2], it)) : (J = Me(ie[2])),
+                At != ie[0] && W.push(ce[Pe] + ": " + At + " found at " + ie[1] + " instead of " + ie[0]));
+            else {
+              console.log("skipping", E);
+              continue;
+            }
+          else
+            ((el = E[0]),
+              (ge = Number(E[1]) % l.length),
+              (Te = Number(E[2]) % l.length),
+              (J = E[3] || ""),
+              (Xe = lt(ge, Te, J)));
+          if (((Ve = Ae(l, ge, Te, Xe)), console.log(Ve), l.length - Ve.length < 60)) {
+            (console.log("seq.length - tplseq.length) < 60"),
+              W.push("insufficient flanking sequence space to build primers"));
+            return;
+          }
+          if (ae && ge < 35) {
+            (console.log("partial && _selstart < 60"),
+              W.push("insufficient 5' flanking sequence to build primers for partial sequence"));
+            return;
+          }
+          if (ae && Te > l.length - 25) {
+            (console.log("partial && _selend > seq.length - 60"),
+              W.push("insufficient 3' flanking sequence to build primers for partial sequence"));
+            return;
+          }
+          ((ee = Tt(Xe, Ve, ge, Te, J, q, (N ? N + "_" : "") + el, C, Q, Z, ae)),
+            console.info(ee),
+            ne.concat(ee),
+            console.info(ne));
+        }
+        return (console.info(ne), ne);
+      }
+    },
+    Tt = function (E, ee, ne, ae, ue, ie, ce, J, ge, Te, Xe, el) {
+      (console.log("buildPrimers"), console.log(E, ee, ne, ae, ue, ie, ce, el), (ee = ee || ""));
+      var Ve = ne - 1,
+        it = ae - 1,
+        At,
+        ot = 10,
+        Pe,
+        Ne = function (Dt, Oe) {
+          var hl = Math.min(Dt, Oe) + 1;
+          return (hl > 72 && (hl = 72), hl);
+        },
+        Ze = {};
+      ((Ve = Ve % l.length),
+        (it = it % l.length),
+        (ge = ge < 15 ? 15 : ge),
+        (Te = Te < 55 ? 55 : Te),
+        (Te = Te > 72 ? 72 : Te),
+        (Ze.primerMinLen = ge),
+        (Ze.primerMinTm = Te),
+        (Ze.primerMaxTm = 72));
+      var Mt,
+        Ll = [ce, Ve, it, ue].join(",");
+      if ((ce || (ce = "primer"), !(a && ne >= 0 && ae >= 0)))
+        return (console.log("aborting buildPrimers - negative coords", ne, ae), yt(), []);
+      if (E == "not_ready") return (console.log("aborting buildPrimers - missing seqop"), yt(), []);
+      if (ee == null)
+        return (
+          console.log("aborting buildPrimers - template seq not set"),
+          console.log("tplseq is null"),
+          yt(),
+          []
+        );
+      if (Xe && (Ve <= ot || it > l.length - 40))
+        return (
+          console.log("aborting buildPrimers - insufficient seq space to build primers (partial seq)"),
+          yt(),
+          []
+        );
+      if (l.length - ee.length < 60)
+        return (console.log("aborting buildPrimers - insufficient seq space to build primers"), yt(), []);
+      (console.log("repseq", ue),
+        (p = J ? [ue] : qe.expandDNASeq(ue)),
+        console.log("repseqs", p),
+        p.length == 0 && (p = [""]));
+      for (let Dt = 0; Dt < p.length; ++Dt) {
+        try {
+          ((Pe = p[Dt]),
+            console.log("working on [" + Pe + "]"),
+            console.log(E, ne, ae),
+            E == "delete"
+              ? (Mt = "Delete " + Lt(ee) + " between bases " + ne + "-" + ae + " in " + a.id)
+              : E == "insert"
+                ? (Mt = "Insert " + Pe + " between bases " + ne + "-" + ae + " in " + a.id)
+                : E == "replace" &&
+                  (Mt =
+                    "Replace " + Lt(ee) + " between bases " + ne + "-" + ae + " with " + Pe + " in " + a.id),
+            (Mt += " (" + ce + ") "),
+            console.log(Mt));
+        } catch (Oe) {
+          (console.log("error!!!!! -- 1", Oe.message), W.push("Unexpected error preparing for operation."));
+        }
+        if (E == "delete")
+          try {
+            if ((console.log("DELETE op"), a && ne >= 0 && ae >= 0)) {
+              if (
+                (ee === null && (ee = ""),
+                (it > Ve && l.length - (it - Ve) < 62) ||
+                  (it <= Ve && Ve - it < 62) ||
+                  l.length - ee.length < 62)
+              ) {
+                console.log("seq too short for flanking primers", Ve, it);
+                return;
+              }
+              if (r.isCircular) a.subseq = [it, Ve];
+              else {
+                let Oe = r.seq.slice(it) + r.seq.slice(0, Ve + 1);
+                (a.updateSrcseq(Oe), (a.subseq = [0, Oe.length - 1]));
+              }
+              ((a.srctype = "pcr"),
+                a.autogenPrimers(Ze),
+                console.log("fwd:", a.fwdPrimer.seq),
+                console.log("rev:", a.revPrimer.seq),
+                A.push({
+                  selstart: ne,
+                  selend: ae,
+                  locf: it,
+                  locr: Ve,
+                  seqf: a.fwdPrimer.seq,
+                  seqr: a.revPrimer.seq,
+                  lenf: a.fwdPrimer.seq.length,
+                  lenr: a.revPrimer.seq.length,
+                  tmf: a.fwdPrimer.tm,
+                  tmr: a.revPrimer.tm,
+                  ta: Ne(a.fwdPrimer.tm, a.revPrimer.tm),
+                  repseq: p[Dt],
+                  seqfpflap: "",
+                  seqrpflap: "",
+                  seqfanneal: a.fwdPrimer.anneal.toUpperCase(),
+                  seqranneal: a.revPrimer.anneal.toUpperCase(),
+                  seqrnbanneal: "",
+                  description: Mt,
+                  seqop: E,
+                  idprefix: ce,
+                  pad: 0,
+                  batch_op: Ll,
+                }));
+            }
+          } catch (Oe) {
+            (console.log("error!!!!!--2", Oe.message), W.push("Unexpected error in delete operation."));
+          }
+        else if (E == "insert" || (E == "replace" && (ie || Pe.length >= 6 || ee.length >= 6)))
+          try {
+            if ((console.log("INSERT/REPLACE op"), a && ne >= 0 && ae >= 0 && Pe)) {
+              if (r.isCircular) a.subseq = [it, Ve];
+              else {
+                (console.log(it, Ve), console.log(r.seq));
+                let Oe = r.seq.slice(it) + r.seq.slice(0, Ve + 1);
+                (a.updateSrcseq(Oe), (a.subseq = [0, Oe.length - 1]));
+              }
+              ((a.srctype = "pcr"),
+                a.autogenPrimers(Ze),
+                (At = ue.length / 2),
+                a.autogenPrimers(Ze),
+                console.log("fwd:", a.fwdPrimer.seq),
+                console.log("rev:", a.revPrimer.seq),
+                A.push({
+                  selstart: ne,
+                  selend: ae,
+                  locf: it,
+                  locr: Ve,
+                  seqf: Pe.length <= 6 ? Pe + a.fwdPrimer.seq : Pe.slice(At) + a.fwdPrimer.seq,
+                  seqr: Pe.length <= 6 ? a.revPrimer.seq : qe.revcomp(Pe.slice(0, At)) + a.revPrimer.seq,
+                  lenf: a.fwdPrimer.seq.length,
+                  lenr: a.revPrimer.seq.length,
+                  tmf: a.fwdPrimer.tm,
+                  tmr: a.revPrimer.tm,
+                  ta: Ne(a.fwdPrimer.tm, a.revPrimer.tm),
+                  repseq: p[Dt],
+                  seqfpflap: Pe.length <= 6 ? Pe.toLowerCase() : Pe.slice(At).toLowerCase(),
+                  seqrpflap: Pe.length <= 6 ? "" : qe.revcomp(Pe.slice(0, At)).toLowerCase(),
+                  seqfanneal: a.fwdPrimer.anneal.toUpperCase(),
+                  seqranneal: a.revPrimer.anneal.toUpperCase(),
+                  seqrnbanneal: Ge.revcomp(a.fwdPrimer.anneal.toUpperCase()),
+                  description: Mt,
+                  seqop: E,
+                  idprefix: ce,
+                  pad: 0,
+                  batch_op: Ll,
+                }));
+            }
+          } catch (Oe) {
+            (console.log("error!!!!!--3", Oe.message),
+              W.push("Unexpected error in replace/insert operation."));
+          }
+        else if (E == "replace")
+          try {
+            if ((console.log("REPLACE op"), a && ne >= 0 && ae >= 0 && Pe && ee)) {
+              if (r.isCircular) a.subseq = [Ve - ot + 1, Ve - ot];
+              else {
+                let hl = r.seq.slice(Ve - ot + 1) + r.seq.slice(0, Ve - ot + 1);
+                (a.updateSrcseq(hl), (a.subseq = [0, hl.length - 1]));
+              }
+              a.srctype = "pcr";
+              let Oe = Ge.calcSDMPrimers(a.template, ge, Te, ot, ee, Pe);
+              ((Oe.ta = Math.min(Oe.tmf, Oe.tmr) + 1),
+                Oe.ta > 72 && (Oe.ta = 72),
+                console.log("fwd:", Oe.pfwd, "tmf:", Oe.tmf.tm, "ta:", Oe.ta),
+                console.log("rev:", Oe.prev, "tmr:", Oe.tmr.tm, "ta:", Oe.ta),
+                console.log("nebuilder", H),
+                A.push({
+                  selstart: ne,
+                  selend: ae,
+                  locf: Ve - ot,
+                  locr: Ve - ot - 1,
+                  seqf: Oe.pfwd,
+                  seqr: Oe.prev,
+                  lenf: Oe.pfwd.length,
+                  lenr: Oe.prev.length,
+                  tmf: Oe.tmf,
+                  tmr: Oe.tmr,
+                  ta: Oe.ta,
+                  repseq: p[Dt],
+                  seqfpflap: "",
+                  seqrpflap: "",
+                  seqfanneal:
+                    Oe.pfwd.slice(0, ot).toUpperCase() +
+                    p[Dt].toLowerCase() +
+                    Oe.pfwd.slice(ot + p[Dt].length).toUpperCase(),
+                  seqranneal: Oe.prev.toUpperCase(),
+                  seqrnbanneal: Ge.revcomp(
+                    Oe.pfwd.slice(0, ot).toUpperCase() +
+                      p[Dt].toLowerCase() +
+                      Oe.pfwd.slice(ot + p[Dt].length).toUpperCase(),
+                  ),
+                  description: Mt,
+                  seqop: E,
+                  idprefix: ce,
+                  pad: ot,
+                  batch_op: Ll,
+                }));
+            }
+          } catch (Oe) {
+            (console.log("error!!!!!--4", Oe.message), W.push("Unexpected error in replace operation."));
+          }
+      }
+      return (console.dir(A), A);
+    },
+    Lt = function (E) {
+      return E && E.length > 25 ? E.slice(0, 10) + "..." + E.slice(-10) : E || "";
+    };
+  ((Ge.revcomp = function (E) {
+    var ee = "ACGTUKMSWRYBDHVNacgtukmswrybdhvn-",
+      ne = "TGCAAMKWSYRVHDBNtgcaamkwsyrvhdbn-",
+      ae = E.split("").reverse(),
+      ue,
+      ie;
+    for (ue = 0; ue < ae.length; ++ue) {
+      if (((ie = ee.indexOf(ae[ue])), ie === -1))
+        throw { name: "InvalidCharacter", message: "A non IUPAC base was encountered" };
+      ae[ue] = ne.charAt(ie);
+    }
+    return ae.join("");
+  }),
+    (Ge.rev = function (E) {
+      return E.split("").reverse().join("");
+    }),
+    (Ge.comp = function (E) {
+      var ee = "ACGTUKMSWRYBDHVNacgtukmswrybdhvn-",
+        ne = "TGCAAMKWSYRVHDBNtgcaamkwsyrvhdbn-",
+        ae = E.split(""),
+        ue,
+        ie;
+      for (ue = 0; ue < ae.length; ++ue) {
+        if (((ie = ee.indexOf(ae[ue])), ie === -1))
+          throw { name: "InvalidCharacter", message: "A non IUPAC base was encountered" };
+        ae[ue] = ne.charAt(ie);
+      }
+      return ae.join("");
+    }),
+    (Ge.tm = function (E, ee) {
+      var ne = 0.5,
+        ae = "Q5",
+        ue = 150,
+        ie = 4;
+      ee = ee || Ge.revcomp(E);
+      var ce = Ge.createTmCalc({ seq: E, ct: ne, salt: ue, compseq: ee });
+      switch (ae) {
+        case "Phusion":
+        case "Phusion Hot Start Flex":
+          ie = 1;
+          break;
+        default:
+          ie = 4;
+      }
+      ce.setMethod(ie);
+      var J = ce.Tm(),
+        ge = J.tm;
+      return ge;
+    }),
+    (Ge.calcSDMPrimers = function (E, ee, ne, ae, ue, ie) {
+      (console.log("calcSDMPrimers *************"),
+        console.log(E, ee, ne, ae, ue, ie),
+        (ee = ee < 15 ? 15 : ee),
+        (ne = ne < 55 ? 55 : ne),
+        (ne = ne > 72 ? 72 : ne));
+      var ce = {},
+        J = ae,
+        ge = ee,
+        Te = J,
+        Xe = ge,
+        el = 63,
+        Ve,
+        it = mi.alignDNAglobal,
+        At = {};
+      ((At.mat = {
+        a: { a: 2, c: -1, g: 1, t: -1 },
+        c: { a: -1, c: 2, g: -1, t: 1 },
+        g: { a: 1, c: -1, g: 2, t: -1 },
+        t: { a: -1, c: 1, g: -1, t: 2 },
+      }),
+        (At.gap = -2.5),
+        (At.term = -2.5),
+        (At.extend = -1),
+        console.log("repseq", ie),
+        console.log("repseqtpl", ue));
+      var ot = new mi.Alignment("global", ie, w, At),
+        Pe = it(ot);
+      (console.log(Pe), (Ve = Ge.revcomp(E)));
+      var Ne = ae + w.length;
+      (console.log(E),
+        console.log("offset", Ne),
+        console.log(E.slice(0, ae)),
+        console.log(Pe.alnSeq1),
+        console.log(E.slice(Ne, Ne + J)),
+        (ce.pfwd = E.slice(0, ae) + Pe.alnSeq1 + E.slice(Ne, Ne + J)),
+        (ce.prev = Ve.slice(0, ge)),
+        console.info(ce));
+      for (var Ze = Ge.tm(ce.pfwd, Ge.revcomp(E.slice(0, ae) + Pe.alnSeq2 + E.slice(Ne, Ne + J))); Ze < ne; )
+        (Ge.dmsg("tmf " + Ze + " < " + ne),
+          ++J,
+          (ce.pfwd = E.slice(0, ae) + Pe.alnSeq1 + E.slice(Ne, Ne + J)),
+          (Ze = Ge.tm(ce.pfwd, Ge.revcomp(E.slice(0, ae) + Pe.alnSeq2 + E.slice(Ne, Ne + J)))),
+          (Te = J));
+      for (; Ze < el && ce.pfwd.search("[GgCc]$") === -1; )
+        (Ge.dmsg("extending fwd to terminal g/c"),
+          ++J,
+          (ce.pfwd = E.slice(0, ae) + Pe.alnSeq1 + E.slice(Ne, Ne + J)),
+          (Ze = Ge.tm(ce.pfwd, Ge.revcomp(E.slice(0, ae) + Pe.alnSeq2 + E.slice(Ne, Ne + J)))));
+      ce.pfwd.search("[GCgc]$") === -1 &&
+        (Ge.dmsg("reverting to minimal good fwd primer"),
+        (ce.pfwd = E.slice(0, ae) + Pe.alnSeq1 + E.slice(Ne, Ne + Te)),
+        (Ze = Ge.tm(ce.pfwd, Ge.revcomp(E.slice(0, ae) + Pe.alnSeq2 + E.slice(Ne, Ne + Te)))),
+        (J = Te));
+      for (var Mt = Ge.tm(ce.prev); Mt < ne; )
+        (Ge.dmsg("tmr " + Mt + " < " + ne), (ce.prev = Ve.slice(0, ++ge)), (Mt = Ge.tm(ce.prev)), (Xe = ge));
+      for (; Mt < el && ce.prev.search("[GgCc]$") === -1; )
+        (Ge.dmsg("extending rev to terminal g/c"), (ce.prev = Ve.slice(0, ++ge)), (Mt = Ge.tm(ce.prev)));
+      if (
+        (ce.prev.search("[GgCc]$") === -1 &&
+          (Ge.dmsg("reverting to minimal good rev primer"),
+          (ce.prev = Ve.slice(0, Xe)),
+          (Mt = Ge.tm(ce.prev)),
+          (ge = Xe)),
+        Ze > Mt)
+      ) {
+        for (Ge.dmsg("tmf > tmr"); Ze - Mt > 5; )
+          (Ge.dmsg("tmf - tmr > 5"), (ce.prev = Ve.slice(0, ++ge)), (Mt = Ge.tm(ce.prev)));
+        for (Xe = ge; Mt < Ze && ce.prev.search("[GgCc]$") === -1; )
+          if (
+            (Ge.dmsg("tmr < tmf but does not end in g/c"),
+            (ce.prev = Ve.slice(0, ++ge)),
+            (Mt = Ge.tm(ce.prev)),
+            Mt < Ze)
+          )
+            Xe = ge;
+          else {
+            ((ce.prev = Ve.slice(0, Xe)), (Mt = Ge.tm(ce.prev)));
+            break;
+          }
+      }
+      if (Mt > Ze) {
+        for (Ge.dmsg("tmr > tmf"); Mt - Ze > 5; )
+          (Ge.dmsg("tmf - tmr > 5"),
+            ++J,
+            (ce.pfwd = E.slice(0, ae) + Pe.alnSeq1 + E.slice(Ne, Ne + J)),
+            (Ze = Ge.tm(ce.pfwd, Ge.revcomp(E.slice(0, ae) + Pe.alnSeq2 + E.slice(Ne, Ne + J)))));
+        for (Te = J; Ze < Mt && ce.pfwd.search("[GgCc]$") === -1; )
+          if (
+            (Ge.dmsg("tmf < tmr but does not end in g/c"),
+            ++J,
+            (ce.pfwd = E.slice(0, ae) + Pe.alnSeq1 + E.slice(Ne, Ne + J)),
+            (Ze = Ge.tm(ce.pfwd, Ge.revcomp(E.slice(0, ae) + Pe.alnSeq2 + E.slice(Ne, Ne + J)))),
+            Ze < Mt)
+          )
+            Te = J;
+          else {
+            ((ce.pfwd = E.slice(0, ae) + Pe.alnSeq1 + E.slice(Ne, Ne + Te)),
+              (Ze = Ge.tm(ce.pfwd, Ge.revcomp(E.slice(0, ae) + Pe.alnSeq2 + E.slice(Ne, Ne + Te)))));
+            break;
+          }
+      }
+      return (
+        (ce.tmf = Ze),
+        (ce.tmr = Mt),
+        (ce.pfwd = ce.pfwd.replace(/-/g, "")),
+        (ce.prev = ce.prev.replace(/-/g, "")),
+        ce
+      );
+    }));
+  var al = function (E) {
+      var ee = d || "";
+      return !E || E == "" ? ee : (vl(), String(E).replace(/\s/g, ""));
+    },
+    gl = function (E) {
+      var ee = d || "";
+      return !E || E == "" ? ee : (dt(), String(E).replace(/\s/g, ""));
+    },
+    dt = function () {
+      e(5, (m = ""));
+    },
+    vl = function () {
+      e(6, (_ = ""));
+    },
+    Re = "",
+    xl = function () {
+      (e(21, (Re = "")),
+        e(2, (u = void 0)),
+        e(3, (h = void 0)),
+        e(4, (d = "")),
+        yt(),
+        e(14, (B = "")),
+        e(15, (F = 1)));
+    },
+    ze = [],
+    mt = 0,
+    xt = function () {
+      if ((console.log("findTargets"), Re != "")) {
+        var E = new RegExp(Re, "ig"),
+          ee;
+        for (e(54, (ze = [])); (ee = E.exec(l)) !== null; )
+          (console.log(`Found ${ee[0]} at ${ee.index}.`), ze.push(Number(ee.index)));
+        ze.length > 0
+          ? ((mt = 0),
+            e(2, (u = ze[mt])),
+            u == 0 && e(2, (u = l.length)),
+            e(3, (h = (u + Re.length + 1) % l.length)),
+            h == 0 && e(3, (h = l.length)),
+            fl.setScrollPos(u))
+          : alert("The target sequence was not found.");
+      }
+    },
+    Jl = function () {
+      (console.log("nextTarget"),
+        ze.length > 0 &&
+          ((mt = (mt + 1) % ze.length),
+          e(2, (u = ze[mt])),
+          u == 0 && e(2, (u = l.length)),
+          e(3, (h = (u + Re.length + 1) % l.length)),
+          h == 0 && e(3, (h = l.length)),
+          fl.setScrollPos(u)));
+    },
+    Gl = function () {
+      (console.log("prevTarget"),
+        ze.length > 0 &&
+          ((mt = mt > 0 ? mt - 1 : ze.length - 1),
+          e(2, (u = ze[mt])),
+          u == 0 && e(2, (u = l.length)),
+          e(3, (h = (u + Re.length + 1) % l.length)),
+          h == 0 && e(3, (h = l.length)),
+          fl.setScrollPos(u)));
+    },
+    cl = function () {
+      if ((console.log("findtargets_"), Re != "")) {
+        var E = new RegExp(Re, "ig"),
+          ee;
+        for (e(54, (ze = [])); (ee = E.exec(l)) !== null; )
+          (console.log(`Found ${ee[0]} at ${ee.index}.`), ze.push(Number(ee.index)));
+        ze.length > 0
+          ? ((mt = 0),
+            e(2, (u = ze[mt])),
+            u == 0 && e(2, (u = l.length)),
+            e(3, (h = (u + Re.length + 1) % l.length)),
+            h == 0 && e(3, (h = l.length)),
+            Ht.setScrollPos(u))
+          : alert("The target sequence was not found.");
+      }
+    },
+    bt = function () {
+      (console.log("nextTarget_"),
+        ze.length > 0 &&
+          ((mt = (mt + 1) % ze.length),
+          e(2, (u = ze[mt])),
+          u == 0 && e(2, (u = l.length)),
+          e(3, (h = (u + Re.length + 1) % l.length)),
+          h == 0 && e(3, (h = l.length)),
+          Ht.setScrollPos(u)));
+    },
+    Zl = function () {
+      (console.log("prevTarget_"),
+        ze.length > 0 &&
+          ((mt = mt > 0 ? mt - 1 : ze.length - 1),
+          e(2, (u = ze[mt])),
+          u == 0 && e(2, (u = l.length)),
+          e(3, (h = (u + Re.length + 1) % l.length)),
+          h == 0 && e(3, (h = l.length)),
+          Ht.setScrollPos(u)));
+    },
+    ul = function () {
+      console.log("setPrevORFstart");
+      let E = l,
+        ee = F - 1,
+        ne = F;
+      const ae = /(?=(ATG(?:[ACGT]{3}){9,}?(?:TAA|TAG|TGA)))/gi;
+      console.log("orfoffset", ee);
+      const ue = [...E.matchAll(ae)];
+      console.log(ue.length);
+      for (const ie of ue)
+        if ((console.log(`Found ${ie[0]} start=${ie.index} end=${ie.index + ie[0].length}.`), ie.index < ee))
+          ne = ie.index + 1;
+        else break;
+      (console.log("new orfoffset", ne), F != ne && (e(15, (F = ne)), Kt()));
+    },
+    $l = function () {
+      console.log("setNextORFstart");
+      let E = l,
+        ee = F - 1,
+        ne = F;
+      const ae = /(?=(ATG(?:[ACGT]{3}){9,}?(?:TAA|TAG|TGA)))/gi;
+      console.log("orfoffset", ee);
+      const ue = [...E.matchAll(ae)];
+      console.log(ue.length);
+      for (const ie of ue)
+        if (
+          (console.log(`Found ${ie[0]} start=${ie.index} end=${ie.index + ie[0].length}.`), ie.index > ee)
+        ) {
+          ne = ie.index + 1;
+          break;
+        }
+      (console.log("new orfoffset", ne), F != ne && (e(15, (F = ne)), Kt()));
+    },
+    Et = function () {
+      (console.log("clearTarget"), e(21, (Re = "")), (mt = 0), e(54, (ze = [])));
+    },
+    es = function () {
+      (console.log("clearRepseq"), e(4, (d = "")), e(5, (m = "")), e(6, (_ = "")));
+    },
+    nl = null,
+    tl = !0,
+    pt = function (E) {
+      if ((console.log("updateOrfOffset", E, l.length), l.length <= 0)) return 1;
+      var ee = E <= l.length ? E : E % l.length;
+      return (console.log(ee), ee);
+    };
+  F = pt(1);
+  let fl, Ht;
+  var ts = function (E, ee, ne) {
+    if (
+      (console.log("convertNebuilder"),
+      console.log("allowed", ee),
+      console.log("multisite", ne),
+      console.dir(E),
+      !ee || !E || E.length == 0)
+    )
+      return (console.log("aborting convertNebuilder"), []);
+    var ae = function (Xe, el) {
+      return Number(Xe.locf) > Number(el.locf) ? 1 : -1;
+    };
+    E.sort(ae);
+    var ue = [],
+      ie = l.length,
+      ce;
+    ce = E.length;
+    var J, ge, Te;
+    for (let Xe = 0; Xe < ce; ++Xe)
+      ne == "multiple" && ce > 1
+        ? ((J = {}),
+          (ge = E[Xe % ce]),
+          (Te = E[(Xe + 1) % ce]),
+          console.log(ge),
+          console.log(Te),
+          (J.seqf = ge.seqf),
+          (J.seqr = qe.revcomp(Te.seqf)),
+          (J.lenf = J.seqf.length),
+          (J.lenr = J.seqr.length),
+          (J.tmf = ge.tmf),
+          (J.tmr = Te.tmf),
+          (J.ta = Math.min(J.tmf, J.tmr) + 1),
+          J.ta > 72 && (J.ta = 72),
+          (J.seqfpflap = ge.seqfpflap),
+          (J.seqrpflap = qe.revcomp(Te.seqfpflap)),
+          (J.seqfanneal = ge.seqfanneal),
+          (J.seqranneal = Te.seqrnbanneal),
+          (J.idprefix = ge.idprefix + "_" + Te.idprefix),
+          (J.description = ge.description + " " + Te.description),
+          (J.locf = Number(ge.locf)),
+          (J.locr = Number(Te.locf) + Te.seqrnbanneal.length),
+          console.info("locf", J.locf, "locr", J.locr),
+          console.log("seqlen", ie),
+          Xe == ce - 1
+            ? (J.fraglen = J.seqfpflap.length + (ie - J.locf) + J.locr + J.seqrpflap.length)
+            : (J.fraglen =
+                J.locr > J.locf
+                  ? J.seqfpflap.length + (J.locr - J.locf) + J.seqrpflap.length
+                  : J.seqfpflap.length + (ie - J.locf) + J.locr + J.seqrpflap.length),
+          console.log("fraglen", J.fraglen),
+          Te.locf < ge.locf ? (J.wraparound = !0) : (J.wraparound = !1),
+          console.log("wraparound", J.wraparound),
+          Te.locf - ge.locf < 60 && Te.locf - ge.locf > 0 ? (J.clash = !0) : (J.clash = !1),
+          console.log("clash", J.clash),
+          ue.push(J))
+        : ((J = {}),
+          (ge = E[Xe % ce]),
+          (J.seqf = ge.seqf),
+          (J.seqr = qe.revcomp(ge.seqf)),
+          (J.lenf = J.seqf.length),
+          (J.lenr = J.seqr.length),
+          (J.tmf = ge.tmf),
+          (J.tmr = ge.tmf),
+          (J.ta = Math.min(J.tmf, J.tmr) + 1),
+          J.ta > 72 && (J.ta = 72),
+          (J.seqfpflap = ge.seqfpflap),
+          (J.seqrpflap = qe.revcomp(ge.seqfpflap)),
+          (J.seqfanneal = ge.seqfanneal),
+          (J.seqranneal = ge.seqrnbanneal),
+          (J.idprefix = ge.idprefix),
+          (J.description = ge.description),
+          (J.locf = ge.locf),
+          (J.locr = ge.locf + ge.seqrnbanneal.length),
+          (J.fraglen = ie + ge.seqrnbanneal.length),
+          ue.push(J));
+    return ue;
+  };
+  let Nt = "Substitution";
+  function Tl(E) {
+    (e(22, (Nt = E)),
+      console.log("Selected:", Nt),
+      Nt == "Substitution"
+        ? e(7, (q = !1))
+        : Nt == "Deletion"
+          ? (e(7, (q = !0)), e(4, (d = "")))
+          : Nt == "Insertion" && ((w = ""), e(7, (q = !0)), e(3, (h = u + 1))));
+  }
+  function Jt(E) {
+    const ee = document.getElementById(E);
+    if (!ee) return null;
+    const ne = window.getSelection();
+    let ae, ue, ie;
+    if (ne.rangeCount > 0) {
+      ne.focusNode;
+      const ce = ne.getRangeAt(0);
+      return ee.contains(ce.commonAncestorContainer)
+        ? ((ae = ce.startOffset),
+          (ue = ne.toString()),
+          (ie = l.slice(ae, ae + ue.length)),
+          ne.removeAllRanges(),
+          [ae, ie])
+        : null;
+    }
+    return (ne.removeAllRanges(), null);
+  }
+  let Zt = 0,
+    gt = null;
+  function ls() {
+    let E = !r.isCircular;
+    e(88, (n = Jt("legacy_fwd_seq"))) ||
+    e(88, (n = Jt("legacy_rev_seq"))) ||
+    e(88, (n = Jt("indel_fwd_seq"))) ||
+    e(88, (n = Jt("indel_rev_seq")))
+      ? (n != "" && (Et(), e(21, (Re = n[1]))),
+        e(2, (u = n[0])),
+        u == 0 && (E ? e(2, (u = 1)) : e(2, (u = l.length))),
+        e(3, (h = u + n[1].length + 1)))
+      : e(88, (n = Jt("codon_fwd_seq")))
+        ? n[1].length <= 3 && (e(15, (F = (F + n[0]) % l.length)), Kt())
+        : e(88, (n = Jt("codon_orf_fwd")))
+          ? n[1].length <= 3 && Hl(n[0], F)
+          : e(88, (n = Jt("codon_aa_fwd"))) && n[1].length <= 3 && Hl(n[0], F);
+  }
+  document.addEventListener("click", (E) => {
+    (Zt++,
+      Zt === 1
+        ? (gt = setTimeout(() => {
+            ((Zt = 0), ls());
+          }, Qa))
+        : Zt === 2 && (clearTimeout(gt), (Zt = 0)));
+  });
+  function Kt() {
+    (e(14, (B = "")), ht());
+  }
+  function ss() {
+    (e(15, (F = 1)), Kt());
+  }
+  function jt(E) {
+    (console.log("addCodonOp2"), console.log(E));
+    let ee = [E.srcaa, E.cdn.toString(), E.rep].join("");
+    (E.target && (ee += ":" + E.target.toLowerCase()),
+      console.log(ee),
+      e(14, (B += (B.length > 0 ? " " : "") + ee)));
+  }
+  function Hl(E, ee) {
+    (console.log("addCodonOp1"), console.log(E, ee));
+    let ne = Math.floor(E / 3) + 1;
+    console.log("cdn", ne);
+    let ae = (ee + (ne - 1) * 3 - 1) % l.length,
+      ue = (ae + 3) % l.length,
+      ie = ae < ue ? l.slice(ae, ue) : l.slice(ae) + l.slice(0, ue);
+    console.log("_srccdn", ie);
+    let ce = qe.translate(ie);
+    (console.log("_srcaa", ce),
+      e(51, (ke.srcaa = ce), ke),
+      e(51, (ke.srcaa3 = qe.AMINO_ACID_OLC[ce]), ke),
+      e(51, (ke.srccdn = ie.toUpperCase()), ke),
+      e(51, (ke.cdn = ne), ke),
+      e(51, (ke.orfstart = ee), ke),
+      I == "mindist" ? e(51, (ke.order = "cdn"), ke) : e(51, (ke.order = "cut"), ke),
+      j.showModal());
+  }
+  const Fl = [[], []],
+    jl = () => te.showModal();
+  function Vl(E) {
+    ((r = E), e(1, r));
+  }
+  const _l = () => K.showModal();
+  function bl(E) {
+    ((te = E), e(47, te));
+  }
+  function ns(E) {
+    ((K = E), e(48, K));
+  }
+  function Yt(E) {
+    ((_e = E), e(44, _e));
+  }
+  function is(E) {
+    ((le = E), e(34, le));
+  }
+  function Sl(E) {
+    ((x = E), e(33, x));
+  }
+  function os(E) {
+    ((re = E), e(32, re));
+  }
+  function kt(E) {
+    ((O = E), e(46, O));
+  }
+  function Rt(E) {
+    ((z = E), e(35, z));
+  }
+  function Rl(E) {
+    ((fe = E), e(36, fe));
+  }
+  function Ul(E) {
+    ((we = E), e(43, we));
+  }
+  function kl(E) {
+    ((de = E), e(37, de));
+  }
+  function rs(E) {
+    ((pe = E), e(38, pe));
+  }
+  function il(E) {
+    ((ye = E), e(39, ye));
+  }
+  function Wt(E) {
+    ((ve = E), e(40, ve));
+  }
+  function It(E) {
+    ((me = E), e(42, me));
+  }
+  function Il(E) {
+    ((Se = E), e(41, Se));
+  }
+  function Dl(E) {
+    ((he = E), e(49, he));
+  }
+  function Qt() {
+    ((_ = nn(this)), e(6, _));
+  }
+  const Ol = () => {
+      (e(45, (j.returnValue = _), j), j.close());
+    },
+    as = () => {
+      (e(6, (_ = "")), j.close());
+    };
+  function Ss(E) {
+    ((j = E), e(45, j));
+  }
+  function ds(E) {
+    ((ke = E), e(51, ke));
+  }
+  const Es = () => {
+    if (
+      (console.log("dialog closed!!!"),
+      console.log("codontag", _),
+      console.log("returnValue", j.returnValue),
+      !_ || !j.returnValue)
+    )
+      console.log("cancelled aa replacement");
+    else {
+      let E = Ye(_);
+      (console.log("tlc", E),
+        e(51, (ke.rep = qe.AMINO_ACID_TLC[E.toUpperCase()]), ke),
+        console.log("replacement", ke.rep),
+        e(51, (ke.target = _), ke),
+        jt(ke));
+    }
+  };
+  function Ns(E) {
+    ((xe = E), e(50, xe));
+  }
+  function ps() {
+    ((U = this.__value), e(13, U));
+  }
+  const wt = () => {
+      e(18, (Q = 15));
+    },
+    hs = () => x.showModal();
+  function ms() {
+    ((U = this.__value), e(13, U));
+  }
+  const Gt = () => {
+      e(18, (Q = 15));
+    },
+    Hs = () => le.showModal();
+  function dl() {
+    ((U = this.__value), e(13, U));
+  }
+  const js = () => {
+      e(18, (Q = 15));
+    },
+    Ml = () => re.showModal();
+  function Bl() {
+    ((U = this.__value), e(13, U));
+  }
+  const Is = () => {
+      e(18, (Q = 18));
+    },
+    gs = () => _e.showModal();
+  function ks() {
+    ((N = this.value), e(12, N));
+  }
+  function cs(E) {
+    ft[E ? "unshift" : "push"](() => {
+      ((Ht = E), e(57, Ht));
+    });
+  }
+  function vs(E) {
+    ((u = E), e(2, u), e(0, l), e(1, r));
+  }
+  function _s(E) {
+    ((h = E), e(3, h), e(0, l), e(1, r));
+  }
+  const Kl = () => Tl("Substitution"),
+    bs = () => Tl("Insertion"),
+    ws = () => Tl("Deletion");
+  function Ds() {
+    ((Re = this.value), e(21, Re));
+  }
+  const wl = () => {
+    console.log("querystr on:change");
+    const E = /[^a-zA-Z]/g;
+    (e(21, (Re = Re.replace(E, ""))), Re == "" ? Et() : cl());
+  };
+  function us() {
+    ((u = ys(this.value)), e(2, u), e(0, l), e(1, r));
+  }
+  function ol() {
+    ((h = ys(this.value)), e(3, h), e(0, l), e(1, r));
+  }
+  function Yl() {
+    ((d = this.value), e(4, d), e(215, al), e(5, m), e(216, gl), e(6, _));
+  }
+  function fs() {
+    ((m = nn(this)), e(5, m));
+  }
+  function As() {
+    ((Re = this.value), e(21, Re));
+  }
+  const Cs = () => {
+    console.log("querystr on:change");
+    const E = /[^a-zA-Z]/g;
+    (e(21, (Re = Re.replace(E, ""))), Re == "" ? Et() : xt());
+  };
+  function ll() {
+    ((u = ys(this.value)), e(2, u), e(0, l), e(1, r));
+  }
+  function Wl() {
+    ((h = ys(this.value)), e(3, h), e(0, l), e(1, r));
+  }
+  function pl(E) {
+    ft[E ? "unshift" : "push"](() => {
+      ((fl = E), e(56, fl));
+    });
+  }
+  function sl() {
+    ((d = this.value), e(4, d), e(215, al), e(5, m), e(216, gl), e(6, _));
+  }
+  function qs() {
+    ((m = nn(this)), e(5, m));
+  }
+  function Ql() {
+    ((_ = nn(this)), e(6, _));
+  }
+  function Vs() {
+    ((F = ys(this.value)), e(15, F), e(223, pt));
+  }
+  function Al() {
+    ((I = this.__value), e(16, I));
+  }
+  const Os = () => de.showModal();
+  function Cl() {
+    ((I = this.__value), e(16, I));
+  }
+  const Ms = () => pe.showModal(),
+    zl = () => ve.showModal();
+  function Ps() {
+    ((B = this.value), e(14, B));
+  }
+  const Gs = () => {
+    (B.toUpperCase().match(/[A-Z]\d+[X]/) ||
+      B.toUpperCase()
+        .trim()
+        .split(/[\s,;]+/).length == 1) &&
+      e(17, (H = !1));
+  };
+  function Us() {
+    ((H = this.checked), e(17, H));
+  }
+  const zt = () => ye.showModal(),
+    $t = () => O.showModal();
+  function rl() {
+    ((st = this.value), e(52, st));
+  }
+  function Be(E) {
+    ft[E ? "unshift" : "push"](() => {
+      ((nt = E), e(53, nt));
+    });
+  }
+  function vt() {
+    ((Je = this.value), e(20, Je));
+  }
+  function Pl() {
+    ((q = this.checked), e(7, q));
+  }
+  const Xs = () => z.showModal();
+  function xs() {
+    ((C = this.checked), e(8, C));
+  }
+  const Tn = () => fe.showModal();
+  function fn() {
+    ((k = this.checked), e(11, k));
+  }
+  const Sn = () => we.showModal();
+  function dn() {
+    ((Q = ys(this.value)), e(18, Q));
+  }
+  const kn = () => me.showModal();
+  function pn() {
+    ((Z = ys(this.value)), e(19, Z));
+  }
+  const Mn = () => Se.showModal(),
+    hn = () => he.showModal();
+  function Pn() {
+    ((R = this.value), e(28, R));
+  }
+  function mn() {
+    ((M = this.value), e(24, M));
+  }
+  function Ln() {
+    ((P = this.value), e(25, P));
+  }
+  function gn() {
+    ((G = this.value), e(27, G));
+  }
+  function En() {
+    ((L = this.value), e(26, L));
+  }
+  const vn = () => xe.showModal();
+  function Nn(E) {
+    ((y = E), e(10, y));
+  }
+  function _n(E) {
+    ((y = E), e(10, y));
+  }
+  return (
+    (s.$$.update = () => {
+      (s.$$.dirty[0] & 256 && e(8, C),
+        s.$$.dirty[2] & 33554432 && e(87, nl),
+        s.$$.dirty[0] & 4096 && e(12, (N = N || "")),
+        s.$$.dirty[0] & 2 && e(0, (l = r.seq)),
+        s.$$.dirty[0] & 2 && (a = r.frag),
+        s.$$.dirty[0] & 262144 && e(18, Q),
+        s.$$.dirty[0] & 524288 && e(19, Z),
+        s.$$.dirty[0] & 1 && xl(),
+        s.$$.dirty[0] & 1024 && e(10, y),
+        s.$$.dirty[0] & 5 && e(2, (u = u <= l.length ? u : u % l.length)),
+        s.$$.dirty[0] & 9 && e(3, (h = h <= l.length ? h : h % l.length)),
+        s.$$.dirty[0] & 32768 && e(15, (F = pt(F))),
+        s.$$.dirty[0] & 32 && e(4, (d = al(m))),
+        s.$$.dirty[0] & 64 && e(4, (d = gl(_))),
+        s.$$.dirty[0] & 1022367 && e(9, (A = ht())),
+        s.$$.dirty[0] & 1073153 && yt(),
+        s.$$.dirty[0] & 1 && Et(),
+        s.$$.dirty[0] & 2097152 && e(21, Re),
+        s.$$.dirty[0] & 4194304 && e(22, Nt),
+        s.$$.dirty[0] & 131584 && e(23, (b = ts(A, H, Wa))),
+        s.$$.dirty[2] & 67108864 && e(88, n));
+    }),
+    [
+      l,
+      r,
+      u,
+      h,
+      d,
+      m,
+      _,
+      q,
+      C,
+      A,
+      y,
+      k,
+      N,
+      U,
+      B,
+      F,
+      I,
+      H,
+      Q,
+      Z,
+      Je,
+      Re,
+      Nt,
+      b,
+      M,
+      P,
+      L,
+      G,
+      R,
+      W,
+      D,
+      V,
+      re,
+      x,
+      le,
+      z,
+      fe,
+      de,
+      pe,
+      ye,
+      ve,
+      Se,
+      me,
+      we,
+      _e,
+      j,
+      O,
+      te,
+      K,
+      he,
+      xe,
+      ke,
+      st,
+      nt,
+      ze,
+      tl,
+      fl,
+      Ht,
+      oe,
+      Ye,
+      Le,
+      je,
+      ct,
+      tt,
+      We,
+      Ee,
+      Qe,
+      St,
+      _t,
+      qt,
+      yt,
+      ht,
+      dt,
+      xt,
+      Jl,
+      Gl,
+      cl,
+      bt,
+      Zl,
+      ul,
+      $l,
+      Et,
+      es,
+      Tl,
+      Kt,
+      ss,
+      jt,
+      nl,
+      n,
+      jl,
+      Vl,
+      _l,
+      bl,
+      ns,
+      Yt,
+      is,
+      Sl,
+      os,
+      kt,
+      Rt,
+      Rl,
+      Ul,
+      kl,
+      rs,
+      il,
+      Wt,
+      It,
+      Il,
+      Dl,
+      Qt,
+      Ol,
+      as,
+      Ss,
+      ds,
+      Es,
+      Ns,
+      ps,
+      Fl,
+      wt,
+      hs,
+      ms,
+      Gt,
+      Hs,
+      dl,
+      js,
+      Ml,
+      Bl,
+      Is,
+      gs,
+      ks,
+      cs,
+      vs,
+      _s,
+      Kl,
+      bs,
+      ws,
+      Ds,
+      wl,
+      us,
+      ol,
+      Yl,
+      fs,
+      As,
+      Cs,
+      ll,
+      Wl,
+      pl,
+      sl,
+      qs,
+      Ql,
+      Vs,
+      Al,
+      Os,
+      Cl,
+      Ms,
+      zl,
+      Ps,
+      Gs,
+      Us,
+      zt,
+      $t,
+      rl,
+      Be,
+      vt,
+      Pl,
+      Xs,
+      xs,
+      Tn,
+      fn,
+      Sn,
+      dn,
+      kn,
+      pn,
+      Mn,
+      hn,
+      Pn,
+      mn,
+      Ln,
+      gn,
+      En,
+      vn,
+      Nn,
+      _n,
+    ]
+  );
+}
+class Xa extends Nl {
+  constructor(t) {
+    (super(), El(this, t, za, Ya, yl, {}, null, [-1, -1, -1, -1, -1, -1, -1, -1]));
+  }
+}
+function xa(s) {
+  let t;
+  return {
+    c() {
+      ((t = c("div")),
+        (t.innerHTML = `<div><div><a href="" onclick="history.back()">Home Page</a></div> 
+    
+    <h3 class="">About this application</h3> 
+
+    <p>NEBaseChanger is a simple yet powerful tool to design primers for site-directed mutagenesis experiments using the Q5 Site-Directed Mutagenesis Kit. In addition to generating primer sequences, an annealing temperature (Ta) for the PCR is calculated with knowledge of the preferred PCR polymerase, its buffer composition, the preferred primer concentration and any mismatches or loops within the primer.</p> 
+
+	<p>The Q5 Site-Directed Mutagenesis Kit enables rapid, site-specific mutagenesis of double-stranded plasmid DNA in less than 2 hours. The kit utilizes the robust Q5 Hot Start High-Fidelity DNA Polymerase along with custom mutagenic primers to create insertions, deletions, and substitutions in a wide variety of plasmids. NEBaseChanger will design the custom mutagenic primers for use in the Q5 Site-Directed Mutagenesis Kit. Primers designed for this kit can accommodate more complex mutagenic strategies than other commercial SDM kits including multiple substitutions within a 100 nucleotide region or insertions up to 100 nucleotides long. In addition, due to the use of back-to-back primers, there is no limit to the size of the deletion that can be introduced using this kit.</p> 
+
+    <h4 class="">System Requirements</h4> 
+
+    <p>This application is best used on modern web browsers that are compliant with HTML5 and CSS3 standards.  Javascript must be enabled for the tool to work.</p> 
+
+
+    <h4 class="orange">Updates</h4> 
+    <dl><dt class="svelte-12gs2qw">v2.8.4 July 10 2026</dt><dd>Repaired file downloading issue when mutation was a deletion..
+        </dd><dt class="svelte-12gs2qw">v2.8.3 June 23, 2026</dt><dd>Added Q5-SDM troubleshooting module.
+        </dd><dt class="svelte-12gs2qw">v2.7.3 March 2, 2026</dt><dd>Minor edit to Help to clarify when the NEBuilder option is accessible.
+        </dd><dt class="svelte-12gs2qw">v2.7.2 March 2, 2026</dt><dd>Repaired reverse primer using partial sequence input, where the rev primer 5&#39; end was off by 1 nt.
+        </dd><dt class="svelte-12gs2qw">v2.7.1 February 17, 2026</dt><dd>Repaired misplaced reverse primer when using partial sequence input.
+        </dd><dt class="svelte-12gs2qw">v2.7.0 February 9, 2026</dt><dd>Added link to NEBuilder Calculator when NEBuilder primers are generated.
+        </dd><dt class="svelte-12gs2qw">v2.6.10 February 6, 2026</dt><dd>Repaired broken Save Summary function when NEBuilder primers were generated.
+        </dd><dt class="svelte-12gs2qw">v2.6.9 December 12, 2025</dt><dd>Bundled release includes following feature enhancements:<br/>
+            -- support for partial template sequences.<br/>
+            -- support for merged mutations in Codon mode.<br/>
+            -- Legacy mode to emulate NEBaseChanger V1.<br/>
+            -- text selection of target sequences.<br/>
+            -- point-and-click codon selection in codon mode.<br/>
+            -- optional explicit triplet specification for point mutation designation.<br/>
+            -- ORF start reset, ORF auto location, and ORF start set by click in sequence.<br/>
+            Added warning that text selection fails in Safari with long sequences.<br/>
+            Repaired problems with circular sequence support where mutations/primers span origin.<br/>
+            Removed the single-site option from NEBuilder HiFi primer generation.<br/>
+            Repaired result sequence download and added download of all result sequences.
+            Updated Help to reflect the new feature set and other changes.
+        </dd><dt class="svelte-12gs2qw">v2.5.4 July 15, 2025</dt><dd>Revised shortcut icon (favicon).
+        </dd><dt class="svelte-12gs2qw">v2.5.3 June 11, 2025</dt><dd>Removed extraneous underscore from primer ID. Removed link to NEBaseChanger v1.
+        </dd><dt class="svelte-12gs2qw">v2.5.2 October 14, 2024</dt><dd>Updated Help text.
+        </dd><dt class="svelte-12gs2qw">v2.5.1 July 5, 2024</dt><dd>New NEB logo.
+        </dd><dt class="svelte-12gs2qw">v2.5.0 April 16, 2024</dt><dd>Added option to adjust primer minimum Tm and minimum length.
+        </dd><dt class="svelte-12gs2qw">v2.4.4 February 15, 2024</dt><dd>Fixed critical issue that prevented download of the final mutated sequence in AA mode.
+        </dd><dt class="svelte-12gs2qw">v2.4.3 January 24, 2024</dt><dd>Fixed annoying issue that inserted underscores after every letter in a Primer Set ID.
+        </dd><dt class="svelte-12gs2qw">v2.4.2 October 17, 2023</dt><dd>Added option to preserve degenerate base codes in primers.
+        </dd><dt class="svelte-12gs2qw">v2.4.1 September 28, 2023</dt><dd>Fixed issue where minimum primer length was still falling below 15 when mutations were confined to 5<sup>\u2032</sup> primer tails.
+        </dd><dt class="svelte-12gs2qw">v2.4.0 September 27, 2023</dt><dd>Fixed issue where minimum primer length was falling below 15 when mutations were confined to 5<sup>\u2032</sup> primer tails.
+            Changed definition of &quot;X&quot; amino acid to represent the codon NNK (was NNN).
+        </dd><dt class="svelte-12gs2qw">v2.3.2 September 7, 2023</dt><dd>Changed default selection for NEBuilder Primer type to &#39;multiple&#39;.
+        </dd><dt class="svelte-12gs2qw">v2.3.1 August 4, 2023</dt><dd>Raised minimum primer length to 15 nt.
+        </dd><dt class="svelte-12gs2qw">v2.3.0 July 17, 2023</dt><dd>Added &#39;All&#39; option to AA dropdown -- equivalent to &#39;NNN&#39;. And added help dialog for one-letter codes. Enforced exclusivity 
+            between NEBuilder HiFi primer generation and confining mutations to 5<sup>\u2032</sup> primer tails.
+        </dd><dt class="svelte-12gs2qw">v2.2.1 June 27, 2023</dt><dd>Minor changes to UI and documentation.
+        </dd><dt class="svelte-12gs2qw">v2.2.0 June 26, 2023</dt><dd>Added NEBuider HiFi-compatible primer generation for AA point mutation mode.
+    	</dd><dt class="svelte-12gs2qw">v2.1.1 June 7, 2023</dt><dd>Fixed/restored missing Gln to AA replacement list.
+    	</dd><dt class="svelte-12gs2qw">v2.1.0 June 1, 2023</dt><dd>Added codon selection strategies for AA point mutation mode.
+    	</dd><dt class="svelte-12gs2qw">v2.0.1 May 23, 2023</dt><dd>Repair OneTrust cookie manager implementation.
+    	</dd><dt class="svelte-12gs2qw">v2.0.0 May 17, 2023</dt><dd>Initial release of NEBaseChanger V2. <br/>
+            This major version upgrade adds:<br/> 
+            <ul><li>consolidated, streamlined insertion/deletion/substitution input view</li> 
+            	<li>added new AA point mutation mode</li> 
+            	<li>added new batch input mode allowing multiple general indel/substitution actions along with AA point mutations</li> 
+            	<li>added support for ambiguous bases in replacement sequences which generate multiple primer sets</li> 
+            	<li>added support for choosing between inline mutations (embedded in the middle of the primer annealing segment) and mutations confined to the 5\u2032 primer tail</li></ul></dd></dl></div>`),
+        i(t, "class", "container"));
+    },
+    m(e, n) {
+      v(e, t, n);
+    },
+    p: be,
+    i: be,
+    o: be,
+    d(e) {
+      e && g(t);
+    },
+  };
+}
+class Ja extends Nl {
+  constructor(t) {
+    (super(), El(this, t, null, xa, yl, {}));
+  }
+}
+const Za = "/assets/image003.3a95346d.jpg",
+  ti = "/assets/NEBtools_help_icon.fd8dd3fc.svg",
+  $a = "/assets/check_mark.7ca807e2.svg",
+  ec = "/assets/question_mark.8bf863ee.svg";
+function Ao(s, t, e) {
+  const n = s.slice();
+  return ((n[12] = t[e]), n);
+}
+function tc(s) {
+  let t,
+    e,
+    n,
+    l,
+    a = s[1].output + "";
+  return {
+    c() {
+      ((t = c("img")),
+        (n = S()),
+        (l = c("p")),
+        i(t, "class", "infoicon svelte-19ximha"),
+        Ft(t.src, (e = $a)) || i(t, "src", e),
+        i(l, "class", "bot-text-t svelte-19ximha"));
+    },
+    m(r, f) {
+      (v(r, t, f), v(r, n, f), v(r, l, f), (l.innerHTML = a));
+    },
+    p(r, f) {
+      f & 2 && a !== (a = r[1].output + "") && (l.innerHTML = a);
+    },
+    d(r) {
+      (r && g(t), r && g(n), r && g(l));
+    },
+  };
+}
+function lc(s) {
+  let t,
+    e,
+    n,
+    l,
+    a = s[1].output + "";
+  return {
+    c() {
+      ((t = c("img")),
+        (n = S()),
+        (l = c("p")),
+        i(t, "class", "infoicon svelte-19ximha"),
+        Ft(t.src, (e = ec)) || i(t, "src", e),
+        i(l, "class", "bot-text-q svelte-19ximha"));
+    },
+    m(r, f) {
+      (v(r, t, f), v(r, n, f), v(r, l, f), (l.innerHTML = a));
+    },
+    p(r, f) {
+      f & 2 && a !== (a = r[1].output + "") && (l.innerHTML = a);
+    },
+    d(r) {
+      (r && g(t), r && g(n), r && g(l));
+    },
+  };
+}
+function sc(s) {
+  let t;
+  return {
+    c() {
+      ((t = c("div")),
+        (t.innerHTML =
+          'If you need additional help, please contact Technical Support by emailing info@neb.com or using the <a href="https://www.neb.com/support/neb-technical-support" target="_page">Technical Support form</a>.'),
+        i(t, "class", "terminal-badge svelte-19ximha"));
+    },
+    m(e, n) {
+      v(e, t, n);
+    },
+    p: be,
+    d(e) {
+      e && g(t);
+    },
+  };
+}
+function nc(s) {
+  let t,
+    e = s[2],
+    n = [];
+  for (let l = 0; l < e.length; l += 1) n[l] = Co(Ao(s, e, l));
+  return {
+    c() {
+      for (let l = 0; l < n.length; l += 1) n[l].c();
+      t = Xl();
+    },
+    m(l, a) {
+      for (let r = 0; r < n.length; r += 1) n[r].m(l, a);
+      v(l, t, a);
+    },
+    p(l, a) {
+      if (a & 20) {
+        e = l[2];
+        let r;
+        for (r = 0; r < e.length; r += 1) {
+          const f = Ao(l, e, r);
+          n[r] ? n[r].p(f, a) : ((n[r] = Co(f)), n[r].c(), n[r].m(t.parentNode, t));
+        }
+        for (; r < n.length; r += 1) n[r].d(1);
+        n.length = e.length;
+      }
+    },
+    d(l) {
+      (Ys(n, l), l && g(t));
+    },
+  };
+}
+function Co(s) {
+  let t,
+    e,
+    n,
+    l = s[12] + "",
+    a,
+    r,
+    f,
+    u;
+  function h(...d) {
+    return s[9](s[12], ...d);
+  }
+  return {
+    c() {
+      ((t = c("div")),
+        (e = c("span")),
+        (e.textContent = "\u2794"),
+        (n = T(" \xA0")),
+        (a = T(l)),
+        (r = S()),
+        i(e, "class", "larger svelte-19ximha"),
+        i(t, "class", "btn-option svelte-19ximha"));
+    },
+    m(d, p) {
+      (v(d, t, p), o(t, e), o(t, n), o(t, a), o(t, r), f || ((u = se(t, "click", h)), (f = !0)));
+    },
+    p(d, p) {
+      ((s = d), p & 4 && l !== (l = s[12] + "") && $(a, l));
+    },
+    d(d) {
+      (d && g(t), (f = !1), u());
+    },
+  };
+}
+function ic(s) {
+  let t;
+  return {
+    c() {
+      ((t = c("span")), (t.textContent = "\xA0\xA0\xA0\xA0\xA0"));
+    },
+    m(e, n) {
+      v(e, t, n);
+    },
+    p: be,
+    d(e) {
+      e && g(t);
+    },
+  };
+}
+function oc(s) {
+  let t, e, n, l, a, r;
+  return {
+    c() {
+      ((t = c("button")),
+        (e = c("span")),
+        (e.textContent = "\u2B05\uFE0E"),
+        (n = T(" Back")),
+        i(e, "class", "larger svelte-19ximha"),
+        i(t, "class", "button btn btn-link-flat svelte-19ximha"),
+        (t.disabled = l = s[0].length === 0));
+    },
+    m(f, u) {
+      (v(f, t, u), o(t, e), o(t, n), a || ((r = se(t, "click", s[10])), (a = !0)));
+    },
+    p(f, u) {
+      u & 1 && l !== (l = f[0].length === 0) && (t.disabled = l);
+    },
+    d(f) {
+      (f && g(t), (a = !1), r());
+    },
+  };
+}
+function rc(s) {
+  let t, e, n, l, a, r, f, u, h, d, p, m, _, w, q, C, A, b, y;
+  function k(F, I) {
+    return F[1].isTerminal ? tc : lc;
+  }
+  let M = k(s),
+    P = M(s);
+  function L(F, I) {
+    return F[1].isTerminal ? sc : nc;
+  }
+  let G = L(s),
+    R = G(s);
+  function N(F, I) {
+    return F[0].length > 0 ? oc : ic;
+  }
+  let U = N(s),
+    B = U(s);
+  return {
+    c() {
+      ((t = c("div")),
+        (e = c("div")),
+        (e.innerHTML = '<a href="" onclick="history.back()">Home Page</a>'),
+        (n = S()),
+        (l = c("blockquote")),
+        (l.textContent =
+          "Site-directed mutagenesis (SDM) can be a challenging experiment even in the hands of experienced users. Even if you have used the same template sequence, but now incorporate new mutations, success is not guaranteed. In our experience troubleshooting with our customers over the years, most SDM issues arise from the PCR step or the competent cells used. This troubleshooting flow chart is intended to help enable you with information about corrective actions to overcome undesired results."),
+        (a = S()),
+        (r = c("main")),
+        (f = c("h2")),
+        (f.textContent = `${s[3].meta.name}`),
+        (u = S()),
+        (h = c("div")),
+        P.c(),
+        (d = S()),
+        (p = c("div")),
+        R.c(),
+        (m = S()),
+        (_ = c("hr")),
+        (w = S()),
+        (q = c("div")),
+        B.c(),
+        (C = S()),
+        (A = c("button")),
+        (A.textContent = "Restart"),
+        i(f, "class", "svelte-19ximha"),
+        i(h, "class", "chat-bubble svelte-19ximha"),
+        i(p, "class", "actions svelte-19ximha"),
+        i(A, "class", "button btn btn-link-cta svelte-19ximha"),
+        i(q, "class", "navigation-controls svelte-19ximha"),
+        i(r, "class", "appsection svelte-19ximha"),
+        i(t, "class", "container"));
+    },
+    m(F, I) {
+      (v(F, t, I),
+        o(t, e),
+        o(t, n),
+        o(t, l),
+        o(t, a),
+        o(t, r),
+        o(r, f),
+        o(r, u),
+        o(r, h),
+        P.m(h, null),
+        o(r, d),
+        o(r, p),
+        R.m(p, null),
+        o(r, m),
+        o(r, _),
+        o(r, w),
+        o(r, q),
+        B.m(q, null),
+        o(q, C),
+        o(q, A),
+        b || ((y = se(A, "click", s[11])), (b = !0)));
+    },
+    p(F, [I]) {
+      (M === (M = k(F)) && P ? P.p(F, I) : (P.d(1), (P = M(F)), P && (P.c(), P.m(h, null))),
+        G === (G = L(F)) && R ? R.p(F, I) : (R.d(1), (R = G(F)), R && (R.c(), R.m(p, null))),
+        U === (U = N(F)) && B ? B.p(F, I) : (B.d(1), (B = U(F)), B && (B.c(), B.m(q, C))));
+    },
+    i: be,
+    o: be,
+    d(F) {
+      (F && g(t), P.d(), R.d(), B.d(), (b = !1), y());
+    },
+  };
+}
+function ac(s, t, e) {
+  let n, l;
+  const a = {
+    meta: { name: "Q5-SDM Troubleshooting Guide", initialState: "S1", version: "0.10" },
+    states: {
+      S1: {
+        output: "Did you observe colonies after the transformation?",
+        isTerminal: !1,
+        transitions: { Yes: "S8", No: "S2" },
+      },
+      S8: {
+        output:
+          "Are you observing wildtype colonies (template plasmid sequence) or colonies with the wrong mutations?",
+        isTerminal: !1,
+        transitions: {
+          "Wildtype colonies (colonies have the template plasmid sequence)": "S10",
+          "Colonies with the wrong mutations": "S11",
+        },
+      },
+      S10: {
+        output:
+          "Colonies may possess the wildtype sequence if the template plasmid from the PCR step was not fully digested by the KLD Enzyme Mix prior to transformation. <br><ul><li>Use less template (\u2264 10 ng) in the PCR step to increase the likelihood of complete digestion during the KLD reaction. </li><li>Give the KLD reaction more time to digest the template by incubating at room temperature for 30-60 minutes. </li></ul>",
+        isTerminal: !0,
+        transitions: {},
+      },
+      S11: {
+        output:
+          "<b>SNPs or other small sequence changes</b> usually arise through random mutations that accumulate during PCR, random mutations introduced by the competent cell, or are sequencing artifacts introduced by a DNA polymerase with lower fidelity than Q5. <br><ul><li>If the same SNP is observed consistently, sequence the plasmid template to ensure it has the sequence that you expect. </li><li>If the same SNP is not observed consistently for the same colony, it is likely a sequencing artifact. </li></ul><br><b>Nucleotide errors at 5\u2019 primer junctions</b> are most commonly due to long primer impurities that arise during oligonucleotide synthesis.  <br><ul><li> Primers purified by standard desalting does not remove N-1, N-2 impurities. We recommend HPLC purification of longer primers. </li></ul><br><b>Large indels or unexpected mutations</b> typically result from the mutagenized construct causing cellular toxicity or nonspecific PCR products. <br><ul><li> To determine if these mutations arise from PCR or transformation, you can sequence the PCR product and the transformed colony. </li><li> Optimize PCR </li><li> Try NEB\xAE Stable Competent E. coli (High Efficiency) (C3040), which are ideal for isolation of plasmid clones containing repeat elements and unstable inserts, such as retroviral/lentiviral clones. </li></ul>",
+        isTerminal: !0,
+        transitions: {},
+      },
+      S2: {
+        output: "Have you run the PCR product on a gel?",
+        is_terminal: !1,
+        transitions: { Yes: "S4", No: "S3" },
+      },
+      S3: {
+        output:
+          "Run the PCR product on a gel to confirm a single, robust band at the expected size. We recommend performing the provided SDM Control reaction in parallel to determine if the issue is related to the Q5\xAE Hot Start High-Fidelity 2X Master Mix, input, or primers (<a href='https://www.neb.com/en-us/protocols/protocol-for-control-reaction-e0554'target='_page'>view protocol</a>). <br> If you need assistance troubleshooting your PCR, please contact Technical Support and provide a picture of your gel.",
+        isTerminal: !0,
+        transitions: {},
+      },
+      S4: {
+        output: "Which option below describes the results of your gel?",
+        isTerminal: !1,
+        transitions: {
+          "No amplification": "S6",
+          "Non-specific amplification including the  desired band at expected length": "S5",
+          "Non-specific amplification without the desired band at expected length": "S7",
+        },
+      },
+      S6: {
+        output:
+          "Perform the Protocol for the Control Reaction (<a href='https://www.neb.com/en-us/protocols/protocol-for-control-reaction-e0554'target='_page'>view protocol</a>) and run the PCR product on an agarose gel to confirm that a 6.7kb band is observed to determine that the Q5\xAE Hot Start High-Fidelity 2X Master Mix is functional. <br><br> PCR of long templates will be extremely difficult if the template plasmid does not have integrity. Check that your template plasmid is mostly supercoiled and free from nucleases by running some of it on a gel. Confirm the sequence.",
+        isTerminal: !0,
+        transitions: {},
+      },
+      S5: {
+        output:
+          "Carefully extract the desired band from the gel and purify using the Monarch\xAE Spin DNA Gel Extraction Kit (T1120). Up to 4ul of gel-purified product can be used in the KLD reaction.",
+        isTerminal: !0,
+        transitions: {},
+      },
+      S7: {
+        output:
+          "Troubleshoot or optimize the PCR for your unique construct. <br><ul><li>Perform an annealing gradient. </li><li> Check out our <a href='https://www.neb.com/en-us/tools-and-resources/troubleshooting-guides/pcr-troubleshooting-guide' target='_page'>PCR Troubleshooting Guide</a> and <a href='https://www.neb.com/en-us/tools-and-resources/usage-guidelines/guidelines-for-pcr-optimization-with-thermophilic-dna-polymerases' target='_page'>Guidelines for PCR Optimization</a>.</li><li> Redesign and test new primer(s).</li></ul>",
+        isTerminal: !0,
+        transitions: {},
+      },
+    },
+  };
+  let r = a.meta.initialState,
+    f = [],
+    {
+      onStateChange: u = (q) => {
+        console.log(q);
+      },
+    } = t;
+  function h(q) {
+    (e(0, (f = [...f, r])), e(8, (r = n.transitions[q])));
+  }
+  function d() {
+    if (f.length > 0) {
+      const q = f[f.length - 1];
+      (e(0, (f = f.slice(0, -1))), e(8, (r = q)));
+    }
+  }
+  function p() {
+    (e(8, (r = a.meta.initialState)), e(0, (f = [])));
+  }
+  const m = (q, C) => {
+      (h(q), C.target.blur());
+    },
+    _ = (q) => {
+      (d(), q.target.blur());
+    },
+    w = (q) => {
+      (p(), q.target.blur());
+    };
+  return (
+    (s.$$set = (q) => {
+      "onStateChange" in q && e(7, (u = q.onStateChange));
+    }),
+    (s.$$.update = () => {
+      (s.$$.dirty & 256 && e(1, (n = a.states[r])),
+        s.$$.dirty & 2 && e(2, (l = Object.keys(n.transitions))),
+        s.$$.dirty & 387 &&
+          r &&
+          (u == null || u({ stateId: r, state: n, isTerminal: n.isTerminal, historyStack: f })));
+    }),
+    [f, n, l, a, h, d, p, u, r, m, _, w]
+  );
+}
+class cc extends Nl {
+  constructor(t) {
+    (super(), El(this, t, ac, rc, yl, { onStateChange: 7 }));
+  }
+}
+function qo(s, t, e) {
+  const n = s.slice();
+  return ((n[15] = t[e]), n);
+}
+function uc(s) {
+  let t,
+    e,
+    n,
+    l = [],
+    a = new Map(),
+    r = s[0];
+  const f = (u) => u[15].id;
+  for (let u = 0; u < r.length; u += 1) {
+    let h = qo(s, r, u),
+      d = f(h);
+    a.set(d, (l[u] = yo(d, h)));
+  }
+  return {
+    c() {
+      ((t = c("p")), (t.textContent = "On this page"), (e = S()), (n = c("ul")));
+      for (let u = 0; u < l.length; u += 1) l[u].c();
+      (i(t, "class", "toc-title svelte-7ti5nw"), i(n, "class", "svelte-7ti5nw"));
+    },
+    m(u, h) {
+      (v(u, t, h), v(u, e, h), v(u, n, h));
+      for (let d = 0; d < l.length; d += 1) l[d].m(n, null);
+    },
+    p(u, h) {
+      h & 7 && ((r = u[0]), (l = ar(l, h, f, 1, u, r, a, n, rr, yo, null, qo)));
+    },
+    d(u) {
+      (u && g(t), u && g(e), u && g(n));
+      for (let h = 0; h < l.length; h += 1) l[h].d();
+    },
+  };
+}
+function fc(s) {
+  let t;
+  return {
+    c() {
+      ((t = c("p")), (t.textContent = "No headings found."), i(t, "class", "toc-empty svelte-7ti5nw"));
+    },
+    m(e, n) {
+      v(e, t, n);
+    },
+    p: be,
+    d(e) {
+      e && g(t);
+    },
+  };
+}
+function yo(s, t) {
+  let e,
+    n,
+    l = t[15].text + "",
+    a,
+    r,
+    f,
+    u,
+    h,
+    d;
+  function p(...m) {
+    return t[11](t[15], ...m);
+  }
+  return {
+    key: s,
+    first: null,
+    c() {
+      ((e = c("li")),
+        (n = c("a")),
+        (a = T(l)),
+        (f = S()),
+        i(n, "href", (r = "#" + t[15].id)),
+        i(n, "class", "svelte-7ti5nw"),
+        i(e, "class", (u = "level-" + t[15].level + " svelte-7ti5nw")),
+        fi(e, "active", t[1] === t[15].id),
+        (this.first = e));
+    },
+    m(m, _) {
+      (v(m, e, _), o(e, n), o(n, a), o(e, f), h || ((d = se(n, "click", p)), (h = !0)));
+    },
+    p(m, _) {
+      ((t = m),
+        _ & 1 && l !== (l = t[15].text + "") && $(a, l),
+        _ & 1 && r !== (r = "#" + t[15].id) && i(n, "href", r),
+        _ & 1 && u !== (u = "level-" + t[15].level + " svelte-7ti5nw") && i(e, "class", u),
+        _ & 3 && fi(e, "active", t[1] === t[15].id));
+    },
+    d(m) {
+      (m && g(e), (h = !1), d());
+    },
+  };
+}
+function dc(s) {
+  let t;
+  function e(a, r) {
+    return a[0].length === 0 ? fc : uc;
+  }
+  let n = e(s),
+    l = n(s);
+  return {
+    c() {
+      ((t = c("nav")), l.c(), i(t, "class", "toc svelte-7ti5nw"), i(t, "aria-label", "Table of contents"));
+    },
+    m(a, r) {
+      (v(a, t, r), l.m(t, null));
+    },
+    p(a, [r]) {
+      n === (n = e(a)) && l ? l.p(a, r) : (l.d(1), (l = n(a)), l && (l.c(), l.m(t, null)));
+    },
+    i: be,
+    o: be,
+    d(a) {
+      (a && g(t), l.d());
+    },
+  };
+}
+function pc(s) {
+  return s
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-");
+}
+function hc(s, t, e) {
+  let { contentSelector: n = "main" } = t,
+    { headingSelector: l = "h2, h3" } = t,
+    { scrollOffset: a = 0 } = t,
+    { smooth: r = !0 } = t,
+    { updateHash: f = !0 } = t,
+    { trigger: u = 0 } = t,
+    h = [],
+    d = "",
+    p,
+    m = !1;
+  function _() {
+    const b = document.querySelector(n);
+    if (!b) return [];
+    const y = b.querySelectorAll(l),
+      k = new Set();
+    return Array.from(y).map((M) => {
+      if (!M.id) {
+        let P = pc(M.textContent || ""),
+          L = P,
+          G = 2;
+        for (; k.has(L) || document.getElementById(L); ) L = `${P}-${G++}`;
+        M.id = L;
+      }
+      return (
+        k.add(M.id),
+        a > 0 && (M.style.scrollMarginTop = `${a}px`),
+        { id: M.id, text: M.textContent, level: parseInt(M.tagName[1], 10) }
+      );
+    });
+  }
+  function w() {
+    (p && p.disconnect(),
+      (p = new IntersectionObserver(
+        (b) => {
+          const y = b
+            .filter((k) => k.isIntersecting)
+            .sort((k, M) => k.boundingClientRect.top - M.boundingClientRect.top);
+          y.length > 0 && e(1, (d = y[0].target.id));
+        },
+        { rootMargin: `-${a}px 0px -70% 0px`, threshold: 0 },
+      )),
+      h.forEach((b) => {
+        const y = document.getElementById(b.id);
+        y && p.observe(y);
+      }));
+  }
+  async function q() {
+    (await No(), e(0, (h = _())), w());
+  }
+  function C(b, y) {
+    const k = document.getElementById(y);
+    !k ||
+      (b.preventDefault(),
+      k.scrollIntoView({ behavior: r ? "smooth" : "auto", block: "start" }),
+      f && history.pushState(null, "", `#${y}`),
+      e(1, (d = y)));
+  }
+  (ko(() => {
+    if ((e(10, (m = !0)), e(0, (h = _())), w(), window.location.hash)) {
+      const b = window.location.hash.slice(1),
+        y = document.getElementById(b);
+      y &&
+        setTimeout(() => {
+          (y.scrollIntoView({ behavior: "auto", block: "start" }), e(1, (d = b)));
+        }, 50);
+    }
+  }),
+    Mo(() => {
+      p && p.disconnect();
+    }));
+  const A = (b, y) => C(y, b.id);
+  return (
+    (s.$$set = (b) => {
+      ("contentSelector" in b && e(3, (n = b.contentSelector)),
+        "headingSelector" in b && e(4, (l = b.headingSelector)),
+        "scrollOffset" in b && e(5, (a = b.scrollOffset)),
+        "smooth" in b && e(6, (r = b.smooth)),
+        "updateHash" in b && e(7, (f = b.updateHash)),
+        "trigger" in b && e(8, (u = b.trigger)));
+    }),
+    (s.$$.update = () => {
+      s.$$.dirty & 1280 && m && u !== void 0 && q();
+    }),
+    [h, d, C, n, l, a, r, f, u, q, m, A]
+  );
+}
+class mc extends Nl {
+  constructor(t) {
+    (super(),
+      El(this, t, hc, dc, yl, {
+        contentSelector: 3,
+        headingSelector: 4,
+        scrollOffset: 5,
+        smooth: 6,
+        updateHash: 7,
+        trigger: 8,
+        refresh: 9,
+      }));
+  }
+  get refresh() {
+    return this.$$.ctx[9];
+  }
+}
+function gc(s) {
+  let t,
+    e,
+    n,
+    l,
+    a,
+    r,
+    f,
+    u,
+    h,
+    d,
+    p,
+    m,
+    _,
+    w,
+    q,
+    C,
+    A,
+    b,
+    y,
+    k,
+    M,
+    P,
+    L,
+    G,
+    R,
+    N,
+    U,
+    B,
+    F,
+    I,
+    H,
+    W,
+    D,
+    V,
+    Q,
+    Z,
+    oe,
+    X,
+    re,
+    x,
+    le,
+    z,
+    fe,
+    de,
+    pe,
+    ye,
+    ve,
+    Se,
+    me,
+    we,
+    _e,
+    j,
+    O,
+    te,
+    K,
+    he,
+    xe,
+    ke,
+    Ye,
+    Me,
+    Ue,
+    Je,
+    st,
+    nt,
+    Pt,
+    He,
+    et,
+    Le,
+    je,
+    ct,
+    Xt,
+    tt,
+    We,
+    Ke,
+    De,
+    Ee,
+    Qe,
+    St,
+    _t,
+    Ut,
+    qt,
+    Ae,
+    lt,
+    yt,
+    ht,
+    Tt,
+    Lt,
+    al,
+    gl,
+    dt,
+    vl,
+    Re,
+    xl,
+    ze,
+    mt,
+    xt,
+    Jl,
+    Gl,
+    cl,
+    bt,
+    Zl,
+    ul,
+    $l,
+    Et,
+    es,
+    nl,
+    tl,
+    pt,
+    fl,
+    Ht,
+    ts,
+    Nt,
+    Tl,
+    Jt,
+    Zt,
+    gt,
+    ls,
+    Kt,
+    ss,
+    jt,
+    Hl,
+    Fl,
+    jl,
+    Vl,
+    _l,
+    bl,
+    ns,
+    Yt,
+    is,
+    Sl,
+    os,
+    kt,
+    Rt,
+    Rl,
+    Ul,
+    kl,
+    rs,
+    il,
+    Wt,
+    It,
+    Il,
+    Dl,
+    Qt,
+    Ol,
+    as,
+    Ss,
+    ds,
+    Es,
+    Ns,
+    ps,
+    wt,
+    hs,
+    ms,
+    Gt,
+    Hs,
+    dl,
+    js,
+    Ml,
+    Bl,
+    Is,
+    gs,
+    ks,
+    cs,
+    vs,
+    _s,
+    Kl,
+    bs,
+    ws,
+    Ds,
+    wl,
+    us,
+    ol,
+    Yl,
+    fs,
+    As,
+    Cs,
+    ll,
+    Wl,
+    pl,
+    sl,
+    qs,
+    Ql,
+    Vs,
+    Al,
+    Os,
+    Cl,
+    Ms,
+    zl,
+    Ps,
+    Gs,
+    Us,
+    zt,
+    $t,
+    rl,
+    Be,
+    vt = { contentSelector: "main", headingSelector: "h2, h3, h4", scrollOffset: 80, trigger: s[1] };
+  return (
+    (f = new mc({ props: vt })),
+    s[2](f),
+    {
+      c() {
+        ((t = c("div")),
+          (e = c("div")),
+          (e.innerHTML = '<a href="" onclick="history.back()">Home Page</a>'),
+          (n = S()),
+          (l = c("br")),
+          (a = c("br")),
+          (r = S()),
+          ut(f.$$.fragment),
+          (u = S()),
+          (h = c("h3")),
+          (h.textContent = "BASIC WORKFLOW"),
+          (d = S()),
+          (p = c("p")),
+          (p.textContent = "The core workflow for using NEBaseChanger is:"),
+          (m = S()),
+          (_ = c("ul")),
+          (_.innerHTML = `<li>enter the target DNA sequence,</li>  
+	<li>define the range of the mutation region,</li> 
+	<li>specify the mutation (deletion/insertion/substitution),</li>  
+	<li>and view/save the results.</li>`),
+          (w = S()),
+          (q = c("p")),
+          (q.textContent =
+            'Specification of the mutation target and action varies with the specific application mode: "AA Point Mutation", "Indel/Substitution", "Batch", or "Legacy". Each mode is intended to add convenience for the task at hand, but most operations can be specified in any selected mode. AA Point mutation mode is most convenient if the mutagenesis is limited to one or more single codons, whereas the general Indel/Substitution mode works with larger (and smaller) single insertions and substitutions and also allows deletions. Batch mode is designed for a longer list of mutations and allows mixing of point and indel styles of entry.'),
+          (C = S()),
+          (A = c("p")),
+          (A.textContent = `Legacy mode is intended to emulate NEBaseChanger V1 and produce results that are consistent with the parameters used in V1. Principally, the minimum primer length is reset to 18 nt and insertions are always in the 5\u2032 tails.  Legacy mode has a simpler interface that will be
+	familiar to users of V1, but it is limited in functionality.`),
+          (b = S()),
+          (y = c("a")),
+          (y.textContent = "\u2191 Back to top"),
+          (k = S()),
+          (M = c("h3")),
+          (M.textContent = "SEQUENCE ENTRY"),
+          (P = S()),
+          (L = c("p")),
+          (L.textContent =
+            'Enter a DNA sequence by copying and pasting it into the sequence text area or uploading a file from your computer. Acceptable formats for the DNA sequence are raw (plain text without IDs and descriptions), FASTA (first line consisting of ">ID optional description"), or GenBank. For convenience, a list of common vectors is provided, accessible from the dropdown menus above the sequence entry area.  Selecting the "Use Reverse Complement" checkbox instructs NEBaseChanger to use the reverse complement of the sequence entered in the sequence text area. Selecting the "Partial" checkbox tells NEBaseChanger that it should not assume a complete circular sequence, allowing the entry of a much shorter sequence.  However, partial sequences will need to include sufficient sequence flanking the mutation site, currently set at a minimum of 35 nt 5\u2032 and 25 nt 3\u2032. Mutations will be prohibited from being too close to the ends of the provided partial sequence fragment and cannot span the ends of the fragment.'),
+          (G = S()),
+          (R = c("a")),
+          (R.textContent = "\u2191 Back to top"),
+          (N = S()),
+          (U = c("h3")),
+          (U.textContent = "APPLICATION MODES"),
+          (B = S()),
+          (F = c("h4")),
+          (F.textContent = "Point Mutation Mode"),
+          (I = S()),
+          (H = c("p")),
+          (H.textContent = `AA Point Mutation mode is intended to facilitate the specification of one or more point mutations (single codon changes). 
+	This mode only supports sequence replacements of exactly 3 bases (1 codon), and it does not support deletions or insertions.
+	Multiple single point mutations can be entered at one time. A Merge mutations option is also available to combine adjacent point mutations in a single primer. If multiple point mutations are specified, the "Generate primers for NEBuilder HiFi" option is posible, where NEBaseChanger will generate primer pairs compatible with the NEBuilder HiFi DNA Assembly Master Mix to simplify the execution of multiple
+	site-directed mutagenesis in a single reaction. The option is only displayed when multiple mutations are specified in point mutation mode.`),
+          (W = S()),
+          (D = c("p")),
+          (D.textContent =
+            "First, enter the start position of the ORF, either directly by entering the coordinate or by clicking in the DNA sequence row of the codon view. Setting the ORF start position will highlight the ORF. ORF start position can be set arbitrarily and is not checked for validity. Use the Next and Prev buttons to locate and highlight the next or previous ORF."),
+          (V = S()),
+          (Q = c("p")),
+          (Q.textContent = `Next, enter one or more mutations of the form [old AA][codon #][new AA],
+	for example, M2A, F32H, C45Y, etc., separated by spaces, commas or semicolons. The codon # is relative to the selected 
+	ORF start.  Optionally, specify the exact triplet replacement by appending 
+	a colon followed by the triplet, for example, M2G:GGG, A34F:TTC. Exact triplets, 
+	will override automatic selection.`),
+          (Z = S()),
+          (oe = c("p")),
+          (oe.textContent = `Clicking on an amino acid in the codon view will initiate a dialog to select the replacement
+	amino acid, including the exact triplet, and will add it to the list of mutations.
+	The old AA identity is checked, but processing is not halted if the old AA does not match
+	the indicated codon #. The codon number takes presidence.`),
+          (X = S()),
+          (re = c("p")),
+          (re.innerHTML =
+            "Select a codon selection strategy, either maximum codon usage or maximum parsimony.  For the former, codon usage is obtained from <i>E. coli K12</i>. For maximum parsimony, a simple sequence distance is calculated as the required number of base changes to go from the original codon to the replacement codon, and the triplet is chosen to minimize the changes."),
+          (x = S()),
+          (le = c("p")),
+          (le.textContent = `Normally, for substitutions like AA point mutations, where the target region encompasses just 3 nucleotides, the replacement sequence 
+	will be placed in the forward primer with 10 or more bases of annealing sequence flanking the inserted bases. If the "Confine mutations to primer 5\u2032 tails" option is selected, the replacement sequence will always be attached to the 5\u2032 end of the primers. The "5\u2032 tails" option is incompatible with NEBuilder HiFi primer option (see below).`),
+          (z = S()),
+          (fe = c("p")),
+          (fe.textContent = `If multiple mutations are entered and cluster together closely (ideally adjacent), the "merge mutations" option can be selected. This option combines point mutations to keep them within a single primer pair, when possible. Mutations are entered normally in the form [old AA][codon #][new AA]:[triplet], 
+	for example, M1A, D3H, C4F:TTT, etc., separated by spaces, commas or semicolons.
+	If the mutations are close together, generally not separated by more than 6 bases, 
+	the mutations are merged and treated as a single sequence replacement operation. 
+	In the example above, all 3 mutations would be embedded in a single primer pair.
+	This option is currently only compatible with mutations confined to the 5\u2032 primer tail.`),
+          (de = S()),
+          (pe = c("p")),
+          (pe.innerHTML = `If the &quot;Generate primers for NEBuilder HiFi&quot; option is selected, NEBaseChanger will generate primer pairs compatible with
+	the NEBuilder HiFi DNA Assembly Master Mix to simplify the execution of multiple
+	site-directed mutagenesis in a single reaction. 
+	NEBuilder HiFi primers cannot be generated if mutations are confined to the 5<sup>\u2032</sup> tails, and the option will not be displayed, nor is it compatible with merged mutations. Individual mutations need to be sufficiently spaced apart
+	to avoid overlap clashes between adjacent forward and reverse primers.`),
+          (ye = S()),
+          (ve = c("p")),
+          (ve.innerHTML =
+            'Details on using NEBuilder HiFi for multiple site mutations are available <a href="https://www.neb.com/-/media/nebus/files/application-notes/appnote_improved_methods_for_sdm_using_nebuilder_hifi_dna_assembly_master_mix.pdf?rev=918a4c52177641cbb8e2087a1286b9f4" target="_blank">here</a>.'),
+          (Se = S()),
+          (me = c("h4")),
+          (me.textContent = "Indel/Substitution Mutation Mode"),
+          (we = S()),
+          (_e = c("p")),
+          (_e.textContent = `Indel/Substitution mode is a general mode that facilitates the specification of mutations of arbitrary length on the input sequence.
+	Substitution and insertion sequences of up to 100 bp are allowed.
+`),
+          (j = c("p")),
+          (j.innerHTML = `Insert/delete/substitute (indel) operations require a 5&#39; flanking position (start), a
+  	3&#39; flanking position (end), and a replacement sequence. The target sequence to be 
+  	replaced is <b>between</b> the start and end positions. First, enter the start and end coordinates.
+  	Optionally, click and drag (text select) over the target sequence in either of the DNA sequence rows.
+  	The target and flanking bases will be highlighted and the start/end coordinates filled in.
+  	For insertions, clicking between two bases will select the proper flanking bases.`),
+          (O = S()),
+          (te = c("p")),
+          (te.textContent = `To delete a sequence, leave the replacement sequence blank.
+  	To insert a sequence, the start and end should be consecutive positions. 
+  	The replacement sequence will be inserted between them.`),
+          (K = S()),
+          (he = c("p")),
+          (he.innerHTML = `For example, if start/end is 234/239 and the replacement sequence is ACGT, 
+  	the operation will substitute the sequence between bases 234 and 239 with ACGT.
+  	This release of NEBaseChanger will design primers 
+  	accommodating inserts up to a maximum of <strong>100</strong> nucleotides.
+  	Note that multiple mutations can be included within a single
+  	replacement sequence as long as the sequence uses only non-ambiguous base codes. For example, 
+  	if two amino acids need to be changed using a single primer pair, the start/end is
+  	set to flank the targeted codons, and the replacement sequence (designed manually) contains 
+  	the required substitutions at each codon.`),
+          (xe = S()),
+          (ke = c("p")),
+          (ke.textContent = `Ambiguous base codes can be entered in the replacement sequence (N,Y,S,W, etc) 
+  	and will be expanded combinatorialy over multiple primers. 
+  	For example, a replacement sequence containing NS will be expanded to 8 sequences 
+  	containing: AC, CC, GC, TC, AG, CG, GG, and TG, generating 8 primer pairs.`),
+          (Ye = S()),
+          (Me = c("p")),
+          (Me.textContent =
+            'If the "Confine mutations to primer 5\u2032 tails" option is selected, the replacement sequence will always be attached to the 5\u2032 end of the primers, regardless of the length of the substitution. This option is incompatible with NEBuilder HiFi primer option (see below).'),
+          (Ue = S()),
+          (Je = c("p")),
+          (Je.textContent = `Normally, for substitutions, if the target region is longer than 6 nucleotides, 
+	the substitution sequence will be split between the two primers, attached 
+	to the 5\u2032 end of the primers as non-annealing tails. The 5\u2032 ends 
+	of the annealing portions of the primers align with the edges of the target region. 
+	If the target region encompasses 6 or fewer nucleotides, the replacement sequence 
+	will be placed in the forward primer with 10 or more bases of annealing sequence 
+	flanking the inserted bases.`),
+          (st = S()),
+          (nt = c("a")),
+          (nt.textContent = "\u2191 Back to top"),
+          (Pt = S()),
+          (He = c("h4")),
+          (He.textContent = "Batch Mutation Mode"),
+          (et = S()),
+          (Le = c("p")),
+          (Le.textContent = `Batch input mode allows multiple command line style operations to be applied
+	to the currently loaded sequence. It is intended to facilitate the entry
+	of large numbers of mutations on a single input sequence.`),
+          (je = S()),
+          (ct = c("p")),
+          (ct.textContent =
+            "Batch commands can be loaded from a text file, pasted into the text area, or typed in directly."),
+          (Xt = S()),
+          (tt = c("p")),
+          (tt.textContent = `All batch input operates on the currently loaded sequence. Each batch command 
+	should be on a separate line. The following commands are supported in Batch mode:
+	`),
+          (We = c("ul")),
+          (We.innerHTML = `<li>ORF: [start]</li> 
+		<li>[old AA][codon #][new AA]:[triplet]</li> 
+		<li>[ID] [start] [end] [replacement]</li>`),
+          (Ke = S()),
+          (De = c("dt")),
+          (De.textContent = "ORF: [start]"),
+          (Ee = S()),
+          (Qe = c("dd")),
+          (Qe.innerHTML = `Specifies the coordinate of the first base of the ORF. Required for subsequent AA point mutations. <br/> 
+        <br/>
+		Examples:<br/>
+		ORF: 1256<br/>
+		ORF: 2<br/> 
+		<br/>
+		[start] must be a positive number in the range 1 to sequence length. <br/>
+		All subsequent point mutation commands will be relative to the specified ORF start.<br/> 
+		<br/><br/>`),
+          (St = S()),
+          (_t = c("dt")),
+          (_t.textContent = "[old AA][codon #][new AA]:[triplet]"),
+          (Ut = S()),
+          (qt = c("dd")),
+          (qt.innerHTML = `Specifies an AA point mutation at a specific codon.<br/> 
+		<br/>
+		Examples:<br/>
+		A2F<br/>
+		A2F:TTT<br/> 
+		<br/>
+		[Old AA] and [new AA] are single letter codes for the current and mutated AA, respectively.<br/> 
+		[codon #] counts triplets from the last specified ORF start coordinate. <br/>
+		The :[triplet] specifier is optional. If provided, it should consist of <br/>
+		a colon followed immediately by the triplet replacement sequence. If not specified,<br/> 
+		(leave off the colon) the replacement triplet will be the codon with the highest usage <br/>
+		in <i>E. coli</i> K12. Exact triplets, will override automatic selection.<br/> 
+		<br/><br/>`),
+          (Ae = S()),
+          (lt = c("dt")),
+          (lt.textContent = "[ID] [start] [end] [replacement]"),
+          (yt = S()),
+          (ht = c("dd")),
+          (ht.innerHTML = `Specifies a general indel/substitution operation. <br/> 
+		<br/>
+	    Examples:<br/>
+		ID1 234 239 <i>deletes</i> the sequence <i>between</i> bases 234 and 239. <br/>
+		ID2 234 239 ACGT <i>substitutes</i> ACGT for the sequence <i>between</i> bases 234 and 239. <br/>
+		ID3 234 235 ACGT <i>inserts</i> ACGT <i>between</i> bases 234 and 235. <br/> 
+		<br/>
+		[Start] and [end] are the base positions <i>flanking</i> the target sequence <br/>
+		to be replaced. If [replacement] is omitted, the target sequence will be deleted.<br/>  
+		To insert a sequence, [start] and [end] should be consecutive positions.<br/> 
+	    <br/><br/>`),
+          (Tt = S()),
+          (Lt = c("p")),
+          (Lt.textContent = `Any ambiguous base codes (N,Y,S,W, etc) will be expanded combinatorialy 
+		unless "Preserve degenerate bases" is checked.
+		For example, a replacement sequence containing NS will be expanded to 8 sequences 
+		containing: AC, CC, GC, TC, AG, CG, GG, and TG, generating 8 primer pairs.`),
+          (al = S()),
+          (gl = c("p")),
+          (gl.textContent = `The "Preserve degenerate bases" and "Confine mutations to primer 5\u2032 tails" options are honored in Batch mode. 
+		Settings for minimum primer Tm and minimum primer length are also honored.
+	`),
+          (dt = c("p")),
+          (dt.textContent = "The following is an example of a valid set of batch commands:"),
+          (vl = S()),
+          (Re = c("blockquote")),
+          (Re.innerHTML = `ORF: 100<br/>
+		M1Y<br/>
+		A42S<br/>
+		P24F:TTT<br/>
+		setA 200 205 NNA<br/>
+		InSetB 400 401 AACGGTGTN<br/>
+		Site1 100 105 ACGT<br/>
+		D1 1000 1200 <br/>
+		setE 1800 200 ATNCG<br/>`),
+          (xl = S()),
+          (ze = c("a")),
+          (ze.textContent = "\u2191 Back to top"),
+          (mt = S()),
+          (xt = c("h4")),
+          (xt.textContent = "Legacy (V1) mode"),
+          (Jl = S()),
+          (Gl = c("p")),
+          (Gl.textContent = `Legacy mode is intended to emulate NEBaseChanger V1 and produce results 
+	that are consistent with the parameters used in V1. Principally, the minimum 
+	primer length is reset to 18nt and insertions are always in the 5\u2032 tails.`),
+          (cl = S()),
+          (bt = c("p")),
+          (bt.innerHTML = `Insert/delete/substitute operations require a 5&#39; <i>flanking</i> position (start),
+	3&#39; <i>flanking</i> position (end); the target sequence to be mutatated 
+	is <b>between</b> the start and end positions. This is a change fropm V1 where substitutions and deletions
+	were identified by the ends of the target itself, not the flanking bases. 
+	For deletions, leave the replacement sequence blank.`),
+          (Zl = S()),
+          (ul = c("p")),
+          (ul.textContent = `In addition to manualy setting the start/end coordinates of the target,
+	the target sequence may be selected by click and drag (text selection) in the DNA sequence row. 
+	For insertions, clicking between two bases will select the proper flanking bases. The target sequence
+	may also be located using the search field.`),
+          ($l = S()),
+          (Et = c("p")),
+          (Et.textContent = `Ambiguous base codes can be entered in the replacement sequence (N,Y,S,W, etc) 
+	and will be expanded combinatorialy. 
+	For example, a replacement sequence containing NS will be expanded to 8 sequences
+	containing: AC, CC, GC, TC, AG, CG, GG, and TG, generating 8 primer pairs.`),
+          (es = S()),
+          (nl = c("a")),
+          (nl.textContent = "\u2191 Back to top"),
+          (tl = S()),
+          (pt = c("h3")),
+          (pt.textContent = "PRIMER GENERATION STRATEGY"),
+          (fl = S()),
+          (Ht = c("p")),
+          (Ht.textContent =
+            "NEBaseChanger will design the custom mutagenic back-to-back primers for use in the Q5 Site-Directed Mutagenesis Kit. Primers designed for this kit can accommodate more complex mutagenic strategies than other commercial SDM kits including multiple substitutions within a 100 nucleotide region or insertions up to 100 nucleotides long. In addition, due to the use of back-to-back primers, there is no limit to the size of the deletion that can be introduced using this kit."),
+          (ts = S()),
+          (Nt = c("p")),
+          (Nt.textContent =
+            "For deletions, the 5\u2032 ends of the primers align with the edges of the deletion (the bases flanking the deleted sequence."),
+          (Tl = S()),
+          (Jt = c("p")),
+          (Jt.textContent =
+            "For insertions, the inserted sequence is attached to the 5\u2032 end of the primers as non-annealing tails. If 6 or fewer nucleotides are to be inserted, they will be placed at the 5' end of one primer. If more than 6 nucleotides are to be inserted, they will be split between the two primers to keep the primer lengths and Tm\u2019s similar."),
+          (Zt = S()),
+          (gt = c("p")),
+          (gt.textContent =
+            'For substitutions, if the target region is longer than 6 nucleotides, the substitution sequence will be split between the two primers, attached to the 5\u2032 end of the primers as non-annealing tails. The 5\u2032 ends of the annealing portions of the primers align with the edges of the target region. If the target region encompasses 6 or fewer nucleotides, the replacement sequence will be placed in the forward primer with 10 or more bases of annealing sequence flanking the inserted bases. If the "Confine mutations to primer 5\u2032 tails" option is selected, the replacement sequence will always be attached to the 5\u2032 end of the primers, regardless of the length of the substitution.'),
+          (ls = S()),
+          (Kt = c("p")),
+          (Kt.textContent = `There are two optional parameters that can be used to influence primer length: minimum primer length and minimum primer Tm with default values of 15nt and 55\xB0C, respectively. Increasing the value of either parameter will generally result in longer primers with higher specificity. To match the
+	specifications used in NEBaseChanger v1, set the minimum length to 18 nt and kepp the minimum Tm at 55\xB0C. When modifications are constrained to the 5\u2032 tails, the minimum primer length only applies to the annealing portion of the primer. If a tighter range of Tm values across a larger set of primers is desired, raising the minimum Tm value may help.`),
+          (ss = S()),
+          (jt = c("a")),
+          (jt.textContent = "\u2191 Back to top"),
+          (Hl = S()),
+          (Fl = c("h3")),
+          (Fl.textContent = "RESULTS"),
+          (jl = S()),
+          (Vl = c("h4")),
+          (Vl.textContent = "Primer Output"),
+          (_l = S()),
+          (bl = c("p")),
+          (bl.textContent = "The output from NEBaseChanger can be viewed in multiple ways."),
+          (ns = S()),
+          (Yt = c("h4")),
+          (Yt.textContent = "Required Primers Table"),
+          (is = S()),
+          (Sl = c("p")),
+          (Sl.textContent =
+            "Displayed near the bottom of the page. In addition to the primer sequence, the length, % GC, calculated melting temperature (Tm) and suggested annealing temperature (Ta) are displayed. The primer display is automatically updated whenever the mutation region or desired sequence is changed. Forward and reverse primers are color coded and the 3-frame coding sequence is shown allowing the user to verify that the desired mutation(s) has(have) been incorporated."),
+          (os = S()),
+          (kt = c("h4")),
+          (kt.textContent = "Downloadable formats"),
+          (Rt = S()),
+          (Rl = c("dl")),
+          (Rl.innerHTML = `<dt>Summary table</dt><dd>A tab-delimited table containing information comparable to the Primer Result table.
+	</dd><dt>All primers</dt><dd>A tab-delimited plain text list of the required primers (name, sequence, note), suitable for common oligonucleotide order forms.
+	</dd><dt>Selected primers</dt><dd>A tab-delimited plain text list of the required primers (name, sequence, note), suitable for common oligonucleotide order forms. 
+		Limited to just the selected primer pair.
+	</dd><dt>All sequence</dt><dd>All result sequences in multi-FASTA format as a local text file.
+	</dd><dt>Selected sequence</dt><dd>The result sequence for the selected primer pair in FASTA format as a local text file.</dd>`),
+          (Ul = S()),
+          (kl = c("p")),
+          (kl.textContent = "\xA0"),
+          (rs = S()),
+          (il = c("a")),
+          (il.textContent = "\u2191 Back to top"),
+          (Wt = S()),
+          (It = c("h3")),
+          (It.textContent = "PROTOCOL"),
+          (Il = S()),
+          (Dl = c("p")),
+          (Dl.textContent =
+            "The full Q5 Site-Directed Mutagenesis Protocol can be found in the manual, which can be downloaded from: www.neb.com/E0554"),
+          (Qt = S()),
+          (Ol = c("p")),
+          (Ol.textContent = "For your convenience, a quick protocol is presented here:"),
+          (as = S()),
+          (Ss = c("p")),
+          (ds = c("img")),
+          (Ns = S()),
+          (ps = c("h4")),
+          (ps.textContent = "Step I: Exponential Amplification (PCR)"),
+          (wt = S()),
+          (hs = c("table")),
+          (hs.innerHTML = `<tr><th>\xA0</th><th>25 \u03BCl RXN</th><th>FINAL CONC.</th></tr> 
+	<tr><td>Q5 Hot Start High-Fidelity 2X Master Mix</td><td>12.5 \u03BCl</td><td>1X</td></tr> 
+	<tr><td>10 \u03BCM Forward Primer </td><td>1.25 \u03BCl</td><td>0.5 \u03BCM</td></tr> 
+	<tr><td>10 \u03BCM Reverse Primer </td><td>1.25 \u03BCl</td><td>0.5 \u03BCM</td></tr> 
+	<tr><td>Template DNA (1-25 ng/ \u03BCl) </td><td>1 \u03BCl </td><td>1-25 ng</td></tr> 
+	<tr><td>Nuclease-free water </td><td>9.0 \u03BCl</td><td>\xA0</td></tr>`),
+          (ms = S()),
+          (Gt = c("p")),
+          (Gt.textContent = "Cycling Conditions:"),
+          (Hs = S()),
+          (dl = c("table")),
+          (dl.innerHTML = `<tr><th>STEP</th><th>TEMP</th><th>TIME</th></tr> 
+	<tr><td>Initial Denaturation</td><td>98 \xB0C</td><td>30 seconds</td></tr> 
+	<tr><td rowspan="3">25 Cycles</td><td>98 \xB0C</td><td>10 sec</td></tr> 
+	<tr><td>50-72 \xB0C*</td><td>10-30 sec</td></tr> 
+	<tr><td>72 \xB0C</td><td>20-30 seconds/kb</td></tr> 
+	<tr><td>Final Extension</td><td>72 \xB0C</td><td>2 minutes</td></tr> 
+	<tr><td>Hold</td><td>4-10 \xB0C</td><td>\u221E</td></tr>`),
+          (js = S()),
+          (Ml = c("p")),
+          (Ml.innerHTML =
+            '*<span id="prototempmsg">For mutagenic primers, please use the annealing temperature recommended by this primer design tool.</span>'),
+          (Bl = S()),
+          (Is = c("h4")),
+          (Is.textContent = "Step II: Kinase, Ligase & DpnI (KLD) Treatment"),
+          (gs = S()),
+          (ks = c("table")),
+          (ks.innerHTML = `<tr><th>\xA0</th><th>10 \u03BCl RXN </th><th>FINAL CONC.</th></tr> 
+	<tr><td>PCR Product </td><td>1 \u03BCl</td><td>\xA0</td></tr> 
+	<tr><td>2X KLD Reaction Buffer</td><td>5 \u03BCl </td><td>1X</td></tr> 
+	<tr><td>10X KLD Enzyme Mix </td><td>1 \u03BCl</td><td>1X</td></tr> 
+	<tr><td>Nuclease-free water</td><td>3 \u03BCl</td><td>\xA0</td></tr>`),
+          (cs = S()),
+          (vs = c("p")),
+          (vs.textContent =
+            "Mix well by pipetting gently up and down, and incubate at room temperature for 5 minutes."),
+          (_s = S()),
+          (Kl = c("h4")),
+          (Kl.textContent = "Step III:  Transformation"),
+          (bs = S()),
+          (ws = c("ol")),
+          (ws.innerHTML = `<li>Add 5 \u03BCl of the KLD reaction mixture directly from step II to 50 \u03BCl of chemically-competent cells.</li> 
+	<li>Incubate on ice for 30 minutes.</li> 
+	<li>Heat shock at 42 \xB0C for 30 seconds.</li> 
+	<li>Incubate on ice for 5 minutes.</li> 
+	<li>Add 950 \u03BCl of SOC, gently shake at 37 \xB0C for 1 hour.</li> 
+	<li>Spread 40-100 \u03BCl onto appropriate selection plate and incubate overnight at 37 \xB0C (if necessary, make a 10-100 fold dilution of recovered cells before plating to avoid a lawn of colonies).</li>`),
+          (Ds = S()),
+          (wl = c("p")),
+          (wl.textContent = "\xA0"),
+          (us = S()),
+          (ol = c("a")),
+          (ol.textContent = "\u2191 Back to top"),
+          (Yl = S()),
+          (fs = c("h3")),
+          (fs.textContent = "POST-REACTION TROUBLESHOOTING"),
+          (As = S()),
+          (Cs = c("p")),
+          (Cs.innerHTML =
+            'If the results of your site-directed mutagenesis experiment were unsatisfactory, try the <a href="#/troubleshoot">Q5 SDM Troubleshooting guide</a> for help. The guide can be accessed through the Troubleshooting link near the top the page.'),
+          (ll = S()),
+          (Wl = c("a")),
+          (Wl.textContent = "\u2191 Back to top"),
+          (pl = S()),
+          (sl = c("h3")),
+          (sl.textContent = "PRIMER CALCULATIONS"),
+          (qs = S()),
+          (Ql = c("p")),
+          (Ql.textContent =
+            "NEBaseChanger uses primer melting temperature (Tm) when determining how long a primer should be. For substitutions that span a mutation region greater than 6 nucleotides, the 5' end of the primer is anchored in the center of the region and extended in the 3' direction until a desired minimum Tm is achieved. For fewer than 6 substitutions, the center of the primer is anchored to the nucleotide region and extended in both the 5' and 3' directions so that there are at least 10 nucleotides that are 100% complementary on both sides of the mutation region and until a desired minimum Tm is achieved. For deletions, the primer is designed by anchoring its 5' end to the nucleotide adjacent to the selected mutation region and extending in the 3' direction until a desired minimum Tm is achieved. For insertions, the primer is designed by anchoring its 5' end to the last nucleotide in the selected mutation region and extending in the 3' direction until a desired minimum Tm is achieved. Insertions are either added to the 5' end of one primer (6 or fewer nucleotides) or both primers (more than 6 nucleotides). Tm\u2019s are calculated using nearest neighbor thermodynamics data for matched and internal mismatched bases and corrected for buffer composition [see references below]. Tms are calculated assuming the recommended buffer composition for Hot Start High-Fidelity DNA Polymerase, and the preferred primer concentration (500nM). An annealing temperature (Ta) for the PCR is calculated in addition to the Tm, optimized for Q5 DNA polymerase."),
+          (Vs = S()),
+          (Al = c("blockquote")),
+          (Al.innerHTML = `<ul><li>SantaLucia J Jr. 1998. <em>A unified view of polymer, dumbbell, and olignucleotide DNA nearest-neighbor thermodynamics.</em> Proc. Natl. Acad. Sci. USA <strong>95</strong>:1460\u201365</li> 
+	<li>Allawi HT, SantaLucia J Jr. 1997. <em>Thermodynamics and NMR of internal G\u2212T misatches in DNA.</em> Biochemistry <strong>36</strong>:10581\u201394</li> 
+	<li>Allawi HT, SantaLucia J Jr. 1998. <em>Nearest-neighbor thermodynamics of internal A-C mismatches in DNA: sequence dependence and pH effects.</em> Biochemistry <strong>37</strong>:9435\u201344</li> 
+	<li>Allawi HT, SantaLucia J Jr. 1998. <em>Nearest-neighbor thermodynamics parameters for internal GA mismatches in DNA.</em> Biochemistry <strong>37</strong>:2170\u201379</li> 
+	<li>Allawi HT, SantaLucia J Jr. 1998. <em>Thermodynamics of internal C-T mismatches in DNA.</em> Nucleic Acids Res. <strong>26</strong>:2694\u2013701</li> 
+	<li>SantaLucia, J Jr., Hicks, D. 2004. <em>The thermodynamics of DNA structural motifs.</em> Annu. Rev. Biophys. Biomol. Struct. <strong>33</strong>:415\u201340.</li> 
+	<li>Peyret N, Seneviratne PA, Allawi HT, SantaLucia J Jr. 1999. <em>Nearest-neighbor thermodynamics and NMR of DNA sequences with internal A-A, C-C, G-G, and T-T mismatches.</em> Biochemistry <strong>38</strong>:3468\u201377</li> 
+	<li>Bommarito S, Peyret N, SantaLucia J Jr. 2000. <em>Thermodynamic parameters for DNA sequences with dangling ends.</em> Nucleic Acids Res. <strong>28</strong>:1929\u201334</li> 
+	<li>Owczarzy, R, You, Y, Moreira, B, Manthey, JA, Huang, L, Behlke, MA, Walder, JA. 2004. <em>Effects of sodium ions on DNA duplex oligomers: improved predictions of melting temperatures.</em> Biochemistry <strong>43</strong>:3537-54</li></ul>`),
+          (Os = S()),
+          (Cl = c("a")),
+          (Cl.textContent = "\u2191 Back to top"),
+          (Ms = S()),
+          (zl = c("h3")),
+          (zl.textContent = "QUESTIONS AND COMMENTS"),
+          (Ps = S()),
+          (Gs = c("p")),
+          (Gs.innerHTML =
+            'NEB welcomes your questions and comments on NEBaseChanger, particularly how we could improve the tool to make it more useful in your site-directed mutagenesis projects.  Please contact us via our <a target="_blank" href="https://www.neb.com/support/neb-technical-support"><b>TECH SUPPORT</b></a> or <a href="https://www.neb.com/support/customer-feedback" target="_blank"><b>FEEDBACK</b></a> forms or <a href="mailto:info@neb.com" title="NEBaseChanger Comments"><b>email</b></a> us at info@neb.com or contact us by phone in the US at (800) 632-7799 with your feedback.'),
+          (Us = S()),
+          (zt = c("a")),
+          (zt.textContent = "\u2191 Back to top"),
+          i(h, "id", "tgt_workflow"),
+          i(p, "class", "svelte-ll35mj"),
+          i(q, "class", "svelte-ll35mj"),
+          i(A, "class", "svelte-ll35mj"),
+          i(y, "href", "#top"),
+          i(y, "class", "back-to-top svelte-ll35mj"),
+          i(M, "id", "tgt_seqentry"),
+          i(L, "class", "svelte-ll35mj"),
+          i(R, "href", "#top"),
+          i(R, "class", "back-to-top svelte-ll35mj"),
+          i(U, "id", "tgt_modes"),
+          i(F, "id", "tgt_codon"),
+          i(H, "class", "svelte-ll35mj"),
+          i(D, "class", "svelte-ll35mj"),
+          i(Q, "class", "svelte-ll35mj"),
+          i(oe, "class", "svelte-ll35mj"),
+          i(re, "class", "svelte-ll35mj"),
+          i(le, "class", "svelte-ll35mj"),
+          i(fe, "class", "svelte-ll35mj"),
+          i(pe, "class", "svelte-ll35mj"),
+          i(ve, "class", "svelte-ll35mj"),
+          i(me, "id", "tgt_indel"),
+          i(_e, "class", "svelte-ll35mj"),
+          i(j, "class", "svelte-ll35mj"),
+          i(te, "class", "svelte-ll35mj"),
+          i(he, "class", "svelte-ll35mj"),
+          i(ke, "class", "svelte-ll35mj"),
+          i(Me, "class", "svelte-ll35mj"),
+          i(Je, "class", "svelte-ll35mj"),
+          i(nt, "href", "#top"),
+          i(nt, "class", "back-to-top svelte-ll35mj"),
+          i(He, "id", "tgt_batch"),
+          i(Le, "class", "svelte-ll35mj"),
+          i(ct, "class", "svelte-ll35mj"),
+          i(tt, "class", "svelte-ll35mj"),
+          i(Lt, "class", "svelte-ll35mj"),
+          i(gl, "class", "svelte-ll35mj"),
+          i(dt, "class", "svelte-ll35mj"),
+          i(ze, "href", "#top"),
+          i(ze, "class", "back-to-top svelte-ll35mj"),
+          i(xt, "id", "tgt_legacy"),
+          i(Gl, "class", "svelte-ll35mj"),
+          i(bt, "class", "svelte-ll35mj"),
+          i(ul, "class", "svelte-ll35mj"),
+          i(Et, "class", "svelte-ll35mj"),
+          i(nl, "href", "#top"),
+          i(nl, "class", "back-to-top svelte-ll35mj"),
+          i(pt, "id", "tgt_primergen"),
+          i(Ht, "class", "svelte-ll35mj"),
+          i(Nt, "class", "svelte-ll35mj"),
+          i(Jt, "class", "svelte-ll35mj"),
+          i(gt, "class", "svelte-ll35mj"),
+          i(Kt, "class", "svelte-ll35mj"),
+          i(jt, "href", "#top"),
+          i(jt, "class", "back-to-top svelte-ll35mj"),
+          i(Fl, "id", "tgt_results"),
+          i(bl, "class", "svelte-ll35mj"),
+          i(Sl, "class", "svelte-ll35mj"),
+          i(kl, "class", "svelte-ll35mj"),
+          i(il, "href", "#top"),
+          i(il, "class", "back-to-top svelte-ll35mj"),
+          i(It, "id", "tgt_protocol"),
+          i(Dl, "class", "svelte-ll35mj"),
+          i(Ol, "class", "svelte-ll35mj"),
+          Ft(ds.src, (Es = Za)) || i(ds, "src", Es),
+          i(ds, "alt", "img protocol"),
+          i(Ss, "class", "svelte-ll35mj"),
+          i(hs, "class", "protocol"),
+          i(Gt, "class", "svelte-ll35mj"),
+          i(dl, "class", "protocol"),
+          i(Ml, "class", "svelte-ll35mj"),
+          i(ks, "class", "protocol"),
+          i(vs, "class", "svelte-ll35mj"),
+          i(wl, "class", "svelte-ll35mj"),
+          i(ol, "href", "#top"),
+          i(ol, "class", "back-to-top svelte-ll35mj"),
+          i(fs, "id", "tgt_troubleshoot"),
+          i(Cs, "class", "svelte-ll35mj"),
+          i(Wl, "href", "#top"),
+          i(Wl, "class", "back-to-top svelte-ll35mj"),
+          i(sl, "id", "tgt_primercalcs"),
+          i(Ql, "class", "svelte-ll35mj"),
+          i(Cl, "href", "#top"),
+          i(Cl, "class", "back-to-top svelte-ll35mj"),
+          i(zl, "id", "tgt_questions"),
+          i(Gs, "class", "svelte-ll35mj"),
+          i(zt, "href", "#top"),
+          i(zt, "class", "back-to-top svelte-ll35mj"),
+          i(t, "id", "top"),
+          i(t, "class", "container"));
+      },
+      m(Pl, Xs) {
+        (v(Pl, t, Xs),
+          o(t, e),
+          o(t, n),
+          o(t, l),
+          o(t, a),
+          o(t, r),
+          rt(f, t, null),
+          o(t, u),
+          o(t, h),
+          o(t, d),
+          o(t, p),
+          o(t, m),
+          o(t, _),
+          o(t, w),
+          o(t, q),
+          o(t, C),
+          o(t, A),
+          o(t, b),
+          o(t, y),
+          o(t, k),
+          o(t, M),
+          o(t, P),
+          o(t, L),
+          o(t, G),
+          o(t, R),
+          o(t, N),
+          o(t, U),
+          o(t, B),
+          o(t, F),
+          o(t, I),
+          o(t, H),
+          o(t, W),
+          o(t, D),
+          o(t, V),
+          o(t, Q),
+          o(t, Z),
+          o(t, oe),
+          o(t, X),
+          o(t, re),
+          o(t, x),
+          o(t, le),
+          o(t, z),
+          o(t, fe),
+          o(t, de),
+          o(t, pe),
+          o(t, ye),
+          o(t, ve),
+          o(t, Se),
+          o(t, me),
+          o(t, we),
+          o(t, _e),
+          o(t, j),
+          o(t, O),
+          o(t, te),
+          o(t, K),
+          o(t, he),
+          o(t, xe),
+          o(t, ke),
+          o(t, Ye),
+          o(t, Me),
+          o(t, Ue),
+          o(t, Je),
+          o(t, st),
+          o(t, nt),
+          o(t, Pt),
+          o(t, He),
+          o(t, et),
+          o(t, Le),
+          o(t, je),
+          o(t, ct),
+          o(t, Xt),
+          o(t, tt),
+          o(t, We),
+          o(t, Ke),
+          o(t, De),
+          o(t, Ee),
+          o(t, Qe),
+          o(t, St),
+          o(t, _t),
+          o(t, Ut),
+          o(t, qt),
+          o(t, Ae),
+          o(t, lt),
+          o(t, yt),
+          o(t, ht),
+          o(t, Tt),
+          o(t, Lt),
+          o(t, al),
+          o(t, gl),
+          o(t, dt),
+          o(t, vl),
+          o(t, Re),
+          o(t, xl),
+          o(t, ze),
+          o(t, mt),
+          o(t, xt),
+          o(t, Jl),
+          o(t, Gl),
+          o(t, cl),
+          o(t, bt),
+          o(t, Zl),
+          o(t, ul),
+          o(t, $l),
+          o(t, Et),
+          o(t, es),
+          o(t, nl),
+          o(t, tl),
+          o(t, pt),
+          o(t, fl),
+          o(t, Ht),
+          o(t, ts),
+          o(t, Nt),
+          o(t, Tl),
+          o(t, Jt),
+          o(t, Zt),
+          o(t, gt),
+          o(t, ls),
+          o(t, Kt),
+          o(t, ss),
+          o(t, jt),
+          o(t, Hl),
+          o(t, Fl),
+          o(t, jl),
+          o(t, Vl),
+          o(t, _l),
+          o(t, bl),
+          o(t, ns),
+          o(t, Yt),
+          o(t, is),
+          o(t, Sl),
+          o(t, os),
+          o(t, kt),
+          o(t, Rt),
+          o(t, Rl),
+          o(t, Ul),
+          o(t, kl),
+          o(t, rs),
+          o(t, il),
+          o(t, Wt),
+          o(t, It),
+          o(t, Il),
+          o(t, Dl),
+          o(t, Qt),
+          o(t, Ol),
+          o(t, as),
+          o(t, Ss),
+          o(Ss, ds),
+          o(t, Ns),
+          o(t, ps),
+          o(t, wt),
+          o(t, hs),
+          o(t, ms),
+          o(t, Gt),
+          o(t, Hs),
+          o(t, dl),
+          o(t, js),
+          o(t, Ml),
+          o(t, Bl),
+          o(t, Is),
+          o(t, gs),
+          o(t, ks),
+          o(t, cs),
+          o(t, vs),
+          o(t, _s),
+          o(t, Kl),
+          o(t, bs),
+          o(t, ws),
+          o(t, Ds),
+          o(t, wl),
+          o(t, us),
+          o(t, ol),
+          o(t, Yl),
+          o(t, fs),
+          o(t, As),
+          o(t, Cs),
+          o(t, ll),
+          o(t, Wl),
+          o(t, pl),
+          o(t, sl),
+          o(t, qs),
+          o(t, Ql),
+          o(t, Vs),
+          o(t, Al),
+          o(t, Os),
+          o(t, Cl),
+          o(t, Ms),
+          o(t, zl),
+          o(t, Ps),
+          o(t, Gs),
+          o(t, Us),
+          o(t, zt),
+          ($t = !0),
+          rl ||
+            ((Be = [
+              se(y, "click", Bs),
+              se(R, "click", Bs),
+              se(nt, "click", Bs),
+              se(ze, "click", Bs),
+              se(nl, "click", Bs),
+              se(jt, "click", Bs),
+              se(il, "click", Bs),
+              se(ol, "click", Bs),
+              se(Wl, "click", Bs),
+              se(Cl, "click", Bs),
+              se(zt, "click", Bs),
+            ]),
+            (rl = !0)));
+      },
+      p(Pl, [Xs]) {
+        const xs = {};
+        (Xs & 2 && (xs.trigger = Pl[1]), f.$set(xs));
+      },
+      i(Pl) {
+        $t || (Fe(f.$$.fragment, Pl), ($t = !0));
+      },
+      o(Pl) {
+        (Ie(f.$$.fragment, Pl), ($t = !1));
+      },
+      d(Pl) {
+        (Pl && g(t), s[2](null), at(f), (rl = !1), Vt(Be));
+      },
+    }
+  );
+}
+function Bs(s) {
+  (s.preventDefault(),
+    window.scrollTo({ top: 0, behavior: "smooth" }),
+    history.pushState(null, "", window.location.pathname));
+}
+function vc(s, t, e) {
+  let n,
+    l = 0;
+  function a(r) {
+    ft[r ? "unshift" : "push"](() => {
+      ((n = r), e(0, n));
+    });
+  }
+  return [n, l, a];
+}
+class _c extends Nl {
+  constructor(t) {
+    (super(), El(this, t, vc, gc, yl, {}));
+  }
+}
+function bc(s) {
+  let t;
+  return {
+    c() {
+      ((t = c("div")),
+        (t.innerHTML = `<div><a href="" onclick="history.back()">Go Back</a></div> 
+<h3>Additional Resources</h3> 
+
+<h4>Products:</h4> 
+	<ul><li><a target="_blank" href="https://www.neb.com/products/e0554-q5-site-directed-mutagenesis-kit#Product%20Information">Q5<sup>\xAE</sup> Site-Directed Mutagenesis Kit</a></li> 
+        <li><a target="_blank" href="https://www.neb.com/products/e0552-q5-site-directed-mutagenesis-kit-without-competent-cells#Product%20Information">Q5<sup>\xAE</sup> Site-Directed Mutagenesis Kit (Without Competent Cells)</a></li> 
+        <li><a target="_blank" href="https://www.neb.com/products/m0554-kld-enzyme-mix#Product%20Information">KLD Enzyme Mix</a></li></ul> 
+<h4>Videos:</h4> 
+    <ul><li><a target="_blank" href="https://www.neb.com/tools-and-resources/video-library/overview-of-the-q5-site-directed-mutagenesis-kit?autoplay=1">Overview of the Q5<sup>\xAE</sup> Site-Directed Mutagenesis Kit</a></li> 
+        <li><a target="_blank" href="https://www.neb.com/tools-and-resources/video-library/troubleshooting-tips-for-q5-site-directed-mutagenesis-kit?autoplay=1">Troubleshooting tips for Q5<sup>\xAE</sup> Site-Directed Mutagenesis Kit</a></li> 
+        <li><a target="_blank" href="https://www.neb.com/tools-and-resources/video-library/can-i-make-multiple-mutations-with-the-q5-site-directed-mutagenesis-kit?autoplay=1">Quick Tips - Can I make multiple mutations with the Q5<sup>\xAE</sup> site-directed mutagenesis kit?</a></li> 
+        <li><a target="_blank" href="https://www.neb.com/tools-and-resources/video-library/quick-tips-how-can-i-improve-the-efficiency-of-the-dpni-digestion">Quick tips - How can I improve the efficiency of the DpnI digestion?</a></li></ul> 
+<h4>Application Note:</h4> 
+    <ul><li><a target="_blank" href="https://www.neb.com/-/media/nebus/files/application-notes/appnote_improved_methods_for_sdm_using_nebuilder_hifi_dna_assembly_master_mix">Improved Methods for Site-directed Mutagenesis using NEBuilder\xAE HiFi DNA Assembly Master Mix</a></li></ul>`),
+        i(t, "class", "container"));
+    },
+    m(e, n) {
+      v(e, t, n);
+    },
+    p: be,
+    i: be,
+    o: be,
+    d(e) {
+      e && g(t);
+    },
+  };
+}
+function wc(s) {
+  return [];
+}
+class Ac extends Nl {
+  constructor(t) {
+    (super(), El(this, t, wc, bc, yl, {}));
+  }
+}
+const Cc = { "/resources": Ac, "/about": Ja, "/help": _c, "/troubleshoot": cc, "/": Xa },
+  qc = "/assets/2024_NEB_Logo_50.6f07573d.svg",
+  yc = "/assets/appMainLogo.01242724.svg",
+  Tc = "/assets/NEBtools_about_icon.0535f502.svg";
+function Sc(s) {
+  let t,
+    e,
+    n,
+    l,
+    a,
+    r,
+    f,
+    u,
+    h,
+    d,
+    p,
+    m,
+    _,
+    w,
+    q,
+    C,
+    A,
+    b,
+    y,
+    k,
+    M,
+    P,
+    L,
+    G,
+    R,
+    N,
+    U,
+    B,
+    F,
+    I,
+    H,
+    W,
+    D,
+    V,
+    Q,
+    Z,
+    oe,
+    X,
+    re,
+    x,
+    le,
+    z,
+    fe,
+    de,
+    pe,
+    ye,
+    ve,
+    Se,
+    me;
+  return {
+    c() {
+      ((t = c("div")),
+        (e = c("div")),
+        (n = c("div")),
+        (l = c("a")),
+        (a = c("img")),
+        (f = S()),
+        (u = c("div")),
+        (h = c("a")),
+        (d = c("img")),
+        (m = S()),
+        (_ = c("div")),
+        (w = S()),
+        (q = c("div")),
+        (C = c("div")),
+        (A = c("a")),
+        (b = c("img")),
+        (k = S()),
+        (M = c("span")),
+        (M.textContent = "ABOUT"),
+        (P = T(`\xA0\xA0
+            `)),
+        (L = c("a")),
+        (G = c("img")),
+        (N = S()),
+        (U = c("span")),
+        (U.textContent = "HELP"),
+        (B = T(`\xA0\xA0
+            `)),
+        (F = c("a")),
+        (I = c("img")),
+        (W = S()),
+        (D = c("span")),
+        (D.textContent = "RESOURCES"),
+        (V = T(`\xA0\xA0
+            `)),
+        (Q = c("a")),
+        (Z = c("img")),
+        (X = S()),
+        (re = c("span")),
+        (re.textContent = "TROUBLESHOOT"),
+        (x = T("\xA0\xA0")),
+        (le = S()),
+        (z = c("div")),
+        (fe = c("span")),
+        (de = T("v")),
+        (pe = T(s[0])),
+        (ye = S()),
+        (ve = c("hr")),
+        (Se = S()),
+        (me = c("hr")),
+        Ft(a.src, (r = qc)) || i(a, "src", r),
+        i(a, "class", "svelte-10u0u7n"),
+        i(l, "href", "https://www.neb.com"),
+        i(l, "class", "svelte-10u0u7n"),
+        i(n, "id", "neb-logo"),
+        i(n, "class", "svelte-10u0u7n"),
+        i(d, "class", "tool-header-logo svelte-10u0u7n"),
+        Ft(d.src, (p = yc)) || i(d, "src", p),
+        i(h, "href", "https://nebasechanger.neb.com"),
+        i(h, "class", "svelte-10u0u7n"),
+        i(u, "id", "app-logo"),
+        i(u, "class", "svelte-10u0u7n"),
+        i(_, "class", "orange-line svelte-10u0u7n"),
+        i(b, "id", "abouticon"),
+        Ft(b.src, (y = Tc)) || i(b, "src", y),
+        i(b, "class", "svelte-10u0u7n"),
+        i(M, "class", ""),
+        i(A, "href", "#/about"),
+        i(A, "class", "svelte-10u0u7n"),
+        i(G, "id", "helpicon"),
+        Ft(G.src, (R = ti)) || i(G, "src", R),
+        i(G, "class", "svelte-10u0u7n"),
+        i(U, "class", ""),
+        i(L, "href", "#/help"),
+        i(L, "class", "svelte-10u0u7n"),
+        i(I, "id", "helpicon"),
+        Ft(I.src, (H = ti)) || i(I, "src", H),
+        i(I, "class", "svelte-10u0u7n"),
+        i(D, "class", ""),
+        i(F, "href", "#/resources"),
+        i(F, "class", "svelte-10u0u7n"),
+        i(Z, "id", "helpicon"),
+        Ft(Z.src, (oe = ti)) || i(Z, "src", oe),
+        i(Z, "class", "svelte-10u0u7n"),
+        i(re, "class", ""),
+        i(Q, "href", "#/troubleshoot"),
+        i(Q, "class", "svelte-10u0u7n"),
+        i(C, "id", "header-link-container"),
+        i(C, "class", "svelte-10u0u7n"),
+        i(fe, "class", ""),
+        i(z, "class", "tool-header-version svelte-10u0u7n"),
+        i(z, "id", "appVersion"),
+        i(ve, "class", "clear-hr svelte-10u0u7n"),
+        i(t, "id", "tool-header"),
+        i(t, "class", "svelte-10u0u7n"),
+        i(me, "class", "clear-hr svelte-10u0u7n"));
+    },
+    m(we, _e) {
+      (v(we, t, _e),
+        o(t, e),
+        o(e, n),
+        o(n, l),
+        o(l, a),
+        o(e, f),
+        o(e, u),
+        o(u, h),
+        o(h, d),
+        o(t, m),
+        o(t, _),
+        o(t, w),
+        o(t, q),
+        o(q, C),
+        o(C, A),
+        o(A, b),
+        o(A, k),
+        o(A, M),
+        o(C, P),
+        o(C, L),
+        o(L, G),
+        o(L, N),
+        o(L, U),
+        o(C, B),
+        o(C, F),
+        o(F, I),
+        o(F, W),
+        o(F, D),
+        o(C, V),
+        o(C, Q),
+        o(Q, Z),
+        o(Q, X),
+        o(Q, re),
+        o(C, x),
+        o(q, le),
+        o(q, z),
+        o(z, fe),
+        o(fe, de),
+        o(fe, pe),
+        o(q, ye),
+        o(q, ve),
+        v(we, Se, _e),
+        v(we, me, _e));
+    },
+    p(we, [_e]) {
+      _e & 1 && $(pe, we[0]);
+    },
+    i: be,
+    o: be,
+    d(we) {
+      (we && g(t), we && g(Se), we && g(me));
+    },
+  };
+}
+function kc(s, t, e) {
+  let { appName: n = "Anonymous" } = t,
+    { version: l = "v0.0.0" } = t;
+  return (
+    (s.$$set = (a) => {
+      ("appName" in a && e(1, (n = a.appName)), "version" in a && e(0, (l = a.version)));
+    }),
+    [l, n]
+  );
+}
+class Mc extends Nl {
+  constructor(t) {
+    (super(), El(this, t, kc, Sc, yl, { appName: 1, version: 0 }));
+  }
+}
+function Pc(s) {
+  let t, e, n;
+  return {
+    c() {
+      ((t = c("hr")),
+        (e = S()),
+        (n = c("div")),
+        (n.innerHTML = `<div style="margin: 15px auto; width: fit-content;"><a href="https://www.neb.com/support/neb-technical-support" target="" style="margin: 10px 20px;cursor: pointer;font-size: 14px;font-weight: 700;letter-spacing: .3px;line-height: 1.65; color: white; text-decoration: none;">Tech Support</a> 
+        <a href="https://www.neb.com/support/customer-feedback" target="" style="margin: 10px 20px;cursor: pointer;font-size: 14px;font-weight: 700;letter-spacing: .3px;line-height: 1.65; color: white; text-decoration: none;">Feedback</a> 
+        <a href="https://www.neb.com/about-neb/neb-overview" target="" style="margin: 10px 20px;cursor: pointer;font-size: 14px;font-weight: 700;letter-spacing: .3px;line-height: 1.65; color: white; text-decoration: none;">NEB Overview</a> 
+        <a href="https://www.neb.com/site-map" target="" style="margin: 10px 20px;cursor: pointer;font-size: 14px;font-weight: 700;letter-spacing: .3px;line-height: 1.65; color: white; text-decoration: none;">Site Map</a></div> 
+    <div style="margin: 15px auto; width: fit-content;"><a href="https://www.neb.com/trademarks" target="" style="margin: 10px 20px;cursor: pointer;font-size: 14px;font-weight: 700;letter-spacing: .3px;line-height: 1.65; color: white; text-decoration: none;">Trademarks</a> 
+        <a href="https://www.neb.com/external-tools-legal-and-disclaimers" target="" style="margin: 10px 20px;cursor: pointer;font-size: 14px;font-weight: 700;letter-spacing: .3px;line-height: 1.65; color: white; text-decoration: none;">Legal and Disclaimers</a> 
+        <a href="https://www.neb.com/privacy-policy" target="" style="margin: 10px 20px;cursor: pointer;font-size: 14px;font-weight: 700;letter-spacing: .3px;line-height: 1.65; color: white; text-decoration: none;">Privacy</a> 
+        <a href="https://www.neb.com/cookie-policy" target="" style="margin: 10px 20px;cursor: pointer;font-size: 14px;font-weight: 700;letter-spacing: .3px;line-height: 1.65; color: white; text-decoration: none;">Cookie Policy</a> 
+        <a href="https://www.neb.com/terms-of-use" target="" style="margin: 10px 20px;cursor: pointer;font-size: 14px;font-weight: 700;letter-spacing: .3px;line-height: 1.65; color: white; text-decoration: none;">Terms of Use</a></div> 
+    <div style="margin: 50px 0 0 0; text-align: center; padding-bottom: 20px; font-size: smaller;"><span>\xA9 Copyright 2026 New England Biolabs. All Rights Reserved.</span></div>`),
+        i(t, "class", "clear-hr svelte-1fj6u4d"),
+        i(n, "id", "tool-footer"),
+        tn(n, "color", "white"),
+        tn(n, "margin", "15px 0 0 0"),
+        tn(n, "padding-top", "30px"),
+        tn(n, "background-color", "#5e5e60"),
+        tn(n, "font-family", "Arial"));
+    },
+    m(l, a) {
+      (v(l, t, a), v(l, e, a), v(l, n, a));
+    },
+    p: be,
+    i: be,
+    o: be,
+    d(l) {
+      (l && g(t), l && g(e), l && g(n));
+    },
+  };
+}
+function Lc(s, t, e) {
+  let { copyright: n = new Date().getFullYear() } = t;
+  return (
+    (s.$$set = (l) => {
+      "copyright" in l && e(0, (n = l.copyright));
+    }),
+    [n]
+  );
+}
+class Ec extends Nl {
+  constructor(t) {
+    (super(), El(this, t, Lc, Pc, yl, { copyright: 0 }));
+  }
+}
+function Nc(s) {
+  let t, e, n, l, a, r, f;
+  return (
+    (e = new Mc({ props: { appName: "NEBaseChanger", version: Gc } })),
+    (l = new gr({ props: { routes: Cc } })),
+    (r = new Ec({})),
+    {
+      c() {
+        ((t = c("main")), ut(e.$$.fragment), (n = S()), ut(l.$$.fragment), (a = S()), ut(r.$$.fragment));
+      },
+      m(u, h) {
+        (v(u, t, h), rt(e, t, null), o(t, n), rt(l, t, null), o(t, a), rt(r, t, null), (f = !0));
+      },
+      p: be,
+      i(u) {
+        f || (Fe(e.$$.fragment, u), Fe(l.$$.fragment, u), Fe(r.$$.fragment, u), (f = !0));
+      },
+      o(u) {
+        (Ie(e.$$.fragment, u), Ie(l.$$.fragment, u), Ie(r.$$.fragment, u), (f = !1));
+      },
+      d(u) {
+        (u && g(t), at(e), at(l), at(r));
+      },
+    }
+  );
+}
+let Gc = "2.8.4";
+class Fc extends Nl {
+  constructor(t) {
+    (super(), El(this, t, null, Nc, yl, {}));
+  }
+}
+new Fc({ target: document.getElementById("app") });

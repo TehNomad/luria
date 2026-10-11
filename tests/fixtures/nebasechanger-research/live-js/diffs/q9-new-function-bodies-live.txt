@@ -1,0 +1,736 @@
+beautified bundles: {'v2.8.4': ('index.a5da1636.v2.8.4.beauty.js', 614639), 'live': ('index.4330b0c7.v2.11.0-live.beauty.js', 615623)}
+
+######## verifyPair  v2.8.4:0  live:1
+  NEW IN LIVE (not present in v2.8.4):
+  [live line 4807]
+vt.verifyPair = function (l, e, t) {
+  if (!l) return "missing primer pair";
+  var s = l.repseq || "",
+    n = l.seqf || "",
+    a = l.seqr || "",
+    i;
+  try {
+    i = vt.applyMutation(e, l.selstart, l.selend, s, t);
+  } catch (E) {
+    return "could not reconstruct the mutant sequence (" + (E && E.message ? E.message : E) + ")";
+  }
+  var u;
+  try {
+    u = Te.revcomp(a);
+  } catch {
+    return "reverse primer is not a valid IUPAC sequence";
+  }
+  var f = (u + n).toLowerCase();
+  if (!f) return "empty primer pair";
+  var h = vt.canonicalFlanks(l.selstart, l.selend, e.length, t),
+    d = h.start,
+    p = h.end,
+    v = !!t && p <= d,
+    _,
+    b,
+    w;
+  if (t) {
+    var y = v ? i.length - s.length : d;
+    y < 0 && (y = 0);
+    var A = i.slice(y) + i.slice(0, y);
+    ((_ = (A + A).toLowerCase()), (b = A.length - 1), (w = A.length + s.length));
+  } else ((_ = i.toLowerCase()), (b = Math.max(d - 1, 0)), (w = Math.min(d + s.length, i.length - 1)));
+  for (var q = !1, T = _.indexOf(f); T !== -1; T = _.indexOf(f, T + 1))
+    if (T <= b && T + f.length - 1 >= w) {
+      q = !0;
+      break;
+    }
+  if (!q) return "forward/reverse primers do not match the mutant sequence at the edit site";
+  var N = function (E, P, G, O) {
+      return E === void 0 || P === void 0
+        ? ""
+        : (E + P).toLowerCase() !== (G || "").toLowerCase()
+          ? O + " flap + annealing region does not reconstruct the full primer"
+          : "";
+    },
+    M = N(l.seqfpflap, l.seqfanneal, n, "forward") || N(l.seqrpflap, l.seqranneal, a, "reverse");
+  if (M) return M;
+  var k = vt.verifyOp(l.op, s, e, l.selstart, l.selend, t);
+  return k || "";
+};
+
+######## verifyOp  v2.8.4:0  live:1
+  NEW IN LIVE (not present in v2.8.4):
+  [live line 4755]
+vt.verifyOp = function (l, e, t, s, n, a) {
+  if (((e = e || ""), !l)) return "";
+  var i = t.length,
+    u = function (E) {
+      return E ? E + ": " : "";
+    };
+  if (l.kind === "codon") {
+    var f = a ? (((n - s) % i) + i) % i : n - s;
+    if (f - 1 !== 3) return "the op's flanks bracket " + (f - 1) + " bp, not one codon (3 bp)";
+    if (!Gi(e, l.target, l.triplet)) {
+      if (l.triplet) return "repseq " + e + " does not match the explicit triplet " + l.triplet;
+      if ((l.target || "").toUpperCase() === "X") return "target X must be within the degenerate NNK codon, got " + e;
+      var h;
+      try {
+        h = Te.translate(e);
+      } catch {
+        h = "?";
+      }
+      return "repseq " + e + " translates to " + h + ", not the target " + l.target;
+    }
+    return "";
+  }
+  if (l.kind === "merge") {
+    var d = l.subs || [];
+    if (d.length === 0) return "";
+    var p = d[0].start,
+      v = d[d.length - 1].start - p + 3;
+    if (e.length !== v) return "merged repseq length " + e.length + " does not match the merged span (" + v + " bp)";
+    for (
+      var _ = function (E) {
+          return a ? t.charAt((((E - 1) % i) + i) % i) : t.charAt(E - 1);
+        },
+        b = p,
+        w = 0;
+      w < d.length;
+      w++
+    ) {
+      var y = d[w],
+        A = y.start - p;
+      if (w > 0) {
+        for (var q = y.start - b + 1, T = "", N = 0; N < q; N++) T += _(b + N);
+        var M = e.slice(A - q, A);
+        if (M.toLowerCase() !== T.toLowerCase()) return u(y.id) + "the wild-type bases before this codon do not match the sequence";
+      }
+      var k = e.slice(A, A + 3);
+      if (!Gi(k, y.target, y.triplet)) return u(y.id) + "codon " + k + " at its merged position does not match its target";
+      b = y.end;
+    }
+    return "";
+  }
+  return "";
+};
+
+######## matchesIUPAC  v2.8.4:0  live:1
+  NEW IN LIVE (not present in v2.8.4):
+  [live line 4733]
+vt.matchesIUPAC = function (l, e) {
+  if (!l || !e || l.length !== e.length) return !1;
+  for (var t = 0; t < l.length; t++) {
+    var s = Te.DEGENERATES[e.charAt(t).toUpperCase()],
+      n = Te.DEGENERATES[l.charAt(t).toUpperCase()];
+    if (!s || !n) return !1;
+    for (var a = 0; a < n.length; a++) if (s.indexOf(n.charAt(a)) === -1) return !1;
+  }
+  return !0;
+};
+
+######## classifyOp  v2.8.4:0  live:1
+  NEW IN LIVE (not present in v2.8.4):
+  [live line 4668]
+vt.classifyOp = function (l, e, t, s, n) {
+  t = t || "";
+  var a = n ? (e - l + s) % s : e - l,
+    i = { op: "", error: "", warning: "" };
+  if (a === 0) return ((i.error = "insertions need consecutive positions (e.g. 200 201)"), i);
+  if ((a === 1 ? (i.op = "insert") : t.length === 0 ? (i.op = "delete") : (i.op = "replace"), n)) {
+    var u = l === 0 ? s : l,
+      f = e === 0 ? s : e;
+    if (f < u) {
+      var h = a - 1;
+      if (h > s / 2) {
+        var d = s - h;
+        i.warning = "this edit spans the origin and removes " + h + " bp, leaving " + d + " bp - check that start and end are not swapped";
+      }
+    }
+  }
+  return i;
+};
+
+######## applyMutation  v2.8.4:0  live:1
+  NEW IN LIVE (not present in v2.8.4):
+  [live line 4663]
+vt.applyMutation = function (l, e, t, s, n) {
+  s = s || "";
+  var a = vt.canonicalFlanks(e, t, l.length, n);
+  return ((e = a.start), (t = a.end), !n || t > e ? l.slice(0, e) + s + l.slice(t - 1) : l.slice(t - 1, e) + s);
+};
+
+######## canonicalFlanks  v2.8.4:0  live:1
+  NEW IN LIVE (not present in v2.8.4):
+  [live line 4652]
+vt.canonicalFlanks = function (l, e, t, s) {
+  if (!s) return { start: l, end: e };
+  var n = vt.normalizeFlanks(l, e, t, !0),
+    a = n.start;
+  return (a === t && n.end > 1 && (a = 0), { start: a, end: n.end });
+};
+
+######## normalizeFlanks  v2.8.4:0  live:1
+  NEW IN LIVE (not present in v2.8.4):
+  [live line 4633]
+vt.normalizeFlanks = function (l, e, t, s) {
+  var n = vt.notIntegerError(l, e);
+  if (n) return { start: l, end: e, error: n };
+  if (s) {
+    var a = function (u) {
+      return ((((u - 1) % t) + t) % t) + 1;
+    };
+    return { start: a(l), end: a(e), error: "" };
+  }
+  var i = "";
+  return (
+    l < 0
+      ? (i = "the edit starts before the start of the sequence")
+      : e > t + 1
+        ? (i = "the edit runs beyond the end of the sequence")
+        : l >= e && (i = "the end position must be after the start on a partial (linear) sequence"),
+    { start: l, end: e, error: i }
+  );
+};
+
+######## normalizeOpText  v2.8.4:0  live:1
+  NEW IN LIVE (not present in v2.8.4):
+  [live line 4585]
+Ot.normalizeOpText = function (l) {
+  return (l || "")
+    .trim()
+    .replace(/[\s,]+/g, " ")
+    .toUpperCase();
+};
+beautified bundles: {'v2.8.4': ('index.a5da1636.v2.8.4.beauty.js', 614639), 'live': ('index.4330b0c7.v2.11.0-live.beauty.js', 615623)}
+
+######## primerId  v2.8.4:0  live:1
+  NEW IN LIVE (not present in v2.8.4):
+  [live line 5018]
+Dt.primerId = function (l, e) {
+  return l.idprefix + "_" + l.pairIndex + "_" + (e === "fwd" ? "F" : "R");
+};
+
+######## primerSeq  v2.8.4:0  live:1
+  NEW IN LIVE (not present in v2.8.4):
+  [live line 5021]
+Dt.primerSeq = function (l, e) {
+  var t = function (s) {
+    return String(s || "").toLowerCase();
+  };
+  return e === "fwd"
+    ? l.seqfanneal == null
+      ? l.seqf || ""
+      : t(l.seqfpflap) + l.seqfanneal
+    : l.seqranneal == null
+      ? l.seqr || ""
+      : l.nebuilder
+        ? l.seqranneal + t(l.seqrpflap)
+        : t(l.seqrpflap) + l.seqranneal;
+};
+
+######## primerList  v2.8.4:0  live:1
+  NEW IN LIVE (not present in v2.8.4):
+  [live line 5072]
+Dt.primerList = function (l) {
+  for (var e = "", t = 0; t < l.length; ++t) {
+    var s = l[t],
+      n = "Ta=" + Math.round(s.ta);
+    ((e +=
+      Dt.tsvCell(Dt.primerId(s, "fwd")) +
+      "	" +
+      Dt.primerSeq(s, "fwd") +
+      "	Tm=" +
+      Math.round(s.tmf) +
+      " " +
+      n +
+      `
+`),
+      (e +=
+        Dt.tsvCell(Dt.primerId(s, "rev")) +
+        "	" +
+        Dt.primerSeq(s, "rev") +
+        "	Tm=" +
+        Math.round(s.tmr) +
+        " " +
+        n +
+        `
+`));
+  }
+  return e;
+};
+
+######## downloadName  v2.8.4:0  live:1
+  NEW IN LIVE (not present in v2.8.4):
+  [live line 5039]
+Dt.downloadName = function (l, e, t) {
+  var s = String(l == null ? "" : l).trim();
+  return (s || (s = e), s.endsWith(t) || (s += t), s);
+};
+
+######## buildFasta  v2.8.4:0  live:1
+  NEW IN LIVE (not present in v2.8.4):
+  [live line 4992]
+Dt.buildFasta = function (l, e) {
+  var t = [],
+    s = [];
+  if (!l || l.length === 0) return { data: "", warnings: ["Sequence download: there are no primer pairs to build a sequence from."] };
+  for (var n = 0; n < l.length; ++n) {
+    var a = l[n],
+      i = a && a.idprefix ? a.idprefix : "pair " + (n + 1),
+      u;
+    try {
+      u = Dt.finalSeqRecord(a, e);
+    } catch (f) {
+      u = { fasta: "", error: "unexpected error (" + (f && f.message ? f.message : f) + ")" };
+    }
+    u.error ? s.push("Sequence download: could not build the sequence for " + i + ": " + u.error + ".") : t.push(u.fasta);
+  }
+  return { data: t.join(""), warnings: s };
+};
+
+######## finalSeqRecord  v2.8.4:0  live:1
+  NEW IN LIVE (not present in v2.8.4):
+  [live line 4961]
+Dt.finalSeqRecord = function (l, e) {
+  var t = function (w) {
+    return { fasta: "", error: w };
+  };
+  if (!e || !e.seq) return t("no sequence is loaded");
+  if (!l) return t("no primer pair is selected");
+  var s = e.seq,
+    n = !!e.circular,
+    a = l.selstart,
+    i = l.selend,
+    u = l.seqop,
+    f = l.repseq || "",
+    h = l.idprefix || "resultseq";
+  l.pairIndex && (h += "_" + l.pairIndex);
+  var d = String(l.description || u || "").trim();
+  if (a == null || i == null) return t("the pair has no start/end positions");
+  var p = ct.normalizeFlanks(a, i, s.length, n).error;
+  if (p) return t(p);
+  var v = ">" + e.id + "_" + h + (d ? " " + d : ""),
+    _ = ct.canonicalFlanks(a, i, s.length, n);
+  n && _.end <= _.start && (v += "; rotated to start at base " + _.end);
+  var b = ct.applyMutation(s, _.start, _.end, f, n).toLowerCase();
+  return {
+    fasta:
+      v +
+      `
+` +
+      Dt.wrap(b, Dt.FASTA_WIDTH),
+    error: "",
+  };
+};
+
+######## summary  v2.8.4:0  live:1
+  NEW IN LIVE (not present in v2.8.4):
+  [live line 5099]
+Dt.summary = function (l) {
+  for (
+    var e = [
+        [
+          "ID",
+          "Description",
+          "Fwd Primer ID",
+          "Fwd Primer Seq",
+          "Length",
+          "Tm Fwd",
+          "Rev Primer ID",
+          "Rev Primer Seq",
+          "Length",
+          "Tm Rev",
+          "Ta",
+        ],
+      ],
+      t = 0;
+    t < l.length;
+    ++t
+  ) {
+    var s = l[t];
+    e.push([
+      s.idprefix,
+      String(s.description || "").trim(),
+      Dt.primerId(s, "fwd"),
+      Dt.primerSeq(s, "fwd"),
+      s.lenf,
+      Math.round(s.tmf),
+      Dt.primerId(s, "rev"),
+      Dt.primerSeq(s, "rev"),
+      s.lenr,
+      Math.round(s.tmr),
+      Math.round(s.ta),
+    ]);
+  }
+  return (
+    e.map(function (n) {
+      return n.map(Dt.tsvCell).join("	");
+    }).join(`
+`) +
+    `
+`
+  );
+};
+
+######## shorten  v2.8.4:0  live:1
+  NEW IN LIVE (not present in v2.8.4):
+  [live line 5043]
+Dt.shorten = function (l) {
+  return ((l = l || ""), l.length > 25 ? l.slice(0, 10) + "..." + l.slice(-10) : l);
+};
+
+######## wrap  v2.8.4:0  live:1
+  NEW IN LIVE (not present in v2.8.4):
+  [live line 5010]
+Dt.wrap = function (l, e) {
+  for (var t = "", s = 0; s < l.length; s += e)
+    t +=
+      l.slice(s, s + e) +
+      `
+`;
+  return t;
+};
+
+######## tsvCell  v2.8.4:0  live:1
+  NEW IN LIVE (not present in v2.8.4):
+  [live line 5035]
+Dt.tsvCell = function (l) {
+  var e = String(l == null ? "" : l).replace(/[\t\r\n]+/g, " ");
+  return /^[=+\-@]/.test(e) ? "'" + e : e;
+};
+beautified bundles: {'v2.8.4': ('index.a5da1636.v2.8.4.beauty.js', 614639), 'live': ('index.4330b0c7.v2.11.0-live.beauty.js', 615623)}
+
+######## nebuilderFragments  v2.8.4:0  live:1
+  NEW IN LIVE (not present in v2.8.4):
+  [live line 4883]
+vt.nebuilderFragments = function (l, e, t) {
+  var s = [];
+  if (!l || l.length === 0) return { primers: [], warnings: s };
+  for (
+    var n = function (A) {
+        return ((Number(A.locf) % e) + e) % e;
+      },
+      a = l.slice().sort(function (A, q) {
+        return n(A) - n(q);
+      }),
+      i = [],
+      u = 0;
+    u < a.length;
+    ++u
+  ) {
+    var f = i[i.length - 1];
+    if (f && n(f) === n(a[u])) {
+      s.push("NEBuilder: " + a[u].idprefix + " starts at the same position as " + f.idprefix + ", so it was left out of the assembly.");
+      continue;
+    }
+    i.push(a[u]);
+  }
+  for (var h = Te.revcomp, d = i.length, p = [], v = 0; v < d; ++v) {
+    var _ = i[v],
+      b = {
+        seqf: _.seqf,
+        lenf: _.seqf.length,
+        tmf: _.tmf,
+        seqfpflap: _.seqfpflap,
+        seqfanneal: _.seqfanneal,
+        locf: n(_),
+        pairIndex: v + 1,
+        nebuilder: !0,
+      };
+    if (t === "multiple" && d > 1) {
+      var w = i[(v + 1) % d],
+        y = (((n(w) - n(_)) % e) + e) % e;
+      Object.assign(b, {
+        seqr: h(w.seqf),
+        tmr: w.tmf,
+        seqrpflap: h(w.seqfpflap),
+        seqranneal: w.seqrnbanneal,
+        idprefix: _.idprefix + "_" + w.idprefix,
+        description: _.description + " " + w.description,
+        locr: (n(w) + w.seqrnbanneal.length) % e,
+        wraparound: n(w) < n(_),
+        clash: y < vt.NB_MIN_FRAGMENT,
+        fraglen: _.seqfpflap.length + y + w.seqrnbanneal.length + h(w.seqfpflap).length,
+      });
+    } else
+      Object.assign(b, {
+        seqr: h(_.seqf),
+        tmr: _.tmf,
+        seqrpflap: h(_.seqfpflap),
+        seqranneal: _.seqrnbanneal,
+        idprefix: _.idprefix,
+        description: _.description,
+        locr: (n(_) + _.seqrnbanneal.length) % e,
+        fraglen: e + _.seqrnbanneal.length,
+      });
+    ((b.lenr = b.seqr.length), (b.ta = Math.min(Math.min(b.tmf, b.tmr) + 1, 72)), p.push(b));
+  }
+  return { primers: p, warnings: s };
+};
+
+######## nebuilderBlocker  v2.8.4:0  live:1
+  NEW IN LIVE (not present in v2.8.4):
+  [live line 4866]
+vt.nebuilderBlocker = function (l, e, t) {
+  if (l !== "codon") return "NEBuilder primers are only available in codon mode";
+  if (t) return 'NEBuilder primers need "Confine mutations to primer 5\u2032 tails" off';
+  var s = String(e || "")
+    .toUpperCase()
+    .trim()
+    .split(/[\s,;]+/)
+    .filter(Boolean);
+  return s.length < 2
+    ? "NEBuilder primers need at least two mutations"
+    : s.some(function (n) {
+          return /^[A-Z]\d+X/.test(n);
+        })
+      ? "NEBuilder primers can't be used with degenerate (X) mutations"
+      : "";
+};
+
+######## mergeCodonOps  v2.8.4:0  live:1
+  NEW IN LIVE (not present in v2.8.4):
+  [live line 4686]
+vt.mergeCodonOps = function (l, e, t) {
+  var s = l.length,
+    n = function (P) {
+      return { start: 0, end: 0, repseq: "", error: P };
+    };
+  if (!e || e.length === 0) return n("no mutations to merge");
+  for (var a = 0; a < e.length; a++)
+    for (var i = a + 1; i < e.length; i++) {
+      var u = e[a],
+        f = e[i];
+      if (u.start < f.end - 1 && f.start < u.end - 1) {
+        var h = ((u.id || "") + " " + (f.id || "")).trim(),
+          d = u.start === f.start && u.end === f.end;
+        return n(h + ": " + (d ? "duplicate mutation at the same codon" : "overlapping codon positions"));
+      }
+    }
+  var p = e.slice().sort(function (P, G) {
+      return P.start - G.start;
+    }),
+    v = p[0],
+    _ = p[p.length - 1],
+    b = _.end - v.start,
+    w = p
+      .map(function (P) {
+        return P.id || "";
+      })
+      .join(" ")
+      .trim();
+  if (b > p.length * 8) return n(w + ": mutations are too widely spread to safely merge (" + b + " bp)");
+  if (b > 60) return n(w + ": merged span of " + b + " bp exceeds the 60 bp limit for a safe merge");
+  for (
+    var y = function (P) {
+        return t ? l.charAt((((P - 1) % s) + s) % s) : l.charAt(P - 1);
+      },
+      A = p[0].codon,
+      q = p[0].end,
+      T = 1;
+    T < p.length;
+    T++
+  ) {
+    for (var N = p[T], M = q; M <= N.start; M++) A += y(M);
+    ((A += N.codon), (q = N.end));
+  }
+  var k = v.start,
+    E = _.end;
+  return (t && ((k = ((k % s) + s) % s), (E = ((E % s) + s) % s)), { start: k, end: E, repseq: A, error: "" });
+};
+
+######## duplicateOpsWarning  v2.8.4:0  live:1
+  NEW IN LIVE (not present in v2.8.4):
+  [live line 4591]
+Ot.duplicateOpsWarning = function (l) {
+  var e = new Set();
+  return (l || []).map(function (t) {
+    var s = Ot.normalizeOpText(t);
+    return e.has(s) ? "duplicate of an earlier op" : (e.add(s), "");
+  });
+};
+
+######## VARIANT_COUNTS  v2.8.4:0  live:1
+  NEW IN LIVE (not present in v2.8.4):
+  [live line 4555]
+Ot.VARIANT_COUNTS = { A: 1, C: 1, G: 1, T: 1, R: 2, Y: 2, K: 2, M: 2, S: 2, W: 2, B: 3, D: 3, H: 3, V: 3, N: 4 };
+Ot.MAX_VARIANTS = 256;
+
+######## stripReplacement  v2.8.4:0  live:1
+  NEW IN LIVE (not present in v2.8.4):
+  [live line 4557]
+Ot.stripReplacement = function (l) {
+  return (l || "").replace(/\s+/g, "");
+};
+beautified bundles: {'v2.8.4': ('index.a5da1636.v2.8.4.beauty.js', 614639), 'live': ('index.4330b0c7.v2.11.0-live.beauty.js', 615623)}
+
+######## flankError  v2.8.4:0  live:1
+  NEW IN LIVE (not present in v2.8.4):
+  [live line 4605]
+vt.flankError = function (l, e, t, s, n, a) {
+  return s
+    ? ""
+    : ((n = n === void 0 ? vt.MIN_FLANK_5 : n),
+      (a = a === void 0 ? vt.MIN_FLANK_3 : a),
+      l < n
+        ? "insufficient 5' flanking sequence to build primers for partial sequence (need at least " +
+          n +
+          " bp before the edit, have " +
+          Math.max(l, 0) +
+          ")"
+        : t + 1 - e < a
+          ? "insufficient 3' flanking sequence to build primers for partial sequence (need at least " +
+            a +
+            " bp after the edit, have " +
+            Math.max(t + 1 - e, 0) +
+            ")"
+          : "");
+};
+
+######## describeOp  v2.8.4:0  live:1
+  NEW IN LIVE (not present in v2.8.4):
+  [live line 5046]
+Dt.describeOp = function (l) {
+  var e = l.seq || "",
+    t = e.length,
+    s = !!l.circular,
+    n = s ? ct.canonicalFlanks(l.start, l.end, t, !0) : { start: l.start, end: l.end },
+    a = function (_, b) {
+      return _ === b ? "at base " + _ : "at bases " + _ + "-" + b;
+    },
+    i = " in " + l.seqName;
+  if (l.seqop === "insert") {
+    var u = s && n.start === 0 ? t : n.start,
+      f = n.end;
+    return !s && u < 1
+      ? "Insert " + l.newseq + " before base 1" + i
+      : !s && f > t
+        ? "Insert " + l.newseq + " after base " + t + i
+        : "Insert " + l.newseq + " between bases " + u + "-" + f + i;
+  }
+  var h = s && n.end <= n.start,
+    d = (h ? e.slice(n.start) + e.slice(0, n.end - 1) : e.slice(n.start, n.end - 1)).toLowerCase(),
+    p = (n.start % t) + 1,
+    v = n.end - 1 < 1 ? t : n.end - 1;
+  return l.seqop === "delete"
+    ? "Delete " + Dt.shorten(d) + " " + a(p, v) + i
+    : "Replace " + Dt.shorten(d) + " " + a(p, v) + " with " + l.newseq + i;
+};
+
+######## positionError  v2.8.4:0  live:1
+  NEW IN LIVE (not present in v2.8.4):
+  [live line 4573]
+Ot.positionError = function (l, e, t) {
+  var s = Number(e);
+  if (!Number.isInteger(s) || s < 1 || s > t) {
+    var n = e == null || e === "" ? "empty" : e;
+    return l + " must be a whole number from 1 to " + t + " (got " + n + ")";
+  }
+  return "";
+};
+
+######## replacementError  v2.8.4:0  live:1
+  NEW IN LIVE (not present in v2.8.4):
+  [live line 4560]
+Ot.replacementError = function (l, e) {
+  var t = Ot.stripReplacement(l),
+    s = t.replace(/[ACGTRYKMSWBDHVN]/gi, "");
+  if (s) return "replacement sequence contains invalid characters: " + Array.from(new Set(s)).join(" ");
+  if (e !== !0) {
+    for (var n = 1, a = 0; a < t.length; a++) n *= Ot.VARIANT_COUNTS[t[a].toUpperCase()] || 1;
+    if (n > Ot.MAX_VARIANTS) return "too many variants (" + n + "); use at most " + Ot.MAX_VARIANTS;
+  }
+  return "";
+};
+
+######## sequenceLengthError  v2.8.4:0  live:1
+  NEW IN LIVE (not present in v2.8.4):
+  [live line 4582]
+Ot.sequenceLengthError = function (l) {
+  return l > Ot.MAX_SEQ_LEN ? "sequence length (" + l + " bp) exceeds the maximum of " + Ot.MAX_SEQ_LEN + " bp" : "";
+};
+
+######## notIntegerError  v2.8.4:0  live:1
+  NEW IN LIVE (not present in v2.8.4):
+  [live line 4624]
+vt.notIntegerError = function (l, e) {
+  if (!Number.isInteger(l) || !Number.isInteger(e)) {
+    var t = function (s) {
+      return s == null || s === "" ? "empty" : s;
+    };
+    return "positions must be whole numbers (got " + t(l) + ", " + t(e) + ")";
+  }
+  return "";
+};
+
+######## orfStarts  v2.8.4:0  live:1
+  NEW IN LIVE (not present in v2.8.4):
+  [live line 4948]
+vt.orfStarts = function (l, e) {
+  e = e || vt.ORF_MIN_CODONS;
+  for (var t = String(l || "").toUpperCase(), s = [], n = /[ACGT]+/g, a; (a = n.exec(t)) !== null; ) {
+    for (var i = a[0], u = [-1, -1, -1], f = 0; f + 3 <= i.length; ++f) {
+      var h = i.substr(f, 3);
+      (h === "TAA" || h === "TAG" || h === "TGA") && (u[f % 3] = f);
+    }
+    for (var d = 0; d + 3 <= i.length; ++d) i.substr(d, 3) === "ATG" && u[d % 3] >= d + 3 * e && s.push(a.index + d);
+  }
+  return s;
+};
+beautified bundles: {'v2.8.4': ('index.a5da1636.v2.8.4.beauty.js', 614639), 'live': ('index.4330b0c7.v2.11.0-live.beauty.js', 615623)}
+
+######## checkCodonOp  v2.8.4:0  live:1
+  NEW IN LIVE (not present in v2.8.4):
+  [live line 4548]
+Ot.checkCodonOp = function (l, e, t, s) {
+  var n = Ot.codonOpError(l);
+  if (n) return n;
+  if (!(e >= 1)) return "skipping op [" + l + "] - no valid ORF start";
+  var a = Number(Ot.codonOpRegex.exec(l.toUpperCase())[2]);
+  return Ot.codonRangeError(l, a, e, t, s);
+};
+
+######## codonAt  v2.8.4:0  live:1
+  NEW IN LIVE (not present in v2.8.4):
+  [live line 4658]
+vt.codonAt = function (l, e, t) {
+  if (!t) return l.slice(e, e + 3);
+  for (var s = l.length, n = "", a = 0; a < 3; a++) n += l.charAt((((e + a) % s) + s) % s);
+  return n;
+};
+
+######## codonOpError  v2.8.4:0  live:1
+  NEW IN LIVE (not present in v2.8.4):
+  [live line 4530]
+Ot.codonOpError = function (l) {
+  var e = Ot.codonOpRegex.exec(l.toUpperCase());
+  if (!e) return "skipping op [" + l + "] - unable to parse (expected e.g. M2A or M2G:GGG)";
+  if (Number(e[2]) < 1) return "skipping op [" + l + "] - codon numbers start at 1";
+  if (Ot.CODON_TARGETS.indexOf(e[3]) === -1) return "skipping op [" + l + "] - no codons available for amino acid " + e[3];
+  if (e[4] !== void 0 && !/^[ACGT]{3}$/.test(e[4]))
+    return "skipping op [" + l + "] - the triplet after the colon must be 3 bases (A, C, G or T)";
+  if (e[4] !== void 0 && /^[ACGT]{3}$/.test(e[4]) && e[3] !== "X") {
+    var t = Te.translate(e[4]);
+    if (t !== e[3]) return "skipping op [" + l + "] - triplet " + e[4] + " encodes " + t + ", not " + e[3];
+  }
+  return "";
+};
+
+######## codonRangeError  v2.8.4:0  live:1
+  NEW IN LIVE (not present in v2.8.4):
+  [live line 4543]
+Ot.codonRangeError = function (l, e, t, s, n) {
+  var a = t - 1 + (e - 1) * 3,
+    i = n ? e * 3 > s : a + 3 > s;
+  return i ? "skipping op [" + l + "] - codon " + e + " is beyond the end of the sequence" : "";
+};
+
+######## batchLineError  v2.8.4:0  live:1
+  NEW IN LIVE (not present in v2.8.4):
+  [live line 4570]
+Ot.batchLineError = function (l) {
+  return l && l.length > 4 ? "replacement contains spaces" : "";
+};
+
+######## escapeRegExp  v2.8.4:0  live:1
+  NEW IN LIVE (not present in v2.8.4):
+  [live line 4598]
+Ot.escapeRegExp = function (l) {
+  return l.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+};

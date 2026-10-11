@@ -1,0 +1,46 @@
+{
+  "page": "https://nebasechanger.neb.com/",
+  "scripts": [
+    {
+      "url": "https://nebasechanger.neb.com/cdn-cgi/challenge-platform/h/g/orchestrate/chl_page/v1?ray=a4843d019ddcdbaa",
+      "file": "dfa15840244c-v1",
+      "sha256": "dfa15840244ce0c545c07102152460f64f4ff9852403f87c0461c9d4b80358df",
+      "bytes": 240439,
+      "status": 200
+    },
+    {
+      "url": "blob:https://nebasechanger.neb.com/8966a7c3-4c5d-4021-8820-877e23245071",
+      "file": "68fc6a187504-8966a7c3-4c5d-4021-8820-877e23245071",
+      "sha256": "68fc6a1875044768a821d4e10d24e155b0806ecb99909dced4fa49b13f70ae65",
+      "bytes": 292,
+      "status": 200
+    },
+    {
+      "url": "https://challenges.cloudflare.com/turnstile/v0/g/4df4a60fa397/api.js?onload=zeEi4&render=explicit",
+      "file": "894cac4eaf89-api.js",
+      "sha256": "894cac4eaf8912eb3a3b73107482a48fe05d4c31f19ea04439a57ab06ee7683e",
+      "bytes": 86732,
+      "status": 200
+    },
+    {
+      "url": "blob:https://challenges.cloudflare.com/8a7f8578-8d20-4aa6-9a9c-213402ff7f68",
+      "file": "68fc6a187504-8a7f8578-8d20-4aa6-9a9c-213402ff7f68",
+      "sha256": "68fc6a1875044768a821d4e10d24e155b0806ecb99909dced4fa49b13f70ae65",
+      "bytes": 292,
+      "status": 200
+    },
+    {
+      "url": "blob:https://challenges.cloudflare.com/df8895f0-ffab-4824-97de-36d83484c0ac",
+      "file": "68fc6a187504-df8895f0-ffab-4824-97de-36d83484c0ac",
+      "sha256": "68fc6a1875044768a821d4e10d24e155b0806ecb99909dced4fa49b13f70ae65",
+      "bytes": 292,
+      "status": 200
+    }
+  ],
+  "failures": [
+    {
+      "url": "blob:https://challenges.cloudflare.com/8a7f8578-8d20-4aa6-9a9c-213402ff7f68",
+      "error": "Error: response.body: Target page, context or browser has been closed"
+    }
+  ]
+}

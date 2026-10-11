@@ -1,0 +1,2 @@
+ID	Description	Fwd Primer ID	Fwd Primer Seq	Length	Tm Fwd	Rev Primer ID	Rev Primer Seq	Length	Tm Rev	Ta
+D404L	Replace gat at bases 1210-1212 with CTG in 3xFLAG-mVenus-sid-1 (D404L)	D404L_1_F	CGTTGAGCAActgTTCGGGGCGCAC	25	59	D404L_1_R	AGCGGATTGAGCAGTTTTC	19	63	60

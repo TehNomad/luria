@@ -1,0 +1,19 @@
+{
+  "id": "D404E",
+  "mutation_type": "substitution",
+  "wild_type_range": [1210, 1212],
+  "replacement_bases": "GAA",
+  "ta_recommended": 69,
+  "forward_primer": {
+    "id": "D404E:1_F",
+    "sequence": "CGTTGAGCAAgaaTTCGGGGCGC",
+    "length": 23,
+    "tm": 72
+  },
+  "reverse_primer": {
+    "id": "D404E:1_R",
+    "sequence": "AGCGGATTGAGCAGTTTTCCG",
+    "length": 21,
+    "tm": 68
+  }
+}

@@ -1,0 +1,380 @@
+--- v2.8.4:Tt
++++ live:tl
+@@ -1,207 +1,183 @@
+-    Tt = function (E, ee, ne, ae, ue, ie, ce, J, ge, Te, Xe, el) {
+-      (console.log("buildPrimers"), console.log(E, ee, ne, ae, ue, ie, ce, el), (ee = ee || ""));
+-      var Ve = ne - 1,
+-        it = ae - 1,
+-        At,
+-        ot = 10,
+-        Pe,
+-        Ne = function (Dt, Oe) {
+-          var hl = Math.min(Dt, Oe) + 1;
+-          return (hl > 72 && (hl = 72), hl);
++    tl = function (I, X, re, se, Se, Me, Le, je, oe, ge, xe, et, Ct, Tt, wt) {
++      ((Tt = Tt || []), (wt = wt || []), (X = X || ""));
++      var mt = re - 1,
++        ft = se - 1,
++        Sl,
++        St = 10,
++        Ye,
++        Pe = function (dl, gt) {
++          var hn = Math.min(dl, gt) + 1;
++          return (hn > 72 && (hn = 72), hn);
+         },
+-        Ze = {};
+-      ((Ve = Ve % l.length),
+-        (it = it % l.length),
+-        (ge = ge < 15 ? 15 : ge),
+-        (Te = Te < 55 ? 55 : Te),
+-        (Te = Te > 72 ? 72 : Te),
+-        (Ze.primerMinLen = ge),
+-        (Ze.primerMinTm = Te),
+-        (Ze.primerMaxTm = 72));
+-      var Mt,
+-        Ll = [ce, Ve, it, ue].join(",");
+-      if ((ce || (ce = "primer"), !(a && ne >= 0 && ae >= 0)))
+-        return (console.log("aborting buildPrimers - negative coords", ne, ae), yt(), []);
+-      if (E == "not_ready") return (console.log("aborting buildPrimers - missing seqop"), yt(), []);
+-      if (ee == null)
+-        return (
+-          console.log("aborting buildPrimers - template seq not set"),
+-          console.log("tplseq is null"),
+-          yt(),
+-          []
+-        );
+-      if (Xe && (Ve <= ot || it > l.length - 40))
+-        return (
+-          console.log("aborting buildPrimers - insufficient seq space to build primers (partial seq)"),
+-          yt(),
+-          []
+-        );
+-      if (l.length - ee.length < 60)
+-        return (console.log("aborting buildPrimers - insufficient seq space to build primers"), yt(), []);
+-      (console.log("repseq", ue),
+-        (p = J ? [ue] : qe.expandDNASeq(ue)),
+-        console.log("repseqs", p),
+-        p.length == 0 && (p = [""]));
+-      for (let Dt = 0; Dt < p.length; ++Dt) {
++        $e = {};
++      (xe || ((mt = mt % i.length), (ft = ft % i.length)),
++        (oe = oe < 15 ? 15 : oe),
++        (ge = ge < 55 ? 55 : ge),
++        (ge = ge > 72 ? 72 : ge),
++        ($e.primerMinLen = oe),
++        ($e.primerMinTm = ge),
++        ($e.primerMaxTm = 72));
++      var yt,
++        ss = [Le, mt, ft, Se].join(",");
++      if ((Le || (Le = "primer"), !(u && re >= 0 && se >= 0) || I == "not_ready" || X == null)) return Tt;
++      if (xe) {
++        let dl = ct.flankError(re, se, i.length, !1, ct.MIN_FLANK_5, ct.MIN_FLANK_3);
++        if (dl) return (wt.push(dl), Tt);
++      }
++      if (i.length - X.length < 60) return (wt.push("insufficient flanking sequence space to build primers"), Tt);
++      ((_ = je ? [Se] : Te.expandDNASeq(Se)), _.length == 0 && (_ = [""]));
++      for (let dl = 0; dl < _.length; ++dl) {
+         try {
+-          ((Pe = p[Dt]),
+-            console.log("working on [" + Pe + "]"),
+-            console.log(E, ne, ae),
+-            E == "delete"
+-              ? (Mt = "Delete " + Lt(ee) + " between bases " + ne + "-" + ae + " in " + a.id)
+-              : E == "insert"
+-                ? (Mt = "Insert " + Pe + " between bases " + ne + "-" + ae + " in " + a.id)
+-                : E == "replace" &&
+-                  (Mt =
+-                    "Replace " + Lt(ee) + " between bases " + ne + "-" + ae + " with " + Pe + " in " + a.id),
+-            (Mt += " (" + ce + ") "),
+-            console.log(Mt));
+-        } catch (Oe) {
+-          (console.log("error!!!!! -- 1", Oe.message), W.push("Unexpected error preparing for operation."));
++          ((Ye = _[dl]),
++            (yt = Jt.describeOp({ seqop: I, start: re, end: se, newseq: Ye, seq: i, circular: !xe, seqName: u.id }) + " (" + Le + ")"));
++        } catch {
++          wt.push("Unexpected error preparing for operation.");
+         }
+-        if (E == "delete")
++        if (I == "delete")
+           try {
+-            if ((console.log("DELETE op"), a && ne >= 0 && ae >= 0)) {
+-              if (
+-                (ee === null && (ee = ""),
+-                (it > Ve && l.length - (it - Ve) < 62) ||
+-                  (it <= Ve && Ve - it < 62) ||
+-                  l.length - ee.length < 62)
+-              ) {
+-                console.log("seq too short for flanking primers", Ve, it);
+-                return;
++            if (u && re >= 0 && se >= 0) {
++              X === null && (X = "");
++              var fl = ft > mt ? ft - mt : ft - mt + i.length,
++                ze = fl - 1,
++                en = i.length - ze;
++              if (en < 62) {
++                let gt = "deleting " + ze + " bp leaves only " + en + " bp, too little to design primers";
++                return (wt.push(gt), Tt);
+               }
+-              if (r.isCircular) a.subseq = [it, Ve];
++              if (f.isCircular) u.subseq = [ft, mt];
+               else {
+-                let Oe = r.seq.slice(it) + r.seq.slice(0, Ve + 1);
+-                (a.updateSrcseq(Oe), (a.subseq = [0, Oe.length - 1]));
++                let gt = f.seq.slice(ft) + f.seq.slice(0, mt + 1);
++                (u.updateSrcseq(gt), (u.subseq = [0, gt.length - 1]));
+               }
+-              ((a.srctype = "pcr"),
+-                a.autogenPrimers(Ze),
+-                console.log("fwd:", a.fwdPrimer.seq),
+-                console.log("rev:", a.revPrimer.seq),
+-                A.push({
+-                  selstart: ne,
+-                  selend: ae,
+-                  locf: it,
+-                  locr: Ve,
+-                  seqf: a.fwdPrimer.seq,
+-                  seqr: a.revPrimer.seq,
+-                  lenf: a.fwdPrimer.seq.length,
+-                  lenr: a.revPrimer.seq.length,
+-                  tmf: a.fwdPrimer.tm,
+-                  tmr: a.revPrimer.tm,
+-                  ta: Ne(a.fwdPrimer.tm, a.revPrimer.tm),
+-                  repseq: p[Dt],
++              if (((u.srctype = "pcr"), u.autogenPrimers($e), !f.isCircular)) {
++                let gt = i.length - ft,
++                  hn = mt + 1;
++                if (u.fwdPrimer.anneal.length > gt || u.revPrimer.anneal.length > hn)
++                  throw new Error("cannot reach min Tm " + ge + " without crossing the end of the partial sequence");
++              }
++              Tt.push({
++                selstart: re,
++                selend: se,
++                locf: ft,
++                locr: mt,
++                seqf: u.fwdPrimer.seq,
++                seqr: u.revPrimer.seq,
++                lenf: u.fwdPrimer.seq.length,
++                lenr: u.revPrimer.seq.length,
++                tmf: u.fwdPrimer.tm,
++                tmr: u.revPrimer.tm,
++                ta: Pe(u.fwdPrimer.tm, u.revPrimer.tm),
++                repseq: _[dl],
++                seqfpflap: "",
++                seqrpflap: "",
++                seqfanneal: u.fwdPrimer.anneal.toUpperCase(),
++                seqranneal: u.revPrimer.anneal.toUpperCase(),
++                seqrnbanneal: "",
++                description: yt,
++                seqop: I,
++                idprefix: Le,
++                op: et || null,
++                pad: 0,
++                batch_op: ss,
++              });
++            }
++          } catch (gt) {
++            gt.message && gt.message.indexOf("cannot reach") !== -1
++              ? wt.push(Le + " (" + re + "-" + se + "): " + gt.message)
++              : wt.push("Unexpected error in delete operation.");
++          }
++        else if (I == "insert" || (I == "replace" && (Me || Ye.length >= 6 || X.length >= 6 || !/^[acgt]*$/i.test(Ye))))
++          try {
++            if (u && re >= 0 && se >= 0 && Ye) {
++              if (f.isCircular) u.subseq = [ft, mt];
++              else {
++                let gt = f.seq.slice(ft) + f.seq.slice(0, mt + 1);
++                (u.updateSrcseq(gt), (u.subseq = [0, gt.length - 1]));
++              }
++              if (((u.srctype = "pcr"), u.autogenPrimers($e), (Sl = Se.length / 2), u.autogenPrimers($e), !f.isCircular)) {
++                let gt = i.length - ft,
++                  hn = mt + 1;
++                if (u.fwdPrimer.anneal.length > gt || u.revPrimer.anneal.length > hn)
++                  throw new Error("cannot reach min Tm " + ge + " without crossing the end of the partial sequence");
++              }
++              Tt.push({
++                selstart: re,
++                selend: se,
++                locf: ft,
++                locr: mt,
++                seqf: Ye.length <= 6 ? Ye + u.fwdPrimer.seq : Ye.slice(Sl) + u.fwdPrimer.seq,
++                seqr: Ye.length <= 6 ? u.revPrimer.seq : Te.revcomp(Ye.slice(0, Sl)) + u.revPrimer.seq,
++                lenf: u.fwdPrimer.seq.length,
++                lenr: u.revPrimer.seq.length,
++                tmf: u.fwdPrimer.tm,
++                tmr: u.revPrimer.tm,
++                ta: Pe(u.fwdPrimer.tm, u.revPrimer.tm),
++                repseq: _[dl],
++                seqfpflap: Ye.length <= 6 ? Ye.toLowerCase() : Ye.slice(Sl).toLowerCase(),
++                seqrpflap: Ye.length <= 6 ? "" : Te.revcomp(Ye.slice(0, Sl)).toLowerCase(),
++                seqfanneal: u.fwdPrimer.anneal.toUpperCase(),
++                seqranneal: u.revPrimer.anneal.toUpperCase(),
++                seqrnbanneal: Ne.revcomp(u.fwdPrimer.anneal.toUpperCase()),
++                description: yt,
++                seqop: I,
++                idprefix: Le,
++                op: et || null,
++                pad: 0,
++                batch_op: ss,
++              });
++            }
++          } catch (gt) {
++            gt.message && gt.message.indexOf("cannot reach") !== -1
++              ? wt.push(Le + " (" + re + "-" + se + "): " + gt.message)
++              : wt.push("Unexpected error in replace/insert operation.");
++          }
++        else if (I == "replace")
++          try {
++            if (u && re >= 0 && se >= 0 && Ye && X) {
++              let gt = 1 / 0,
++                hn = 1 / 0;
++              if (f.isCircular) u.subseq = [mt - St + 1, mt - St];
++              else {
++                let Mi = f.seq.slice(mt - St + 1) + f.seq.slice(0, mt - St + 1);
++                (u.updateSrcseq(Mi), (u.subseq = [0, Mi.length - 1]), (gt = i.length - ft), (hn = mt - St + 1));
++              }
++              u.srctype = "pcr";
++              let ns = Ne.calcSDMPrimers(u.template, oe, ge, St, X, Ye, gt, hn);
++              ((ns.ta = Math.min(ns.tmf, ns.tmr) + 1),
++                ns.ta > 72 && (ns.ta = 72),
++                Tt.push({
++                  selstart: re,
++                  selend: se,
++                  locf: (((mt - St + 1) % i.length) + i.length) % i.length,
++                  locr: (((mt - St) % i.length) + i.length) % i.length,
++                  seqf: ns.pfwd,
++                  seqr: ns.prev,
++                  lenf: ns.pfwd.length,
++                  lenr: ns.prev.length,
++                  tmf: ns.tmf,
++                  tmr: ns.tmr,
++                  ta: ns.ta,
++                  repseq: _[dl],
+                   seqfpflap: "",
+                   seqrpflap: "",
+-                  seqfanneal: a.fwdPrimer.anneal.toUpperCase(),
+-                  seqranneal: a.revPrimer.anneal.toUpperCase(),
+-                  seqrnbanneal: "",
+-                  description: Mt,
+-                  seqop: E,
+-                  idprefix: ce,
+-                  pad: 0,
+-                  batch_op: Ll,
++                  seqfanneal: ns.pfwd.slice(0, St).toUpperCase() + _[dl].toLowerCase() + ns.pfwd.slice(St + _[dl].length).toUpperCase(),
++                  seqranneal: ns.prev.toUpperCase(),
++                  seqrnbanneal: Ne.revcomp(
++                    ns.pfwd.slice(0, St).toUpperCase() + _[dl].toLowerCase() + ns.pfwd.slice(St + _[dl].length).toUpperCase(),
++                  ),
++                  description: yt,
++                  seqop: I,
++                  idprefix: Le,
++                  op: et || null,
++                  pad: St,
++                  batch_op: ss,
+                 }));
+             }
+-          } catch (Oe) {
+-            (console.log("error!!!!!--2", Oe.message), W.push("Unexpected error in delete operation."));
+-          }
+-        else if (E == "insert" || (E == "replace" && (ie || Pe.length >= 6 || ee.length >= 6)))
+-          try {
+-            if ((console.log("INSERT/REPLACE op"), a && ne >= 0 && ae >= 0 && Pe)) {
+-              if (r.isCircular) a.subseq = [it, Ve];
+-              else {
+-                (console.log(it, Ve), console.log(r.seq));
+-                let Oe = r.seq.slice(it) + r.seq.slice(0, Ve + 1);
+-                (a.updateSrcseq(Oe), (a.subseq = [0, Oe.length - 1]));
+-              }
+-              ((a.srctype = "pcr"),
+-                a.autogenPrimers(Ze),
+-                (At = ue.length / 2),
+-                a.autogenPrimers(Ze),
+-                console.log("fwd:", a.fwdPrimer.seq),
+-                console.log("rev:", a.revPrimer.seq),
+-                A.push({
+-                  selstart: ne,
+-                  selend: ae,
+-                  locf: it,
+-                  locr: Ve,
+-                  seqf: Pe.length <= 6 ? Pe + a.fwdPrimer.seq : Pe.slice(At) + a.fwdPrimer.seq,
+-                  seqr: Pe.length <= 6 ? a.revPrimer.seq : qe.revcomp(Pe.slice(0, At)) + a.revPrimer.seq,
+-                  lenf: a.fwdPrimer.seq.length,
+-                  lenr: a.revPrimer.seq.length,
+-                  tmf: a.fwdPrimer.tm,
+-                  tmr: a.revPrimer.tm,
+-                  ta: Ne(a.fwdPrimer.tm, a.revPrimer.tm),
+-                  repseq: p[Dt],
+-                  seqfpflap: Pe.length <= 6 ? Pe.toLowerCase() : Pe.slice(At).toLowerCase(),
+-                  seqrpflap: Pe.length <= 6 ? "" : qe.revcomp(Pe.slice(0, At)).toLowerCase(),
+-                  seqfanneal: a.fwdPrimer.anneal.toUpperCase(),
+-                  seqranneal: a.revPrimer.anneal.toUpperCase(),
+-                  seqrnbanneal: Ge.revcomp(a.fwdPrimer.anneal.toUpperCase()),
+-                  description: Mt,
+-                  seqop: E,
+-                  idprefix: ce,
+-                  pad: 0,
+-                  batch_op: Ll,
+-                }));
+-            }
+-          } catch (Oe) {
+-            (console.log("error!!!!!--3", Oe.message),
+-              W.push("Unexpected error in replace/insert operation."));
+-          }
+-        else if (E == "replace")
+-          try {
+-            if ((console.log("REPLACE op"), a && ne >= 0 && ae >= 0 && Pe && ee)) {
+-              if (r.isCircular) a.subseq = [Ve - ot + 1, Ve - ot];
+-              else {
+-                let hl = r.seq.slice(Ve - ot + 1) + r.seq.slice(0, Ve - ot + 1);
+-                (a.updateSrcseq(hl), (a.subseq = [0, hl.length - 1]));
+-              }
+-              a.srctype = "pcr";
+-              let Oe = Ge.calcSDMPrimers(a.template, ge, Te, ot, ee, Pe);
+-              ((Oe.ta = Math.min(Oe.tmf, Oe.tmr) + 1),
+-                Oe.ta > 72 && (Oe.ta = 72),
+-                console.log("fwd:", Oe.pfwd, "tmf:", Oe.tmf.tm, "ta:", Oe.ta),
+-                console.log("rev:", Oe.prev, "tmr:", Oe.tmr.tm, "ta:", Oe.ta),
+-                console.log("nebuilder", H),
+-                A.push({
+-                  selstart: ne,
+-                  selend: ae,
+-                  locf: Ve - ot,
+-                  locr: Ve - ot - 1,
+-                  seqf: Oe.pfwd,
+-                  seqr: Oe.prev,
+-                  lenf: Oe.pfwd.length,
+-                  lenr: Oe.prev.length,
+-                  tmf: Oe.tmf,
+-                  tmr: Oe.tmr,
+-                  ta: Oe.ta,
+-                  repseq: p[Dt],
+-                  seqfpflap: "",
+-                  seqrpflap: "",
+-                  seqfanneal:
+-                    Oe.pfwd.slice(0, ot).toUpperCase() +
+-                    p[Dt].toLowerCase() +
+-                    Oe.pfwd.slice(ot + p[Dt].length).toUpperCase(),
+-                  seqranneal: Oe.prev.toUpperCase(),
+-                  seqrnbanneal: Ge.revcomp(
+-                    Oe.pfwd.slice(0, ot).toUpperCase() +
+-                      p[Dt].toLowerCase() +
+-                      Oe.pfwd.slice(ot + p[Dt].length).toUpperCase(),
+-                  ),
+-                  description: Mt,
+-                  seqop: E,
+-                  idprefix: ce,
+-                  pad: ot,
+-                  batch_op: Ll,
+-                }));
+-            }
+-          } catch (Oe) {
+-            (console.log("error!!!!!--4", Oe.message), W.push("Unexpected error in replace operation."));
++          } catch (gt) {
++            gt.message && gt.message.indexOf("cannot reach") !== -1
++              ? wt.push(Le + " (" + re + "-" + se + "): " + gt.message)
++              : wt.push("Unexpected error in replace operation.");
+           }
+       }
+-      return (console.dir(A), A);
+-    },
++      return Tt;
++    };

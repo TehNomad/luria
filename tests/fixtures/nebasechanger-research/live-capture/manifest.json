@@ -1,0 +1,233 @@
+{
+  "capturedAt": "2026-10-10T19:29:19.309Z",
+  "startedAt": "2026-10-10T19:29:01.852Z",
+  "page": "https://nebasechanger.neb.com/",
+  "browser": {
+    "mode": "persistent-profile",
+    "headless": false,
+    "cdpUrl": null,
+    "profileDir": "browser-profile"
+  },
+  "outcome": {
+    "navigationError": null,
+    "safeErrors": [],
+    "appReady": true,
+    "challengeSeen": false,
+    "shell": {
+      "file": "shell.html",
+      "bytes": 197698,
+      "sha256": "90ff7a0a3c3bf1423d0bb3e832e6f7b1cd15a9bd1dd4d621b02746baa14e7965",
+      "capturedAt": "2026-10-10T19:29:04.101Z",
+      "url": "https://nebasechanger.neb.com/",
+      "kind": "html",
+      "saved": true,
+      "refs": [
+        "/assets/index.4330b0c7.js",
+        "/assets/index.3bc63f16.css",
+        "/assets/2024_NEB_Logo_50.6f07573d.svg",
+        "/assets/appMainLogo.01242724.svg",
+        "/assets/NEBtools_about_icon.0535f502.svg",
+        "/assets/NEBtools_help_icon.fd8dd3fc.svg",
+        "/assets/helpicon.6e85585d.svg",
+        "/cdn-cgi/challenge-platform/scripts/jsd/main.js"
+      ]
+    },
+    "appBundleRequested": true,
+    "appBundles": [
+      "https://nebasechanger.neb.com/assets/index.4330b0c7.js"
+    ],
+    "assetCount": 6,
+    "missing": [
+      "https://nebasechanger.neb.com/assets/index.3bc63f16.css",
+      "https://nebasechanger.neb.com/assets/2024_NEB_Logo_50.6f07573d.svg",
+      "https://nebasechanger.neb.com/assets/appMainLogo.01242724.svg",
+      "https://nebasechanger.neb.com/assets/NEBtools_about_icon.0535f502.svg",
+      "https://nebasechanger.neb.com/assets/NEBtools_help_icon.fd8dd3fc.svg",
+      "https://nebasechanger.neb.com/assets/helpicon.6e85585d.svg",
+      "https://nebasechanger.neb.com/assets/image003.3a95346d.jpg",
+      "https://nebasechanger.neb.com/assets/check_mark.7ca807e2.svg",
+      "https://nebasechanger.neb.com/assets/question_mark.8bf863ee.svg"
+    ]
+  },
+  "assets": [
+    {
+      "url": "https://nebasechanger.neb.com/assets/index.4330b0c7.js",
+      "file": "004eae75971a-index.4330b0c7.js",
+      "status": 200,
+      "contentType": "application/javascript",
+      "resourceType": "script",
+      "bytes": 401373,
+      "sha256": "004eae75971aa84ac5325eea7a7a663ffa622e2eb8756837ac0a09c5d475dfb0",
+      "capturedAt": "2026-10-10T19:29:02.816Z",
+      "kind": "javascript",
+      "looksLikeJavaScript": true,
+      "classifyReasons": [
+        "content-type is JS (application/javascript)",
+        "JS tokens: function, =>, let , const "
+      ]
+    },
+    {
+      "url": "https://geolocation.onetrust.com/cookieconsentpub/v1/geo/location",
+      "file": "4da8a6638ad7-location",
+      "status": 200,
+      "contentType": "application/json",
+      "resourceType": "xhr",
+      "bytes": 71,
+      "sha256": "4da8a6638ad70698ad3d01aa0ef124aebe35c297685c0796b174822f597b1d09",
+      "capturedAt": "2026-10-10T19:29:03.086Z",
+      "kind": "json",
+      "looksLikeJavaScript": false,
+      "classifyReasons": [
+        "JSON body, not JavaScript"
+      ]
+    },
+    {
+      "url": "https://www.googletagmanager.com/gtm.js?id=GTM-PQVCKDF",
+      "file": "ca06b0749147-gtm.js",
+      "status": 200,
+      "contentType": "application/javascript; charset=UTF-8",
+      "resourceType": "script",
+      "bytes": 359844,
+      "sha256": "ca06b0749147ee6f8b9ef6414fe86ed917802555086b983c8c72128bbbb27946",
+      "capturedAt": "2026-10-10T19:29:03.387Z",
+      "kind": "javascript",
+      "looksLikeJavaScript": true,
+      "classifyReasons": [
+        "content-type is JS (application/javascript; charset=UTF-8)",
+        "JS tokens: function, var "
+      ]
+    },
+    {
+      "url": "https://www.googletagmanager.com/gtag/js?id=G-V6Q0SZ7FRP&cx=c&gtm=4e6a72",
+      "file": "cedfbda94d5d-js",
+      "status": 200,
+      "contentType": "application/javascript; charset=UTF-8",
+      "resourceType": "script",
+      "bytes": 543080,
+      "sha256": "cedfbda94d5d2563593d419e787b16c5a115a72b79b6f90b4534d5ecc5865129",
+      "capturedAt": "2026-10-10T19:29:03.512Z",
+      "kind": "javascript",
+      "looksLikeJavaScript": true,
+      "classifyReasons": [
+        "content-type is JS (application/javascript; charset=UTF-8)",
+        "JS tokens: function, var "
+      ]
+    },
+    {
+      "url": "https://nebasechanger.neb.com/analytics.js",
+      "file": "5f43d215d44c-analytics.js",
+      "status": 404,
+      "contentType": "text/html",
+      "resourceType": "document",
+      "bytes": 916,
+      "sha256": "5f43d215d44c8d33cb489b402f1b1dcd3963b3ead29d2f7927f32d84968a9980",
+      "capturedAt": "2026-10-10T19:29:08.972Z",
+      "kind": "html",
+      "looksLikeJavaScript": false,
+      "classifyReasons": [
+        "starts with/contains HTML markup"
+      ]
+    },
+    {
+      "url": "https://nebasechanger.neb.com/gtm.js",
+      "file": "5f43d215d44c-gtm.js",
+      "status": 404,
+      "contentType": "text/html",
+      "resourceType": "document",
+      "bytes": 916,
+      "sha256": "5f43d215d44c8d33cb489b402f1b1dcd3963b3ead29d2f7927f32d84968a9980",
+      "capturedAt": "2026-10-10T19:29:09.589Z",
+      "kind": "html",
+      "looksLikeJavaScript": false,
+      "classifyReasons": [
+        "starts with/contains HTML markup"
+      ]
+    }
+  ],
+  "excluded": [
+    {
+      "url": "https://cdn.cookielaw.org/scripttemplates/otSDKStub.js",
+      "reason": "OneTrust consent SDK (third party)"
+    },
+    {
+      "url": "https://nebasechanger.neb.com/cdn-cgi/challenge-platform/scripts/jsd/main.js",
+      "reason": "Cloudflare challenge machinery"
+    },
+    {
+      "url": "https://cdn.cookielaw.org/consent/e959fcf9-c594-4e15-b4cd-202398950a11/e959fcf9-c594-4e15-b4cd-202398950a11.json",
+      "reason": "OneTrust consent SDK (third party)"
+    },
+    {
+      "url": "https://nebasechanger.neb.com/cdn-cgi/challenge-platform/h/g/scripts/jsd/4df4a60fa397/main.js?",
+      "reason": "Cloudflare challenge machinery"
+    },
+    {
+      "url": "https://nebasechanger.neb.com/cdn-cgi/challenge-platform/h/g/jsd/oneshot/4df4a60fa397/0.38603653557004525:1791659136:V1eddjHtxL94mKi_QuaoATvUYzjb-gLusBo7xt1OwqQ/a48808167e38b2f1",
+      "reason": "Cloudflare challenge machinery"
+    },
+    {
+      "url": "https://cdn.cookielaw.org/scripttemplates/202508.1.0/otBannerSdk.js",
+      "reason": "OneTrust consent SDK (third party)"
+    },
+    {
+      "url": "https://cdn.cookielaw.org/consent/e959fcf9-c594-4e15-b4cd-202398950a11/01a0aa97-b4fd-7111-b261-364572bd4b40/en.json",
+      "reason": "OneTrust consent SDK (third party)"
+    },
+    {
+      "url": "https://cdn.cookielaw.org/scripttemplates/202508.1.0/assets/v2/otPcCenter.json",
+      "reason": "OneTrust consent SDK (third party)"
+    },
+    {
+      "url": "https://cdn.cookielaw.org/scripttemplates/202508.1.0/assets/otFlat.json",
+      "reason": "OneTrust consent SDK (third party)"
+    },
+    {
+      "url": "https://cdn.cookielaw.org/scripttemplates/202508.1.0/assets/otCommonStyles.css",
+      "reason": "OneTrust consent SDK (third party)"
+    },
+    {
+      "url": "https://cdn.cookielaw.org/logos/static/ot_close.svg",
+      "reason": "OneTrust consent SDK (third party)"
+    },
+    {
+      "url": "https://cdn.cookielaw.org/logos/static/ot_guard_logo.svg",
+      "reason": "OneTrust consent SDK (third party)"
+    },
+    {
+      "url": "https://cdn.cookielaw.org/logos/static/powered_by_logo.svg",
+      "reason": "OneTrust consent SDK (third party)"
+    },
+    {
+      "url": "https://cdn.cookielaw.org/logos/62cc51c8-0584-4010-828d-c047e55043a3/0197842c-5b13-7f4a-9fee-97dea652106b/f25e1e5e-9af3-4ee0-a091-aaf505903a6b/NEB_logo_noTag.png",
+      "reason": "OneTrust consent SDK (third party)"
+    }
+  ],
+  "failures": [],
+  "sanitization": {
+    "statement": "No request or response headers, cookies, clearance tokens, consent values, or request POST bodies are recorded.",
+    "fieldsRecorded": [
+      "url",
+      "file",
+      "status",
+      "contentType",
+      "resourceType",
+      "bytes",
+      "sha256",
+      "capturedAt",
+      "kind",
+      "looksLikeJavaScript",
+      "classifyReasons"
+    ],
+    "checkedMarkers": [
+      "cf_clearance=",
+      "optanonconsent=",
+      "set-cookie",
+      "authorization:",
+      "bearer ",
+      "cookie:",
+      "cf-chl",
+      "cf_clearance"
+    ],
+    "checkedBlob": "manifest minus this sanitization block"
+  }
+}
