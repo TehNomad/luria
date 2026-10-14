@@ -23,7 +23,7 @@ the residue tables below can be read against that fixture's derivations.
 | `mut-c.txt` | Circular, 24 bases: `GCTTGGAACGAACGAACGAACATG` |
 | `mut-d.txt` | Linear, 18 bases, terminal stop codon: `ATGGCTTGGAATTTTTAA` |
 | `mut-e.txt` | Linear, 30 bases, one ambiguous codon (`N` at coordinate 6): `ATGGCTNGGAATCAGCAGCAGCAGCAGCAG` |
-| `cases.tsv` | 44 cases: one per line, tab separated |
+| `cases.tsv` | 47 cases: one per line, tab separated |
 
 Sequence files carry a `;`-prefixed comment line. The canonical text is the
 remaining text with whitespace removed and letters upper-cased, exactly as in
@@ -50,8 +50,9 @@ the Milestone 1 fixture.
 - `target` is a coordinate (`3`), a deliberately too-wide interval (`3:5`), a
   coordinate naming another artifact (`3#mut-b.txt`), a residue number (`2`),
   or a residue number naming another CDS (`2@cds-2`).
-- `expected_original` and `replacement` are a DNA letter for a nucleotide row,
-  a residue letter for a residue row (`*` for the stop is used to ask for a
+- `expected_original` and `replacement` are a base (`A`, `C`, `G`, `T`) for a
+  nucleotide row — an ambiguity code is used only to ask for a refused request —
+  and a residue letter for a residue row (`*` for the stop is used to ask for a
   mutation that is out of scope).
 - `policy` is `default`, `unspecified`, or `supplied:XXX`. Matching is exact
   and case-sensitive; anything else is out of scope.
@@ -102,24 +103,48 @@ with codon index `16 * place(first) + 4 * place(second) + place(third)`,
 | `mut-d` over `[0,18)+` | `ATG GCT TGG AAT TTT TAA` | `M A W N F`, final `TAA` is a stop, not a residue |
 | `mut-e` over `[0,30)+` | `ATG GCT NGG AAT …` | `NGG` expands to `AGG CGG GGG TGG` = `R R G W`: no single residue |
 
-The default codon of a residue is the first triplet that lists it in that
-table's order, so `L` is `TTA`, `W` is `TGG`, `C` is `TGT` (not `TGC`), `A` is
-`GCT`, `Q` is `CAA`, `M` is `ATG`, `N` is `AAT`, `I` is `ATT`.
+### Default codons
+
+The `default` policy picks, for the replacement residue, the codon with the
+highest count in the *E. coli* K-12 codon usage table: Kazusa Codon Usage
+Database, *Escherichia coli* W3110 (a K-12 substrain), species 316407, 4332
+CDSs, 1372057 codons, retrieved 2026-10-14 from
+<https://www.kazusa.or.jp/codon/cgi-bin/showcodon.cgi?species=316407&aa=1&style=N>.
+The counts the cases depend on, read off that page:
+
+| Residue | Codon counts | Default |
+| --- | --- | --- |
+| `L` | `CTG` 72898, `TTA` 18894, `TTG` 18664, `CTC` 15272, `CTT` 15082, `CTA` 5266 | `CTG` |
+| `F` | `TTT` 30462, `TTC` 22705 | `TTT` |
+| `W` | `TGG` 20889 (the only W codon) | `TGG` |
+
+The previous rule, first codon in standard table order, gave `TTA` for `L`.
+
+These expectations were checked with a Python script that parses the Kazusa
+page and uses a codon table written out per amino acid, sharing no code with
+`crates/core`; it agreed with every success case.
 
 ### Edits
 
 Each success case states the edited text as written out by hand. Two are worth
 showing:
 
-- `res-a-1`: residue 1 (`ATG`, `M`) to `L`, default codon `TTA`, written at
-  coordinates 0, 1, 2 → `TTA GCT TGG AAT …`, residues `L A W N Q Q Q Q Q Q`.
-  The edit differs at coordinates 0 and 2 only; coordinate 1 already held `T`.
+- `res-a-1`: residue 1 (`ATG`, `M`) to `L`, default codon `CTG`, written at
+  coordinates 0, 1, 2 → `CTG GCT TGG AAT …`, residues `L A W N Q Q Q Q Q Q`.
+  The edit differs at coordinate 0 only; coordinates 1 and 2 already held
+  `T` and `G`.
 - `res-a-minus-7`: `mut-a` under `[0,30)-`, residue 7 (`ATT`, `I`) to `L`
-  (`TTA`). The codon sits at extracted indices 18, 19, 20, which are reference
-  coordinates 11, 10, 9. Writing `T`, `T`, `A` there means reference 11 ← `A`,
-  reference 10 ← `A`, reference 9 ← `T` — the complement is applied on write,
-  so the edited text is `ATGGCTTGGTAACAGCAGCAGCAGCAGCAG` and re-extracting the
-  minus-strand CDS gives `…TTA…`.
+  (`CTG`). The codon sits at extracted indices 18, 19, 20, which are reference
+  coordinates 11, 10, 9. Writing `C`, `T`, `G` there means reference 11 ← `G`,
+  reference 10 ← `A`, reference 9 ← `C` — the complement is applied on write,
+  so the edited text is `ATGGCTTGGCAGCAGCAGCAGCAGCAGCAG` and re-extracting the
+  minus-strand CDS gives `…CTG…`.
+- `res-c-origin` and `res-c-origin-write`: `mut-c` under `[22,24)+[0,7)+`,
+  residue 1 is `TGG` (`W`) at reference coordinates 22, 23, 0. To `L` the
+  default `CTG` changes only 22 and 23 (coordinate 0 keeps its `G`), giving
+  `GCTTGGAACGAACGAACGAACACT`; to `F` the default `TTT` changes 23 and 0,
+  giving `TCTTGGAACGAACGAACGAACATT`, so a write on both sides of the origin is
+  still covered. Both record coordinates 0, 22, 23.
 
 ### Error cases
 
@@ -132,6 +157,8 @@ Each is named for the rule it exercises:
 | `nuc-a-wrong-expected` | coordinate 3 holds `G`, the request claimed `T` | BiologicalValidation |
 | `nuc-a-outside-scope` | coordinate 20 is outside the scoped CDS `[0,12)`; refused before any edit | BiologicalValidation |
 | `nuc-a-bad-letter` | `Z` is not a DNA letter | MalformedInput |
+| `nuc-a-ambiguous-replacement` | `N` is a sequence letter but not a base; a substitution writes only `A`, `C`, `G`, `T` | MalformedInput |
+| `nuc-e-ambiguous-original` | coordinate 6 of `mut-e` holds `N`; an expected original must be a base, so the position cannot be targeted | MalformedInput |
 | `nuc-a-wider-interval` | `3:5` selects three nucleotides, a substitution replaces one | MalformedInput |
 | `nuc-a-other-artifact` | the target coordinate names another artifact, so the request is about two sequences | MalformedInput |
 | `res-a-no-policy` | the request did not say how to choose a codon; nothing is guessed | MalformedInput |
@@ -177,7 +204,8 @@ re-writes the letter already there is refused earlier, at intent construction.
   `crates/core/tests/mutation_invariants.rs`, not by a table row: the table has
   one CDS identifier per row.
 - Primer design, mutagenesis strategy, and any optimisation of codon choice are
-  deliberately absent; `default` is a table-order rule, not a preference.
+  deliberately absent; `default` is the highest-count *E. coli* K-12 codon,
+  with no other optimisation (edit distance, restriction sites, other hosts).
 
 The semantic choices these cases pin down are recorded in
 `docs/tasks/milestone-2-mutation.md`. The driver is

@@ -62,7 +62,7 @@ pub struct Cds {
 ///
 /// An unrecognised value means no valid value was supplied, which is a
 /// missing attribute rather than a guess.
-pub fn parse_completeness(text: String) -> Result<Completeness, DomainError> {
+pub fn parse_completeness(cds: String, text: String) -> Result<Completeness, DomainError> {
     let lowered: String = text.to_lowercase();
     if lowered == "complete" {
         return Ok(Completeness::Complete);
@@ -71,8 +71,9 @@ pub fn parse_completeness(text: String) -> Result<Completeness, DomainError> {
         return Ok(Completeness::Incomplete);
     }
     let problem = MissingCdsAttributeProblem {
-        cds: text,
+        cds,
         attribute: "completeness".to_string(),
+        value: Some(text),
     };
     Err(DomainError::MissingCdsAttribute(problem))
 }
@@ -81,7 +82,7 @@ pub fn parse_completeness(text: String) -> Result<Completeness, DomainError> {
 ///
 /// An unrecognised value means no valid value was supplied, which is a
 /// missing attribute rather a guess.
-pub fn parse_numbering(text: String) -> Result<Numbering, DomainError> {
+pub fn parse_numbering(cds: String, text: String) -> Result<Numbering, DomainError> {
     let lowered: String = text.to_lowercase();
     if lowered == "from-cds-start" {
         return Ok(Numbering::FromCdsStart);
@@ -90,8 +91,9 @@ pub fn parse_numbering(text: String) -> Result<Numbering, DomainError> {
         return Ok(Numbering::ExplicitMapping);
     }
     let problem = MissingCdsAttributeProblem {
-        cds: text,
+        cds,
         attribute: "numbering".to_string(),
+        value: Some(text),
     };
     Err(DomainError::MissingCdsAttribute(problem))
 }
@@ -164,6 +166,7 @@ impl Cds {
             let problem = MissingCdsAttributeProblem {
                 cds: name,
                 attribute: "intervals".to_string(),
+                value: None,
             };
             return Err(DomainError::MissingCdsAttribute(problem));
         }
@@ -171,6 +174,7 @@ impl Cds {
             let problem = MissingCdsAttributeProblem {
                 cds: name,
                 attribute: "strand".to_string(),
+                value: None,
             };
             return Err(DomainError::MissingCdsAttribute(problem));
         }
@@ -178,6 +182,7 @@ impl Cds {
             let problem = MissingCdsAttributeProblem {
                 cds: name,
                 attribute: "completeness".to_string(),
+                value: None,
             };
             return Err(DomainError::MissingCdsAttribute(problem));
         }
@@ -185,6 +190,7 @@ impl Cds {
             let problem = MissingCdsAttributeProblem {
                 cds: name,
                 attribute: "genetic code".to_string(),
+                value: None,
             };
             return Err(DomainError::MissingCdsAttribute(problem));
         }
@@ -192,15 +198,16 @@ impl Cds {
             let problem = MissingCdsAttributeProblem {
                 cds: name,
                 attribute: "numbering".to_string(),
+                value: None,
             };
             return Err(DomainError::MissingCdsAttribute(problem));
         }
 
         let held_completeness: Option<String> = completeness;
-        let parsed: Completeness = parse_completeness(held_completeness.unwrap())?;
+        let parsed: Completeness = parse_completeness(name.clone(), held_completeness.unwrap())?;
 
         let held_numbering: Option<String> = numbering;
-        let parsed_numbering: Numbering = parse_numbering(held_numbering.unwrap())?;
+        let parsed_numbering: Numbering = parse_numbering(name.clone(), held_numbering.unwrap())?;
 
         let held_intervals: Option<OrderedIntervals> = intervals;
         let held_strand: Option<Strand> = strand;
@@ -447,18 +454,46 @@ mod tests {
 
     #[test]
     fn completeness_is_parsed_not_assumed() {
-        assert!(parse_completeness("complete".to_string()).unwrap() == Completeness::Complete);
-        assert!(parse_completeness("Incomplete".to_string()).unwrap() == Completeness::Incomplete);
-        let error = parse_completeness("maybe".to_string()).unwrap_err();
-        assert!(matches!(error, DomainError::MissingCdsAttribute(_)));
+        let cds: String = "cds-1".to_string();
+        assert!(
+            parse_completeness(cds.clone(), "complete".to_string()).unwrap()
+                == Completeness::Complete
+        );
+        assert!(
+            parse_completeness(cds.clone(), "Incomplete".to_string()).unwrap()
+                == Completeness::Incomplete
+        );
+        let error = parse_completeness(cds.clone(), "maybe".to_string()).unwrap_err();
+        assert!(
+            error
+                == DomainError::MissingCdsAttribute(MissingCdsAttributeProblem {
+                    cds: "cds-1".to_string(),
+                    attribute: "completeness".to_string(),
+                    value: Some("maybe".to_string()),
+                })
+        );
     }
 
     #[test]
     fn numbering_is_parsed_not_assumed() {
-        assert!(parse_numbering("from-cds-start".to_string()).unwrap() == Numbering::FromCdsStart);
-        assert!(parse_numbering("Explicit".to_string()).unwrap() == Numbering::ExplicitMapping);
-        let error = parse_numbering("auto".to_string()).unwrap_err();
-        assert!(matches!(error, DomainError::MissingCdsAttribute(_)));
+        let cds: String = "cds-1".to_string();
+        assert!(
+            parse_numbering(cds.clone(), "from-cds-start".to_string()).unwrap()
+                == Numbering::FromCdsStart
+        );
+        assert!(
+            parse_numbering(cds.clone(), "Explicit".to_string()).unwrap()
+                == Numbering::ExplicitMapping
+        );
+        let error = parse_numbering(cds.clone(), "auto".to_string()).unwrap_err();
+        assert!(
+            error
+                == DomainError::MissingCdsAttribute(MissingCdsAttributeProblem {
+                    cds: "cds-1".to_string(),
+                    attribute: "numbering".to_string(),
+                    value: Some("auto".to_string()),
+                })
+        );
     }
 
     #[test]

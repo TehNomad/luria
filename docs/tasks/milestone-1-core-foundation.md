@@ -18,9 +18,10 @@ CLI, persistence, Python worker, primer logic, or mutation model was built.
 
 ### Sequence alphabet and normalization (D008)
 
-- Accepted letters are the DNA IUPAC symbols in `DNA_ALPHABET`: `A C G T`
-  plus the ambiguity symbols `N R Y S K F M V W`. Anything else is
-  `InvalidSequenceCharacters`.
+- Accepted letters are the DNA IUPAC nucleotide symbols in `DNA_ALPHABET`:
+  `A C G T` plus the ambiguity symbols `R Y S W K M B D H V N`. Anything else,
+  including `U`, is `InvalidSequenceCharacters`. Complements: `R<->Y`, `K<->M`,
+  `B<->V`, `D<->H`; `S`, `W`, `N` are their own complements.
 - Case normalization is ASCII-only: `a`–`z` map to `A`–`Z`. There is no
   Unicode case folding. `ß` (U+00DF), `ſ` (U+017F), and accented letters are
   rejected as `InvalidSequenceCharacters`, not folded into DNA letters.
@@ -31,8 +32,8 @@ CLI, persistence, Python worker, primer logic, or mutation model was built.
 
 ### Sequence artifact identity (D007)
 
-- A `Sequence` carries a `SequenceReference`, which is the pair
-  (`Identifier` display name, `ContentHash` digest).
+- A `Sequence` carries a `SequenceReference`, which is the triple
+  (`Identifier` display name, `ContentHash` digest, `SequenceTopology`).
 - The hash is SHA-256 over the canonical ASCII bytes of the normalized
   sequence text: uppercase DNA/IUPAC letters only, no line endings, no
   comments, no length prefix, no serialized struct.
@@ -40,9 +41,11 @@ CLI, persistence, Python worker, primer logic, or mutation model was built.
   tests in `identity.rs` compare it against digests produced by Python
   `hashlib` (recorded as literals, including the 55/56/63/64/65-byte padding
   boundaries), and the fixture table pins the sequence digests.
-- Equality of two `SequenceReference` values requires both the name and the
-  digest to match. Two artifacts that share a display name but differ in
-  content are therefore not interchangeable. This is proven by
+- Equality of two `SequenceReference` values requires the name, the digest,
+  and the topology to match. Two artifacts that share a display name but differ
+  in content are therefore not interchangeable, and neither are a linear and a
+  circular artifact with the same name and bases. The content hash itself stays
+  bases-only, so both of those share a digest. This is proven by
   `identity::tests::sequence_reference_equality_requires_name_and_content`,
   by the per-structure tests in `interval.rs`, `feature.rs`, and `cds.rs`,
   and by fixture cases `feat_same_name_other_content` and
@@ -59,6 +62,10 @@ CLI, persistence, Python worker, primer logic, or mutation model was built.
   feature is an ordered list such as `[21,24), [0,6)`, and it is legal only
   when the earlier interval ends exactly at the sequence length and the next
   starts exactly at 0. Any other decrease is `IntervalsOutOfOrder`.
+- No two intervals of one feature may overlap. This is checked between every
+  pair, not only neighbours: `[21,24), [0,6), [6,22)` on a 24-base circular
+  sequence has no overlapping neighbours but selects position 21 twice, and is
+  `OverlappingIntervals`.
 - Bounds are validated against the referenced sequence (`CoordinateOutOfBounds`),
   which is a `BiologicalValidation` failure, not a malformed-input failure.
 
@@ -92,15 +99,20 @@ CLI, persistence, Python worker, primer logic, or mutation model was built.
 - `genetic_code::lookup` returns a typed `CodonOutcome`, not a string and not
   a `"?"` sentinel. The four outcomes are kept distinct:
   `Residue(Residue)`, `Stop`, `Ambiguous`, `Invalid`.
-- `Ambiguous` means the codon contains an IUPAC ambiguity letter and could
-  stand for more than one residue; `NGG` expands to `AGG`, `CGG`, `GGG`,
-  `TGG`, which the standard table gives as `R`, `R`, `G`, `W`. Nothing is
-  guessed.
+- `Ambiguous` means the codon contains an IUPAC ambiguity letter; `NGG`
+  expands to `AGG`, `CGG`, `GGG`, `TGG`, which the standard table gives as
+  `R`, `R`, `G`, `W`. Nothing is guessed. A codon is reported `Ambiguous` even
+  when every expansion gives the same residue (`GCN` is always `A`): ambiguity
+  is not resolved in this milestone.
 - `Invalid` means the codon contains a character that is not a nucleotide
   symbol at all.
 - `Stop` at the last position is a terminal stop and is not a residue;
   `Stop` anywhere else is `InternalStopCodon`, a `BiologicalValidation`
   failure distinct from malformed input.
+- `Completeness::Complete` is the caller's declaration. It does not require a
+  start codon or a terminal stop: a complete CDS may be supplied without
+  either, and `Translation::terminal_stop()` reports whether one was present.
+  Pinned by `translation::tests::a_complete_cds_needs_no_start_or_stop_codon`.
 
 ### Residue positions (D006)
 
@@ -163,3 +175,23 @@ CLI, persistence, Python worker, primer logic, or mutation model was built.
   metadata are out of scope.
 - The SHA-256 implementation is handwritten and validated against Python
   `hashlib` in the test suite; it is not a general-purpose crypto primitive.
+
+## Revisions after the 2026-10-14 review
+
+Recorded here so the choices above can be traced to the change that made
+them. Each was approved by the project owner.
+
+- The alphabet was `A C G T N R Y S K F M V W`, which contained `F` (not an
+  IUPAC nucleotide code) and lacked `B`, `D`, `H`; `V` was complemented to
+  `F`. It is now the IUPAC nucleotide set with `B<->V`, `D<->H`. No fixture
+  sequence contained any of the affected letters, so no digest changed.
+- `SequenceReference` gained the topology. `SequenceReferenceMismatch` reports
+  `expected_topology` and `actual_topology` alongside names and digests.
+- Interval overlap is checked between every pair.
+- `reverse_complement` returns `Result` instead of panicking on a letter
+  outside the alphabet.
+- `MissingCdsAttribute` carries `value`: `None` when the attribute is absent,
+  `Some(text)` when it was supplied but not recognised. Previously the
+  unrecognised text was reported in the `cds` field.
+- A complete CDS needing no start or stop codon was the existing behaviour; it
+  is now stated and tested.

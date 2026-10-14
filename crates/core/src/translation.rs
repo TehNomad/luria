@@ -18,7 +18,7 @@
 //! validation failure, because the CDS claims residues continue past it.
 //!
 //! A `Translation` records the identity of the sequence artifact it was
-//! produced from (name plus content digest) and the CDS it translated, so a
+//! produced from (name, content digest, and topology) and the CDS it translated, so a
 //! result can be traced back to its inputs (decision D021).
 
 use crate::cds::Cds;
@@ -313,6 +313,26 @@ mod tests {
         assert!(result.residues_text() == "MAWNF");
         assert!(result.residue_count() == 5);
         assert!(result.terminal_stop());
+    }
+
+    // "Complete" is the caller's declaration about the CDS; it does not
+    // require a start codon or a terminal stop. [3,15) of seq-a reads
+    // GCT TGG AAT CAG: no ATG, no stop.
+    #[test]
+    fn a_complete_cds_needs_no_start_or_stop_codon() {
+        let cds = Cds::create(
+            &linear_a(),
+            Identifier::create("cds-1".to_string()).unwrap(),
+            vec![create(&linear_a().reference(), 3, 15).unwrap()],
+            Strand::Plus,
+            Completeness::Complete,
+            "standard".to_string(),
+            Numbering::FromCdsStart,
+        )
+        .unwrap();
+        let result = translate(&linear_a(), &cds).unwrap();
+        assert!(result.residues_text() == "AWNQ");
+        assert!(!result.terminal_stop());
     }
 
     #[test]
