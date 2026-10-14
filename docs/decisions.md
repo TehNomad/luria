@@ -597,3 +597,181 @@ The first milestone is complete only when:
 
 The milestone is not complete merely because the Rust types compile.
 
+## D028: A design names a policy, and a compatibility policy names a build
+
+Decision:
+
+Every primer design carries a `designPolicy`. The two policies are
+`luriaNative` and `nebBaseChangerCompatible`.
+
+Neither policy has a silent default. A request that does not name a policy has
+not chosen one, and is an error.
+
+`nebBaseChangerCompatible` is always accompanied by a `compatibilityTarget`
+naming the build it was substantiated against. The initial target is
+`NebaseChangerV2_11_0`. A target supplied alongside `luriaNative` is an error.
+
+Matching numerical defaults is never described as compatibility. The word
+*compatible* may appear in output, documentation and UI only for the mode,
+qualified by the substantiation record.
+
+Reason:
+
+The reference tool's documented defaults — minimum primer length 15 nt and
+minimum primer Tm 55 °C — are numbers a preset would set, and setting them
+reproduces none of the reference tool's growth order, terminal-GC rule, balance
+loops, revert-to-last-good step, availability limits or Tm engine. The same
+quantity has different defaults at different call sites in the live build
+(`primerMinLen` is 20 at the `Primer` layer and 15 at the `Fragment.autogen*`
+layer; `monosalt`/`ct` are 50/200 in the `Primer` default object literal against
+150/500 in the fallbacks). A preset names numbers; it does not name a site, and
+it does not name a rule.
+
+Naming a build rather than "the website" means a later build cannot silently
+redefine what the policy promised.
+
+D013 and D022 already make an un-chosen decision an error rather than a
+fallback; this decision applies that rule to the design policy field.
+
+Evidence:
+
+* `tests/fixtures/nebasechanger-research/manifest.json` identifies the captured
+  live build (`4330b0c7`, `NebaseChangerV2_11_0`) and records that the HAR's
+  live asset `index.4d8eac54.js` is not in the Internet Archive
+* the three default sets are reproduced by
+  `tests/fixtures/nebasechanger-research/q6_v284_vs_live.py`
+
+Consequences:
+
+* `PrimerDesign` is not yet implemented, so these are contract additions and
+  not API additions; no public API changed
+* a consumer that reads only primer text still cannot mistake a compatibility
+  design for a Luria design, because `policy`, `policyTarget` and
+  `substantiation` are fields of the record
+
+Reversibility:
+
+A fragment/NEBuilder compatibility target would need a second target version or
+a second policy; that is open question 11 of `docs/q5-primer-design.md` §20.
+
+Reverting to an availability-aware split, or moving the extra base of an odd
+`a_f` to the 3′ side, is a policy change under this file's header and needs
+explicit human approval; neither is a routine implementation choice.
+
+## D029: The Luria-native candidate geometry
+
+Status: proposed, not yet approved. Amended in place on 2026-10-13 by the
+split-policy pass; the availability-aware split this entry previously stated is
+superseded and is recorded as such below.
+
+Decision:
+
+Under `luriaNative`, for an edit at template span `[s, e)` with replacement
+length `L`:
+
+* the pair abuts at a template boundary `s − u`, `u ≥ 0`
+* the forward primer covers `[s − u, s + L + v)` and carries the replacement
+  inline
+* the reverse primer covers `[s − u − w, s − u)` and is the reverse complement
+  of 5′ context
+* the annealing totals are `a_f = u + v` and `a_r = w`, where `u` and `v` count
+  the unchanged template-derived bases either side of the replacement region,
+  so `a_f` excludes the replacement itself
+* the split `(u, v)` is mutation-centered: `u = ceil(a_f / 2)`,
+  `v = floor(a_f / 2)`, so `|u − v| ≤ 1` and the extra base of an odd `a_f`
+  goes to the 5′ side. `(u, v)` is a function of `a_f` alone; availability is a
+  feasibility test on the centered candidate, not a rule that moves the split.
+  If the centered geometry cannot satisfy the policy's hard constraints, the
+  policy reports that no design is available under it
+* the bounds are the annealing bounds and availability; there is no maximum
+  primer length and no Tm bound
+* candidates are ordered by `a_f + a_r` ascending then `a_f` ascending, and the
+  order is independent of sequence content
+* an empty candidate set is a failure, reported with one of three named
+  outcomes
+
+Reason:
+
+Primer lengths are `a_f + L` and `a_r`, so minimising `a_f + a_r` is minimising
+total primer length; `L` is fixed by the edit. That is the objective, stated
+rather than implied.
+
+The split is centered because the centered geometry is the proposed native
+default: the mutation region sits in the middle of the unchanged annealing
+flanks, so a design's shape follows from the request and availability only
+decides whether that shape fits. The version of this record written on
+2026-10-12 made the split availability-aware, which let one request emit an
+off-center primer on a template whose 3′ flank was exhausted; that rule is
+superseded. What that pass found — that a fixed split can report no design
+where a shifted one would fit — is now a **named outcome** of the centered
+policy (§18.5 outcome 1), not a defect to be hidden by moving the split.
+
+Centering is a Luria choice about the candidate geometry. It is not a
+universal biological law, and it is not a compatibility claim. The saved help
+text describes the reference tool's short-substitution path as anchoring the
+center of the primer to the nucleotide region and extending in both the 5′ and
+3′ directions with at least 10 fully complementary nucleotides on each side;
+that is source evidence about that path. This record adopts neither its
+per-side bound nor its growth order, and D028's rule that matching a numeric
+default or adopting a similar geometry is not proof of compatibility applies
+unchanged to this one.
+
+The three failure outcomes are distinguished because collapsing them loses
+information the caller needs: no centered candidate fits, the domain was capped
+by a supplied `maxAnnealingOverlap`, and the request was rejected before
+enumeration are different reasons, and the fixture `q5p-09` is the first of
+them. Under the centered split the first two report the same absence (§18.3's
+monotonicity), so what they distinguish is what the request supplied, not two
+reasons in the geometry.
+
+The abut rule, the absence of a maximum primer length and the absence of a Tm
+bound are Luria choices recorded as such: the reference build documents a
+minimum length and a minimum Tm and no maximum, and its back-to-back rule is
+reference scope only.
+
+Evidence:
+
+* `crates/core/src/mutation.rs` — `NucleotideMutationIntent` carries one
+  `replacement: char` at a one-nucleotide interval, which fixes `L = 1` for the
+  native scope
+* `crates/core/src/primer.rs` — `construct_primer`, `assemble_pair` and
+  `require_design_constraints` already express the spans, the parts and the
+  annealing flag that this geometry is built on
+* `tests/fixtures/q5-primer/reference/designs.json` — `q5p-09` is an outcome-1
+  case: bound 31 against a 30-base template, so no candidate fits under any rule,
+  and the failure is not a property of one search
+* `tests/fixtures/q5-primer/reference/designs.json` — `q5p-01`'s forward primer
+  has annealing spans `[[1199, 1209], [1212, 1222]]` around an edit at
+  `[1209, 1212)`, i.e. `u = v = 10`, `L = 3`, `a_f = 20`, primer length 23: its
+  flanks are equal, so the reference's forward geometry is centered in the same
+  direction as this rule. The difference is the total and the growth rule, not
+  the shape — evidence about the reference design, not a compatibility claim
+* `docs/research/nbc_help_v284.txt` line 200, quoted at
+  `docs/research/nebasechanger-live-build-4330b0c7-2026-10-10.md` §15.4
+  (`@19261`) — the reference's short-substitution path is described as center-
+  anchored and extended in both directions with at least 10 complementary
+  nucleotides per side. Evidence about that path, not about `luriaNative`
+* `tests/fixtures/nebasechanger-research/replay_dispatcher_geometry.py` — the
+  reference geometry, replayed, is *not* this geometry; the reference's forward
+  5′ context is the pad and never shrinks
+
+Consequences:
+
+* under the centered split the initial native policy has a closed form: a
+  design exists if and only if `s ≥ bound + ceil(bound / 2)` and
+  `template.length − s − L ≥ floor(bound / 2)`, where `bound` is
+  `minAnnealingOverlap`. Near a template end, an edit the superseded
+  availability-aware rule would have designed now reports no design, which is
+  the intended behaviour and must be reported as such
+* `maxAnnealingOverlap` cannot make an infeasible edit feasible, because
+  availability is monotone along the candidate order under a centered split
+* the centered-geometry failure must stay distinguishable from an H1 bound
+  failure and from an unsupported-placement refusal; `crates/core/src/error.rs`
+  has no design-level failure carrier yet, so the carrier is an open item
+* the native policy and the compatibility target are different geometries, and
+  neither is adjusted to fit the other
+* a native design at `a_f` equal to the bound satisfies H1 and would never be
+  emitted by the reference, whose per-side wording implies `a_f ≥ 20`
+* Tm is inert in the initial native policy, so the policy has a closed form and
+  the enumeration is stated so that enabling Tm later extends the same order
+

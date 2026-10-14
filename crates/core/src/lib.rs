@@ -8,6 +8,7 @@ pub mod genetic_code;
 pub mod identity;
 pub mod interval;
 pub mod mutation;
+pub mod primer;
 pub mod q5;
 pub mod sequence;
 pub mod strand;

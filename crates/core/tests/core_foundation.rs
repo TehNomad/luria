@@ -237,10 +237,19 @@ fn variant_name(error: &DomainError) -> String {
         DomainError::InvalidMutationRequest(_) => "InvalidMutationRequest",
         DomainError::UnspecifiedCodonPolicy(_) => "UnspecifiedCodonPolicy",
         DomainError::UnsupportedMutationPolicy(_) => "UnsupportedMutationPolicy",
+        DomainError::UnsupportedComposition(_) => "UnsupportedComposition",
         DomainError::ExpectedNucleotideMismatch(_) => "ExpectedNucleotideMismatch",
         DomainError::ExpectedResidueMismatch(_) => "ExpectedResidueMismatch",
         DomainError::TargetOutsideFeature(_) => "TargetOutsideFeature",
         DomainError::MutationVerificationFailure(_) => "MutationVerificationFailure",
+        DomainError::InvalidPrimerCandidate(_) => "InvalidPrimerCandidate",
+        DomainError::PrimerTextAtSpanMismatch(_) => "PrimerTextAtSpanMismatch",
+        DomainError::PrimerAnnealingNotTemplate(_) => "PrimerAnnealingNotTemplate",
+        DomainError::PrimerPartition(_) => "PrimerPartition",
+        DomainError::AnnealingOverlapBelowBound(_) => "AnnealingOverlapBelowBound",
+        DomainError::PrimerPairCoverage(_) => "PrimerPairCoverage",
+        DomainError::PrimerOrientationConflict(_) => "PrimerOrientationConflict",
+        DomainError::UnsupportedPrimerPlacement(_) => "UnsupportedPrimerPlacement",
     }
     .to_string()
 }

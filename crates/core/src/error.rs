@@ -224,6 +224,18 @@ pub struct UnsupportedMutationPolicyProblem {
     pub policy: String,
 }
 
+/// Payload: a composition mode of a multi-variant request that this
+/// milestone refuses to execute. `composition` names the mode the caller
+/// asked for and `variant_count` how many members it carried, so the
+/// refusal says which request it is about; `reason` states why the mode is
+/// out of scope. Nothing about the members was executed.
+#[derive(Clone, Debug, PartialEq)]
+pub struct UnsupportedCompositionProblem {
+    pub composition: String,
+    pub variant_count: usize,
+    pub reason: String,
+}
+
 /// Payload: the nucleotide at the target is not the expected original.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ExpectedNucleotideMismatchProblem {
@@ -258,6 +270,68 @@ pub struct MutationVerificationFailureProblem {
     pub reason: String,
 }
 
+/// Payload: a proposed primer cannot become a primer record at all.
+#[derive(Clone, Debug, PartialEq)]
+pub struct InvalidPrimerCandidateProblem {
+    pub primer: String,
+    pub reason: String,
+}
+
+/// Payload: primer text is not the sequence the contract says sits at its span.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PrimerTextAtSpanMismatchProblem {
+    pub primer: String,
+    pub span: String,
+    pub expected: String,
+    pub actual: String,
+}
+
+/// Payload: an annealing portion is not the wild-type template under its spans.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PrimerAnnealingNotTemplateProblem {
+    pub primer: String,
+    pub position: u64,
+    pub expected: String,
+    pub actual: String,
+}
+
+/// Payload: a primer's parts do not partition its text.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PrimerPartitionProblem {
+    pub primer: String,
+    pub reason: String,
+}
+
+/// Payload: a primer's annealing overlap is below the supplied bound.
+#[derive(Clone, Debug, PartialEq)]
+pub struct AnnealingOverlapBelowBoundProblem {
+    pub primer: String,
+    pub overlap: u64,
+    pub bound: u64,
+}
+
+/// Payload: a pair does not cover the changed region of its edit.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PrimerPairCoverageProblem {
+    pub pair: String,
+    pub changed: String,
+    pub uncovered: String,
+}
+
+/// Payload: the two primers do not state opposite orientations.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PrimerOrientationConflictProblem {
+    pub forward: String,
+    pub reverse: String,
+}
+
+/// Payload: a primer placement the contract leaves open is requested.
+#[derive(Clone, Debug, PartialEq)]
+pub struct UnsupportedPrimerPlacementProblem {
+    pub placement: String,
+    pub reason: String,
+}
+
 /// A structured domain failure.
 #[derive(Clone, Debug, PartialEq)]
 pub enum DomainError {
@@ -288,10 +362,19 @@ pub enum DomainError {
     InvalidMutationRequest(InvalidMutationRequestProblem),
     UnspecifiedCodonPolicy(UnspecifiedCodonPolicyProblem),
     UnsupportedMutationPolicy(UnsupportedMutationPolicyProblem),
+    UnsupportedComposition(UnsupportedCompositionProblem),
     ExpectedNucleotideMismatch(ExpectedNucleotideMismatchProblem),
     ExpectedResidueMismatch(ExpectedResidueMismatchProblem),
     TargetOutsideFeature(TargetOutsideFeatureProblem),
     MutationVerificationFailure(MutationVerificationFailureProblem),
+    InvalidPrimerCandidate(InvalidPrimerCandidateProblem),
+    PrimerTextAtSpanMismatch(PrimerTextAtSpanMismatchProblem),
+    PrimerAnnealingNotTemplate(PrimerAnnealingNotTemplateProblem),
+    PrimerPartition(PrimerPartitionProblem),
+    AnnealingOverlapBelowBound(AnnealingOverlapBelowBoundProblem),
+    PrimerPairCoverage(PrimerPairCoverageProblem),
+    PrimerOrientationConflict(PrimerOrientationConflictProblem),
+    UnsupportedPrimerPlacement(UnsupportedPrimerPlacementProblem),
 }
 
 impl ErrorCategory {
@@ -326,6 +409,7 @@ impl DomainError {
             | DomainError::InvalidResiduePosition(_)
             | DomainError::InvalidMutationRequest(_)
             | DomainError::UnspecifiedCodonPolicy(_) => ErrorCategory::MalformedInput,
+            DomainError::InvalidPrimerCandidate(_) => ErrorCategory::MalformedInput,
             DomainError::CoordinateOutOfBounds(_)
             | DomainError::SequenceReferenceMismatch(_)
             | DomainError::CdsLengthNotDivisibleByThree(_)
@@ -337,12 +421,20 @@ impl DomainError {
             | DomainError::ExpectedNucleotideMismatch(_)
             | DomainError::ExpectedResidueMismatch(_)
             | DomainError::TargetOutsideFeature(_)
-            | DomainError::MutationVerificationFailure(_) => ErrorCategory::BiologicalValidation,
+            | DomainError::MutationVerificationFailure(_)
+            | DomainError::PrimerTextAtSpanMismatch(_)
+            | DomainError::PrimerAnnealingNotTemplate(_)
+            | DomainError::PrimerPartition(_)
+            | DomainError::AnnealingOverlapBelowBound(_)
+            | DomainError::PrimerPairCoverage(_)
+            | DomainError::PrimerOrientationConflict(_) => ErrorCategory::BiologicalValidation,
             DomainError::UnsupportedFeatureStructure(_)
             | DomainError::IncompleteCds(_)
             | DomainError::UnsupportedGeneticCode(_)
             | DomainError::UnsupportedNumberingScheme(_)
-            | DomainError::UnsupportedMutationPolicy(_) => ErrorCategory::Unsupported,
+            | DomainError::UnsupportedMutationPolicy(_)
+            | DomainError::UnsupportedComposition(_)
+            | DomainError::UnsupportedPrimerPlacement(_) => ErrorCategory::Unsupported,
         }
     }
 
@@ -426,6 +518,9 @@ impl DomainError {
             DomainError::UnsupportedMutationPolicy(problem) =>
                 format!("the residue mutation on CDS '{}' requests codon policy {}; only default and supplied are supported",
                     problem.cds, problem.policy),
+            DomainError::UnsupportedComposition(problem) =>
+                format!("the request composes {} variants as {}; {}; no variant was executed",
+                    problem.variant_count, problem.composition, problem.reason),
             DomainError::ExpectedNucleotideMismatch(problem) =>
                 format!("the nucleotide at position {} of '{}' is {}, but the mutation expected {}",
                     problem.position, problem.sequence, problem.actual, problem.expected),
@@ -437,6 +532,26 @@ impl DomainError {
                     problem.start, problem.end, problem.sequence, problem.feature),
             DomainError::MutationVerificationFailure(problem) =>
                 format!("mutation result '{}' does not follow from its source: {}", problem.result, problem.reason),
+            DomainError::InvalidPrimerCandidate(problem) =>
+                format!("primer candidate '{}' cannot be represented: {}", problem.primer, problem.reason),
+            DomainError::PrimerTextAtSpanMismatch(problem) =>
+                format!("primer '{}' does not hold the sequence the contract puts at [{}): expected '{}', found '{}'",
+                    problem.primer, problem.span, problem.expected, problem.actual),
+            DomainError::PrimerAnnealingNotTemplate(problem) =>
+                format!("primer '{}': its annealing portion at template position {} is '{}' where the template holds '{}'",
+                    problem.primer, problem.position, problem.actual, problem.expected),
+            DomainError::PrimerPartition(problem) =>
+                format!("primer '{}': its parts do not partition its text: {}", problem.primer, problem.reason),
+            DomainError::AnnealingOverlapBelowBound(problem) =>
+                format!("primer '{}' anneals {} positions, below the supplied bound of {}",
+                    problem.primer, problem.overlap, problem.bound),
+            DomainError::PrimerPairCoverage(problem) =>
+                format!("pair '{}' leaves the changed positions {} uncovered; it covers {}",
+                    problem.pair, problem.changed, problem.uncovered),
+            DomainError::PrimerOrientationConflict(problem) =>
+                format!("primer pair states orientations {} and {}, which are not opposite", problem.forward, problem.reverse),
+            DomainError::UnsupportedPrimerPlacement(problem) =>
+                format!("primer placement {} is not supported: {}", problem.placement, problem.reason),
         }
     }
 }

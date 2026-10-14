@@ -5,6 +5,7 @@
 | [`core-foundation/`](./core-foundation/) | Synthetic sequences, features, and CDSs: canonical text, content hashing, coordinates, circular features, CDS extraction, translation. Drives the integration tests in `crates/core/tests/core_foundation.rs`. |
 | [`mutation/`](./mutation/) | Synthetic sequences and CDSs under mutation: nucleotide and residue substitution, expected-original checks, codon-selection policy, strand-aware coordinates, provenance, verification. Drives the integration tests in `crates/core/tests/mutation_fixtures.rs`. |
 | [`example-construct/`](./example-construct/) | The real *C. elegans* SID-1 construct and captured NEBaseChanger output. |
+| [`q5-primer/`](./q5-primer/) | The primer-design contract in `docs/q5-primer-design.md`: ten cases that pin the contract's invariants before any design algorithm exists, plus reproducible reference designs for the substitution cases. |
 
 ---
 
