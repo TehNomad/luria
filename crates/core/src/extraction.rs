@@ -65,17 +65,17 @@ fn extract_on_strand(
     strand: Strand,
 ) -> Result<String, DomainError> {
     let text: String = extract_text(sequence, feature, intervals)?;
-    Ok(apply_strand(text, strand))
+    apply_strand(text, strand)
 }
 
 /// Apply a strand to canonical text.
-fn apply_strand(text: String, strand: Strand) -> String {
+fn apply_strand(text: String, strand: Strand) -> Result<String, DomainError> {
     if strand.is_plus() {
-        return text;
+        return Ok(text);
     }
 
     let letters: Vec<char> = text.chars().collect();
-    canonical_text(reverse_complement(letters))
+    Ok(canonical_text(reverse_complement(letters)?))
 }
 
 /// The nucleotides a feature selects, on the feature's own strand.

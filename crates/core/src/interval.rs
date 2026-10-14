@@ -139,8 +139,8 @@ pub fn overlaps(first: &NucleotideInterval, second: &NucleotideInterval) -> bool
 
 /// Reject a reference that does not denote `sequence`.
 ///
-/// Reference equality means both the display identifier and the content digest
-/// agree. This is the single place the rule is implemented; intervals, features
+/// Reference equality means the display identifier, the content digest, and
+/// the topology all agree. This is the single place the rule is implemented; intervals, features
 /// and CDSs all go through it.
 pub fn require_sequence(
     reference: SequenceReference,
@@ -153,6 +153,8 @@ pub fn require_sequence(
             actual_identifier: reference.name().value().to_string(),
             expected_digest: expected.content_hash().hex_digest().to_string(),
             actual_digest: reference.content_hash().hex_digest().to_string(),
+            expected_topology: expected.topology(),
+            actual_topology: reference.topology(),
         };
         return Err(DomainError::SequenceReferenceMismatch(problem));
     }
@@ -162,9 +164,14 @@ pub fn require_sequence(
 /// Validate an interval list against the sequence it references.
 ///
 /// Checks, in order: that the list is not empty, that every interval points
-/// at `sequence` (name *and* content digest), that every interval fits inside
-/// it, that starts increase strictly, and that no interval overlaps its
-/// predecessor.
+/// at `sequence` (name, content digest, and topology), that every interval
+/// fits inside it, that starts increase strictly, and that no two intervals
+/// overlap.
+///
+/// Overlap is checked between every pair, not only neighbours: on a circular
+/// reference the list `[21,24), [0,6), [6,22)` has no overlapping neighbours
+/// but selects position 21 twice, which would make the feature longer than
+/// the sequence.
 pub fn validate_against(
     feature: String,
     sequence: &Sequence,
@@ -198,16 +205,21 @@ pub fn validate_against(
             };
             return Err(DomainError::IntervalsOutOfOrder(problem));
         }
-        if overlaps(&previous, &current) {
-            let problem = OverlappingIntervalsProblem {
-                feature,
-                sequence: sequence.display_name(),
-                start: current.start(),
-                end: current.end(),
-            };
-            return Err(DomainError::OverlappingIntervals(problem));
-        }
         index += 1;
+    }
+
+    for later in 1..count {
+        for earlier in 0..later {
+            if overlaps(&intervals[earlier], &intervals[later]) {
+                let problem = OverlappingIntervalsProblem {
+                    feature,
+                    sequence: sequence.display_name(),
+                    start: intervals[later].start(),
+                    end: intervals[later].end(),
+                };
+                return Err(DomainError::OverlappingIntervals(problem));
+            }
+        }
     }
 
     Ok(())
@@ -487,6 +499,67 @@ mod tests {
         assert!(
             validate_structure("feat-1".to_string(), &circular_c(), intervals.as_slice()).is_ok()
         );
+    }
+
+    // No neighbouring pair overlaps, but [21,24) and [6,22) share position 21:
+    // the feature would select 25 positions of a 24-base sequence.
+    #[test]
+    fn a_circular_feature_cannot_select_a_position_twice() {
+        let name: SequenceReference = circular_c().reference();
+        let intervals: OrderedIntervals = vec![
+            create(&name, 21, 24).unwrap(),
+            create(&name, 0, 6).unwrap(),
+            create(&name, 6, 22).unwrap(),
+        ];
+        let error = validate_against("feat-1".to_string(), &circular_c(), intervals.as_slice())
+            .unwrap_err();
+        assert!(error.category() == ErrorCategory::MalformedInput);
+        assert!(
+            error
+                == DomainError::OverlappingIntervals(OverlappingIntervalsProblem {
+                    feature: "feat-1".to_string(),
+                    sequence: "seq-c".to_string(),
+                    start: 6,
+                    end: 22,
+                })
+        );
+    }
+
+    // A wrap that covers the whole circle exactly once is still accepted.
+    #[test]
+    fn a_circular_feature_may_cover_the_whole_sequence_once() {
+        let name: SequenceReference = circular_c().reference();
+        let intervals: OrderedIntervals = vec![
+            create(&name, 21, 24).unwrap(),
+            create(&name, 0, 21).unwrap(),
+        ];
+        assert!(
+            validate_against("feat-1".to_string(), &circular_c(), intervals.as_slice()).is_ok()
+        );
+    }
+
+    // Same name, same bases, other topology: a different artifact.
+    #[test]
+    fn same_content_other_topology_is_rejected() {
+        let linear = normalize(
+            Identifier::create("seq-c".to_string()).unwrap(),
+            "GCTTGGAACGAACGAACGAACATG".to_string(),
+            SequenceTopology::Linear,
+        )
+        .unwrap();
+        assert!(linear.content_hash() == circular_c().content_hash());
+        let intervals: OrderedIntervals = vec![create(&circular_c().reference(), 0, 6).unwrap()];
+        let error =
+            validate_against("feat-1".to_string(), &linear, intervals.as_slice()).unwrap_err();
+        assert!(error.category() == ErrorCategory::BiologicalValidation);
+        match error {
+            DomainError::SequenceReferenceMismatch(problem) => {
+                assert!(problem.expected_topology == SequenceTopology::Linear);
+                assert!(problem.actual_topology == SequenceTopology::Circular);
+                assert!(problem.expected_digest == problem.actual_digest);
+            }
+            other => panic!("expected SequenceReferenceMismatch, got {:?}", other),
+        }
     }
 
     #[test]

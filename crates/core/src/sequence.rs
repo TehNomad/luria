@@ -6,7 +6,7 @@
 //! different content are different sequences, and any operation that assumes
 //! otherwise is rejected with `SequenceReferenceMismatch`. Structures never
 //! carry a bare display name: `Sequence.reference()` yields a `SequenceReference`
-//! (name plus content digest), and that is what intervals, features and CDSs
+//! (name, content digest, and topology), and that is what intervals, features and CDSs
 //! store and compare.
 //!
 //! ```text
@@ -17,9 +17,22 @@
 //! Both artifacts above have the same content hash, so either may be used as
 //! the reference for a feature that points at that content.
 //!
-//! The supported alphabet is the DNA IUPAC set `A C G T N R Y S K F M V W`,
-//! closed under complement. Letters outside that set are malformed input, not
-//! a validation failure.
+//! The supported alphabet is the DNA IUPAC nucleotide set
+//! `A C G T R Y S W K M B D H V N`, closed under complement. Letters outside
+//! that set are malformed input, not a validation failure. `U` is RNA and is
+//! not accepted.
+//!
+//! IUPAC ambiguity codes and their complements:
+//!
+//! ```text
+//! R = A/G   <-> Y = C/T
+//! S = C/G   <-> S
+//! W = A/T   <-> W
+//! K = G/T   <-> M = A/C
+//! B = C/G/T <-> V = A/C/G
+//! D = A/G/T <-> H = A/C/T
+//! N = any   <-> N
+//! ```
 //!
 //! Normalization is ASCII-only (decision D008: normalization never repairs
 //! biological content). Lowercase ASCII `a-z` folds to `A-Z`; nothing else is
@@ -36,7 +49,10 @@ use crate::identity::Identifier;
 use crate::identity::SequenceReference;
 
 /// The supported DNA IUPAC alphabet, closed under complement.
-pub const DNA_ALPHABET: &str = "ACGTNRYSKFMVW";
+pub const DNA_ALPHABET: &str = "ACGTRYSWKMBDHVN";
+
+/// The four unambiguous DNA bases.
+pub const DNA_BASES: &str = "ACGT";
 
 /// Lowercase ASCII letters, the only characters normalization may fold.
 const ASCII_LOWER: &str = "abcdefghijklmnopqrstuvwxyz";
@@ -46,6 +62,15 @@ const ASCII_UPPER: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 pub enum SequenceTopology {
     Linear,
     Circular,
+}
+
+impl SequenceTopology {
+    pub fn name(&self) -> String {
+        match self {
+            SequenceTopology::Linear => "linear".to_string(),
+            SequenceTopology::Circular => "circular".to_string(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -59,6 +84,11 @@ pub struct Sequence {
 
 pub fn is_dna_letter(ch: char) -> bool {
     DNA_ALPHABET.contains(ch)
+}
+
+/// True for `A`, `C`, `G`, `T` only; false for every ambiguity code.
+pub fn is_dna_base(ch: char) -> bool {
+    DNA_BASES.contains(ch)
 }
 
 /// ASCII case folding only.
@@ -89,26 +119,45 @@ pub fn complement_letter(ch: char) -> Option<char> {
         'T' => Some('A'),
         'G' => Some('C'),
         'C' => Some('G'),
-        'N' => Some('N'),
         'R' => Some('Y'),
         'Y' => Some('R'),
         'S' => Some('S'),
+        'W' => Some('W'),
         'K' => Some('M'),
         'M' => Some('K'),
-        'F' => Some('V'),
-        'V' => Some('F'),
-        'W' => Some('W'),
+        'B' => Some('V'),
+        'V' => Some('B'),
+        'D' => Some('H'),
+        'H' => Some('D'),
+        'N' => Some('N'),
         _ => None,
     }
 }
 
-pub fn reverse_complement(letters: Vec<char>) -> Vec<char> {
+/// Reverse complement of DNA letters.
+///
+/// A letter outside the supported alphabet is `InvalidSequenceCharacters`,
+/// with `position` the index of that letter in the input, rather than a
+/// panic or an invented complement.
+pub fn reverse_complement(letters: Vec<char>) -> Result<Vec<char>, DomainError> {
     let mut out: Vec<char> = Vec::new();
     for index in 0..letters.len() {
-        let ch = letters[letters.len() - 1 - index];
-        out.push(complement_letter(ch).unwrap());
+        let position: usize = letters.len() - 1 - index;
+        let ch = letters[position];
+        match complement_letter(ch) {
+            Some(complement) => out.push(complement),
+            None => {
+                return Err(DomainError::InvalidSequenceCharacters(
+                    InvalidSequenceCharactersProblem {
+                        sequence: "reverse complement input".to_string(),
+                        position: position as u64,
+                        characters: ch.to_string(),
+                    },
+                ));
+            }
+        }
     }
-    out
+    Ok(out)
 }
 
 pub fn canonical_text(letters: Vec<char>) -> String {
@@ -182,13 +231,17 @@ impl Sequence {
         self.content_hash.clone()
     }
 
-    /// Identity of this artifact: display name plus content digest.
+    /// Identity of this artifact: display name, content digest, and topology.
     ///
     /// Intervals, features and CDSs carry this value rather than a bare
     /// display name, so applying them to a different artifact that happens
     /// to share a display name is rejected.
     pub fn reference(&self) -> SequenceReference {
-        SequenceReference::create(self.name.clone(), self.content_hash.clone())
+        SequenceReference::create(
+            self.name.clone(),
+            self.content_hash.clone(),
+            self.topology.clone(),
+        )
     }
 
     pub fn topology(&self) -> SequenceTopology {
@@ -306,8 +359,59 @@ mod tests {
     #[test]
     fn the_alphabet_is_closed_under_complement() {
         for ch in DNA_ALPHABET.chars() {
-            assert!(complement_letter(ch).is_some());
+            let complement = complement_letter(ch);
+            assert!(complement.is_some());
+            assert!(is_dna_letter(complement.unwrap()));
+            assert!(complement_letter(complement.unwrap()) == Some(ch));
         }
+    }
+
+    // The IUPAC nucleotide codes (NC-IUB 1984): fifteen symbols, and the
+    // complement of an ambiguity code is the code for the complemented set,
+    // e.g. B = C/G/T complements to G/C/A = V.
+    #[test]
+    fn the_alphabet_is_the_iupac_nucleotide_set() {
+        assert!(DNA_ALPHABET.len() == 15);
+        let pairs: Vec<(char, char)> = vec![
+            ('A', 'T'),
+            ('C', 'G'),
+            ('R', 'Y'),
+            ('S', 'S'),
+            ('W', 'W'),
+            ('K', 'M'),
+            ('B', 'V'),
+            ('D', 'H'),
+            ('N', 'N'),
+        ];
+        for (letter, complement) in pairs {
+            assert!(complement_letter(letter) == Some(complement));
+            assert!(complement_letter(complement) == Some(letter));
+        }
+    }
+
+    #[test]
+    fn letters_that_are_not_iupac_nucleotide_codes_are_rejected() {
+        for text in ["ATGF", "ATGU", "ATGE", "ATG*"] {
+            let sequence = normalize(
+                Identifier::create("seq-x".to_string()).unwrap(),
+                text.to_string(),
+                SequenceTopology::Linear,
+            );
+            assert!(matches!(
+                sequence.unwrap_err(),
+                DomainError::InvalidSequenceCharacters(_)
+            ));
+        }
+    }
+
+    #[test]
+    fn every_iupac_ambiguity_code_is_accepted() {
+        let sequence = normalize(
+            Identifier::create("seq-x".to_string()).unwrap(),
+            "ryswkmbdhvn".to_string(),
+            SequenceTopology::Linear,
+        );
+        assert!(sequence.unwrap().canonical_text() == "RYSWKMBDHVN");
     }
 
     #[test]
@@ -315,15 +419,28 @@ mod tests {
         // rc(ATGGCTTGGAA) = TTCCAAGCCAT, obtained by reversing the text
         // and letter-wise complementing it (A<->T, C<->G).
         let letters: Vec<char> = "ATGGCTTGGAA".chars().collect();
-        let complemented = reverse_complement(letters.clone());
+        let complemented = reverse_complement(letters.clone()).unwrap();
         assert!(canonical_text(complemented) == "TTCCAAGCCAT");
     }
 
     #[test]
     fn reverse_complement_is_an_involution() {
         let letters: Vec<char> = "ATGGCTTGGAATCAGCAGCAGCAGCAGCAG".chars().collect();
-        let twice = reverse_complement(reverse_complement(letters.clone()));
+        let twice = reverse_complement(reverse_complement(letters.clone()).unwrap()).unwrap();
         assert!(canonical_text(twice) == canonical_text(letters));
+    }
+
+    #[test]
+    fn reverse_complement_reports_a_letter_outside_the_alphabet() {
+        let error = reverse_complement(vec!['A', 'U', 'G']).unwrap_err();
+        assert!(
+            error
+                == DomainError::InvalidSequenceCharacters(InvalidSequenceCharactersProblem {
+                    sequence: "reverse complement input".to_string(),
+                    position: 1,
+                    characters: "U".to_string(),
+                })
+        );
     }
 
     #[test]

@@ -6,10 +6,11 @@
 //!   record from another;
 //! * a `ContentHash`, computed from the canonical sequence bytes only.
 //!
-//! A `SequenceReference` pairs the two. Structures that point at a sequence
-//! (intervals, features, CDSs) carry a `SequenceReference`, never a bare
-//! display name, so a same-name/different-content artifact cannot be
-//! substituted silently.
+//! A `SequenceReference` combines the two with the artifact's topology.
+//! Structures that point at a sequence (intervals, features, CDSs) carry a
+//! `SequenceReference`, never a bare display name, so neither a
+//! same-name/different-content artifact nor a same-content artifact of the
+//! other topology can be substituted silently.
 //!
 //! The hash contract is deliberately narrow:
 //!
@@ -23,9 +24,15 @@
 //! hash even when their identifiers or display names differ, and two
 //! artifacts with different canonical bases never share one. Source
 //! metadata is never part of content identity.
+//!
+//! Topology is part of the *reference*, not of the content hash: a linear and
+//! a circular artifact with the same bases share a digest, but a structure
+//! built against one is not accepted on the other, because coordinates such
+//! as an origin-spanning interval mean different things on each.
 
 use crate::error::DomainError;
 use crate::error::InvalidIdentifierProblem;
+use crate::sequence::SequenceTopology;
 
 /// A stable artifact identifier.
 #[derive(Clone, Debug, PartialEq)]
@@ -50,21 +57,36 @@ impl ContentHash {
     }
 }
 
-/// A reference to a sequence artifact: display name plus content digest.
+/// A reference to a sequence artifact: display name, content digest, and
+/// topology.
 ///
-/// Equality is identity equality: two references are equal only when both
-/// the display identifier and the content digest agree. Structures that
-/// point at a sequence carry this value so that a different artifact that
-/// happens to share a display name is never accepted silently.
+/// Equality is identity equality: two references are equal only when the
+/// display identifier, the content digest, and the topology all agree.
+/// Structures that point at a sequence carry this value so that a different
+/// artifact that happens to share a display name, or the same bases with the
+/// other topology, is never accepted silently.
 #[derive(Clone, Debug, PartialEq)]
 pub struct SequenceReference {
     name: Identifier,
     content_hash: ContentHash,
+    topology: SequenceTopology,
 }
 
 impl SequenceReference {
-    pub fn create(name: Identifier, content_hash: ContentHash) -> SequenceReference {
-        SequenceReference { name, content_hash }
+    pub fn create(
+        name: Identifier,
+        content_hash: ContentHash,
+        topology: SequenceTopology,
+    ) -> SequenceReference {
+        SequenceReference {
+            name,
+            content_hash,
+            topology,
+        }
+    }
+
+    pub fn topology(&self) -> SequenceTopology {
+        self.topology.clone()
     }
 
     pub fn name(&self) -> Identifier {
@@ -342,12 +364,18 @@ mod tests {
         let other_built = Identifier::create("seq-b".to_string());
         assert!(other_built.is_ok());
         let other: Identifier = other_built.unwrap();
-        let first = SequenceReference::create(name.clone(), digest_a.clone());
-        let same_name_other_content = SequenceReference::create(name.clone(), digest_b.clone());
-        let other_name = SequenceReference::create(other.clone(), digest_a.clone());
+        let linear = SequenceTopology::Linear;
+        let first = SequenceReference::create(name.clone(), digest_a.clone(), linear.clone());
+        let same_name_other_content =
+            SequenceReference::create(name.clone(), digest_b.clone(), linear.clone());
+        let other_name = SequenceReference::create(other.clone(), digest_a.clone(), linear.clone());
+        let other_topology =
+            SequenceReference::create(name.clone(), digest_a.clone(), SequenceTopology::Circular);
         assert!(first == first);
         assert!(first != same_name_other_content);
         assert!(first != other_name);
+        assert!(first != other_topology);
+        assert!(first.content_hash() == other_topology.content_hash());
     }
 
     #[test]
@@ -358,6 +386,7 @@ mod tests {
         let reference = SequenceReference::create(
             name.clone(),
             ContentHash::create(sha256_hex("ATGGCTTGGAATCAGCAGCAGCAGCAGCAG".as_bytes())),
+            SequenceTopology::Linear,
         );
         assert!(reference.describe() == "seq-a@a83f6d82");
     }

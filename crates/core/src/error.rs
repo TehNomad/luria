@@ -18,6 +18,8 @@
 //!   this milestone, for example a compound feature, an incomplete CDS, or
 //!   a genetic code other than the standard one.
 
+use crate::sequence::SequenceTopology;
+
 /// The failure classes the product must keep distinguishable.
 #[derive(Clone, Copy, Debug, PartialEq, Hash)]
 pub enum ErrorCategory {
@@ -81,14 +83,16 @@ pub struct CoordinateOutOfBoundsProblem {
 
 /// Payload: a structure references a sequence other than the one supplied.
 ///
-/// Both the display identifier and the content digest are reported so the
-/// caller can see whether the name, the content, or both disagree.
+/// The display identifier, the content digest, and the topology are reported
+/// so the caller can see which of them disagree.
 #[derive(Clone, Debug, PartialEq)]
 pub struct SequenceReferenceMismatchProblem {
     pub expected_identifier: String,
     pub actual_identifier: String,
     pub expected_digest: String,
     pub actual_digest: String,
+    pub expected_topology: SequenceTopology,
+    pub actual_topology: SequenceTopology,
 }
 
 /// Payload: a codon contains something outside the DNA alphabet.
@@ -160,11 +164,16 @@ pub struct UnsupportedFeatureStructureProblem {
     pub reason: String,
 }
 
-/// Payload: a required CDS attribute was not supplied.
+/// Payload: a required CDS attribute was not supplied, or was supplied with
+/// a value that is not one of the recognised values.
+///
+/// `value` is `None` when the attribute was absent and `Some(text)` when the
+/// supplied text was not recognised.
 #[derive(Clone, Debug, PartialEq)]
 pub struct MissingCdsAttributeProblem {
     pub cds: String,
     pub attribute: String,
+    pub value: Option<String>,
 }
 
 /// Payload: a CDS that is not explicitly complete.
@@ -220,7 +229,6 @@ pub struct UnspecifiedCodonPolicyProblem {
 /// Payload: a codon-selection policy this milestone refuses to apply.
 #[derive(Clone, Debug, PartialEq)]
 pub struct UnsupportedMutationPolicyProblem {
-    pub cds: String,
     pub policy: String,
 }
 
@@ -372,8 +380,9 @@ impl DomainError {
                 format!("interval [{}, {}) exceeds the length {} of '{}'",
                     problem.start, problem.end, problem.length, problem.sequence),
             DomainError::SequenceReferenceMismatch(problem) =>
-                format!("the structure references sequence '{}' (digest {}) but sequence '{}' (digest {}) was supplied",
-                    problem.actual_identifier, problem.actual_digest, problem.expected_identifier, problem.expected_digest),
+                format!("the structure references {} sequence '{}' (digest {}) but {} sequence '{}' (digest {}) was supplied",
+                    problem.actual_topology.name(), problem.actual_identifier, problem.actual_digest,
+                    problem.expected_topology.name(), problem.expected_identifier, problem.expected_digest),
             DomainError::InvalidResiduePosition(problem) =>
                 format!("residue position {} of CDS '{}' is not a positive one-based number",
                     problem.number, problem.cds),
@@ -398,8 +407,11 @@ impl DomainError {
             DomainError::UnsupportedFeatureStructure(problem) =>
                 format!("feature '{}' on '{}' has {} intervals and {}",
                     problem.feature, problem.sequence, problem.interval_count, problem.reason),
-            DomainError::MissingCdsAttribute(problem) =>
-                format!("CDS '{}' does not supply {}", problem.cds, problem.attribute),
+            DomainError::MissingCdsAttribute(problem) => match &problem.value {
+                None => format!("CDS '{}' does not supply {}", problem.cds, problem.attribute),
+                Some(value) => format!("CDS '{}' supplies {} '{}', which is not a recognised value",
+                    problem.cds, problem.attribute, value),
+            },
             DomainError::IncompleteCds(problem) =>
                 format!("CDS '{}' is declared {}; only explicitly complete CDSs are supported",
                     problem.cds, problem.completeness),
@@ -424,8 +436,8 @@ impl DomainError {
                 format!("the residue mutation on CDS '{}' does not say how to choose the replacement codon",
                     problem.cds),
             DomainError::UnsupportedMutationPolicy(problem) =>
-                format!("the residue mutation on CDS '{}' requests codon policy {}; only default and supplied are supported",
-                    problem.cds, problem.policy),
+                format!("codon policy '{}' is not supported; only default and supplied:XXX are supported",
+                    problem.policy),
             DomainError::ExpectedNucleotideMismatch(problem) =>
                 format!("the nucleotide at position {} of '{}' is {}, but the mutation expected {}",
                     problem.position, problem.sequence, problem.actual, problem.expected),
@@ -452,6 +464,8 @@ mod tests {
             actual_identifier: "seq-b".to_string(),
             expected_digest: "a83f6d82".to_string(),
             actual_digest: "748c00c0".to_string(),
+            expected_topology: SequenceTopology::Linear,
+            actual_topology: SequenceTopology::Linear,
         });
         assert!(mismatch.category() == ErrorCategory::BiologicalValidation);
         assert!(!mismatch.category().is_malformed_input());
@@ -549,6 +563,8 @@ mod tests {
                 actual_identifier: "seq-b".to_string(),
                 expected_digest: "a83f6d82".to_string(),
                 actual_digest: "748c00c0".to_string(),
+                expected_topology: SequenceTopology::Linear,
+                actual_topology: SequenceTopology::Linear,
             });
         let content_differs =
             DomainError::SequenceReferenceMismatch(SequenceReferenceMismatchProblem {
@@ -556,6 +572,8 @@ mod tests {
                 actual_identifier: "seq-a".to_string(),
                 expected_digest: "a83f6d82".to_string(),
                 actual_digest: "748c00c0".to_string(),
+                expected_topology: SequenceTopology::Linear,
+                actual_topology: SequenceTopology::Linear,
             });
         assert!(name_differs.category() == ErrorCategory::BiologicalValidation);
         assert!(content_differs.category() == ErrorCategory::BiologicalValidation);
@@ -571,7 +589,6 @@ mod tests {
         });
         let out_of_scope =
             DomainError::UnsupportedMutationPolicy(UnsupportedMutationPolicyProblem {
-                cds: "cds-1".to_string(),
                 policy: "minimal-edit".to_string(),
             });
         assert!(missing_policy.category() == ErrorCategory::MalformedInput);

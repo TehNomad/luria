@@ -28,6 +28,8 @@
 
 use crate::cds::Cds;
 use crate::cds::ResiduePosition;
+use crate::codon_usage::ECOLI_K12_CODON_COUNTS;
+use crate::codon_usage::ECOLI_K12_CODON_USAGE_SOURCE;
 use crate::error::DomainError;
 use crate::error::ExpectedNucleotideMismatchProblem;
 use crate::error::ExpectedResidueMismatchProblem;
@@ -42,8 +44,6 @@ use crate::genetic_code::lookup;
 use crate::genetic_code::residue_for_symbol;
 use crate::genetic_code::CodonOutcome;
 use crate::genetic_code::Residue;
-use crate::genetic_code::STANDARD_GENETIC_CODE;
-use crate::genetic_code::TRIPLET_BASES;
 use crate::identity::Identifier;
 use crate::identity::SequenceReference;
 use crate::interval::create;
@@ -52,7 +52,7 @@ use crate::interval::NucleotideInterval;
 use crate::interval::OrderedIntervals;
 use crate::sequence::canonical_text;
 use crate::sequence::complement_letter;
-use crate::sequence::is_dna_letter;
+use crate::sequence::is_dna_base;
 use crate::sequence::normalize;
 use crate::sequence::Sequence;
 use crate::strand::Strand;
@@ -63,7 +63,7 @@ use crate::translation::Translation;
 pub const MUTATION_ALGORITHM_NAME: &str = "luria-core-mutation";
 
 /// Version of the code path that produced a mutation result (D021).
-pub const MUTATION_ALGORITHM_VERSION: &str = "0.1.0";
+pub const MUTATION_ALGORITHM_VERSION: &str = "0.2.0";
 
 /// A codon of the standard genetic code.
 ///
@@ -120,6 +120,12 @@ impl Codon {
 /// How a residue mutation chooses the codon that writes the replacement
 /// residue (D011). No branch is chosen silently: a request that omits the
 /// policy is `Unspecified` and fails.
+///
+/// * `Default` must be named explicitly. It selects the codon of the
+///   replacement residue with the highest count in the *E. coli* K-12 codon
+///   usage table in `codon_usage` (Kazusa, W3110). Equal counts are broken by
+///   standard table order; the current table has no such tie.
+/// * `Supplied` writes exactly the codon the caller gave.
 #[derive(Clone, Debug, PartialEq)]
 pub enum CodonSelectionPolicy {
     Unspecified,
@@ -133,6 +139,16 @@ impl CodonSelectionPolicy {
             CodonSelectionPolicy::Unspecified => "unspecified".to_string(),
             CodonSelectionPolicy::Default => "default".to_string(),
             CodonSelectionPolicy::Supplied(_codon) => "supplied".to_string(),
+        }
+    }
+
+    /// The data source a policy's choice depends on, for provenance (D021).
+    /// Only `Default` consults a table.
+    pub fn source(&self) -> Option<String> {
+        match self {
+            CodonSelectionPolicy::Default => Some(ECOLI_K12_CODON_USAGE_SOURCE.to_string()),
+            CodonSelectionPolicy::Unspecified => None,
+            CodonSelectionPolicy::Supplied(_codon) => None,
         }
     }
 }
@@ -159,7 +175,6 @@ pub fn parse_codon_policy(text: String) -> Result<CodonSelectionPolicy, DomainEr
         return Ok(CodonSelectionPolicy::Supplied(codon.clone()));
     }
     let problem = UnsupportedMutationPolicyProblem {
-        cds: text.to_string(),
         policy: text.clone(),
     };
     Err(DomainError::UnsupportedMutationPolicy(problem))
@@ -203,7 +218,8 @@ pub struct NucleotideMutationIntent {
 
 impl NucleotideMutationIntent {
     /// Build a nucleotide substitution, rejecting a request that cannot be
-    /// represented: a letter outside the DNA alphabet, an interval that
+    /// represented: a letter other than `A`, `C`, `G`, `T` (an ambiguity code
+    /// such as `N` is not a base that can be written or asserted), an interval that
     /// selects more than one nucleotide, or an interval that names a
     /// different artifact from the one the request claims.
     pub fn create(
@@ -213,8 +229,8 @@ impl NucleotideMutationIntent {
         replacement: String,
     ) -> Result<NucleotideMutationIntent, DomainError> {
         let expected: char =
-            single_dna_letter("expected original".to_string(), expected_original.clone())?;
-        let desired: char = single_dna_letter("replacement".to_string(), replacement.clone())?;
+            single_dna_base("expected original".to_string(), expected_original.clone())?;
+        let desired: char = single_dna_base("replacement".to_string(), replacement.clone())?;
 
         if position.reference() != source {
             let problem = InvalidMutationRequestProblem {
@@ -680,41 +696,50 @@ pub fn select_codon(
     }
 }
 
-/// The codon policy's `Default`: the first codon of the residue in the
-/// published standard-code table order, base order `T, C, A, G`. This is a
-/// representation rule over a published table, not a biological
-/// optimisation.
+/// The codon policy's `Default`: the codon of `residue` with the highest
+/// count in the *E. coli* K-12 codon usage table (`codon_usage`). A codon
+/// that ties the current best keeps the earlier one in standard table order,
+/// so the choice is deterministic even if a future table has equal counts.
 pub fn default_codon(residue: Residue) -> Result<Codon, DomainError> {
-    let mut index: usize = 0;
-    while index < STANDARD_GENETIC_CODE.len() {
-        let codon: String = codon_at_index(index);
-        let outcome: CodonOutcome = lookup(codon.clone());
-        match outcome {
-            CodonOutcome::Residue(value) => {
-                if value == residue {
-                    return Codon::create(codon.clone());
-                }
-            }
-            CodonOutcome::Stop => {}
-            CodonOutcome::Ambiguous => {}
-            CodonOutcome::Invalid => {}
+    let mut best: Option<(String, u64)> = None;
+    for (codon, count) in ECOLI_K12_CODON_COUNTS.iter() {
+        let encodes: bool = match lookup(codon.to_string()) {
+            CodonOutcome::Residue(value) => value == residue,
+            CodonOutcome::Stop => false,
+            CodonOutcome::Ambiguous => false,
+            CodonOutcome::Invalid => false,
+        };
+        if !encodes {
+            continue;
         }
-        index += 1;
+        let better: bool = match &best {
+            None => true,
+            Some((_text, best_count)) => *count > *best_count,
+        };
+        if better {
+            best = Some((codon.to_string(), *count));
+        }
     }
 
-    // Every residue of the standard code has a codon in the table, so this
-    // is unreachable; a residue that somehow has none is a bad request.
-    let problem = InvalidMutationRequestProblem {
-        request: residue.symbol(),
-        reason: "the residue has no codon in the standard genetic code".to_string(),
-    };
-    Err(DomainError::InvalidMutationRequest(problem))
+    match best {
+        Some((codon, _count)) => Codon::create(codon),
+        None => {
+            // Every residue of the standard code has a codon in the table, so
+            // this is unreachable; a residue that somehow has none is a bad
+            // request.
+            let problem = InvalidMutationRequestProblem {
+                request: residue.symbol(),
+                reason: "the residue has no codon in the codon usage table".to_string(),
+            };
+            Err(DomainError::InvalidMutationRequest(problem))
+        }
+    }
 }
 
 /// Independent verification of a mutation result (D013).
 ///
 /// The edit is not re-run. The checks are: that the source artifact is the
-/// one the result claims, by name and digest; that length is preserved, which
+/// one the result claims, by name, digest, and topology; that length is preserved, which
 /// is the substitution invariant; and that the positions where source and
 /// edited differ agree with the recorded target coordinates, exactly for a
 /// nucleotide result and as a non-empty subset for a residue result, because
@@ -1087,15 +1112,6 @@ fn text_of(letters: Vec<char>) -> String {
     canonical_text(letters.clone())
 }
 
-/// The codon at a zero-based index of the standard genetic-code table.
-fn codon_at_index(index: usize) -> String {
-    let bases: Vec<char> = TRIPLET_BASES.chars().collect();
-    let first: char = bases[index / 16];
-    let second: char = bases[index / 4 % 4];
-    let third: char = bases[index % 4];
-    text_of(vec![first, second, third])
-}
-
 /// The letter to write at a reference coordinate for a codon letter read on
 /// the CDS strand.
 fn complement_or(letter: char, strand: Strand) -> char {
@@ -1105,8 +1121,12 @@ fn complement_or(letter: char, strand: Strand) -> char {
     complement_letter(letter).unwrap()
 }
 
-/// One DNA letter, or a request that is not representable.
-fn single_dna_letter(field: String, text: String) -> Result<char, DomainError> {
+/// One of `A`, `C`, `G`, `T`, or a request that is not representable.
+///
+/// IUPAC ambiguity codes are valid sequence letters but not substitution
+/// targets or replacements: writing `N` is not a defined edit, and asserting
+/// that a position holds `N` would not identify a base.
+fn single_dna_base(field: String, text: String) -> Result<char, DomainError> {
     let letters: Vec<char> = text.chars().collect();
     if letters.len() != 1 {
         let problem = InvalidMutationRequestProblem {
@@ -1115,10 +1135,10 @@ fn single_dna_letter(field: String, text: String) -> Result<char, DomainError> {
         };
         return Err(DomainError::InvalidMutationRequest(problem));
     }
-    if !is_dna_letter(letters[0]) {
+    if !is_dna_base(letters[0]) {
         let problem = InvalidMutationRequestProblem {
             request: text,
-            reason: field.to_string() + " must be a DNA letter",
+            reason: field.to_string() + " must be one of A, C, G, T",
         };
         return Err(DomainError::InvalidMutationRequest(problem));
     }
@@ -1214,6 +1234,42 @@ mod tests {
             apply_nucleotide(&seq_a().clone(), None, result_name(), intent).unwrap_err();
         assert!(matches!(error, DomainError::ExpectedNucleotideMismatch(_)));
         assert!(error.category() == ErrorCategory::BiologicalValidation);
+    }
+
+    // Every IUPAC ambiguity code is a valid sequence letter, but none is a base
+    // that a substitution may write or assert.
+    #[test]
+    fn a_substitution_writes_and_asserts_only_plain_bases() {
+        for code in ["R", "Y", "S", "W", "K", "M", "B", "D", "H", "V", "N"] {
+            let as_replacement = NucleotideMutationIntent::create(
+                seq_a().reference(),
+                at(3, 4),
+                "G".to_string(),
+                code.to_string(),
+            );
+            assert!(matches!(
+                as_replacement.unwrap_err(),
+                DomainError::InvalidMutationRequest(_)
+            ));
+            let as_original = NucleotideMutationIntent::create(
+                seq_a().reference(),
+                at(3, 4),
+                code.to_string(),
+                "C".to_string(),
+            );
+            let error: DomainError = as_original.unwrap_err();
+            assert!(matches!(error, DomainError::InvalidMutationRequest(_)));
+            assert!(error.category() == ErrorCategory::MalformedInput);
+        }
+    }
+
+    #[test]
+    fn only_the_default_policy_names_a_codon_usage_source() {
+        let source: Option<String> = CodonSelectionPolicy::Default.source();
+        assert!(source == Some(ECOLI_K12_CODON_USAGE_SOURCE.to_string()));
+        assert!(CodonSelectionPolicy::Unspecified.source().is_none());
+        let supplied = CodonSelectionPolicy::Supplied(Codon::create("CTG".to_string()).unwrap());
+        assert!(supplied.source().is_none());
     }
 
     #[test]

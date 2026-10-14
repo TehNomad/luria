@@ -93,7 +93,12 @@ without asserting the original.
 
 ### How the replacement is represented
 
-* nucleotide: a DNA letter, validated against `DNA_ALPHABET` at construction.
+* nucleotide: one of `A`, `C`, `G`, `T`, validated at construction. The same
+  rule applies to the expected original. IUPAC ambiguity codes are valid
+  sequence letters but not substitution targets or replacements: writing `N`
+  is not a defined edit, and asserting that a position holds `N` does not
+  identify a base. Either is `InvalidMutationRequest` (`MalformedInput`), so a
+  position that holds an ambiguity code cannot be mutated by this operation.
 * residue: a `Residue` enum value. A residue letter that is not one of the
   twenty standard residues — including `*`, the stop — is rejected as an
   `InvalidMutationRequest`. A mutation to a stop residue is not in this
@@ -119,8 +124,11 @@ There is no strand parameter on any mutation call. Strand is read from the
   artifact yields the requested triplet.
 * `start > end` is never a reverse-strand encoding (unchanged from D009).
 * A codon that straddles the origin of a circular reference is recorded as
-  two intervals, `[22,24)` and `[0,1)` for example. Nothing is wrapped
-  silently.
+  two intervals. The recorded coordinates are a set of reference positions in
+  ascending order, `[0,1)` then `[22,24)` for example, not the biological
+  wrap order used for feature intervals. Nothing is wrapped silently. The
+  intervals name the edited artifact, whose coordinates are the source's
+  because a substitution preserves length.
 
 ### Nucleotide coordinates, CDS residues, or both
 
@@ -139,10 +147,17 @@ annotation it must fall inside.
 * `Unspecified` — the request did not say how to choose. Applying it fails
   with `UnspecifiedCodonPolicy` (`MalformedInput`: a required field is
   missing, the user can supply one). Nothing is guessed.
-* `Default` — an explicitly named deterministic rule: the first codon of the
-  replacement residue in the published standard-code table order, base order
-  `T, C, A, G`, lowest table index first. This is a representation rule over
-  a published table, not a biological optimisation.
+* `Default` — an explicitly named deterministic rule: the codon of the
+  replacement residue with the highest count in the *E. coli* K-12 codon usage
+  table in `crates/core/src/codon_usage.rs`. Equal counts would be broken by
+  standard table order (base order `T, C, A, G`); the current table has no
+  tie among any residue's top codons. The table is the Kazusa Codon Usage
+  Database entry for *E. coli* W3110, a K-12 substrain (species 316407, 4332
+  CDSs, 1372057 codons, retrieved 2026-10-14). The database's entry named
+  "Escherichia coli K12" (species 83333) is built from only 14 CDSs; it gives
+  the same top codon for all twenty residues. The chosen codons are
+  `A GCG, C TGC, D GAT, E GAA, F TTT, G GGC, H CAT, I ATT, K AAA, L CTG,
+  M ATG, N AAC, P CCG, Q CAG, R CGC, S AGC, T ACC, V GTG, W TGG, Y TAT`.
 * `Supplied(codon)` — the caller states the triplet; it must encode the
   replacement residue or the request is contradictory (`InvalidMutationRequest`).
 
@@ -152,11 +167,68 @@ annotation it must fall inside.
 
 The chosen codon is always recorded in the result (D011).
 
-Interpretation flagged for review: D011 forbids inferring a policy silently,
-not forbidding a named default policy. `Default` is therefore permitted only
-because the request must name it explicitly; a request that omits the policy
-is `Unspecified` and fails. If that reading is wrong, `Default` should be
-removed and only `Supplied` kept.
+`Default` is permitted only because the request must name it explicitly
+(D011 forbids inferring a policy silently); a request that omits the policy is
+`Unspecified` and fails. Choosing the highest-usage *E. coli* K-12 codon was
+approved by the project owner on 2026-10-14, replacing the earlier
+first-in-table-order rule.
+
+### Comparison with NEBaseChanger codon selection
+
+NEBaseChanger is an external reference, not a specification (D014). This
+comparison records where luria's codon selection agrees with it and where it
+deliberately does not, so a future change can be made on purpose.
+
+Sources: the reverse-engineering notes on the
+`research/nebasechanger_reverse_engineer` branch
+(`docs/research/nebasechanger-client-investigation.md` §4.1,
+`docs/research/nebasechanger-live-build-4330b0c7-2026-10-10.md` §10.4, and the
+in-app help `docs/research/nbc_help_v284.txt`), and a comparison on
+2026-10-14 of the `Ecoli_K12` table extracted from the archived v2.5.3 and
+v2.8.4 bundles and the live build `4330b0c7` on that branch, against the
+Kazusa pages cited above.
+
+**How NEBaseChanger selects a codon.** Its bundled table `cut.Ecoli_K12` has
+one `[three-letter residue, codon, fraction]` row per codon, fractions rounded
+to two decimals, ordered by descending fraction within each residue, plus a
+65th row `["All","NNK",1]` for saturation mutagenesis (`X`). The table is
+identical in all three builds. NEB's help says only that the usage is "obtained
+from E. coli K12"; no source is named.
+
+* Maximum codon usage, the default when no triplet is given: filter the table
+  to the residue, stable-sort by descending fraction, take the first codon.
+* Maximum parsimony, an option: filter to the residue, stable-sort by
+  ascending Hamming distance to the original codon, take the first. Because
+  the table is already in descending usage, a distance tie goes to the more
+  used codon; equal fractions go to bundle order.
+* An explicit triplet (`A34F:TTC`) overrides both.
+
+**Where luria agrees.**
+
+* `Default` is NEBaseChanger's maximum codon usage, and the two pick the same
+  codon for all twenty residues.
+* `Supplied(codon)` corresponds to an explicit triplet.
+* The table is not byte-identical but tracks the same data: 57 of NEBC's 64
+  fractions equal Kazusa W3110's, and the other 7 (`TGC`, `TGT`, `GGC`, `AAA`,
+  `AAG`, `CCG`, `ACT`) differ by exactly 0.01. Against Kazusa's 14-CDS
+  "Escherichia coli K12" entry (species 83333), 55 of 64 differ.
+
+**Where luria differs.**
+
+| Behaviour | NEBaseChanger | luria |
+| --- | --- | --- |
+| Ranking data | two-decimal fractions | raw Kazusa W3110 counts; same top codon for every residue, but lower ranks can differ where NEBC fractions tie (e.g. Leu `TTG`/`TTA` 0.13, four Ser codons at 0.15) |
+| Maximum parsimony (fewest base changes) | available | **not implemented** |
+| Mutation to a stop codon | allowed (`*` → `TAA`) | refused, `InvalidMutationRequest` |
+| Saturation mutagenesis (`X` → `NNK`) | allowed | not representable; a substitution writes only `A`, `C`, `G`, `T` |
+| Original residue does not match | help text: "processing is not halted"; codon number wins | refused, `ExpectedResidueMismatch` (D011, D005) |
+
+The stop, `NNK`, and mismatch rows are deliberate fail-closed choices, not
+gaps. Parsimony is a gap. The two strategies are not interchangeable: from
+`GAT`, usage and parsimony pick different codons for `A C G L N P R S T V`
+(investigation notes §4.1). For the D404N example-construct fixture,
+NEBaseChanger's captured output used `AAC` (maximum usage); parsimony would
+have given `AAT`.
 
 ### Domain errors versus biological validation failures (D005)
 
@@ -170,7 +242,8 @@ removed and only `Supplied` kept.
   source (`MutationVerificationFailure`).
 * `Unsupported`: well-formed but outside this milestone's scope — an
   unrecognised codon policy, and everything inherited from Milestone 1
-  (incomplete CDS, unsupported genetic code or numbering, ambiguous codon).
+  (incomplete CDS, unsupported genetic code or numbering). An ambiguous codon
+  is `BiologicalValidation`, as Milestone 1 classifies it.
 
 ### Provenance the result carries (D021, D020)
 
@@ -180,7 +253,9 @@ expected original, the actual original read from the source, the replacement,
 and for residue mutations the identifier of the CDS it was applied to, the
 original codon, the selected codon, the policy,
 and the codon's reference coordinates. `MUTATION_ALGORITHM_NAME` and
-`MUTATION_ALGORITHM_VERSION` identify the code path, per D021; the general
+`MUTATION_ALGORITHM_VERSION` identify the code path, per D021; the version is
+`0.2.0` since the `Default` policy changed. `CodonSelectionPolicy::source()`
+names the codon usage table a `Default` choice depends on. The general
 provenance model stays deferred.
 
 `MutationState` is the mutation-domain subset of the D020 lifecycle:
@@ -194,7 +269,8 @@ independent verification pass). A `Calculated` result is never presented as
 hold fails with `MutationVerificationFailure` (`BiologicalValidation`), whose
 payload names the result and says which claim failed:
 
-* that the source artifact is the one the result claims (name and digest);
+* that the source artifact is the one the result claims (name, digest, and
+  topology);
 * that length is preserved, which is the substitution invariant;
 * for a nucleotide result, that the set of positions where source and edited
   differ is exactly the recorded target coordinates;
@@ -245,9 +321,9 @@ computational only, and no result ever reports experimental validation.
 
 ## Tests and fixtures
 
-* Nine unit tests in `crates/core/src/mutation.rs`, each named for the rule it
+* Eleven unit tests in `crates/core/src/mutation.rs`, each named for the rule it
   pins: a mismatch naming the value that is actually there, refusal before any
-  edit, policy classification, verification of a residue result, and the fact
+  edit, plain bases only in a substitution, policy classification and source, verification of a residue result, and the fact
   that mutation failures are not collapsed into one variant.
 * `crates/core/tests/mutation_invariants.rs`: fourteen invariants — one-based
   bounded residue positions, artifact identity, strand-aware numbering,
@@ -258,9 +334,10 @@ computational only, and no result ever reports experimental validation.
   codons recorded as two intervals, refusal of a mutation that changes nothing,
   and error classification by meaning.
 * `crates/core/tests/mutation_fixtures.rs` drives
-  `tests/fixtures/mutation/cases.tsv` (44 cases, 5 sequence files). Expectations
+  `tests/fixtures/mutation/cases.tsv` (47 cases, 5 sequence files). Expectations
   are re-derived by hand — digests with `hashlib`, residues off the published
-  table, edited texts written out coordinate by coordinate — and are recorded in
+  table, default codons off the Kazusa *E. coli* K-12 counts, edited texts
+  written out coordinate by coordinate — and are recorded in
   `tests/fixtures/mutation/README.md`. The driver asserts the edited text, the
   residues re-read through Milestone 1's translation, the recorded codon, the
   recorded coordinates, length preservation, the source identity, the state,
@@ -276,9 +353,15 @@ computational only, and no result ever reports experimental validation.
 * Only the standard genetic code, only `FromCdsStart` numbering, only
   explicitly complete CDSs — all inherited from Milestone 1 and enforced by
   reusing `translate`.
-* `Default` codon selection is a table-order rule. Minimal-edit distance,
-  organism codon usage, and any other optimisation are separate concerns and
-  are deliberately absent.
+* `Default` codon selection uses one organism's table, *E. coli* K-12. Other
+  hosts, avoiding new restriction sites, and any other optimisation are
+  separate concerns and are deliberately absent.
+* Maximum parsimony (fewest base changes from the original codon), which
+  NEBaseChanger offers, is deferred. When it is added it needs its own named
+  policy (`parse_codon_policy` currently refuses `minimal-edit` as
+  `UnsupportedMutationPolicy`), a documented tie-break (NEBaseChanger's is the
+  usage order of its table), and fixtures for the residues where it disagrees
+  with `Default`. See "Comparison with NEBaseChanger codon selection".
 * RNA alphabets, circular-sequence insertions, compound features, and
   sequence source metadata remain out of scope.
 * Milestone 1's `ResiduePosition` had no consumer before this milestone;
