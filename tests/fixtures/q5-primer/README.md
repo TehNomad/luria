@@ -117,8 +117,9 @@ already validated.
 - `q5p-08` uses `mut-a.txt` with the reverse CDS `cds-2` from the mutation
   fixture — the same artifact that fixture's `res-a-minus-7` case mutates, but
   **not the same edit**. `res-a-minus-7` acts on residue 7 (`ATT` → `L`), which
-  writes the DNA `AAT → TAA` at 9–12 and the codon `ATT → TTA` at reference
-  coordinates 9,10,11. This case declares the DNA edit `AAT → AAC` at 9–12. At
+  under the `Default` policy writes the DNA `AAT → CAG` at 9–12 and the codon
+  `ATT → CTG` at reference coordinates 9,10,11 (before the 2026-10-14 review,
+  `AAT → TAA` and `TTA`). This case declares the DNA edit `AAT → AAC` at 9–12. At
   30 bases it is too short for any reference design, so the case is
   contract-only.
 - No case here asserts a Tm value for `luria`. The Tm values in
@@ -205,6 +206,7 @@ rather than being written. The named checks are:
 ## Cloud sharing
 
 The SID-1 cases carry a real construct sequence and captured reference-tool
-output. No approval status for public cloud sharing has been recorded, so they
-must not be sent to a cloud model without explicit approval (D012). The
+output. They are **approved for cloud-assisted review** by the project owner on
+2026-10-14 (D023), together with the `example-construct/` fixture they derive
+from; `reference/designs.json` is covered by the same approval. The
 `mut-a.txt` cases are synthetic and computational only (D020).

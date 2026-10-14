@@ -535,7 +535,7 @@ pub fn construct_primer(
     // codon and differs at only part of it. A claimed position whose letter did
     // not change is still a changed position, and §5 counts it as one.
     let stray: Vec<u64> = outside(actual.clone(), claimed.clone());
-    if stray.len() != 0 {
+    if !stray.is_empty() {
         let problem = MutationVerificationFailureProblem {
             result: result.describe(),
             reason: join(vec![
@@ -593,7 +593,7 @@ pub fn construct_primer(
     let region: Vec<char> = oriented(
         slice(after.clone(), span.start(), span.end()),
         role.clone().is_reverse(),
-    );
+    )?;
     if canonical_text(region.clone()) != canonical_text(letters.clone()) {
         let problem = PrimerTextAtSpanMismatchProblem {
             primer: label,
@@ -631,7 +631,7 @@ pub fn construct_primer(
     let template_region: Vec<char> = oriented(
         slice(before.clone(), span.start(), span.end()),
         role.clone().is_reverse(),
-    );
+    )?;
     let under: Vec<char> = pick(template_region.clone(), annealing_indices.clone());
     if canonical_text(under.clone()) != annealing_text.clone() {
         let problem = PrimerAnnealingNotTemplateProblem {
@@ -646,7 +646,7 @@ pub fn construct_primer(
     // H8 / I-13: the parts partition the primer text, and the mutation parts
     // are exactly the changed positions.
     let fault: String = partition_fault(parts.clone(), changed.clone(), width);
-    if fault.len() != 0 {
+    if !fault.is_empty() {
         let problem = PrimerPartitionProblem {
             primer: label,
             reason: fault,
@@ -669,7 +669,7 @@ pub fn construct_primer(
         position += 1;
     }
 
-    let reason: String = if changed.len() == 0 {
+    let reason: String = if changed.is_empty() {
         "carries no mutated base: the whole primer is wild-type context".to_string()
     } else {
         join(vec![
@@ -777,7 +777,7 @@ pub fn assemble_pair(
             uncovered.push(position);
         }
     }
-    if uncovered.len() != 0 {
+    if !uncovered.is_empty() {
         let problem = PrimerPairCoverageProblem {
             pair: join(vec![
                 "forward ".to_string(),
@@ -898,7 +898,7 @@ fn join(pieces: Vec<String>) -> String {
 }
 
 fn position_text(positions: Vec<u64>) -> String {
-    if positions.len() == 0 {
+    if positions.is_empty() {
         return "none".to_string();
     }
     let mut text: String = String::new();
@@ -926,11 +926,11 @@ fn slice(letters: Vec<char>, start: u64, end: u64) -> Vec<char> {
 
 /// A reverse primer reads 5′→3′ against the template, so the region it covers
 /// is seen as its reverse complement (§6, §5's reverse-primer rule).
-fn oriented(letters: Vec<char>, reverse: bool) -> Vec<char> {
+fn oriented(letters: Vec<char>, reverse: bool) -> Result<Vec<char>, DomainError> {
     if reverse {
         return reverse_complement(letters);
     }
-    letters
+    Ok(letters)
 }
 
 fn pick(letters: Vec<char>, indices: Vec<u64>) -> Vec<char> {
@@ -1159,9 +1159,11 @@ mod tests {
     use crate::identity::Identifier;
     use crate::interval::create;
     use crate::interval::OrderedIntervals;
+    use crate::mutation::apply_nucleotide;
     use crate::mutation::apply_residue;
     use crate::mutation::CodonSelectionPolicy;
     use crate::mutation::MutationResult;
+    use crate::mutation::NucleotideMutationIntent;
     use crate::mutation::ResidueMutationIntent;
     use crate::sequence::normalize;
     use crate::sequence::Sequence;
@@ -1274,11 +1276,11 @@ mod tests {
     fn an_inline_forward_primer_reports_every_derived_quantity() {
         let primer: Primer = forward_primer(0, 20, "ATGGCTTGGATGCAGCAGCA".to_string());
         assert!(primer.clone().length() == 20);
-        assert!(primer.clone().sequence() == "ATGGCTTGGATGCAGCAGCA".to_string());
+        assert!(primer.clone().sequence() == "ATGGCTTGGATGCAGCAGCA");
         assert!(primer.clone().changed_positions() == vec![9, 10, 11]);
         assert!(primer.clone().parts().len() == 3);
         assert!(primer.clone().annealing_spans().len() == 2);
-        assert!(primer.clone().annealing_sequence() == "ATGGCTTGGCAGCAGCA".to_string());
+        assert!(primer.clone().annealing_sequence() == "ATGGCTTGGCAGCAGCA");
         assert!(primer.clone().annealing_length() == 17);
         assert!(primer.clone().orientation() == PrimerOrientation::Same);
         assert!(primer.clone().edited_span().is_some());
@@ -1305,15 +1307,12 @@ mod tests {
     #[test]
     fn the_parts_of_a_constructed_primer_partition_it() {
         let primer: Primer = forward_primer(0, 20, "ATGGCTTGGATGCAGCAGCA".to_string());
-        assert!(
-            partition_fault(
-                primer.clone().parts(),
-                primer.clone().changed_positions(),
-                primer.clone().length()
-            )
-            .len()
-                == 0
-        );
+        assert!(partition_fault(
+            primer.clone().parts(),
+            primer.clone().changed_positions(),
+            primer.clone().length()
+        )
+        .is_empty());
     }
 
     #[test]
@@ -1322,10 +1321,10 @@ mod tests {
         assert!(primer.clone().orientation() == PrimerOrientation::Opposite);
         assert!(primer.clone().edited_span().is_none());
         assert!(primer.clone().one_based_span() == (13, 30));
-        assert!(primer.clone().changed_positions().len() == 0);
+        assert!(primer.clone().changed_positions().is_empty());
         assert!(primer.clone().annealing_overlap() == 18);
         assert!(primer.clone().whole_primer_match_count() == 18);
-        assert!(primer.clone().tail_reason().len() > 0);
+        assert!(!primer.clone().tail_reason().is_empty());
     }
 
     #[test]
@@ -1339,7 +1338,7 @@ mod tests {
         assert!(pair.clone().boundary() == Some(12));
         assert!(
             pair.clone().relationship()
-                == "reverse span [0, 12] and forward span [12, 30]: abutting".to_string()
+                == "reverse span [0, 12] and forward span [12, 30]: abutting"
         );
         assert!(pair
             .clone()
@@ -1355,9 +1354,9 @@ mod tests {
             reverse_primer(12, 30, "CTGCTGCTGCTGCTGCTG".to_string()),
         );
         assert!(pair.clone().separation() == -8);
-        assert!(pair.clone().abuts() == false);
+        assert!(!pair.clone().abuts());
         assert!(pair.clone().boundary().is_none());
-        assert!(pair.clone().relationship() == "reverse span [12, 30] and forward span [0, 20]: overlapping by 8 template positions".to_string(), "actual=[{}]", pair.clone().relationship());
+        assert!(pair.clone().relationship() == "reverse span [12, 30] and forward span [0, 20]: overlapping by 8 template positions", "actual=[{}]", pair.clone().relationship());
     }
 
     #[test]
@@ -1463,9 +1462,9 @@ mod tests {
     // fields are private, and mutation.rs's own tests cover that path.
     #[test]
     fn a_claim_wider_than_the_difference_it_wrote_is_accepted_and_a_stray_is_not() {
-        assert!(outside(vec![10, 11], vec![9, 10, 11]).len() == 0);
+        assert!(outside(vec![10, 11], vec![9, 10, 11]).is_empty());
         assert!(outside(vec![12], vec![9, 10, 11]) == vec![12]);
-        assert!(outside(vec![], vec![9, 10, 11]).len() == 0);
+        assert!(outside(vec![], vec![9, 10, 11]).is_empty());
     }
 
     #[test]
@@ -1483,6 +1482,124 @@ mod tests {
         assert!(parts.len() == 5);
         assert!(annealing_of(parts.clone()).len() == 3);
         assert!(unchanged(changed.clone(), 12).len() == 8);
-        assert!(partition_fault(parts.clone(), changed.clone(), 12).len() == 0);
+        assert!(partition_fault(parts.clone(), changed.clone(), 12).is_empty());
+    }
+
+    // The initial native scope of §18 is one inline nucleotide substitution
+    // (L = 1). The tests above all use a three-base residue edit, so these pin
+    // the same layer on a single changed position. The edit is coordinate 15
+    // of seq-a, C -> T: ATGGCTTGGAATCAG[C]AGCAGCAGCAGCAG becomes
+    // ATGGCTTGGAATCAGTAGCAGCAGCAGCAG. Expected texts were written out by hand
+    // from that string: a forward primer reads the edited text, a reverse
+    // primer the reverse complement of the region it covers.
+    fn nucleotide_edit() -> MutationResult {
+        let intent: NucleotideMutationIntent = NucleotideMutationIntent::create(
+            seq_a().reference(),
+            at(15, 16),
+            "C".to_string(),
+            "T".to_string(),
+        )
+        .unwrap();
+        apply_nucleotide(&seq_a().clone(), None, result_name(), intent).unwrap()
+    }
+
+    fn nucleotide_primer(role: PrimerRole, start: i64, end: i64, text: &str) -> Primer {
+        construct_primer(
+            &seq_a().clone(),
+            nucleotide_edit(),
+            role,
+            PrimerPlacement::Inline,
+            text.to_string(),
+            at(start, end),
+        )
+        .unwrap()
+    }
+
+    fn spans_of(spans: OrderedIntervals) -> Vec<(u64, u64)> {
+        spans
+            .iter()
+            .map(|span| (span.start(), span.end()))
+            .collect()
+    }
+
+    // [12,19) of the edited text is CAG T AGC: three unchanged bases, the
+    // substituted base, three unchanged bases.
+    #[test]
+    fn a_single_nucleotide_substitution_is_one_mutation_part_between_two_flanks() {
+        let primer: Primer = nucleotide_primer(PrimerRole::Forward, 12, 19, "CAGTAGC");
+        assert!(primer.clone().length() == 7);
+        assert!(primer.clone().one_based_span() == (13, 19));
+        assert!(primer.clone().changed_positions() == vec![3]);
+        assert!(primer.clone().parts().len() == 3);
+        assert!(spans_of(primer.clone().annealing_spans()) == vec![(12, 15), (16, 19)]);
+        assert!(primer.clone().annealing_sequence() == "CAGAGC");
+        assert!(primer.clone().annealing_overlap() == 6);
+    }
+
+    // The residue edit above claims a position whose letter did not change, so
+    // its annealing overlap is below its whole-primer match count. A single
+    // substitution changes the letter it claims, so the two counts agree.
+    #[test]
+    fn a_single_substituted_letter_makes_annealing_and_whole_primer_counts_agree() {
+        let primer: Primer = nucleotide_primer(PrimerRole::Forward, 12, 19, "CAGTAGC");
+        assert!(primer.clone().whole_primer_match_count() == 6);
+        assert!(primer.clone().annealing_overlap() == primer.clone().whole_primer_match_count());
+    }
+
+    // [9,16) ends on the substituted base: one flank, then the mutation part.
+    #[test]
+    fn a_substitution_at_the_three_prime_end_leaves_one_annealing_flank() {
+        let primer: Primer = nucleotide_primer(PrimerRole::Forward, 9, 16, "AATCAGT");
+        assert!(primer.clone().changed_positions() == vec![6]);
+        assert!(primer.clone().parts().len() == 2);
+        assert!(spans_of(primer.clone().annealing_spans()) == vec![(9, 15)]);
+        assert!(primer.clone().annealing_sequence() == "AATCAG");
+        assert!(primer.clone().annealing_overlap() == 6);
+    }
+
+    // A reverse primer over [12,19) states rc(CAGTAGC) = GCTACTG. Its index 0
+    // is template position 18, so the substituted position 15 is index 3.
+    #[test]
+    fn a_reverse_primer_over_a_single_substitution_maps_it_from_the_three_prime_end() {
+        let primer: Primer = nucleotide_primer(PrimerRole::Reverse, 12, 19, "GCTACTG");
+        assert!(primer.clone().orientation() == PrimerOrientation::Opposite);
+        assert!(primer.clone().changed_positions() == vec![3]);
+        assert!(primer.clone().parts().len() == 3);
+        assert!(primer.clone().annealing_sequence() == "GCTCTG");
+        assert!(primer.clone().annealing_overlap() == 6);
+    }
+
+    // Forward [12,19) with six annealing bases, and a reverse primer of six
+    // bases over [6,12), rc(TGGAAT) = ATTCCA, meeting it at 12.
+    #[test]
+    fn a_single_nucleotide_pair_abuts_and_meets_h1_exactly_at_the_bound() {
+        let forward: Primer = nucleotide_primer(PrimerRole::Forward, 12, 19, "CAGTAGC");
+        let reverse: Primer = nucleotide_primer(PrimerRole::Reverse, 6, 12, "ATTCCA");
+        let pair: PrimerPair = assemble_pair(forward, reverse, nucleotide_edit()).unwrap();
+        assert!(pair.clone().abuts());
+        assert!(pair.clone().boundary() == Some(12));
+        assert!(pair.clone().separation() == 0);
+        assert!(require_design_constraints(pair.clone(), 6).is_ok());
+        let error: DomainError = require_design_constraints(pair.clone(), 7).unwrap_err();
+        assert!(matches!(error, DomainError::AnnealingOverlapBelowBound(_)));
+        assert!(error.category() == ErrorCategory::BiologicalValidation);
+    }
+
+    // The wild-type text at [12,19) is CAGCAGC: a primer that keeps the
+    // original base does not carry the edit.
+    #[test]
+    fn a_single_nucleotide_primer_that_keeps_the_original_base_is_rejected() {
+        let built = construct_primer(
+            &seq_a().clone(),
+            nucleotide_edit(),
+            PrimerRole::Forward,
+            PrimerPlacement::Inline,
+            "CAGCAGC".to_string(),
+            at(12, 19),
+        );
+        assert!(matches!(
+            built.unwrap_err(),
+            DomainError::PrimerTextAtSpanMismatch(_)
+        ));
     }
 }

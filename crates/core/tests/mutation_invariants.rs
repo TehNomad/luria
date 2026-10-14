@@ -11,8 +11,15 @@
 //!   fixtures give the same display name as, to test identity checks.
 //! * `mut-c` = `GCTTGGAACGAACGAACGAACATG`, circular, 24 bases.
 //!
-//! The first codon of a residue in table order is its lowest-indexed codon:
-//! `L` is `TTA` (index 2), `W` is `TGG` (index 15), `A` is `GCT` (index 52).
+//! The tests that pin coordinates and strand write-back name their codon
+//! explicitly (`supplied:TTA` for `L`) so that the hand-derived edits do not
+//! depend on the codon policy. `W` has a single codon, `TGG`, so `default`
+//! and `supplied:TGG` write the same triplet.
+//!
+//! The `default` policy picks the highest-count codon in the *E. coli* K-12
+//! (W3110) table of the Kazusa Codon Usage Database, species 316407: `L` is
+//! `CTG` (count 72898, against 18894 for `TTA`), `A` is `GCG`
+//! (46524, against 35252 for `GCC`), `W` is `TGG`, the only W codon.
 
 use luria_core::cds::Cds;
 use luria_core::cds::ResiduePosition;
@@ -325,14 +332,14 @@ fn residue_positions_are_one_based_and_bounded() {
             1,
             "M".to_string(),
             "L".to_string(),
-            "default".to_string(),
+            "supplied:TTA".to_string(),
         ),
     );
     report_failure("residue-one".to_string(), &first);
     let made: MutationResult = first.unwrap();
     assert!(
         made.edited().canonical_text() == "TTAGCTTGGAATCAGCAGCAGCAGCAGCAG",
-        "ATG replaced by the first codon of L, TTA",
+        "ATG replaced by the supplied L codon, TTA",
     );
     assert!(
         written_coordinates(&made) == vec![0, 1, 2],
@@ -349,7 +356,7 @@ fn residue_positions_are_one_based_and_bounded() {
             10,
             "Q".to_string(),
             "L".to_string(),
-            "default".to_string(),
+            "supplied:TTA".to_string(),
         ),
     );
     report_failure("residue-n".to_string(), &last);
@@ -373,7 +380,7 @@ fn residue_positions_are_one_based_and_bounded() {
             11,
             "Q".to_string(),
             "L".to_string(),
-            "default".to_string(),
+            "supplied:TTA".to_string(),
         ),
     );
     expect_failure(
@@ -544,7 +551,7 @@ fn a_minus_strand_codon_is_written_at_its_reference_coordinates() {
             7,
             "I".to_string(),
             "L".to_string(),
-            "default".to_string(),
+            "supplied:TTA".to_string(),
         ),
     );
     report_failure("minus-mutation".to_string(), &made);
@@ -857,7 +864,7 @@ fn a_residue_mutation_changes_exactly_the_codon_it_targeted() {
             1,
             "M".to_string(),
             "L".to_string(),
-            "default".to_string(),
+            "supplied:TTA".to_string(),
         ),
     );
     report_failure("one-letter-shared".to_string(), &middle);
@@ -950,18 +957,19 @@ fn codon_policy_is_deterministic_and_never_guessed() {
         "the same request produces the same result",
     );
 
-    // The default is a table-order rule, so it is fixed and checkable.
+    // The default is the highest-count codon in the E. coli K-12 table, so it
+    // is fixed and checkable against the published counts.
     let l = default_codon(Residue::L);
     report_failure("default-l".to_string(), &l);
     assert!(
-        l.unwrap().text() == "TTA",
-        "the first codon of L in table order is TTA",
+        l.unwrap().text() == "CTG",
+        "CTG is the most used L codon in E. coli K-12, not the first in table order (TTA)",
     );
     let a = default_codon(Residue::A);
     report_failure("default-a".to_string(), &a);
     assert!(
-        a.unwrap().text() == "GCT",
-        "the first codon of A in table order is GCT",
+        a.unwrap().text() == "GCG",
+        "GCG is the most used A codon in E. coli K-12, not the first in table order (GCT)",
     );
     let w = default_codon(Residue::W);
     report_failure("default-w".to_string(), &w);
@@ -1158,7 +1166,7 @@ fn verification_accepts_only_a_result_that_follows_from_its_source() {
             10,
             "Q".to_string(),
             "L".to_string(),
-            "default".to_string(),
+            "supplied:TTA".to_string(),
         ),
     );
     report_failure("tenth-residue".to_string(), &made);
@@ -1251,7 +1259,7 @@ fn an_origin_crossing_codon_is_recorded_as_two_intervals() {
             1,
             "W".to_string(),
             "L".to_string(),
-            "default".to_string(),
+            "supplied:TTA".to_string(),
         ),
     );
     report_failure("origin-crossing-mutation".to_string(), &made);
@@ -1483,7 +1491,7 @@ fn mutation_failures_are_classified_by_meaning() {
             10,
             "Q".to_string(),
             "L".to_string(),
-            "default".to_string(),
+            "supplied:TTA".to_string(),
         ),
     );
     report_failure("produce-a-result".to_string(), &made);

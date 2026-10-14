@@ -122,9 +122,10 @@ Every case is derived from an artifact another fixture already validated: the
 SID-1 construct from `example-construct/`, and `mut-a.txt` from
 `mutation/`. No sequence is duplicated. `q5p-08` shares `mut-a.txt` with the
 mutation fixture's `res-a-minus-7` case, but not its edit: that case acts on
-residue 7 (`ATT → L`), which writes DNA `AAT → TAA` at 9–12 and the codon
-`ATT → TTA` at reference coordinates 9,10,11, while `q5p-08` declares DNA
-`AAT → AAC` at 9–12.
+residue 7 (`ATT → L`), which under the `Default` policy writes DNA
+`AAT → CAG` at 9–12 and the codon `ATT → CTG` at reference coordinates
+9,10,11 (before the 2026-10-14 review, `AAT → TAA` and `TTA`), while `q5p-08`
+declares DNA `AAT → AAC` at 9–12.
 
 The reference-design cases are reproducible: running
 `reference/neb-q5-sdm-reference.py` regenerates `designs.json` byte-for-byte,
@@ -246,6 +247,83 @@ centered rule does and does not settle.
 
 Questions 3, 6 and 7 are the ones the current material cannot settle. They
 should be settled by a source, or by the caller declining to need them.
+
+---
+
+## 9. Merge of `main` after the 2026-10-14 core review
+
+`main` gained `fix/core-review` (PR #4): the IUPAC alphabet fix, all-pairs
+interval overlap, topology in `SequenceReference`, A/C/G/T-only nucleotide
+substitution, and a `Default` codon policy that picks the most used
+*E. coli* K-12 codon. Merging it into `feat/milestone-3` needed these changes
+to Milestone 3 code; none changes a Milestone 3 rule:
+
+- `error.rs`: the `UnsupportedMutationPolicy` message no longer names a CDS,
+  because the payload no longer carries one.
+- `q5.rs`: the three `MissingCdsAttributeProblem` values (no target CDS, no
+  resolved target) carry `value: None`, meaning the attribute was absent.
+- `primer.rs`: `oriented` propagates `reverse_complement`'s `Result`. The
+  letters come from validated artifacts, so the error is unreachable in
+  practice, but it is no longer a panic path.
+- `q5.rs` tests: the composition tests supply their codons (`pinned_policy`:
+  G `GGT`, A `GCT`, W `TGG`) instead of relying on `Default`, which now gives
+  `GGC` for G and `GCG` for A. They test composition, not codon choice, so the
+  hand-derived edits are kept rather than re-derived.
+- `primer.rs`: the 16 clippy findings recorded in
+  `docs/research/q5-primer-implementation-readiness-2026-10-13.md` Part 7 and
+  Part 8 item 7 are fixed (`is_empty`, string-literal comparisons, `!` for
+  `== false`). `cargo clippy --workspace --all-targets -- -D warnings` is a
+  required check (D026), and it now passes.
+
+§2's table records what was true before this merge: identity is now name,
+digest, and topology, and `tests/fixtures/mutation/cases.tsv` has 47 cases.
+The workspace suite runs 219 tests (191 unit, 8 + 6 + 14 integration), 0
+failures.
+
+---
+
+## 10. Owner answers and test coverage, 2026-10-14
+
+Answers to the blockers in
+`docs/research/q5-primer-implementation-readiness-2026-10-13.md` Part 4:
+
+- **P0-3, D029:** not approved yet. The centered split stays proposed, so the
+  design layer (`PrimerDesign`, candidate generation) is still not started.
+- **P0-2, error carrier for "no design":** split by cause. When D029 is
+  implemented, a single new variant reports a no-design outcome and names the
+  binding side. Its category depends on the cause: `Unsupported` when the
+  centered geometry does not fit but another geometry might (§18.5 outcome
+  1, e.g. an edit too close to a template end); `BiologicalValidation` when no
+  primer of any geometry could satisfy the request (e.g. `q5p-09`, a bound of
+  31 on a 30-base template). Not implemented: there is no caller for it until
+  the design layer exists (D025).
+- **P2-2, `maxAnnealingOverlap`:** left out of the request for now. It cannot
+  change any outcome under the centered split, so it is not added until a
+  Tm-based length policy exists; nobody can set a field that silently does
+  nothing.
+
+Tests added in this pass:
+
+- **P1-3:** six `primer.rs` tests over a single-nucleotide substitution
+  (`L = 1`, coordinate 15 of `seq-a`, C -> T): the three-part decomposition,
+  equal annealing and whole-primer counts when the claimed letter changes, a
+  substitution at a primer's 3′ end, a reverse primer's index mapping, an
+  abutting pair at the H1 bound, and rejection of a primer that keeps the
+  original base.
+- **P1-2:** `crates/core/tests/q5_primer_fixtures.rs` (8 tests) reads
+  `tests/fixtures/q5-primer/` with a small built-in JSON reader (no new
+  dependency) and rebuilds each of the six reference designs through
+  `construct_primer` and `assemble_pair`. Each three-base edit is applied as a
+  residue substitution on a one-codon CDS over the edited codon, with the
+  replacement codon supplied. It checks the template digest, the reproduced
+  edit, each primer's text, length, span, changed positions, annealing
+  sequence, spans and length, annealing overlap, whole-primer match count and
+  part count, the pair's abutment, boundary and gap, the H1 outcome, and
+  q5p-07's `spansDisjoint`. luria and the reference generator agree on every
+  field; a deliberately broken comparison was confirmed to fail.
+
+The workspace suite now runs 233 tests (197 unit; 8, 6, 14 and 8
+integration), 0 failures.
 
 ---
 

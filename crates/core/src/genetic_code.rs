@@ -265,6 +265,8 @@ mod tests {
     fn ambiguous_codons_are_reported_not_resolved() {
         assert!(lookup("NGG".to_string()) == CodonOutcome::Ambiguous);
         assert!(lookup("ANM".to_string()) == CodonOutcome::Ambiguous);
+        assert!(lookup("GCB".to_string()) == CodonOutcome::Ambiguous);
+        assert!(lookup("DHV".to_string()) == CodonOutcome::Ambiguous);
         assert!(lookup("NGG".to_string()).is_ambiguous());
     }
 
@@ -272,6 +274,7 @@ mod tests {
     fn letters_outside_the_alphabet_are_invalid() {
         assert!(lookup("UUA".to_string()) == CodonOutcome::Invalid);
         assert!(lookup("A#A".to_string()) == CodonOutcome::Invalid);
+        assert!(lookup("TTF".to_string()) == CodonOutcome::Invalid);
         assert!(lookup("GG".to_string()) == CodonOutcome::Invalid);
     }
 
@@ -299,7 +302,9 @@ mod tests {
 
     #[test]
     fn dna_alphabet_is_shared_with_sequences() {
-        assert!(DNA_ALPHABET.len() == 13);
+        assert!(DNA_ALPHABET.len() == 15);
         assert!(is_dna_letter('V'));
+        assert!(is_dna_letter('B'));
+        assert!(!is_dna_letter('F'));
     }
 }

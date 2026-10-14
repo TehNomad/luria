@@ -372,7 +372,7 @@ this task's guard.**
 
 Guarantees already enforced by lower layers, reused rather than restated:
 
-* artifact identity by name and digest: M1's `interval::require_sequence`,
+* artifact identity by name, digest, and topology: M1's `interval::require_sequence`,
   applied by `Q5SdmRequest::create`, by `validate_input_scope` to every
   annotation, and inside both M2 operations;
 * interval bounds, ordering, and structure: M1's `interval::create`,
@@ -388,7 +388,7 @@ Independent checks `verify` performs (D013), restated here as the workflow's
 trust boundary rather than re-implemented:
 
 * sequence identity: the result's source matches the artifact handed to it,
-  by name and digest;
+  by name, digest, and topology;
 * length preservation, the substitution invariant;
 * nucleotide results: the set of positions where source and edited differ is
   **exactly** the recorded target coordinates; the source holds the recorded
@@ -685,7 +685,7 @@ request; no result-identifier uniqueness rule (§10 item 6 stays open).
 | `CombinedConstruct` is representable and refused, never run as separate variants | task contract, D014, impl |
 | `UnsupportedComposition` is the refusal's error variant, categorized `Unsupported` | impl, error.rs |
 | An empty variant list is refused at construction with `InvalidMutationRequest` | task contract, impl |
-| Set members must address one template artifact by name and digest | task contract, M1, D007 |
+| Set members must address one template artifact by name, digest, and topology | task contract, M1, D007 |
 | Set members' explicit CDS claims must agree, via `ResiduePositionWrongCds` | task contract, M2 |
 | An unbound member takes the set's agreed claim | task contract, impl |
 | The set resolves its target once through `validate_input_scope` unchanged | task contract, impl |

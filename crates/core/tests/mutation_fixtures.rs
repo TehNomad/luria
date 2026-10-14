@@ -501,7 +501,7 @@ fn report_failure<T>(case_id: String, result: &Result<T, DomainError>) {
 #[test]
 fn every_mutation_fixture_case_is_present_and_well_formed() {
     let rows: Vec<FixtureRow> = fixture_rows();
-    assert!(rows.len() == 44);
+    assert!(rows.len() == 47);
 
     for row in rows.iter() {
         assert!(

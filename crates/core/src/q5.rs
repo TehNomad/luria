@@ -651,6 +651,7 @@ pub fn execute(
         let problem = MissingCdsAttributeProblem {
             cds: request.template().display_name(),
             attribute: "a resolved target CDS".to_string(),
+            value: None,
         };
         return Err(DomainError::MissingCdsAttribute(problem));
     }
@@ -765,6 +766,7 @@ pub fn validate_input_scope(
         let problem = MissingCdsAttributeProblem {
             cds: template.display_name(),
             attribute: "a target CDS".to_string(),
+            value: None,
         };
         return Err(DomainError::MissingCdsAttribute(problem));
     }
@@ -1337,6 +1339,7 @@ pub fn execute_set(
         let problem = MissingCdsAttributeProblem {
             cds: set.template_reference().name().value().to_string(),
             attribute: "a resolved target CDS".to_string(),
+            value: None,
         };
         return Err(DomainError::MissingCdsAttribute(problem));
     }
@@ -1377,6 +1380,7 @@ mod tests {
     use crate::interval::NucleotideInterval;
     use crate::interval::OrderedIntervals;
     use crate::mutation::apply_residue;
+    use crate::mutation::Codon;
     use crate::mutation::CodonSelectionPolicy;
     use crate::mutation::MutationResult;
     use crate::mutation::MutationState;
@@ -2628,11 +2632,25 @@ mod tests {
         .unwrap()
     }
 
+    // The codon the composition tests write for each replacement residue they
+    // use. These tests are about composition, not codon choice, so the codon
+    // is supplied rather than left to the `Default` policy: G is `GGT`, A is
+    // `GCT`, W is `TGG`, the codons the expected edits below were derived for.
+    // (`Default` now picks the most used E. coli K-12 codon, `GGC` for G and
+    // `GCG` for A; Milestone 2's tests pin that policy.)
+    fn pinned_policy(replacement: &str) -> CodonSelectionPolicy {
+        let codon: &str = match replacement {
+            "G" => "GGT",
+            "A" => "GCT",
+            "W" => "TGG",
+            other => panic!("no pinned codon for residue {}", other),
+        };
+        CodonSelectionPolicy::Supplied(Codon::create(codon.to_string()).unwrap())
+    }
+
     // A residue substitution over a named CDS at an arbitrary residue number,
-    // under the `Default` codon policy, so the flagship's residue 42 and
-    // residue 87 members can be written out. The `Default` policy's choice is
-    // Milestone 2's: the codon whose index in the published table is the
-    // replacement residue's index, so G is `GGT` and A is `GCT`.
+    // with the codon pinned by `pinned_policy`, so the flagship's residue 42
+    // and residue 87 members can be written out.
     fn named_residue_at(
         cds: &str,
         number: i64,
@@ -2644,7 +2662,7 @@ mod tests {
             number,
             expected,
             replacement,
-            CodonSelectionPolicy::Default,
+            pinned_policy(replacement),
         )
     }
 
@@ -2675,7 +2693,7 @@ mod tests {
                 number,
                 expected.to_string(),
                 replacement.to_string(),
-                CodonSelectionPolicy::Default,
+                pinned_policy(replacement),
             )
             .unwrap(),
         )
@@ -3242,13 +3260,11 @@ mod tests {
         // and M1W as separate variants, the product brief's flagship pair
         // adapted to this fixture's length (residue 87 does not exist in 129
         // nucleotides, so the second member is the residue-1 member the
-        // fixture can carry). The `Default` policy's codon for G is `GGT`
-        // (Milestone 2's `default_codon`, the first codon for the residue in
-        // the published table order), so residue 42's `GCT` becomes `GGT`,
-        // which differs from the pristine template only at coordinate 124;
-        // the contract names `GTT` for that edit, but `GTT` is valine, so the
-        // table's own first glycine codon is what Milestone 2 selects. The
-        // `Default` policy's codon for W is `TGG`, so residue 1's `ATG` becomes
+        // fixture can carry). The pinned codon for G is `GGT`, so residue 42's
+        // `GCT` becomes `GGT`, which differs from the pristine template only at
+        // coordinate 124; the contract names `GTT` for that edit, but `GTT` is
+        // valine, so a glycine codon is used instead. The pinned codon for W
+        // is `TGG`, so residue 1's `ATG` becomes
         // `TGG`, which differs only at coordinates 0 and 1, because the third
         // letter of both codons is `G`. Each member starts from the pristine
         // template, so each edited artifact differs from the other at exactly

@@ -138,7 +138,7 @@ adds no new error variant.
 `verify` is called as it stands, with the same template and the same
 resolved annotation the edit used. Its postconditions are listed in
 `docs/q5-sdm.md` §8, separating what Milestone 1 and Milestone 2 already
-enforce (artifact identity by name and digest, interval bounds and
+enforce (artifact identity by name, digest, and topology, interval bounds and
 structure, CDS and genetic-code and numbering rules, the expected-original
 checks, codon-policy resolution, refusal of an edit that changes nothing)
 from the independent checks verification performs (source identity, length
@@ -266,10 +266,13 @@ policy. The question is recorded as `docs/q5-sdm.md` §10 item 6.
 
 The contract's case 1 names `A42G` "with default codon selection producing
 `GTT`". `GTT` is valine, not glycine, so it is not a codon for the residue
-that request asks for. Milestone 2's `default_codon` takes the first codon
-for the residue in the published table order, whose first glycine is `GGT`,
-so the test asserts `GGT` and the single differing coordinate 124, which is
-what the contract's own coordinate expectation describes. The fixture pair is
+that request asks for. The test supplies `GGT` (`supplied:GGT`) and asserts
+it and the single differing coordinate 124, which is what the contract's own
+coordinate expectation describes. When the test was written, Milestone 2's
+`Default` policy also gave `GGT` (the first glycine codon in table order);
+since the 2026-10-14 review `Default` picks the most used *E. coli* K-12
+codon, `GGC`, so the composition tests pin their codons rather than depend on
+the policy (`pinned_policy` in `q5.rs`'s tests: G `GGT`, A `GCT`, W `TGG`). The fixture pair is
 likewise `A42G` and `M1W` rather than the brief's `A42G and W87A`: the long
 fixture is 129 nucleotides and 43 residues, so residue 87 does not exist in
 it, and the residue-1 member carries the same shape. `M1W` writes `TGG` over
