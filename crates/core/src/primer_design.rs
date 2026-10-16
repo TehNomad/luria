@@ -330,8 +330,9 @@ impl PrimerDesign {
         self.pair.clone()
     }
 
-    /// The number of template positions the pair removes between its two 5′
-    /// ends (D031). 0 for a substitution.
+    /// The number of template positions between the pair's two annealing
+    /// portions: the deleted region for a deletion, the replaced region for a
+    /// tail-path replacement, and 0 otherwise (D031, D033).
     pub fn deleted_width(&self) -> u64 {
         self.pair.clone().deleted_width()
     }
