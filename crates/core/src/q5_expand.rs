@@ -4,50 +4,47 @@
 //! A replacement that carries an IUPAC ambiguity code cannot reach `mutation.rs`
 //! as it stands: an ambiguity code is not a base that can be asserted or
 //! written, and `NucleotideReplacementIntent::create` refuses one in either
-//! text. D033's addendum therefore puts the expansion at the **request** layer,
-//! before any edit — each concrete sequence becomes its own ordinary,
-//! non-degenerate replacement, its own member of a `SeparateVariants` set, and
-//! the set's existing per-member reporting gives each its own outcome. This
-//! module is that expansion and nothing else: it calls
-//! `sequence::expand_degenerate` as it stands, builds each member through
-//! `mutation.rs`'s `NucleotideReplacementIntent::create` and `q5.rs`'s
-//! `Q5SdmRequest::create`, and hands the set to `q5::execute_set` and
-//! `q5_design::design_set` unchanged. It adds no mutation kind, no error
-//! variant, no biological rule of its own, and it never runs or designs
-//! anything: `mutation.rs` still sees only `A`, `C`, `G`, `T`.
+//! text. D033's expansion addendum therefore puts the expansion at the **request**
+//! layer, before any edit: each concrete sequence becomes its own ordinary
+//! replacement, its own member of a `SeparateVariants` set, and the set's
+//! existing per-member reporting gives each its own outcome. This module is
+//! that expansion and nothing else: it calls `sequence::expand_degenerate` as
+//! it stands, builds each member through `mutation.rs`'s
+//! `NucleotideReplacementIntent::create` and `q5.rs`'s `Q5SdmRequest::create`,
+//! and returns a set ready for `q5::execute_set` and `q5_design::design_set`.
+//! It adds no mutation kind, no error variant and no rule of its own, and it
+//! runs and designs nothing: `mutation.rs` still sees only `A`, `C`, `G`, `T`.
 //!
 //! What the expansion decides, in the order the steps below carry out:
 //!
 //! * the member order is `expand_degenerate`'s — each position's bases in
 //!   `A`, `C`, `G`, `T` order, the leftmost position varying fastest, so `NS`
-//!   gives `AC, CC, GC, TC, AG, CG, GG, TG`. Nothing here re-derives that
-//!   order or sorts it;
+//!   gives `AC, CC, GC, TC, AG, CG, GG, TG` (D033's expansion order); nothing
+//!   here re-derives or sorts that order;
 //! * a concrete sequence equal to the bases the region already holds would be
-//!   a no-op edit, and is skipped with a warning naming it (D033's wild-type
-//!   addendum). An expansion with nothing left after skipping is refused as
-//!   the no-op it is, rather than as an empty set, which is a set-level rule
-//!   of `q5.rs` this module does not restate;
-//! * past `EXPANSION_WARNING_THRESHOLD` emitted members the expansion carries
-//!   a `ManyDesigns` warning and every member is still emitted — there is no
-//!   cap (D033's expansion count, warned rather than refused the way D032's
-//!   100-nt limit is treated);
+//!   a no-op edit, and is skipped with a `WildTypeSkipped` warning naming it
+//!   (D033's wild-type addendum); when skipping leaves no member,
+//!   `expand_replacement` refuses the request itself as
+//!   `DomainError::InvalidMutationRequest`, before any set is built;
+//! * past `EXPANSION_WARNING_THRESHOLD` emitted members the set carries a
+//!   `ManyDesigns` warning and every member is still emitted: no cap (D033's
+//!   expansion count, warned as D032's 100-nt limit is warned);
 //! * the count that warns is the number emitted *after* skipping, and a
 //!   `ManyDesigns` warning follows any `WildTypeSkipped` ones.
 //!
 //! Naming is D033's: the caller's base name, a hyphen, and the concrete
-//! sequence, so `mut-1-AC`. Each name is validated by `Identifier::create`,
-//! and the sequences are distinct by construction, which is what the variant
-//! set's existing duplicate-name rule needs — no rule is restated here.
+//! sequence, so `mut-1-AC`. `Identifier::create` validates each name, and the
+//! sequences are distinct by construction, which is what the variant set's
+//! existing duplicate-name rule needs; no rule is restated here.
 //!
-//! Sets do not nest: a degenerate replacement inside an existing variant set
-//! is refused by `mutation.rs` before this module could see it, so there is
-//! nothing here to add and a test pins that it holds.
+//! Sets do not nest (D033's expansion addendum): a degenerate replacement inside
+//! an existing variant set is refused by `mutation.rs` before this module could
+//! see it, so there is nothing here to add and a test pins that it holds.
 //!
-//! As in `q5.rs` and `q5_design.rs`, these records are public structs with
-//! private fields and no public constructor, so nothing outside this module
-//! can build one, valid or invalid, and `expand_replacement` is the only
-//! producer. The types do not make an invalid pairing unrepresentable; that
-//! is stated rather than assumed.
+//! These records are public structs with private fields and no public
+//! constructor, so nothing outside this module can build one, valid or invalid,
+//! and `expand_replacement` is the only producer. The types do not make an
+//! invalid pairing unrepresentable; that is stated rather than assumed.
 
 use crate::error::DomainError;
 use crate::error::InvalidMutationRequestProblem;
@@ -124,8 +121,8 @@ impl Q5Expansion {
 
 /// Expand a degenerate replacement into one member per concrete sequence.
 ///
-/// The steps are the contract's, in this order, and each one is reached
-/// through the module that owns the rule rather than re-derived here:
+/// The steps, in this order, each reached through the module that owns the
+/// rule rather than re-derived here:
 ///
 /// 1. an empty replacement text is refused before anything is expanded, as
 ///    `InvalidMutationRequest` (`MalformedInput`);

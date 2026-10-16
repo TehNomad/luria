@@ -1,32 +1,36 @@
 //! Mutation: deterministic edits to a sequence artifact.
 //!
-//! A mutation is a typed intent that is checked against the artifact before
-//! anything is written, and an edit that produces a *new* artifact rather
-//! than changing the old one. Nothing here is applied in place: the source
-//! artifact keeps its content and its digest, and the result names both.
+//! A mutation is a typed intent checked against the artifact before anything is
+//! written, and an edit that produces a *new* artifact: the source keeps its
+//! content and its digest, and the result names both.
 //!
-//! Three intents exist, and they are different types because they assert
-//! different things:
+//! Five intents exist, each asserting something different, each with a
+//! matching `MutationResult` variant and `apply_*` operation:
 //!
-//! * `NucleotideMutationIntent` asserts a base at a reference coordinate.
-//! * `NucleotideDeletionIntent` asserts the exact text of a contiguous region
-//!   of reference coordinates.
+//! * `NucleotideMutationIntent` asserts one base at a reference coordinate.
+//! * `NucleotideDeletionIntent` asserts the exact text of a region (D031).
+//! * `NucleotideInsertionIntent` asserts the flanking bases at a point (D032).
+//! * `NucleotideReplacementIntent` asserts that region's text and writes a text
+//!   of any length (D033).
 //! * `ResidueMutationIntent` asserts a residue of a CDS and leaves the DNA
-//!   edit to a `CodonSelectionPolicy`.
+//!   edit to a `CodonSelectionPolicy` (D011).
 //!
-//! All three carry the expected original state, and all three are checked before the
-//! edit. A mutation never applies to a different artifact, to a coordinate
-//! outside the sequence or outside its scope, or to a base or residue that
-//! disagrees with the request.
+//! Every intent carries the expected original state, and every one is checked
+//! before the edit: a mutation never applies to another artifact, to a
+//! coordinate outside the sequence or outside its scope, or to a base or
+//! residue that disagrees with the request. Strand is never a parameter of a
+//! mutation: it is read from the `Cds`, and residue numbering runs over the
+//! strand-applied CDS text.
 //!
-//! Strand is never a parameter of a mutation. It is read from the `Cds`, as
-//! extraction and translation already require, and residue numbering runs
-//! over the strand-applied CDS text.
-//!
-//! Verification is a separate responsibility (D013). `verify` re-derives the
-//! edit from the source artifact and the result's own claims; it does not
-//! re-run the edit. A result is `Calculated` until that pass accepts it, and
-//! a `Calculated` result is never equal to a `Verified` one.
+//! Verification is a separate responsibility (D013): `verify` re-derives the
+//! edit from the source and the result's claims rather than re-running it, and
+//! checks length per kind (owner decision 4.2 in
+//! `docs/tasks/milestone-4-indels.md` §4.2). A result stays `Calculated`
+//! until that pass accepts it (D020). Containment of a target inside its
+//! scope is checked here, by `require_within_feature` and
+//! `require_point_within_feature`; choosing that scope and the frameshift
+//! warnings is `q5.rs`'s. Numbering, genetic-code and CDS rules belong to
+//! `cds.rs` and `translation.rs`.
 
 use crate::cds::Cds;
 use crate::cds::ResiduePosition;
@@ -209,8 +213,8 @@ pub fn parse_residue(text: String) -> Result<Residue, DomainError> {
 
 /// A DNA-level substitution: one nucleotide at a reference coordinate.
 ///
-/// The target is a `NucleotideInterval` of length 1, which is the Milestone 1
-/// coordinate abstraction and which already names its reference sequence.
+/// The target is a `NucleotideInterval` of length 1: the `interval` module's
+/// coordinate abstraction, which already names its reference sequence.
 #[derive(Clone, Debug, PartialEq)]
 pub struct NucleotideMutationIntent {
     source: SequenceReference,
@@ -745,9 +749,10 @@ impl MutationResult {
         }
     }
 
-    /// True only for a single-nucleotide substitution: a deletion and an
-    /// insertion are DNA edits too, but each writes nothing at a source
-    /// coordinate and its length rule differs.
+    /// True only for a single-nucleotide substitution. A deletion, an insertion
+    /// and a replacement are DNA edits too, each with its own length rule, and a
+    /// residue substitution names a residue of a CDS rather than a position in
+    /// the sequence.
     pub fn is_nucleotide(&self) -> bool {
         match self {
             MutationResult::Nucleotide(_record) => true,
@@ -1323,12 +1328,11 @@ pub fn apply_insertion(
 /// The region is checked against the artifact and against its scope before
 /// anything is written, and the bases it overwrites are asserted exactly, so
 /// a request that disagrees with the artifact is refused rather than guessed.
-/// The text written need not have the width of the region, which is what makes
-/// the edit a replacement rather than a substitution, and a region that is the
-/// whole sequence would leave an artifact of no bases at all. Nothing is
-/// written until every check has passed, and the source artifact is never
-/// modified: the edited artifact is a new one, `w − m` bases shorter or longer,
-/// that keeps the source's topology.
+/// The text written need not have the width of the region (D033), which is
+/// what makes the edit a replacement rather than a substitution: the edited
+/// artifact is a new one of `n − w + m` bases that keeps the source's topology,
+/// and the source is never modified. A region that is the whole sequence is
+/// refused; no source records a reason for that rule.
 pub fn apply_replacement(
     sequence: &Sequence,
     scope: Option<Cds>,
@@ -1481,31 +1485,36 @@ pub fn default_codon(residue: Residue) -> Result<Codon, DomainError> {
     }
 }
 
-/// Independent verification of a mutation result (D013).
+/// Independent verification of a mutation result (D013): the edit is not
+/// re-run, and the result's claims are read back out of both artifacts. Every
+/// kind first checks that the source is the artifact the result claims, by
+/// name, digest and topology, and checks length for its kind (owner decision
+/// 4.2 in `docs/tasks/milestone-4-indels.md` §4.2). A deletion, an insertion
+/// and a replacement are re-derived by rebuilding the edited artifact from
+/// the record; a substitution and a residue result are compared position by
+/// position. What each kind then checks:
 ///
-/// The edit is not re-run. The checks are: that the source artifact is the
-/// one the result claims, by name, digest, and topology; that length is preserved, which
-/// is the substitution invariant; and that the positions where source and
-/// edited differ agree with the recorded target coordinates, exactly for a
-/// nucleotide result and as a non-empty subset for a residue result, because
-/// a replacement triplet may share letters with the triplet it replaces.
-/// The result's own claims are then read back out of the two artifacts: the
-/// nucleotide at a nucleotide target, and for a residue result the annotation
-/// the result records, which is the annotation `verify` has to be handed, the
-/// residue sequences re-translated through Milestone 1's extraction and
-/// translation, the residue and the codon read from the source, and the codon
-/// read at the requested residue of the edited artifact.
-/// Verification therefore accepts a residue result whose recorded codon
-/// coordinates are a superset of the letters that actually changed, and it
-/// does not re-derive the residue-to-coordinate mapping: that mapping is the
-/// generator's responsibility, checked here by the residue and codon claims
-/// rather than by a second copy of the mapping. A deletion is handled in its
-/// own branch, before the length rule a substitution obeys, because its own
-/// length rule is stated per kind (owner decision 4.2): a deletion of `w`
-/// bases shortens the artifact by exactly `w`. An insertion is handled the
-/// same way: an insertion of `k` bases lengthens the artifact by exactly `k`.
-/// A replacement is handled the same way: a replacement of a region of `w`
-/// bases by a text of `m` bases leaves exactly `n − w + m`.
+/// * substitution: unchanged length; the differing positions are exactly the
+///   recorded coordinates; the nucleotide claims match both artifacts.
+/// * residue: unchanged length; the differing positions are non-empty and lie
+///   inside the recorded codon coordinates rather than filling them, since a
+///   replacement codon may share letters with the one it replaces; the
+///   annotation `verify` is handed equals the recorded one, compared as exact
+///   `Cds` equality; the source's residue and codon at the requested residue;
+///   the edited codon; and that no other residue changed.
+/// * deletion: `n − w` bases; the edited artifact is the source with the
+///   recorded region removed; the removed text matches the record.
+/// * insertion: `n + k` bases; the edited artifact is the source with the
+///   recorded bases at the recorded point; the source holds the recorded flanks.
+/// * replacement: `n − w + m` bases; the edited artifact is the source with the
+///   recorded region replaced by the recorded text; the source holds the
+///   recorded original text there.
+///
+/// Only residue results are re-translated (`docs/q5-sdm.md` §8, open owner
+/// question A5): a DNA-level edit inside a CDS is verified as a DNA edit, and
+/// its effect on the translation is not checked. Verification does not re-derive
+/// the residue-to-coordinate mapping: the generator owns it, and the residue
+/// and codon claims check it instead of a second copy of the mapping.
 pub fn verify(
     source: &Sequence,
     cds: Option<Cds>,
