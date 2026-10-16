@@ -80,7 +80,17 @@ sequences, primer designs, coordinates, or experimental results.
 
 ## Git
 - Read-only commands are fine (`git status`, `git diff`, `git log`).
-- Do not run git add, commit, amend, reset, rebase, merge, or push.
+- The user creates each milestone branch. Commit only on the current
+  milestone branch, never on `main`; if on `main`, stop and ask.
+- The planner may `git add` and `git commit` after all required checks
+  pass and the diff has been reviewed. Workers never stage or commit.
+- One commit per completed task contract, or per review round for large
+  contracts.
+- Stage files explicitly by path; never use `git add -A` or `git add .`.
+- Commit message: a short summary line, then the contract filename and
+  the checks that passed.
+- Do not run push, amend, reset, rebase, merge, checkout/switch of
+  branches, force operations, or change git config.
 
 ## Required checks
 Run after every implementation task, from the repository root:
