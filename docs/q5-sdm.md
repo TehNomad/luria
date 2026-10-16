@@ -27,6 +27,15 @@ that is counted position by position — and it records the thermodynamic rules
 as **not established**, so the layer still cannot be implemented from it alone.
 Nothing in `q5.rs` reads it.
 
+**Amended 2026-10-14 (Milestone 3c).** A design layer now exists for the
+substitution path — `crates/core/src/primer_design.rs`, implementing D029's
+`luriaNative` policy — and the workflow reaches it by composition in
+`crates/core/src/q5_design.rs`. Everything above still holds of `q5.rs`
+itself: it designs nothing, reads no design document, and gained no field, no
+function and no dependency. The wiring is specified in
+`docs/tasks/milestone-3c-q5-design-wiring.md` and summarised in §13; the Tm
+rules remain unwritten, so no thermodynamic value is calculated anywhere.
+
 Source labels used below and in the traceability table:
 
 * **brief** — `docs/product-brief.md`.
@@ -220,7 +229,7 @@ Authority needed to settle it: a product decision on whether the Q5 SDM
 workflow accepts DNA edits that fall outside its target CDS. Until that
 decision exists, this document records alternative 1 as **impl**. No test
 asserts alternative 2's behavior, and one test —
-`an_unscoped_nucleotide_edit_pins_alternative_one_of_the_open_containment_decision`
+`an_unscoped_nucleotide_edit_outside_the_resolved_cds_proceeds`
 — asserts alternative 1's as expected behavior, so the test suite currently
 encodes the open answer rather than leaving it uncommitted: adopting
 alternative 2 or 3 would require changing that test, not only adding one.
@@ -468,12 +477,33 @@ step is what makes those later paths checkable at all.
 
 ## 10. Known limitations, and decisions still required
 
-Open product decisions, each with the tests that currently encode one answer
-and would have to change if the product decided otherwise:
+**Decided by the owner, 2026-10-14.** All six decisions below are now settled.
+Items 1–5 keep the behaviour already implemented, so no code changes; the
+tests listed under each are now the specification of an owner decision rather
+than of an open question. Item 6 changed behaviour, and is implemented.
+
+| # | Decision | Owner's answer |
+| --- | --- | --- |
+| 1 | An unscoped DNA edit outside the resolved CDS | **Proceeds** (alternative 1). Editing a promoter or UTR base is legitimate. |
+| 2 | Narrowing candidate CDSs by whether they can hold the residue | **No narrowing.** Several annotations still ask the caller; choosing by length would be a guess (D005). |
+| 3 | A named CDS that matches no annotation | **Clarification**, listing the annotations that exist. Most likely a typo. |
+| 4 | One annotation, and the caller names none | **Used.** There is nothing ambiguous to resolve. |
+| 5 | A residue request whose expected original equals its replacement | **Legal** when the codon changes: this is how a silent mutation is made, e.g. to remove a restriction site. A DNA-level no-op is still refused. |
+| 6 | Two members of one variant set sharing a result identifier | **Refused** at set construction (`InvalidMutationRequest`), compared exactly. |
+
+The text of each item is kept below as the record of the options that were
+weighed. Where an item says "unsettled" or "open", read it as superseded by the
+table above. The containment test was renamed on 2026-10-14 to
+`an_unscoped_nucleotide_edit_outside_the_resolved_cds_proceeds`, so its name no
+longer calls the decision open. Item 6 was implemented the same day:
+`two_variants_sharing_a_result_name_are_refused`.
+
+The decisions as they stood before 2026-10-14, each with the tests that encode
+one answer:
 
 1. **Nucleotide containment (§4)** — alternative 1 vs 2 vs 3. Unsettled;
    behavior is **impl**. Encoded by
-   `an_unscoped_nucleotide_edit_pins_alternative_one_of_the_open_containment_decision`,
+   `an_unscoped_nucleotide_edit_outside_the_resolved_cds_proceeds`,
    which asserts alternative 1 as expected behavior: an unscoped DNA edit
    outside the resolved CDS proceeds and verifies.
 2. **Candidate narrowing by residue feasibility (§3, §5)** — whether
@@ -613,7 +643,7 @@ Results are returned in request order only when every member succeeded.
 **What a set does not decide.** No candidate narrowing by residue
 feasibility (§10 item 2 stays open); no containment rule for a member's DNA
 edit, so §4's open decision reads the same for a set member as for a single
-request; no result-identifier uniqueness rule (§10 item 6 stays open).
+request; result identifiers must be distinct (§10 item 6, decided 2026-10-14).
 
 **Tests** (`crates/core/src/q5.rs`, each named for the rule it pins):
 `an_empty_variant_set_is_refused_at_construction`,
@@ -634,13 +664,51 @@ request; no result-identifier uniqueness rule (§10 item 6 stays open).
 `a_member_over_a_cds_milestone_one_refuses_ends_the_set_before_any_edit`,
 `a_later_member_with_a_wrong_expected_residue_fails_the_whole_set`,
 `a_one_member_set_produces_the_same_result_as_the_single_request_path`,
-`two_identical_variants_with_one_result_name_are_representable`,
+`two_variants_sharing_a_result_name_are_refused`,
+`result_names_are_compared_exactly`,
 `a_member_with_residue_zero_is_refused_by_milestone_one_at_bind_time`,
 `a_member_with_a_negative_residue_is_refused_by_milestone_one_at_bind_time`,
 `a_member_that_asks_for_an_unspecified_codon_policy_is_refused_by_milestone_two`,
 `a_member_whose_dna_edit_writes_no_change_is_refused_before_the_set_exists`.
 
-## 12. Traceability
+## 12. Reaching the design layer (Milestone 3c)
+
+`q5_design.rs` composes `q5.rs` and `primer_design.rs`:
+`design_run(execution, request)` designs the pair for one run, and
+`design_set(set_execution, request)` designs one pair per set member. It holds
+no biological rule: the template it passes to the design layer is the one the
+run's own request names, the `MutationResult` is the one the run produced, and
+every design-layer `DomainError` is returned with its own variant and
+category. No error variant was added.
+
+Two behaviours are owner decisions of 2026-10-14, not deductions from this
+contract:
+
+- **A clarification designs nothing, and that is an `Ok` outcome.** A
+  clarification run holds no mutation, so it gets no design and no field of
+  the design request is read. The clarification survives intact (D005).
+- **A set's design failure is atomic.** Members are designed in request
+  order, and the first member that cannot be designed returns its error, so
+  no partial set escapes as a successful one — the rule `execute_set` already
+  applies to the edits. One undesignable member therefore discards the
+  designs of the others; a per-member design-failure carrier was considered
+  and not implemented.
+
+  **Reversed by the owner, 2026-10-14, and implemented.** Each member carries
+  either its design or its own design failure, so the designable members are
+  returned: `Q5DesignedSet::members` is one `Q5MemberDesign` per member in
+  request order, each holding a `MemberDesignOutcome` of `Designed` or
+  `NotDesigned`, and `designs`, `failures`, `designed_count` and
+  `all_designed` read across them. D030's 55 °C floor makes a design failure
+  on an AT-rich site ordinary rather than exceptional, which is why the 3c
+  choice was revisited. A failure of the *edits* still fails the whole set, as
+  `execute_set` does. In the same decision, a set whose members share a result
+  identifier is refused at construction (§10 item 6).
+
+A set is designed under one request, so all members share the bound, style,
+policy and placement. Per-member design requests are not supported.
+
+## 13. Traceability
 
 | Rule | Authority |
 | --- | --- |
@@ -659,15 +727,15 @@ request; no result-identifier uniqueness rule (§10 item 6 stays open).
 | Binding a residue intent uses M1's and M2's constructors, and validates nothing of its own | proposed, D003 |
 | The residue number is validated where a CDS identifier exists (bind time) | proposed, M1 |
 | The gate reads annotation metadata and identity, never sequence content | impl |
-| Candidates are not narrowed by residue feasibility | impl; **open** |
+| Candidates are not narrowed by residue feasibility | impl; owner 2026-10-14 |
 | The brief's residue-42 reason is true of the long-template fixture, not of the 30-nucleotide one | impl, fixture record |
 | `verify`'s scope parameter is read on the residue branch only | impl, limitation |
-| A residue request whose expected original equals its replacement proceeds | M2, impl; **open** |
+| A residue request whose expected original equals its replacement proceeds | M2, impl; owner 2026-10-14 |
 | No CDS annotation at all is a missing attribute, not an empty CDS | M1 |
 | An annotation of another artifact is refused, not dropped | M1, D007 |
 | Duplicate annotation identifiers are not deduplicated | impl |
 | Several annotations and no claim → clarification, no target | brief, D005, D020, impl |
-| Named identifier matching no annotation → clarification | impl; brief permits either — **open** |
+| Named identifier matching no annotation → clarification | impl; owner 2026-10-14 |
 | `Validated` ⇒ exactly one resolved target; clarification ⇒ none | impl, module-local |
 | `execute` returns a structured error rather than unwrapping that invariant | impl, this task; error.rs |
 | A clarification run performs no edit and produces no artifact | D005, impl |
@@ -679,8 +747,13 @@ request; no result-identifier uniqueness rule (§10 item 6 stays open).
 | Result provenance is M2's, unchanged, plus the workflow code-path name/version | D021, M2 |
 | Computational validation is never experimental validation | D020 |
 | Primer design, thermodynamics, warnings, rejection criteria are unwritten | D014, brief |
-| Nucleotide containment policy | **open**; current behavior is impl |
+| Nucleotide containment policy: an unscoped DNA edit proceeds | impl; owner 2026-10-14 |
 | A set is one typed request with N ordered members, not a caller loop | task contract, impl |
+| The workflow reaches primer design by composition, not inside `q5.rs` | 3c contract, owner 2026-10-14 |
+| A design is built against the template the run's own request names | 3c contract, D007, I-6 |
+| A clarification run designs nothing, and that is not a failure | D005, 3c contract |
+| A set's design failure is atomic; no per-member design carrier exists | owner 2026-10-14; **gap** |
+| One design request per set, so members cannot mix bounds | 3c contract; **gap** |
 | The composition mode is explicit and never inferred from the member count | task contract, impl |
 | `CombinedConstruct` is representable and refused, never run as separate variants | task contract, D014, impl |
 | `UnsupportedComposition` is the refusal's error variant, categorized `Unsupported` | impl, error.rs |
@@ -694,4 +767,4 @@ request; no result-identifier uniqueness rule (§10 item 6 stays open).
 | A failing member returns the original `DomainError`; no partial set escapes | task contract, impl |
 | Results are per-variant, in request order, each carrying its caller's name | task contract, D007 |
 | A one-member set gives the same result as the single-request `execute` | impl, test |
-| Set result identifiers are not checked for uniqueness | **open**, §10 item 6 |
+| Set result identifiers must be distinct, compared exactly | owner 2026-10-14, §10 item 6 |
