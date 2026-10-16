@@ -10,8 +10,14 @@
 //!
 //! # The policy
 //!
-//! For a contiguous replacement region `[s, e)`, `L = e − s`, `1 ≤ L ≤ 3`, on a
-//! linear template of length `n`, with `b = minAnnealingOverlap`:
+//! The scope: a substitution over a contiguous changed region of 1–3 bases
+//! (`MAX_REPLACEMENT_REGION`, D029/D030); a replacement of a region `[s, e)`
+//! by `m` bases, inline while `t = max(w, m) ≤ 6` (`MAX_INLINE_REPLACEMENT`,
+//! D033) and on the tails path above it; deletions (D031) and insertions
+//! (D032), all on linear templates (D035).
+//!
+//! For a contiguous region `[s, e)` of width `L = e − s` on a linear template
+//! of length `n`, with `b = minAnnealingOverlap`:
 //!
 //! ```text
 //! B  = s − 10            the junction; the forward primer's 5′ flank is 10, fixed
@@ -288,27 +294,29 @@ impl PrimerDesign {
         self.edited.clone()
     }
 
-    /// The edited region `[s, e)` on the template: the replacement region for
-    /// a substitution, the removed region for a deletion (D031), and the point
-    /// twice, `(p, p)`, for an insertion (D032), which occupies no template
-    /// base of its own.
+    /// The edited region `[s, e)` on the template: the changed region for a
+    /// substitution, the removed region for a deletion (D031), the replaced
+    /// region for a replacement on either path (D033), and the point twice,
+    /// `(p, p)`, for an insertion (D032), which occupies no template base of
+    /// its own.
     pub fn edit_span(&self) -> (u64, u64) {
         (self.edit_start, self.edit_end)
     }
 
-    /// The forward primer's unchanged bases 5′ of the edit. `MIN_FLANK` for a
-    /// substitution (D030); 0 for a deletion (D031), whose forward primer's 5′
-    /// end sits at the far edge of the removed region, and 0 for an insertion
-    /// (D032), whose forward primer's 5′ end is its tail.
+    /// The forward primer's unchanged bases 5′ of the region. `MIN_FLANK` for a
+    /// substitution and for an inline replacement (D030, D033); 0 for a
+    /// deletion (D031), whose forward primer's 5′ end sits at the far edge of
+    /// the removed region, and 0 for an insertion and a tail-path replacement
+    /// (D032, D033), whose forward primer's 5′ end is its tail.
     pub fn five_prime_flank(&self) -> u64 {
         self.five_prime_flank
     }
 
-    /// For a substitution, the forward primer's unchanged bases 3′ of the
-    /// replacement region. For a deletion, the forward primer's whole length:
-    /// it has no 5′ flank, so its length is its annealing total. For an
-    /// insertion (D032), the forward primer's **annealing** length: its 5′
-    /// tail carries inserted bases and anneals nowhere, so it is not counted.
+    /// The forward primer's growth 3′ of the region: unchanged bases beyond it
+    /// for a substitution and an inline replacement (D030, D033); the whole
+    /// annealing length for a deletion (D031), which has no 5′ flank; and the
+    /// **annealing** length for an insertion and a tail-path replacement
+    /// (D032, D033), whose 5′ tail carries written bases and anneals nowhere.
     pub fn three_prime_flank(&self) -> u64 {
         self.three_prime_flank
     }
@@ -318,10 +326,12 @@ impl PrimerDesign {
         self.five_prime_flank + self.three_prime_flank
     }
 
-    /// The reverse primer's length, which for a substitution and a deletion is
-    /// also its whole length. For an insertion (D032) it is the reverse
-    /// primer's **annealing** length: a 5′ tail, when the insertion was split,
-    /// is not counted here.
+    /// The reverse primer's **annealing** length. For a substitution, a
+    /// deletion and an inline replacement it is also the whole length, since
+    /// those primers carry no tail; for an insertion and a tail-path
+    /// replacement (D032, D033) a 5′ tail is not counted here, and the reverse
+    /// primer has none at all when the written text stays whole on the forward
+    /// primer or is a single base.
     pub fn reverse_length(&self) -> u64 {
         self.reverse_length
     }
@@ -337,11 +347,14 @@ impl PrimerDesign {
         self.pair.clone().deleted_width()
     }
 
-    /// The forward primer's Tm, with the basis it was computed on: mismatch-
-    /// aware against the wild-type site for a substitution (D030), matched for
-    /// a deletion and for an insertion, whose annealing portion is wild-type
-    /// template (D031, D032). It is always the annealing portion's Tm, never
-    /// the whole primer's.
+    /// The forward primer's Tm, always of its annealing portion and never of
+    /// the whole primer. The basis follows the geometry: D030's hybrid —
+    /// mismatch-aware against the wild-type site, falling back to matched for
+    /// a tandem or motif gap (B6) — for a substitution and for an inline
+    /// replacement with `m = w`; matched for an inline replacement with `m ≠ w`,
+    /// where primer and site differ in length, and for a deletion and the tail
+    /// path (D031, D032, D033), whose annealing portions are wild-type
+    /// template.
     pub fn forward_tm(&self) -> MeltingTemperature {
         self.forward_tm.clone()
     }
@@ -351,13 +364,13 @@ impl PrimerDesign {
         self.reverse_tm.clone()
     }
 
-    /// D032: the forward primer's whole-primer Tm, tail included, on the
-    /// matched basis. It is reported because it is what a user's own calculator
-    /// shows for the text they were given; it is never used for sizing, for
-    /// balance or for the annealing temperature, which stay on the annealing
-    /// portions. `None` for a substitution and a deletion, whose primers carry
-    /// no tail and whose whole text is therefore the annealing portion already
-    /// reported by `forward_tm`.
+    /// The forward primer's whole-primer Tm, tail included, on the matched
+    /// basis (D032, D033). It is `Some` only on the tails path — an insertion
+    /// or a tail-path replacement — and `None` otherwise, where the primer has
+    /// no tail and its whole text is the annealing portion `forward_tm` already
+    /// reports. It is reported because it is what a user's own calculator shows
+    /// for the text they were given; it is never used for sizing, for balance
+    /// or for the annealing temperature, which stay on the annealing portions.
     pub fn forward_whole_tm(&self) -> Option<MeltingTemperature> {
         self.forward_whole_tm.clone()
     }
@@ -373,8 +386,9 @@ impl PrimerDesign {
         self.annealing_temperature
     }
 
-    /// Whether the two Tms are within `TM_BALANCE`. False only when the
-    /// template ran out before the colder primer could be grown enough.
+    /// Whether the two annealing Tms differ by at most `TM_BALANCE`. False
+    /// when the colder primer could not be grown to within that of the other
+    /// before running out of template (D030).
     pub fn tm_balance_met(&self) -> bool {
         self.tm_balance_met
     }
@@ -1118,12 +1132,14 @@ fn design_tailed(
     })
 }
 
-/// D030's sizing, unchanged: the forward primer reaches the floor, then grows
-/// toward a G/C last base below the ceiling; the reverse primer does the same;
-/// then the colder one grows toward a 5 °C balance. `forward_available` and
-/// `reverse_available` are the ACGT bases each side can still take. The pair
-/// returned is (forward length argument, reverse length): a 3′ flank for a
-/// substitution, the whole forward primer for a deletion.
+/// D030's sizing, shared by every path: the forward primer reaches the floor,
+/// then grows toward a G/C last base below the ceiling; the reverse primer
+/// does the same; then the colder one grows toward a `TM_BALANCE` difference.
+/// `forward_available` and `reverse_available` are the ACGT bases each side
+/// can still take. The pair returned is (forward length argument, reverse
+/// length): a 3′ flank past the region for a substitution and an inline
+/// replacement, and the whole annealing primer for a deletion and the tail
+/// path, which have no 5′ flank.
 fn size_pair(
     sizer: &Sizer,
     first_forward: u64,
@@ -1239,11 +1255,13 @@ fn size_pair(
 }
 
 /// The primer texts and Tms at a candidate length, around a fixed junction.
-/// The forward letters are the edited artifact's for a substitution, which is
-/// why its Tm is mismatch-aware, and the wild type's for a deletion, whose Tm
-/// is matched. `forward(n)` counts from `forward_anchor`, so the length
-/// argument is a 3′ flank for a substitution and the whole forward primer for
-/// a deletion.
+/// `forward_letters` are the edited artifact's for a substitution and an
+/// inline replacement, and the wild type's for a deletion and the tail path;
+/// `forward_mismatched` is set only when the primer and the wild-type site
+/// have equal length, which is D030's hybrid basis and matched otherwise.
+/// `forward(n)` counts from `forward_anchor`, so the length argument is a 3′
+/// flank past the region for a substitution and an inline replacement, and
+/// the whole annealing primer for a deletion and the tail path.
 struct Sizer {
     wild_type: Vec<char>,
     forward_letters: Vec<char>,

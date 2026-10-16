@@ -35,21 +35,22 @@
 //!   search to be meaningful, and §15 question 1 leaves the primer-length
 //!   question open. A layer that picked a span would be choosing a design rule
 //!   the contract has not written.
-//! * **No Tm, no `Ta`.** §11 states that the project's Tm function is not yet
-//!   defined and that no Tm range is established; §13.3 says reproducing the
-//!   reference routine is not evidence about `luria`. Nothing here computes a
-//!   thermodynamic value.
-//! * **No `confineToTail` placement.** §15 question 8 asks whether `luria`
-//!   supports it at all, and §10 would need a style default that no source
-//!   establishes. The placement is an explicit argument with no default, and
-//!   `ConfineToTail` is refused with `DomainError::UnsupportedPrimerPlacement`
-//!   naming the open question.
+//! * **No Tm, no `Ta`.** Nothing here computes a thermodynamic value: `tm.rs`
+//!   defines the Tm and its bases, and `primer_design.rs` sizes primers by it
+//!   and reports the annealing temperature (D030).
+//! * **No `ConfineToTail` as a caller's choice.** `construct_primer` takes the
+//!   placement as an argument and refuses `ConfineToTail` with
+//!   `DomainError::UnsupportedPrimerPlacement`: §15 question 8 asks whether
+//!   `luria` supports the placement at all, and §10 would need a style default
+//!   that no source establishes. `construct_tailed_primer` fills the placement
+//!   itself, deriving `ConfineToTail` from the shape of the primer it built.
 //! * **Insertion and deletion design lives in `primer_design.rs`, not here.**
 //!   Both are represented here — a deletion pair by D031's invariant, and an
-//!   insertion pair by D032's, whose primer is the one shape that fills the
-//!   `tail` field — but nothing here proposes a span, a length or a candidate
-//!   for either; `primer_design.rs` does. §5 still states them as separate
-//!   degenerate cases rather than as one general rule.
+//!   insertion pair by D032's — as is a tail-path replacement pair by D033's,
+//!   and those two are the pairs whose primers fill the `tail` field. Nothing
+//!   here proposes a span, a length or a candidate for any of them;
+//!   `primer_design.rs` does. §5 still states the insertion and the deletion
+//!   as separate degenerate cases rather than as one general rule.
 //! * **No combined-variant design.** §15 questions 5 and 6 leave the
 //!   representation of a composed request and the rule for overlapping spans
 //!   open. One pair per edit is all this module claims.
@@ -185,9 +186,10 @@ impl PrimerPlacement {
 
 /// A run of primer positions that does one thing: wild-type context that
 /// anneals, or positions carrying the mutation that do not (§5). A 5′ tail is
-/// the third kind, and `construct_tailed_primer` builds one for an insertion:
-/// its bases are inserted rather than read, so it covers no template
-/// coordinate and does not anneal. What this layer still refuses is the
+/// the third kind, and `construct_tailed_primer` builds one for an insertion
+/// (D032) and for a replacement too wide to sit inline (D033): its bases are
+/// written by the edit rather than read from the template, so it covers no
+/// template coordinate and does not anneal. What this layer still refuses is the
 /// caller's `ConfineToTail` **placement**, which is a design rule (§15
 /// question 8), not the part itself.
 #[derive(Clone, Debug, PartialEq)]
@@ -448,9 +450,13 @@ impl PrimerPair {
     /// Where the two 5′ ends meet, when they do. §15 question 3 asks whether a
     /// Q5 pair has to abut at all, so abutment is reported, never required.
     ///
-    /// Across a deletion the two ends do not share a template coordinate: they
-    /// meet in the **product**, at `s`, the start of the removed region. That
-    /// is the coordinate reported when the pair satisfies D031's invariant.
+    /// When `deleted_width` is greater than 0 — the deleted region of a
+    /// deletion, or the replaced region of a tail-path replacement — the two
+    /// spans are apart on the template, and the coordinate reported is the
+    /// reverse primer's end: the start of that region, where D031's invariant,
+    /// generalised by D033, puts it. For a deletion the two ends then meet in
+    /// the **product**; for a tail-path replacement the replacement text sits
+    /// between them, carried by the two tails.
     pub fn boundary(self) -> Option<u64> {
         let back: NucleotideInterval = self.reverse.clone().span();
         let front: NucleotideInterval = self.forward.clone().span();
@@ -467,9 +473,11 @@ impl PrimerPair {
     }
 
     /// D031's generalisation of abutment: the pair abuts when the gap between
-    /// the two spans equals the width of the deletion they straddle, so that
-    /// `reverse end + w = forward start` holds. The substitution case is `w = 0`,
-    /// which is template abutment as §15 question 3 states it.
+    /// the two spans equals `deleted_width`, the number of template positions
+    /// between the two annealing portions — the deleted region for a deletion,
+    /// the replaced region for a tail-path replacement, and 0 otherwise — so
+    /// that `reverse end + w = forward start` holds. The substitution case is
+    /// `w = 0`, template abutment as §15 question 3 states it.
     pub fn abuts(self) -> bool {
         let width: u64 = self.deleted_width;
         self.separation() == signed(width)
@@ -988,20 +996,22 @@ pub fn construct_primer(
 
 /// Build a primer whose 5′ end is a non-annealing tail: the text is `tail`
 /// followed by `annealing`, and `span` covers the **annealing portion only**,
-/// because a tail sits in a gap of the template rather than over coordinates
-/// of it (D032). This is the only shape in which the `tail` field is filled:
-/// an insertion writes no template position, so the bases it adds have to sit
-/// somewhere, and a replacement too wide to sit inline puts its bases in the
-/// two tails (D033); where they sit is outside the annealing portion.
+/// because the tail's bases are written by the edit rather than read from the
+/// template (D032, D033). This is the only shape in which the `tail` field is
+/// filled, and both the edits that use it fill it: an insertion writes no
+/// template position, so the bases it adds have to sit somewhere, and a
+/// replacement too wide to sit inline carries its bases in the two tails
+/// instead of over the region (D033).
 ///
 /// `construct_primer` stays as it is for the other edits and for an untailed
-/// primer of an insertion; a caller that wants no tail uses it, and this
-/// constructor refuses an empty tail rather than defaulting one.
+/// primer of an insertion or of a replacement; a caller that wants no tail
+/// uses it, and this constructor refuses an empty tail rather than
+/// defaulting one.
 ///
 /// The requirements are the ones §2 states for an insertion pair and D033 for
 /// a tail-path replacement, applied to one primer: the annealing portion is
 /// wild-type template at the span, the tail carries the bases the edit writes
-/// in the gap — inserted bases, or part of a replacement — and anneals
+/// — inserted bases, or part of a replacement — and anneals
 /// nowhere, and nothing under this primer changed. Which bases the tail must
 /// carry is a **pair** rule — the two tails together rebuild the insertion or
 /// the replacement — so it is checked in `assemble_pair`, not here.
@@ -1211,10 +1221,10 @@ pub fn construct_tailed_primer(
         ]),
         length: tail_length + width,
         span: span.clone(),
-        // Neither role has an edited interval: the edited artifact shifts its
-        // coordinates by the inserted width at the insertion point, so the
-        // forward primer's text spans the junction between inserted bases and
-        // template bases and is not one interval of the edited artifact.
+        // Neither role has an edited interval: this constructor states the
+        // primer against the template span its annealing portion covers, and
+        // the tail's bases are named by the tail part itself, not by an
+        // interval of either artifact.
         edited_span: None,
         parts: parts.clone(),
         tail: Some(tail_part.clone()),
@@ -1226,7 +1236,9 @@ pub fn construct_tailed_primer(
             " and does not anneal".to_string(),
         ]),
         // No template position under this primer changed: an insertion writes
-        // into a gap, not over a coordinate.
+        // into a gap, and a tail-path replacement's bases sit in the tails,
+        // with the checks here keeping this primer's span clear of the
+        // replaced region.
         changed_positions: Vec::new(),
         annealing_sequence: annealing_text.clone(),
         annealing_spans: vec![span.clone()],
