@@ -340,6 +340,120 @@ pub struct UnsupportedPrimerPlacementProblem {
     pub reason: String,
 }
 
+/// Payload: a primer-design request that cannot be acted on as given, such as
+/// a `minAnnealingOverlap` below 1 or a mutation result that was never
+/// verified.
+#[derive(Clone, Debug, PartialEq)]
+pub struct InvalidPrimerDesignRequestProblem {
+    pub field: String,
+    pub reason: String,
+}
+
+/// Payload: an edit or template outside the design policy's scope (D029:
+/// a contiguous replacement region of at most 3 bases on a linear template).
+#[derive(Clone, Debug, PartialEq)]
+pub struct UnsupportedPrimerDesignScopeProblem {
+    pub policy: String,
+    pub reason: String,
+}
+
+/// Payload: the template is shorter than the smallest pair the policy can
+/// emit, so no placement of any abutting pair fits (D029).
+#[derive(Clone, Debug, PartialEq)]
+pub struct NoPrimerDesignPossibleProblem {
+    pub template: String,
+    pub template_length: u64,
+    pub smallest_pair: u64,
+}
+
+/// One reason a design under D029/D030 does not fit the template.
+#[derive(Clone, Debug, PartialEq)]
+pub enum DesignObstacle {
+    /// Too few template bases 5′ of the edit for the forward 5′ flank plus
+    /// the reverse primer.
+    FivePrimeAvailability { available: u64, needed: u64 },
+    /// Too few template bases 3′ of the edit for the forward 3′ flank.
+    ThreePrimeAvailability { available: u64, needed: u64 },
+    /// The template holds an ambiguity code where a primer base would be
+    /// (H6: no degenerate symbol in a primer).
+    AmbiguousTemplateBase { position: u64, base: String },
+    /// The reverse primer ran out of template 5′ of the junction before its
+    /// Tm reached the 55 °C floor (D030). `reached_celsius` is its Tm at the
+    /// longest length available.
+    FivePrimeTmFloorUnreachable {
+        available: u64,
+        reached_celsius: f64,
+    },
+    /// The forward primer ran out of template 3′ of the edit before its Tm
+    /// reached the floor.
+    ThreePrimeTmFloorUnreachable {
+        available: u64,
+        reached_celsius: f64,
+    },
+}
+
+impl DesignObstacle {
+    pub fn describe(&self) -> String {
+        match self {
+            DesignObstacle::FivePrimeAvailability { available, needed } => format!(
+                "5' side: {} template bases before the edit, {} needed",
+                available, needed
+            ),
+            DesignObstacle::ThreePrimeAvailability { available, needed } => format!(
+                "3' side: {} template bases after the edit, {} needed",
+                available, needed
+            ),
+            DesignObstacle::AmbiguousTemplateBase { position, base } => format!(
+                "template position {} is the ambiguity code {}",
+                position, base
+            ),
+            DesignObstacle::FivePrimeTmFloorUnreachable {
+                available,
+                reached_celsius,
+            } => format!(
+                "5' side: the reverse primer reaches only {:.2} °C using all {} bases available",
+                reached_celsius, available
+            ),
+            DesignObstacle::ThreePrimeTmFloorUnreachable {
+                available,
+                reached_celsius,
+            } => format!(
+                "3' side: the forward primer reaches only {:.2} °C using all {} bases available",
+                reached_celsius, available
+            ),
+        }
+    }
+}
+
+/// Payload: a pair of the policy's starting size fits the template, but not
+/// around this edit, or not at a Tm the policy accepts. Another geometry might
+/// fit; this policy keeps the junction fixed and does not shift (D029, D030).
+#[derive(Clone, Debug, PartialEq)]
+pub struct NoPrimerDesignFitsProblem {
+    pub template: String,
+    pub edit_start: u64,
+    pub edit_end: u64,
+    pub obstacles: Vec<DesignObstacle>,
+}
+
+/// Payload: a buffer model that cannot be used, such as a concentration of
+/// zero where the Tm equation takes a logarithm.
+#[derive(Clone, Debug, PartialEq)]
+pub struct InvalidBufferModelProblem {
+    pub field: String,
+    pub reason: String,
+}
+
+/// Payload: the named Tm function has no published parameters for this duplex.
+/// The commonest cause is two adjacent mismatches, for which no nearest-
+/// neighbour set exists (`tests/fixtures/tm/README.md`).
+#[derive(Clone, Debug, PartialEq)]
+pub struct TmParametersUnavailableProblem {
+    pub function: String,
+    pub aspect: String,
+    pub reason: String,
+}
+
 /// A structured domain failure.
 #[derive(Clone, Debug, PartialEq)]
 pub enum DomainError {
@@ -383,6 +497,12 @@ pub enum DomainError {
     PrimerPairCoverage(PrimerPairCoverageProblem),
     PrimerOrientationConflict(PrimerOrientationConflictProblem),
     UnsupportedPrimerPlacement(UnsupportedPrimerPlacementProblem),
+    InvalidPrimerDesignRequest(InvalidPrimerDesignRequestProblem),
+    UnsupportedPrimerDesignScope(UnsupportedPrimerDesignScopeProblem),
+    NoPrimerDesignPossible(NoPrimerDesignPossibleProblem),
+    NoPrimerDesignFits(NoPrimerDesignFitsProblem),
+    InvalidBufferModel(InvalidBufferModelProblem),
+    TmParametersUnavailable(TmParametersUnavailableProblem),
 }
 
 impl ErrorCategory {
@@ -417,7 +537,9 @@ impl DomainError {
             | DomainError::InvalidResiduePosition(_)
             | DomainError::InvalidMutationRequest(_)
             | DomainError::UnspecifiedCodonPolicy(_) => ErrorCategory::MalformedInput,
-            DomainError::InvalidPrimerCandidate(_) => ErrorCategory::MalformedInput,
+            DomainError::InvalidPrimerCandidate(_)
+            | DomainError::InvalidPrimerDesignRequest(_)
+            | DomainError::InvalidBufferModel(_) => ErrorCategory::MalformedInput,
             DomainError::CoordinateOutOfBounds(_)
             | DomainError::SequenceReferenceMismatch(_)
             | DomainError::CdsLengthNotDivisibleByThree(_)
@@ -435,14 +557,18 @@ impl DomainError {
             | DomainError::PrimerPartition(_)
             | DomainError::AnnealingOverlapBelowBound(_)
             | DomainError::PrimerPairCoverage(_)
-            | DomainError::PrimerOrientationConflict(_) => ErrorCategory::BiologicalValidation,
+            | DomainError::PrimerOrientationConflict(_)
+            | DomainError::NoPrimerDesignPossible(_) => ErrorCategory::BiologicalValidation,
             DomainError::UnsupportedFeatureStructure(_)
             | DomainError::IncompleteCds(_)
             | DomainError::UnsupportedGeneticCode(_)
             | DomainError::UnsupportedNumberingScheme(_)
             | DomainError::UnsupportedMutationPolicy(_)
             | DomainError::UnsupportedComposition(_)
-            | DomainError::UnsupportedPrimerPlacement(_) => ErrorCategory::Unsupported,
+            | DomainError::UnsupportedPrimerPlacement(_)
+            | DomainError::UnsupportedPrimerDesignScope(_)
+            | DomainError::NoPrimerDesignFits(_)
+            | DomainError::TmParametersUnavailable(_) => ErrorCategory::Unsupported,
         }
     }
 
@@ -564,6 +690,27 @@ impl DomainError {
                 format!("primer pair states orientations {} and {}, which are not opposite", problem.forward, problem.reverse),
             DomainError::UnsupportedPrimerPlacement(problem) =>
                 format!("primer placement {} is not supported: {}", problem.placement, problem.reason),
+            DomainError::InvalidPrimerDesignRequest(problem) =>
+                format!("the primer-design request's {} cannot be used: {}", problem.field, problem.reason),
+            DomainError::UnsupportedPrimerDesignScope(problem) =>
+                format!("design policy {} does not cover this request: {}", problem.policy, problem.reason),
+            DomainError::NoPrimerDesignPossible(problem) =>
+                format!("no primer pair fits '{}': it has {} bases and the smallest pair spans {}",
+                    problem.template, problem.template_length, problem.smallest_pair),
+            DomainError::InvalidBufferModel(problem) => format!(
+                "the buffer model's {} cannot be used: {}",
+                problem.field, problem.reason
+            ),
+            DomainError::TmParametersUnavailable(problem) => format!(
+                "{} has no parameters for this duplex ({}): {}",
+                problem.function, problem.aspect, problem.reason
+            ),
+            DomainError::NoPrimerDesignFits(problem) => {
+                let reasons: Vec<String> =
+                    problem.obstacles.iter().map(DesignObstacle::describe).collect();
+                format!("no primer pair fits the edit [{}, {}) on '{}': {}",
+                    problem.edit_start, problem.edit_end, problem.template, reasons.join("; "))
+            }
         }
     }
 }

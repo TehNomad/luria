@@ -1,0 +1,9 @@
+case_id	sequence_file	edit	min_overlap	expected	forward_span	reverse_span	flanks	reverse_length	forward_tm	forward_tm_basis	reverse_tm	annealing_temp	balance_met	reference_design	failure	note
+native-01	../example-construct/input/sid-1_cDNA.fa	1209:1212:GAT:AAC	15	design	1199:1222	1180:1199	10:10	19	67.72	mismatched_wild_type_site	62.90	65.90	yes	q5p-01	none	the q5p-01 edit at bound 15
+native-02	../example-construct/input/sid-1_cDNA.fa	1209:1212:GAT:AAC	24	design	1199:1226	1175:1199	10:14	24	72.08	mismatched_wild_type_site	71.19	72.00	yes	none	none	q5p-02's bound; forward 3' flank starts at 14
+native-03	../example-construct/input/sid-1_cDNA.fa	1209:1212:GAT:AAC	25	design	1199:1227	1174:1199	10:15	25	73.02	mismatched_wild_type_site	71.66	72.00	yes	none	none	q5p-03's bound; forward 3' flank starts at 15
+native-04	../example-construct/input/sid-1_cDNA.fa	1503:1506:CTG:GAG	15	design	1493:1516	1469:1493	10:10	24	63.36	matched_complement	59.45	62.45	yes	q5p-07/variant-b	none	adjacent changes: forward Tm falls back to matched
+native-05	../mutation/mut-a.txt	9:12:AAT:AAC	6	error:NoPrimerDesignPossible	none	none	none	none	none	none	none	none	none	none	pair:38>30	30 bases cannot hold 3 + 10 + 10 + 15
+native-06	../mutation/mut-a.txt	4:5:C:T	31	error:NoPrimerDesignPossible	none	none	none	none	none	none	none	none	none	none	pair:63>30	q5p-09: bound 31 on a 30-base template
+native-07	../example-construct/input/sid-1_cDNA.fa	20:21:A:G	15	error:NoPrimerDesignFits	none	none	none	none	none	none	none	none	none	none	5':20<25	20 bases before the edit; the pair needs 25
+native-08	../example-construct/input/sid-1_cDNA.fa	3148:3149:T:A	15	error:NoPrimerDesignFits	none	none	none	none	none	none	none	none	none	none	3':4<10	4 bases after the edit; the forward primer needs 10
