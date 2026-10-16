@@ -505,7 +505,7 @@ pub fn design_primers(
         if width.max(written) <= MAX_INLINE_REPLACEMENT {
             return design_inline(template, result, request, region_start, region_end, written);
         }
-        return design_tailed(
+        return design_edge_pair(
             template,
             result,
             request,
@@ -547,14 +547,7 @@ fn design_inline(
         .saturating_add(MIN_FLANK)
         .saturating_add(first_flank)
         .saturating_add(first_reverse);
-    if smallest_pair > length {
-        let problem = NoPrimerDesignPossibleProblem {
-            template: template.display_name(),
-            template_length: length,
-            smallest_pair,
-        };
-        return Err(DomainError::NoPrimerDesignPossible(problem));
-    }
+    require_possible(template, smallest_pair)?;
 
     let fits = |obstacles: Vec<DesignObstacle>| -> DomainError {
         DomainError::NoPrimerDesignFits(NoPrimerDesignFitsProblem {
@@ -565,19 +558,8 @@ fn design_inline(
         })
     };
 
-    let mut obstacles: Vec<DesignObstacle> = Vec::new();
-    if start < MIN_FLANK + first_reverse {
-        obstacles.push(DesignObstacle::FivePrimeAvailability {
-            available: start,
-            needed: MIN_FLANK + first_reverse,
-        });
-    }
-    if length - end < first_flank {
-        obstacles.push(DesignObstacle::ThreePrimeAvailability {
-            available: length - end,
-            needed: first_flank,
-        });
-    }
+    let obstacles: Vec<DesignObstacle> =
+        availability_obstacles(start, end, length, MIN_FLANK + first_reverse, first_flank);
     if !obstacles.is_empty() {
         return Err(fits(obstacles));
     }
@@ -587,31 +569,14 @@ fn design_inline(
 
     // H6: no degenerate symbol in a primer. Checked over the starting pair;
     // beyond it an ambiguity code only ends availability on that side.
-    for position in boundary - first_reverse..end + first_flank {
-        let base: char = wild_type[position as usize];
-        if !is_dna_base(base) {
-            obstacles.push(DesignObstacle::AmbiguousTemplateBase {
-                position,
-                base: base.to_string(),
-            });
-        }
-    }
+    let obstacles: Vec<DesignObstacle> =
+        ambiguity_obstacles(&wild_type, &[(boundary - first_reverse, end + first_flank)]);
     if !obstacles.is_empty() {
         return Err(fits(obstacles));
     }
 
-    let mut three_prime_available: u64 = 0;
-    while end + three_prime_available < length
-        && is_dna_base(wild_type[(end + three_prime_available) as usize])
-    {
-        three_prime_available += 1;
-    }
-    let mut five_prime_available: u64 = 0;
-    while five_prime_available < boundary
-        && is_dna_base(wild_type[(boundary - five_prime_available - 1) as usize])
-    {
-        five_prime_available += 1;
-    }
+    let three_prime_available: u64 = run_after(&wild_type, end);
+    let five_prime_available: u64 = run_before(&wild_type, boundary);
 
     let sizer: Sizer = Sizer {
         wild_type: wild_type.clone(),
@@ -642,9 +607,8 @@ fn design_inline(
 
     let forward_tm: MeltingTemperature = sizer.forward_tm(flank)?;
     let reverse_tm: MeltingTemperature = sizer.reverse_tm(reverse)?;
-    let tm_balance_met: bool = (forward_tm.celsius() - reverse_tm.celsius()).abs() <= TM_BALANCE;
-    let annealing_temperature: f64 =
-        (forward_tm.celsius().min(reverse_tm.celsius()) + TA_OFFSET).min(TA_CAP);
+    let (tm_balance_met, annealing_temperature): (bool, f64) =
+        pair_summary(&forward_tm, &reverse_tm);
 
     let forward_span: NucleotideInterval = span(template, boundary, end + flank)?;
     let reverse_span: NucleotideInterval = span(template, boundary - reverse, boundary)?;
@@ -692,7 +656,9 @@ fn design_inline(
 /// D031: the pair a deletion needs. Both primers are pure template, so both
 /// Tms are on the matched basis, and the sizing is D030's with the whole
 /// forward length in place of the forward 3′ flank: the forward primer starts
-/// at `e`, the reverse at `s`, and neither has a 5′ flank.
+/// at `e`, the reverse at `s`, and neither has a 5′ flank. That is the edge
+/// pair's geometry with nothing written in place of the removed region, so this
+/// reads the removed coordinates and hands them to `design_edge_pair`.
 fn design_deletion(
     template: &Sequence,
     result: MutationResult,
@@ -708,156 +674,7 @@ fn design_deletion(
     }
     let start: u64 = coordinates[0];
     let end: u64 = coordinates[coordinates.len() - 1] + 1;
-    let length: u64 = template.length();
-    let bound: u64 = request.min_annealing_overlap();
-    let first: u64 = bound.max(MIN_REVERSE);
-    let width: u64 = end - start;
-
-    // Saturating: a bound no template can hold saturates the sum to `u64::MAX`
-    // rather than wrapping it to a value the check below would accept.
-    let smallest_pair: u64 = width.saturating_add(first.saturating_mul(2));
-    if smallest_pair > length {
-        let problem = NoPrimerDesignPossibleProblem {
-            template: template.display_name(),
-            template_length: length,
-            smallest_pair,
-        };
-        return Err(DomainError::NoPrimerDesignPossible(problem));
-    }
-
-    let fits = |obstacles: Vec<DesignObstacle>| -> DomainError {
-        DomainError::NoPrimerDesignFits(NoPrimerDesignFitsProblem {
-            template: template.display_name(),
-            edit_start: start,
-            edit_end: end,
-            obstacles,
-        })
-    };
-
-    let mut obstacles: Vec<DesignObstacle> = Vec::new();
-    if start < first {
-        obstacles.push(DesignObstacle::FivePrimeAvailability {
-            available: start,
-            needed: first,
-        });
-    }
-    if length - end < first {
-        obstacles.push(DesignObstacle::ThreePrimeAvailability {
-            available: length - end,
-            needed: first,
-        });
-    }
-    if !obstacles.is_empty() {
-        return Err(fits(obstacles));
-    }
-
-    let wild_type: Vec<char> = template.letters();
-
-    // H6: no degenerate symbol under the starting pair, the reverse primer's
-    // span first and then the forward's, each ascending.
-    for position in start - first..start {
-        let base: char = wild_type[position as usize];
-        if !is_dna_base(base) {
-            obstacles.push(DesignObstacle::AmbiguousTemplateBase {
-                position,
-                base: base.to_string(),
-            });
-        }
-    }
-    for position in end..end + first {
-        let base: char = wild_type[position as usize];
-        if !is_dna_base(base) {
-            obstacles.push(DesignObstacle::AmbiguousTemplateBase {
-                position,
-                base: base.to_string(),
-            });
-        }
-    }
-    if !obstacles.is_empty() {
-        return Err(fits(obstacles));
-    }
-
-    // Availability: the ACGT bases each side can still take, counted from the
-    // edit outward and stopped by an ambiguity code or the template's end.
-    let mut forward_available: u64 = 0;
-    while end + forward_available < length
-        && is_dna_base(wild_type[(end + forward_available) as usize])
-    {
-        forward_available += 1;
-    }
-    let mut reverse_available: u64 = 0;
-    while reverse_available < start
-        && is_dna_base(wild_type[(start - reverse_available - 1) as usize])
-    {
-        reverse_available += 1;
-    }
-
-    let sizer: Sizer = Sizer {
-        wild_type: wild_type.clone(),
-        forward_letters: wild_type,
-        forward_start: end,
-        forward_anchor: end,
-        reverse_end: start,
-        forward_mismatched: false,
-        buffer: request.buffer(),
-    };
-
-    let (forward, reverse): (u64, u64) = size_pair(
-        &sizer,
-        first,
-        first,
-        forward_available,
-        reverse_available,
-        &fits,
-    )?;
-
-    let forward_tm: MeltingTemperature = sizer.forward_tm(forward)?;
-    let reverse_tm: MeltingTemperature = sizer.reverse_tm(reverse)?;
-    let tm_balance_met: bool = (forward_tm.celsius() - reverse_tm.celsius()).abs() <= TM_BALANCE;
-    let annealing_temperature: f64 =
-        (forward_tm.celsius().min(reverse_tm.celsius()) + TA_OFFSET).min(TA_CAP);
-
-    let forward_span: NucleotideInterval = span(template, end, end + forward)?;
-    let reverse_span: NucleotideInterval = span(template, start - reverse, start)?;
-    let forward_primer: Primer = construct_primer(
-        template,
-        result.clone(),
-        PrimerRole::Forward,
-        request.placement(),
-        canonical_text(sizer.forward(forward)),
-        forward_span,
-    )?;
-    let reverse_primer: Primer = construct_primer(
-        template,
-        result.clone(),
-        PrimerRole::Reverse,
-        request.placement(),
-        canonical_text(sizer.reverse(reverse)?),
-        reverse_span,
-    )?;
-    let pair: PrimerPair = assemble_pair(forward_primer, reverse_primer, result.clone())?;
-    require_design_constraints(pair.clone(), bound)?;
-
-    Ok(PrimerDesign {
-        request,
-        built_against: template.reference(),
-        edited: result.reference(),
-        edit_start: start,
-        edit_end: end,
-        five_prime_flank: 0,
-        three_prime_flank: forward,
-        reverse_length: reverse,
-        pair,
-        forward_tm,
-        reverse_tm,
-        forward_whole_tm: None,
-        reverse_whole_tm: None,
-        annealing_temperature,
-        tm_balance_met,
-        forward_warnings: inspect(&sizer.forward(forward)),
-        reverse_warnings: inspect(&sizer.reverse(reverse)?),
-        unresolved: native_unresolved(),
-    })
+    design_edge_pair(template, result, request, start, end, String::new(), false)
 }
 
 /// D032: the pair an insertion needs. An insertion writes no template position,
@@ -892,7 +709,7 @@ fn design_insertion(
     // the point and it adds nothing to the pair's footprint; D033's replacement
     // reaches the same tails geometry with `s` and `e` apart.
     let width: u64 = inserted.chars().count() as u64;
-    design_tailed(
+    design_edge_pair(
         template,
         result,
         request,
@@ -903,17 +720,19 @@ fn design_insertion(
     )
 }
 
-/// D032's tails path, which D033 reuses for a replacement too wide to sit inline:
-/// the insertion's point splits into the two edges `[s, e)` of the edited region,
-/// so the forward primer anneals to `[e, e + f)` and the reverse to the reverse
-/// complement of `[s − r, s)`. The written bases go into the two 5′ tails rather
-/// than into either annealing portion: whole on the forward primer when `split`
-/// is false, otherwise `text[m/2..]` forward and the reverse complement of
-/// `text[..m/2]` in reverse, so a single written base leaves the reverse primer
-/// untailed. Sizing runs on the annealing portions alone, both Tms matched, and
-/// the whole primer's Tm is reported but never used. With `start == end == point`
-/// this is D032's insertion, whose region is empty.
-fn design_tailed(
+/// D032's tails path, which D033 reuses for a replacement too wide to sit inline
+/// and D031 for a deletion: the written region's two edges `[s, e)` are the
+/// junction, so the forward primer anneals to `[e, e + f)` and the reverse to the
+/// reverse complement of `[s − r, s)`. The written bases go into the two 5′ tails
+/// rather than into either annealing portion: whole on the forward primer when
+/// `split` is false, otherwise `text[m/2..]` forward and the reverse complement
+/// of `text[..m/2]` in reverse, so a single written base leaves the reverse
+/// primer untailed. Sizing runs on the annealing portions alone, both Tms
+/// matched, and the whole primer's Tm is reported but never used. With
+/// `start == end == point` this is D032's insertion, whose region is empty; with
+/// an empty `text` it is D031's deletion, which writes nothing and whose primers
+/// are both untailed.
+fn design_edge_pair(
     template: &Sequence,
     result: MutationResult,
     request: PrimerDesignRequest,
@@ -929,19 +748,12 @@ fn design_tailed(
     let width: u64 = text_letters.len() as u64;
 
     // The written bases stand in place of the region `[start, end)`, which is
-    // empty for an insertion, so the smallest pair is the region plus its two
-    // annealing portions.
+    // empty for an insertion and removed with nothing written for a deletion, so
+    // the smallest pair is the region plus its two annealing portions.
     // Saturating: a bound no template can hold saturates the sum to `u64::MAX`
     // rather than wrapping it to a value the check below would accept.
     let smallest_pair: u64 = (end - start).saturating_add(first.saturating_mul(2));
-    if smallest_pair > length {
-        let problem = NoPrimerDesignPossibleProblem {
-            template: template.display_name(),
-            template_length: length,
-            smallest_pair,
-        };
-        return Err(DomainError::NoPrimerDesignPossible(problem));
-    }
+    require_possible(template, smallest_pair)?;
 
     let fits = |obstacles: Vec<DesignObstacle>| -> DomainError {
         DomainError::NoPrimerDesignFits(NoPrimerDesignFitsProblem {
@@ -954,19 +766,7 @@ fn design_tailed(
 
     // Availability, counted outward from the two edges: the reverse primer needs
     // `first` bases before `s` and the forward `first` after `e`.
-    let mut obstacles: Vec<DesignObstacle> = Vec::new();
-    if start < first {
-        obstacles.push(DesignObstacle::FivePrimeAvailability {
-            available: start,
-            needed: first,
-        });
-    }
-    if length - end < first {
-        obstacles.push(DesignObstacle::ThreePrimeAvailability {
-            available: length - end,
-            needed: first,
-        });
-    }
+    let obstacles: Vec<DesignObstacle> = availability_obstacles(start, end, length, first, first);
     if !obstacles.is_empty() {
         return Err(fits(obstacles));
     }
@@ -975,44 +775,18 @@ fn design_tailed(
 
     // H6: no degenerate symbol under the starting pair, the reverse primer's
     // annealing portion first and then the forward's, each ascending.
-    for position in start - first..start {
-        let base: char = wild_type[position as usize];
-        if !is_dna_base(base) {
-            obstacles.push(DesignObstacle::AmbiguousTemplateBase {
-                position,
-                base: base.to_string(),
-            });
-        }
-    }
-    for position in end..end + first {
-        let base: char = wild_type[position as usize];
-        if !is_dna_base(base) {
-            obstacles.push(DesignObstacle::AmbiguousTemplateBase {
-                position,
-                base: base.to_string(),
-            });
-        }
-    }
+    let obstacles: Vec<DesignObstacle> =
+        ambiguity_obstacles(&wild_type, &[(start - first, start), (end, end + first)]);
     if !obstacles.is_empty() {
         return Err(fits(obstacles));
     }
 
     // Availability: the ACGT bases each side can still take, counted outward
     // from the two edges and stopped by an ambiguity code or the template's end.
-    let mut forward_available: u64 = 0;
-    while end + forward_available < length
-        && is_dna_base(wild_type[(end + forward_available) as usize])
-    {
-        forward_available += 1;
-    }
-    let mut reverse_available: u64 = 0;
-    while reverse_available < start
-        && is_dna_base(wild_type[(start - reverse_available - 1) as usize])
-    {
-        reverse_available += 1;
-    }
+    let forward_available: u64 = run_after(&wild_type, end);
+    let reverse_available: u64 = run_before(&wild_type, start);
 
-    // D030's sizing, shared with the deletion path (D031): both primers read
+    // D030's sizing, shared with the inline paths (D029, D033): both primers read
     // wild-type template, so both Tms are matched, and the junction sits at the
     // two edges of the region.
     let sizer: Sizer = Sizer {
@@ -1036,15 +810,16 @@ fn design_tailed(
 
     let forward_tm: MeltingTemperature = sizer.forward_tm(forward)?;
     let reverse_tm: MeltingTemperature = sizer.reverse_tm(reverse)?;
-    let tm_balance_met: bool = (forward_tm.celsius() - reverse_tm.celsius()).abs() <= TM_BALANCE;
-    let annealing_temperature: f64 =
-        (forward_tm.celsius().min(reverse_tm.celsius()) + TA_OFFSET).min(TA_CAP);
+    let (tm_balance_met, annealing_temperature): (bool, f64) =
+        pair_summary(&forward_tm, &reverse_tm);
 
     // D032/D033's tails: at or below `MAX_WHOLE_TAIL` the whole written text is
     // the forward primer's tail and the reverse primer gets none; above it — and
     // always for D033's replacement — the text is split, the forward tail taking
     // the last `m − m/2` bases and the reverse tail the reverse complement of the
     // first `m/2`, so a single written base leaves the reverse primer untailed.
+    // A deletion writes nothing, so both tails stay empty and neither primer is
+    // tailed.
     let half: u64 = width / 2;
     let forward_tail: Vec<char> = if !split {
         text_letters.clone()
@@ -1060,19 +835,32 @@ fn design_tailed(
     let forward_span: NucleotideInterval = span(template, end, end + forward)?;
     let reverse_span: NucleotideInterval = span(template, start - reverse, start)?;
 
-    // The written text has at least one base, so the forward tail never is empty.
-    let forward_primer: Primer = construct_tailed_primer(
-        template,
-        result.clone(),
-        PrimerRole::Forward,
-        canonical_text(forward_tail),
-        canonical_text(sizer.forward(forward)),
-        forward_span,
-    )?;
+    // The written text has at least one base, so the forward tail never is empty;
+    // a deletion writes nothing and both its primers are untailed.
+    let forward_primer: Primer = if text_letters.is_empty() {
+        construct_primer(
+            template,
+            result.clone(),
+            PrimerRole::Forward,
+            request.placement(),
+            canonical_text(sizer.forward(forward)),
+            forward_span,
+        )
+    } else {
+        construct_tailed_primer(
+            template,
+            result.clone(),
+            PrimerRole::Forward,
+            canonical_text(forward_tail),
+            canonical_text(sizer.forward(forward)),
+            forward_span,
+        )
+    }?;
 
     // A reverse primer with no tail is an untailed primer of the edit, which
     // `construct_tailed_primer` refuses rather than defaulting: an insertion of
-    // at most `MAX_WHOLE_TAIL` bases, and D033's replacement of a single base.
+    // at most `MAX_WHOLE_TAIL` bases, D033's replacement of a single base, and
+    // D031's deletion, which writes nothing.
     let reverse_text: String = canonical_text(sizer.reverse(reverse)?);
     let reverse_primer: Primer = if reverse_tail.is_empty() {
         construct_primer(
@@ -1100,13 +888,41 @@ fn design_tailed(
     // D032: the whole primer's Tm, tail included. Reported because it is what
     // a user's own calculator shows for the text they were given; it is never
     // used, because sizing, balance and the annealing temperature stay on the
-    // annealing portions alone.
-    let forward_whole: Vec<char> = pair.clone().forward().sequence().chars().collect();
-    let reverse_whole: Vec<char> = pair.clone().reverse().sequence().chars().collect();
-    let forward_whole_tm: MeltingTemperature =
-        melting_temperature(&forward_whole, &forward_whole, &request.buffer())?;
-    let reverse_whole_tm: MeltingTemperature =
-        melting_temperature(&reverse_whole, &reverse_whole, &request.buffer())?;
+    // annealing portions alone. The guidelines are about the oligo as ordered,
+    // so they are inspected on the whole primer, tail included. A deletion
+    // writes nothing, so it has no tail: both whole Tms are `None` and the
+    // guidelines are inspected on the annealing portions, which are the whole
+    // primers.
+    let (forward_whole_tm, reverse_whole_tm, forward_warnings, reverse_warnings): (
+        Option<MeltingTemperature>,
+        Option<MeltingTemperature>,
+        Vec<PrimerWarning>,
+        Vec<PrimerWarning>,
+    ) = if text_letters.is_empty() {
+        (
+            None,
+            None,
+            inspect(&sizer.forward(forward)),
+            inspect(&sizer.reverse(reverse)?),
+        )
+    } else {
+        let forward_whole: Vec<char> = pair.clone().forward().sequence().chars().collect();
+        let reverse_whole: Vec<char> = pair.clone().reverse().sequence().chars().collect();
+        (
+            Some(melting_temperature(
+                &forward_whole,
+                &forward_whole,
+                &request.buffer(),
+            )?),
+            Some(melting_temperature(
+                &reverse_whole,
+                &reverse_whole,
+                &request.buffer(),
+            )?),
+            inspect(&forward_whole),
+            inspect(&reverse_whole),
+        )
+    };
 
     Ok(PrimerDesign {
         request,
@@ -1120,14 +936,12 @@ fn design_tailed(
         pair,
         forward_tm,
         reverse_tm,
-        forward_whole_tm: Some(forward_whole_tm),
-        reverse_whole_tm: Some(reverse_whole_tm),
+        forward_whole_tm,
+        reverse_whole_tm,
         annealing_temperature,
         tm_balance_met,
-        // The guidelines are about the oligo as ordered, so they are inspected
-        // on the whole primer, tail included.
-        forward_warnings: inspect(&forward_whole),
-        reverse_warnings: inspect(&reverse_whole),
+        forward_warnings,
+        reverse_warnings,
         unresolved: native_unresolved(),
     })
 }
@@ -1313,6 +1127,88 @@ impl Sizer {
 
 fn ends_gc(primer: &[char]) -> bool {
     matches!(primer.last(), Some('G') | Some('C'))
+}
+
+/// D029/D030: no abutting pair of the starting size fits the template at all.
+fn require_possible(template: &Sequence, smallest_pair: u64) -> Result<(), DomainError> {
+    let length: u64 = template.length();
+    if smallest_pair > length {
+        let problem = NoPrimerDesignPossibleProblem {
+            template: template.display_name(),
+            template_length: length,
+            smallest_pair,
+        };
+        return Err(DomainError::NoPrimerDesignPossible(problem));
+    }
+    Ok(())
+}
+
+/// H6: no degenerate symbol in a primer, over the ranges in the order given.
+fn ambiguity_obstacles(wild_type: &[char], ranges: &[(u64, u64)]) -> Vec<DesignObstacle> {
+    let mut obstacles: Vec<DesignObstacle> = Vec::new();
+    for range in ranges {
+        for position in range.0..range.1 {
+            let base: char = wild_type[position as usize];
+            if !is_dna_base(base) {
+                obstacles.push(DesignObstacle::AmbiguousTemplateBase {
+                    position,
+                    base: base.to_string(),
+                });
+            }
+        }
+    }
+    obstacles
+}
+
+/// D030: each side of the edit holds fewer bases than the starting pair needs.
+fn availability_obstacles(
+    start: u64,
+    end: u64,
+    length: u64,
+    five_needed: u64,
+    three_needed: u64,
+) -> Vec<DesignObstacle> {
+    let mut obstacles: Vec<DesignObstacle> = Vec::new();
+    if start < five_needed {
+        obstacles.push(DesignObstacle::FivePrimeAvailability {
+            available: start,
+            needed: five_needed,
+        });
+    }
+    if length - end < three_needed {
+        obstacles.push(DesignObstacle::ThreePrimeAvailability {
+            available: length - end,
+            needed: three_needed,
+        });
+    }
+    obstacles
+}
+
+/// D030: the ACGT bases the 3′ side can still take, counted out from `from`.
+fn run_after(wild_type: &[char], from: u64) -> u64 {
+    let length: u64 = wild_type.len() as u64;
+    let mut run: u64 = 0;
+    while from + run < length && is_dna_base(wild_type[(from + run) as usize]) {
+        run += 1;
+    }
+    run
+}
+
+/// D030: the ACGT bases the 5′ side can still take, counted down from `to`.
+fn run_before(wild_type: &[char], to: u64) -> u64 {
+    let mut run: u64 = 0;
+    while run < to && is_dna_base(wild_type[(to - run - 1) as usize]) {
+        run += 1;
+    }
+    run
+}
+
+/// D030: the pair's Tm balance within `TM_BALANCE` and its annealing temperature.
+fn pair_summary(forward_tm: &MeltingTemperature, reverse_tm: &MeltingTemperature) -> (bool, f64) {
+    let tm_balance_met: bool = (forward_tm.celsius() - reverse_tm.celsius()).abs() <= TM_BALANCE;
+    let annealing_temperature: f64 =
+        (forward_tm.celsius().min(reverse_tm.celsius()) + TA_OFFSET).min(TA_CAP);
+    (tm_balance_met, annealing_temperature)
 }
 
 /// The replacement region a result claims, which the native policy requires to
