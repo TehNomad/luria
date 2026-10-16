@@ -40,6 +40,7 @@
 //! a DNA letter by Unicode case folding.
 
 use crate::error::CoordinateOutOfBoundsProblem;
+use crate::error::DegenerateExpansionTooLargeProblem;
 use crate::error::DomainError;
 use crate::error::EmptySequenceProblem;
 use crate::error::InvalidSequenceCharactersProblem;
@@ -207,7 +208,11 @@ pub fn canonical_text(letters: Vec<char>) -> String {
 /// position's set as the innermost-varying digit, so the order does not
 /// depend on the text's length. The number of expansions is the product of
 /// the set sizes; it is not capped here, because the 64-design warning of
-/// D033 belongs at the request layer, not in this function.
+/// D033 belongs at the request layer, not in this function. A product that
+/// does not fit a `usize` — 32 `N`s denotes 4^32 = 2^64 sequences, one more
+/// than a 64-bit `usize` can count — is refused as
+/// `DegenerateExpansionTooLarge` before any sequence is built; that is
+/// representability, not a policy limit, and D033 still sets no cap.
 ///
 /// A character outside `DNA_ALPHABET` is `InvalidSequenceCharacters`, with
 /// `sequence` the text `replacement` and `position` the zero-based index of
@@ -242,13 +247,25 @@ pub fn expand_degenerate(text: &str) -> Result<Vec<String>, DomainError> {
 
     // `strides[position]` is the product of the set sizes of the positions
     // to the left of `position`, which makes the leftmost position the
-    // least significant digit and therefore the fastest varying one.
+    // least significant digit and therefore the fastest varying one. The
+    // product is taken with `checked_mul`, so a count that no machine could
+    // hold is refused here, before any sequence is built and before any
+    // output is allocated.
     let mut strides: Vec<usize> = Vec::new();
     let mut stride: usize = 1;
     let mut set_index: usize = 0;
     while set_index < sets.len() {
         strides.push(stride);
-        stride *= sets[set_index].len();
+        match stride.checked_mul(sets[set_index].len()) {
+            Some(next) => stride = next,
+            None => {
+                return Err(DomainError::DegenerateExpansionTooLarge(
+                    DegenerateExpansionTooLargeProblem {
+                        replacement: text.to_string(),
+                    },
+                ));
+            }
+        }
         set_index += 1;
     }
     let count: usize = stride;
@@ -789,6 +806,47 @@ mod tests {
                     sequence: "replacement".to_string(),
                     position: 2,
                     characters: "F".to_string(),
+                })
+        );
+    }
+
+    // D033 sets no cap on the expansion count, but a count that does not fit
+    // a `usize` is not a policy limit: no machine could produce it. `N` repeated
+    // 32 times denotes 4^32 = 2^64 sequences, one more than a 64-bit `usize`
+    // can count (its maximum is 2^64 - 1), so 32 `N`s is the smallest
+    // overflowing text. Nothing here denotes between 2^20 and 2^64 sequences:
+    // such a text would try to allocate the sequences it denotes and hang.
+    #[test]
+    fn an_expansion_too_large_to_count_is_refused() {
+        let texts: Vec<String> = vec!["N".repeat(32), "N".repeat(40)];
+        for text in texts {
+            let error: DomainError = expand_degenerate(&text).unwrap_err();
+            assert!(matches!(error, DomainError::DegenerateExpansionTooLarge(_)));
+            assert!(error.category() == crate::error::ErrorCategory::Unsupported);
+            match error {
+                DomainError::DegenerateExpansionTooLarge(problem) => {
+                    assert!(problem.replacement == text);
+                }
+                other => panic!("expected DegenerateExpansionTooLarge, got {:?}", other),
+            }
+        }
+    }
+
+    #[test]
+    fn an_invalid_letter_is_reported_before_the_count() {
+        // 32 `N`s alone would overflow the count, so this pins that the letter
+        // check still runs first: the `X` at zero-based index 32 is reported
+        // as its own error, not the count.
+        let text: String = "N".repeat(32) + "X";
+        let error: DomainError = expand_degenerate(&text).unwrap_err();
+        assert!(matches!(error, DomainError::InvalidSequenceCharacters(_)));
+        assert!(error.category() == crate::error::ErrorCategory::MalformedInput);
+        assert!(
+            error
+                == DomainError::InvalidSequenceCharacters(InvalidSequenceCharactersProblem {
+                    sequence: "replacement".to_string(),
+                    position: 32,
+                    characters: "X".to_string(),
                 })
         );
     }

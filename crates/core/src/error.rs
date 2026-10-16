@@ -454,6 +454,13 @@ pub struct TmParametersUnavailableProblem {
     pub reason: String,
 }
 
+/// Payload: a degenerate text denotes more concrete sequences than can be
+/// counted (D033 sets no cap; this is representability, not policy).
+#[derive(Clone, Debug, PartialEq)]
+pub struct DegenerateExpansionTooLargeProblem {
+    pub replacement: String,
+}
+
 /// A structured domain failure.
 #[derive(Clone, Debug, PartialEq)]
 pub enum DomainError {
@@ -503,6 +510,7 @@ pub enum DomainError {
     NoPrimerDesignFits(NoPrimerDesignFitsProblem),
     InvalidBufferModel(InvalidBufferModelProblem),
     TmParametersUnavailable(TmParametersUnavailableProblem),
+    DegenerateExpansionTooLarge(DegenerateExpansionTooLargeProblem),
 }
 
 impl ErrorCategory {
@@ -568,7 +576,8 @@ impl DomainError {
             | DomainError::UnsupportedPrimerPlacement(_)
             | DomainError::UnsupportedPrimerDesignScope(_)
             | DomainError::NoPrimerDesignFits(_)
-            | DomainError::TmParametersUnavailable(_) => ErrorCategory::Unsupported,
+            | DomainError::TmParametersUnavailable(_)
+            | DomainError::DegenerateExpansionTooLarge(_) => ErrorCategory::Unsupported,
         }
     }
 
@@ -711,6 +720,9 @@ impl DomainError {
                 format!("no primer pair fits the edit [{}, {}) on '{}': {}",
                     problem.edit_start, problem.edit_end, problem.template, reasons.join("; "))
             }
+            DomainError::DegenerateExpansionTooLarge(problem) =>
+                format!("'{}' denotes more concrete sequences than can be counted",
+                    problem.replacement),
         }
     }
 }

@@ -130,8 +130,9 @@ impl Q5Expansion {
 /// 1. an empty replacement text is refused before anything is expanded, as
 ///    `InvalidMutationRequest` (`MalformedInput`);
 /// 2. `sequence::expand_degenerate` gives the concrete sequences, in its own
-///    order, and an invalid letter is its own `InvalidSequenceCharacters`,
-///    propagated unchanged;
+///    order, and an invalid letter is its own `InvalidSequenceCharacters` and
+///    a count that cannot be represented in a `usize` its own
+///    `DegenerateExpansionTooLarge`, each propagated unchanged;
 /// 3. each sequence equal to `expected_original` is skipped with a
 ///    `WildTypeSkipped` warning naming it; every other one becomes an
 ///    ordinary `NucleotideReplacementIntent` over `region`, a
@@ -638,5 +639,33 @@ mod tests {
         let designed: Q5DesignedSet = design_set(run, design_request(15)).unwrap();
         assert!(designed.designed_count() == 2);
         assert!(designed.all_designed());
+    }
+
+    // X13: 32 `N`s denotes 4^32 = 2^64 sequences, one more than a 64-bit
+    // `usize` can count, so `expand_degenerate` refuses the count before any
+    // sequence is built and the refusal reaches this module as it stands: the
+    // expansion's own `DegenerateExpansionTooLarge`, not this module's no-op
+    // `InvalidMutationRequest`. 40 `N`s is refused the same way.
+    #[test]
+    fn a_degenerate_replacement_too_large_to_count_is_refused() {
+        let texts: Vec<String> = vec!["N".repeat(32), "N".repeat(40)];
+        for text in texts {
+            let attempt: Result<Q5Expansion, DomainError> = expand_replacement(
+                template(),
+                None,
+                region(9, 11),
+                "AA".to_string(),
+                text.clone(),
+                base_name(),
+            );
+            assert!(attempt.is_err());
+            let error: DomainError = attempt.unwrap_err();
+            assert!(matches!(error, DomainError::DegenerateExpansionTooLarge(_)));
+            assert!(!matches!(error, DomainError::InvalidMutationRequest(_)));
+            assert!(error.category() == ErrorCategory::Unsupported);
+            if let DomainError::DegenerateExpansionTooLarge(problem) = error {
+                assert!(problem.replacement == text);
+            }
+        }
     }
 }

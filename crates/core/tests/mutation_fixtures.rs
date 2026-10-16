@@ -228,6 +228,7 @@ fn variant_name(error: &DomainError) -> String {
         DomainError::NoPrimerDesignFits(_) => "NoPrimerDesignFits",
         DomainError::InvalidBufferModel(_) => "InvalidBufferModel",
         DomainError::TmParametersUnavailable(_) => "TmParametersUnavailable",
+        DomainError::DegenerateExpansionTooLarge(_) => "DegenerateExpansionTooLarge",
     }
     .to_string()
 }
