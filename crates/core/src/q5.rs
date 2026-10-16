@@ -104,14 +104,21 @@ use crate::genetic_code::Residue;
 use crate::identity::Identifier;
 use crate::identity::SequenceReference;
 use crate::interval::require_sequence;
+use crate::interval::OrderedIntervals;
+use crate::mutation::apply_deletion;
+use crate::mutation::apply_insertion;
 use crate::mutation::apply_nucleotide;
+use crate::mutation::apply_replacement;
 use crate::mutation::apply_residue;
 use crate::mutation::parse_residue;
 use crate::mutation::verify;
 use crate::mutation::CodonSelectionPolicy;
 use crate::mutation::MutationResult;
 use crate::mutation::MutationState;
+use crate::mutation::NucleotideDeletionIntent;
+use crate::mutation::NucleotideInsertionIntent;
 use crate::mutation::NucleotideMutationIntent;
+use crate::mutation::NucleotideReplacementIntent;
 use crate::mutation::ResidueMutationIntent;
 use crate::sequence::Sequence;
 
@@ -119,17 +126,25 @@ use crate::sequence::Sequence;
 pub const Q5_WORKFLOW_NAME: &str = "luria-core-q5-sdm";
 
 /// Version of this workflow's code path (D021).
-pub const Q5_WORKFLOW_VERSION: &str = "0.1.0";
+pub const Q5_WORKFLOW_VERSION: &str = "0.4.0";
 
 /// A mutation intent as the Q5 workflow carries it (D011, D016).
 ///
-/// The two Milestone 2 branches are Milestone 2's intent types, unchanged:
-/// the workflow names which operation it is asking for, it does not redefine
-/// either one, and it does not add a mutation kind — a codon change is a
+/// Every branch is Milestone 2's intent type, unchanged: the workflow names
+/// which operation it is asking for, it does not redefine any one of them,
+/// and it does not add a mutation kind — a codon change is a
 /// `ResidueMutationIntent` whose policy is `Supplied`, as Milestone 2
-/// established.
+/// established. There are now four DNA-level branches, a substitution, a
+/// deletion (Milestone 4a's `NucleotideDeletionIntent`), an insertion
+/// (Milestone 4d-1's `NucleotideInsertionIntent`) and a replacement
+/// (Milestone 4e-2's `NucleotideReplacementIntent`), and each addresses the
+/// reference sequence by coordinate rather than a CDS by residue: an
+/// insertion addresses it as the gap between two bases, so it asserts the
+/// base on each side of that gap rather than the bases it replaces, and a
+/// replacement asserts the whole text it overwrites and writes a text of
+/// any length in its place.
 ///
-/// `ResidueWithoutCds` is not a fourth operation. It is the same residue
+/// `ResidueWithoutCds` is not a separate operation. It is the same residue
 /// substitution the product brief's fail-closed example needs ("mutate
 /// residue 42 to glycine"), missing exactly one field: the CDS the residue
 /// number counts over. D006 requires a residue *position* to identify its
@@ -140,6 +155,9 @@ pub const Q5_WORKFLOW_VERSION: &str = "0.1.0";
 #[derive(Clone, Debug, PartialEq)]
 pub enum Q5MutationIntent {
     Nucleotide(NucleotideMutationIntent),
+    Deletion(NucleotideDeletionIntent),
+    Insertion(NucleotideInsertionIntent),
+    Replacement(NucleotideReplacementIntent),
     Residue(ResidueMutationIntent),
     ResidueWithoutCds(ResidueIntentWithoutCds),
 }
@@ -160,6 +178,9 @@ impl Q5MutationIntent {
     pub fn named_cds(&self) -> Option<Identifier> {
         match self {
             Q5MutationIntent::Nucleotide(_intent) => None,
+            Q5MutationIntent::Deletion(_intent) => None,
+            Q5MutationIntent::Insertion(_intent) => None,
+            Q5MutationIntent::Replacement(_intent) => None,
             Q5MutationIntent::Residue(intent) => Some(intent.position().cds()),
             Q5MutationIntent::ResidueWithoutCds(_intent) => None,
         }
@@ -178,6 +199,9 @@ impl Q5MutationIntent {
     pub fn source_reference(&self) -> Option<SequenceReference> {
         match self {
             Q5MutationIntent::Nucleotide(intent) => Some(intent.source()),
+            Q5MutationIntent::Deletion(intent) => Some(intent.source()),
+            Q5MutationIntent::Insertion(intent) => Some(intent.source()),
+            Q5MutationIntent::Replacement(intent) => Some(intent.source()),
             Q5MutationIntent::Residue(_intent) => None,
             Q5MutationIntent::ResidueWithoutCds(_intent) => None,
         }
@@ -499,6 +523,236 @@ impl Q5WorkflowResult {
     }
 }
 
+/// A warning a run carries for an edit it still applied (D031, D032 and the
+/// owner decisions of 2026-10-15).
+///
+/// A deletion inside a CDS whose width is not a multiple of 3 shifts that CDS's
+/// reading frame, and so does an insertion of `k` bases whose `k` is not a
+/// multiple of 3, and a replacement of `w` bases by `m` bases whose `m − w`
+/// is not a multiple of 3. All three owner decisions keep the edit rather than
+/// refusing it: a frameshift is sometimes the intent, as in a knockout, so luria
+/// warns and still applies it. The warning is a result and not a `DomainError` —
+/// nothing the caller supplied is wrong with the request — and each variant
+/// records what the edit did to that CDS: how many of the removed bases were
+/// coding and whether any of them lay outside the CDS, how many bases an
+/// insertion put into one CDS's gap, or how many bases a replacement overwrote
+/// and how many it wrote in their place.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Q5EditWarning {
+    Frameshift {
+        cds: Identifier,
+        coding_bases_removed: u64,
+        wholly_inside: bool,
+    },
+    InsertionFrameshift {
+        cds: Identifier,
+        bases_inserted: u64,
+    },
+    ReplacementFrameshift {
+        cds: Identifier,
+        bases_replaced: u64,
+        bases_written: u64,
+        wholly_inside: bool,
+    },
+}
+
+impl Q5EditWarning {
+    /// Reporting text: what was removed, and from where.
+    pub fn describe(&self) -> String {
+        match self {
+            Q5EditWarning::Frameshift {
+                cds,
+                coding_bases_removed,
+                wholly_inside,
+            } => {
+                let text: String = "deleting ".to_string()
+                    + &coding_bases_removed.to_string()
+                    + " coding bases from "
+                    + cds.value()
+                    + " shifts its reading frame";
+                if *wholly_inside {
+                    return text;
+                }
+                text + "; the deletion also extends outside the CDS"
+            }
+            Q5EditWarning::InsertionFrameshift {
+                cds,
+                bases_inserted,
+            } => {
+                "inserting ".to_string()
+                    + &bases_inserted.to_string()
+                    + " bases into "
+                    + cds.value()
+                    + " shifts its reading frame"
+            }
+            Q5EditWarning::ReplacementFrameshift {
+                cds,
+                bases_replaced,
+                bases_written,
+                wholly_inside,
+            } => {
+                let text: String = "replacing ".to_string()
+                    + &bases_replaced.to_string()
+                    + " bases with "
+                    + &bases_written.to_string()
+                    + " in "
+                    + cds.value()
+                    + " shifts its reading frame";
+                if *wholly_inside {
+                    return text;
+                }
+                text + "; the replacement also extends outside the CDS"
+            }
+        }
+    }
+}
+
+/// The warnings one edit carries against the resolved CDS.
+///
+/// Three owner decisions, each stated once here and nowhere else. For a
+/// deletion: count the deleted positions that lie inside any interval of the
+/// resolved CDS, so an intron position and a position outside the CDS do not
+/// count. A count of 0 means the deletion lies outside the CDS, which
+/// `docs/q5-sdm.md` §10 decision 1 says proceeds with nothing to warn about.
+/// A count that is a multiple of 3 keeps the reading frame and warns nothing.
+/// Any other count shifts the frame, and the warning says whether the
+/// deletion lay wholly inside the CDS. For an insertion (D032's related
+/// owner decision, 2026-10-15): an insertion of `k` bases inside a CDS, with
+/// `k` not a multiple of 3, shifts that CDS's reading frame and luria warns
+/// and still applies it. "Inside" is the interval test D032 states, `start
+/// < p < end` for some interval of the resolved CDS, so both bases beside the
+/// point are coding; an insertion exactly at a CDS edge leaves the frame
+/// alone and warns nothing. For a replacement (D033's addenda, the owner
+/// decision of 2026-10-15): `w` bases overwritten by `m` shift the frame when
+/// `m − w` is not a multiple of 3, and the edit is kept rather than refused.
+/// Any other result carries no warning.
+fn edit_warnings(mutation: &MutationResult, target: &Cds) -> Vec<Q5EditWarning> {
+    if mutation.is_insertion() {
+        return insertion_warnings(mutation.clone(), target);
+    }
+
+    if mutation.is_replacement() {
+        return replacement_warnings(mutation.clone(), target);
+    }
+
+    if !mutation.is_deletion() {
+        return Vec::new();
+    }
+
+    let removed: Vec<u64> = mutation.target_coordinates();
+    let intervals: OrderedIntervals = target.intervals();
+
+    let mut coding: u64 = 0;
+    for position in removed.iter() {
+        for interval in intervals.iter() {
+            if *position >= interval.start() && *position < interval.end() {
+                coding += 1;
+                break;
+            }
+        }
+    }
+
+    if coding == 0 || coding.is_multiple_of(3) {
+        return Vec::new();
+    }
+
+    let wholly_inside: bool = coding == removed.len() as u64;
+    vec![Q5EditWarning::Frameshift {
+        cds: target.id(),
+        coding_bases_removed: coding,
+        wholly_inside,
+    }]
+}
+
+/// The warning one insertion carries against the resolved CDS (D032's related
+/// owner decision, 2026-10-15).
+///
+/// `k` bases inserted into a gap inside the CDS shift its reading frame
+/// whenever `k` is not a multiple of 3, and the edit is kept rather than
+/// refused, so the warning is a result and not a `DomainError`. The gap at
+/// `p` is inside only when some interval of the CDS has `start < p < end`, so
+/// both bases beside the point are coding: an insertion at a CDS edge, or one
+/// wholly outside it, has no coding run of bases to shift and warns nothing.
+fn insertion_warnings(mutation: MutationResult, target: &Cds) -> Vec<Q5EditWarning> {
+    match mutation {
+        MutationResult::Insertion(record) => {
+            let position: u64 = record.point().position();
+            let bases: u64 = record.inserted().len() as u64;
+
+            let mut inside: bool = false;
+            for interval in target.intervals().iter() {
+                if position > interval.start() && position < interval.end() {
+                    inside = true;
+                    break;
+                }
+            }
+
+            if inside && !bases.is_multiple_of(3) {
+                vec![Q5EditWarning::InsertionFrameshift {
+                    cds: target.id(),
+                    bases_inserted: bases,
+                }]
+            } else {
+                Vec::new()
+            }
+        }
+        MutationResult::Nucleotide(_record) => Vec::new(),
+        MutationResult::Residue(_record) => Vec::new(),
+        MutationResult::Deletion(_record) => Vec::new(),
+        MutationResult::Replacement(_record) => Vec::new(),
+    }
+}
+
+/// The warning one replacement carries against the resolved CDS (D033's addenda,
+/// the owner decision of 2026-10-15).
+///
+/// A replacement overwrites `w` bases and writes `m` in their place, so the text
+/// of the CDS changes length by `m − w` and its reading frame shifts whenever
+/// that difference is not a multiple of 3, in either direction; a difference of
+/// 0 edits nothing that matters for the frame. The edit is kept rather than
+/// refused, so the warning is a result and not a `DomainError`. Only the region
+/// positions that lie inside some interval of the resolved CDS are coding, so a
+/// replacement wholly outside it has no frame to shift and warns nothing, which
+/// is what `docs/q5-sdm.md` §10 decision 1 lets an unscoped DNA edit do. The
+/// warning counts the whole region width and the text written, and `wholly_inside`
+/// says whether every overwritten base was coding.
+fn replacement_warnings(mutation: MutationResult, target: &Cds) -> Vec<Q5EditWarning> {
+    let positions: Vec<u64> = mutation.target_coordinates();
+
+    match mutation {
+        MutationResult::Replacement(record) => {
+            let replaced: u64 = positions.len() as u64;
+            let written: u64 = record.replacement().len() as u64;
+
+            let mut coding: u64 = 0;
+            for position in positions.iter() {
+                for interval in target.intervals().iter() {
+                    if *position >= interval.start() && *position < interval.end() {
+                        coding += 1;
+                        break;
+                    }
+                }
+            }
+
+            let change: i64 = (written as i64) - (replaced as i64);
+            if coding == 0 || change % 3 == 0 {
+                Vec::new()
+            } else {
+                vec![Q5EditWarning::ReplacementFrameshift {
+                    cds: target.id(),
+                    bases_replaced: replaced,
+                    bases_written: written,
+                    wholly_inside: coding == replaced,
+                }]
+            }
+        }
+        MutationResult::Nucleotide(_record) => Vec::new(),
+        MutationResult::Residue(_record) => Vec::new(),
+        MutationResult::Deletion(_record) => Vec::new(),
+        MutationResult::Insertion(_record) => Vec::new(),
+    }
+}
+
 /// A Q5 run: the gate's decision plus the deterministic slice of D015.
 ///
 /// The gate result is carried whole rather than flattened, so what the
@@ -517,6 +771,7 @@ impl Q5WorkflowResult {
 pub struct Q5WorkflowExecution {
     scope: Q5WorkflowResult,
     mutation: Option<MutationResult>,
+    warnings: Vec<Q5EditWarning>,
 }
 
 impl Q5WorkflowExecution {
@@ -532,6 +787,13 @@ impl Q5WorkflowExecution {
     /// The mutation result, when the run performed one.
     pub fn mutation(&self) -> Option<MutationResult> {
         self.mutation.clone()
+    }
+
+    /// The warnings this run carries (D031's frameshift rule). A run that
+    /// performed no edit carries none, and an edit that keeps the reading
+    /// frame carries none either.
+    pub fn warnings(&self) -> Vec<Q5EditWarning> {
+        self.warnings.clone()
     }
 
     /// The lifecycle state of the mutation, when there is one (D020).
@@ -637,6 +899,7 @@ pub fn execute(
         return Ok(Q5WorkflowExecution {
             scope: gate,
             mutation: None,
+            warnings: Vec::new(),
         });
     }
 
@@ -659,9 +922,12 @@ pub fn execute(
 
     let verified: MutationResult = run_resolved(request, target.clone(), result)?;
 
+    let warnings: Vec<Q5EditWarning> = edit_warnings(&verified, &target);
+
     Ok(Q5WorkflowExecution {
         scope: gate,
         mutation: Some(verified),
+        warnings,
     })
 }
 
@@ -689,6 +955,15 @@ fn run_resolved(
         Q5MutationIntent::Nucleotide(intent) => {
             apply_nucleotide(&template, dna_scope.clone(), result.clone(), intent)?
         }
+        Q5MutationIntent::Deletion(intent) => {
+            apply_deletion(&template, dna_scope.clone(), result.clone(), intent)?
+        }
+        Q5MutationIntent::Insertion(intent) => {
+            apply_insertion(&template, dna_scope.clone(), result.clone(), intent)?
+        }
+        Q5MutationIntent::Replacement(intent) => {
+            apply_replacement(&template, dna_scope.clone(), result.clone(), intent)?
+        }
         Q5MutationIntent::Residue(intent) => {
             apply_residue(&template, target.clone(), result.clone(), intent)?
         }
@@ -713,6 +988,9 @@ fn run_resolved(
     // verification behavior is unchanged.
     let verify_scope: Option<Cds> = match request.intent() {
         Q5MutationIntent::Nucleotide(_intent) => dna_scope.clone(),
+        Q5MutationIntent::Deletion(_intent) => dna_scope.clone(),
+        Q5MutationIntent::Insertion(_intent) => dna_scope.clone(),
+        Q5MutationIntent::Replacement(_intent) => dna_scope.clone(),
         Q5MutationIntent::Residue(_intent) => Some(target.clone()),
         Q5MutationIntent::ResidueWithoutCds(_intent) => Some(target.clone()),
     };
@@ -867,6 +1145,9 @@ fn missing_claim(intent: Q5MutationIntent) -> String {
             "tie ".to_string() + &unbound.describe() + " to a CDS"
         }
         Q5MutationIntent::Nucleotide(_intent) => "name a CDS".to_string(),
+        Q5MutationIntent::Deletion(_intent) => "name a CDS".to_string(),
+        Q5MutationIntent::Insertion(_intent) => "name a CDS".to_string(),
+        Q5MutationIntent::Replacement(_intent) => "name a CDS".to_string(),
         Q5MutationIntent::Residue(_intent) => "name a CDS".to_string(),
     }
 }
@@ -1017,6 +1298,12 @@ impl Q5VariantSetRequest {
     ///    uses for a scope that disagrees with a residue position. A member
     ///    that claims no CDS is not a disagreement: it takes the agreed claim
     ///    when the set runs.
+    /// 6. every member's result identifier must be distinct, refused with
+    ///    `InvalidMutationRequest` (`MalformedInput`) as the empty set is.
+    ///    Owner decision, 2026-10-14 (`docs/q5-sdm.md` §10 item 6): two primer
+    ///    pairs sharing a label could be confused when oligos are ordered.
+    ///    Identifiers are compared exactly, with no case folding: no source
+    ///    states a folding rule, and D007 compares names exactly.
     pub fn create(
         composition: Q5Composition,
         variants: Vec<Q5Variant>,
@@ -1051,6 +1338,22 @@ impl Q5VariantSetRequest {
                 };
                 return Err(DomainError::ResiduePositionWrongCds(problem));
             }
+        }
+
+        let mut seen: Vec<Identifier> = Vec::new();
+        for variant in variants.iter() {
+            let name: Identifier = variant.result_name();
+            if seen.contains(&name) {
+                let problem = InvalidMutationRequestProblem {
+                    request: "q5-variant-set".to_string(),
+                    reason: format!(
+                        "two variants are both named '{}'; result names in a set must be distinct",
+                        name.value()
+                    ),
+                };
+                return Err(DomainError::InvalidMutationRequest(problem));
+            }
+            seen.push(name);
         }
 
         Ok(Q5VariantSetRequest {
@@ -1147,6 +1450,7 @@ pub fn set_gate_request(set: Q5VariantSetRequest) -> Result<Q5SdmRequest, Domain
 pub struct Q5VariantResult {
     identifier: Identifier,
     mutation: MutationResult,
+    warnings: Vec<Q5EditWarning>,
 }
 
 impl Q5VariantResult {
@@ -1157,6 +1461,13 @@ impl Q5VariantResult {
 
     pub fn mutation(&self) -> MutationResult {
         self.mutation.clone()
+    }
+
+    /// The warnings this member's edit carries against the set's resolved CDS.
+    /// Each member carries its own, so a set whose members differ does not
+    /// report one warning for all of them.
+    pub fn warnings(&self) -> Vec<Q5EditWarning> {
+        self.warnings.clone()
     }
 
     pub fn edited(&self) -> Sequence {
@@ -1355,6 +1666,7 @@ pub fn execute_set(
         results.push(Q5VariantResult {
             identifier: variant.result_name(),
             mutation: mutation.clone(),
+            warnings: edit_warnings(&mutation, &target),
         });
     }
 
@@ -1377,6 +1689,7 @@ mod tests {
     use crate::identity::Identifier;
     use crate::identity::SequenceReference;
     use crate::interval::create;
+    use crate::interval::create_point;
     use crate::interval::NucleotideInterval;
     use crate::interval::OrderedIntervals;
     use crate::mutation::apply_residue;
@@ -1384,7 +1697,10 @@ mod tests {
     use crate::mutation::CodonSelectionPolicy;
     use crate::mutation::MutationResult;
     use crate::mutation::MutationState;
+    use crate::mutation::NucleotideDeletionIntent;
+    use crate::mutation::NucleotideInsertionIntent;
     use crate::mutation::NucleotideMutationIntent;
+    use crate::mutation::NucleotideReplacementIntent;
     use crate::mutation::ResidueMutationIntent;
     use crate::sequence::normalize;
     use crate::sequence::Sequence;
@@ -1603,6 +1919,28 @@ mod tests {
 
     fn nucleotide_intent_at(position: u64) -> Q5MutationIntent {
         Q5MutationIntent::Nucleotide(nucleotide_mutation_intent_at(position))
+    }
+
+    // A DNA-level deletion on `artifact`: the region `[start, end)` and the
+    // exact text removed, as Milestone 4a's intent asserts it. The intent is
+    // well formed on its own, so only the request can say whether it belongs
+    // here — the pattern `nucleotide_intent_on` establishes.
+    fn deletion_intent_on(
+        artifact: Sequence,
+        start: u64,
+        end: u64,
+        bases: String,
+    ) -> Q5MutationIntent {
+        let intervals: OrderedIntervals =
+            vec![create(&artifact.reference(), start as i64, end as i64).unwrap()];
+        Q5MutationIntent::Deletion(
+            NucleotideDeletionIntent::create(artifact.reference(), intervals[0].clone(), bases)
+                .unwrap(),
+        )
+    }
+
+    fn deletion_intent(start: u64, end: u64, bases: String) -> Q5MutationIntent {
+        deletion_intent_on(template(), start, end, bases)
     }
 
     // The caller's name for the edited artifact, as Milestone 2's fixture
@@ -2506,7 +2844,7 @@ mod tests {
     }
 
     #[test]
-    fn an_unscoped_nucleotide_edit_pins_alternative_one_of_the_open_containment_decision() {
+    fn an_unscoped_nucleotide_edit_outside_the_resolved_cds_proceeds() {
         // The request scoped nothing, so the gate's resolution of the only
         // annotation says which CDS the request is about; it does not assert
         // that the DNA edit lies inside it. Milestone 2 keeps scoping a
@@ -3448,31 +3786,36 @@ mod tests {
     }
 
     #[test]
-    fn two_identical_variants_with_one_result_name_are_representable() {
-        // D-F: result-identifier uniqueness is an open question (`docs/q5-sdm.md`
-        // §10 item 6), so the set adds no uniqueness check and no duplicate
-        // identifier error. Two members with the same intent and the same
-        // caller-supplied name are accepted and run, and their results carry
-        // the same artifact identity, which is Milestone 1's identity semantics
-        // for identical content rather than a sharing rule added here. This
-        // pins only that the representation is accepted; it does not declare
-        // duplicate result names legal or illegal as product policy.
+    fn two_variants_sharing_a_result_name_are_refused() {
+        // Owner decision, 2026-10-14 (`docs/q5-sdm.md` §10 item 6): result
+        // identifiers in a set must be distinct. Refused at construction, before
+        // any member resolves a target, with the same variant and category as an
+        // empty set.
         let members: Vec<Q5Variant> = vec![
             long_member("cds-1", 42, "A", "G", "res-a42g"),
-            long_member("cds-1", 42, "A", "G", "res-a42g"),
+            long_member("cds-1", 43, "W", "G", "res-a42g"),
         ];
-        let built: Result<Q5VariantSetRequest, DomainError> =
-            Q5VariantSetRequest::create(Q5Composition::SeparateVariants, members.clone());
-        assert!(built.is_ok());
-        let set: Q5VariantSetRequest = built.unwrap();
-        assert!(set.variant_count() == 2);
-        let run: Q5VariantSetExecution =
-            execute_set(set.clone(), vec![long_cds_of("cds-1", 129)]).unwrap();
-        assert!(run.result_count() == 2);
-        assert!(run.is_verified());
-        assert!(run.results()[0].identifier() == run.results()[1].identifier());
-        assert!(run.results()[0].reference() == run.results()[1].reference());
-        assert!(run.results()[0].mutation() == run.results()[1].mutation());
+        let error: DomainError =
+            Q5VariantSetRequest::create(Q5Composition::SeparateVariants, members).unwrap_err();
+        assert!(error.category() == ErrorCategory::MalformedInput);
+        match error {
+            DomainError::InvalidMutationRequest(problem) => {
+                assert!(problem.request == "q5-variant-set");
+                assert!(problem.reason.contains("res-a42g"), "{}", problem.reason);
+            }
+            other => panic!("expected InvalidMutationRequest, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn result_names_are_compared_exactly() {
+        // No case folding: D007 compares names exactly, and no source states a
+        // folding rule. Two names differing only in case are distinct.
+        let members: Vec<Q5Variant> = vec![
+            long_member("cds-1", 42, "A", "G", "res-a42g"),
+            long_member("cds-1", 43, "W", "G", "RES-A42G"),
+        ];
+        assert!(Q5VariantSetRequest::create(Q5Composition::SeparateVariants, members).is_ok());
     }
 
     #[test]
@@ -3554,5 +3897,575 @@ mod tests {
         if let DomainError::InvalidMutationRequest(problem) = error {
             assert!(problem.request == "nucleotide");
         }
+    }
+
+    #[test]
+    fn an_in_frame_deletion_carries_no_warning() {
+        // Deleting `[9,12)` removes AAT, three coding bases of a whole 30-base
+        // CDS, so the reading frame is kept and the run warns nothing. The
+        // edited text is the template with those three bases cut out: plain
+        // string slicing, planner 2026-10-15.
+        let request: Q5SdmRequest =
+            Q5SdmRequest::create(template(), None, deletion_intent(9, 12, "AAT".to_string()))
+                .unwrap();
+        let run: Q5WorkflowExecution =
+            execute(request.clone(), vec![cds_of("cds-1", 30)], edited_name()).unwrap();
+        assert!(run.is_verified());
+        assert!(run.mutation().unwrap().is_deletion());
+        assert!(run.edited().unwrap().canonical_text() == "ATGGCTTGGCAGCAGCAGCAGCAGCAG");
+        assert!(run.warnings().is_empty());
+    }
+
+    #[test]
+    fn a_one_base_deletion_warns_of_a_frameshift() {
+        // One coding base removed from a whole 30-base CDS: 1 is not a
+        // multiple of 3, so the reading frame shifts and the deletion lay
+        // wholly inside the CDS.
+        let request: Q5SdmRequest =
+            Q5SdmRequest::create(template(), None, deletion_intent(9, 10, "A".to_string()))
+                .unwrap();
+        let run: Q5WorkflowExecution =
+            execute(request.clone(), vec![cds_of("cds-1", 30)], edited_name()).unwrap();
+        assert!(run.is_verified());
+        let warnings: Vec<Q5EditWarning> = run.warnings();
+        assert!(warnings.len() == 1);
+        assert!(
+            warnings[0]
+                == Q5EditWarning::Frameshift {
+                    cds: cds_name("cds-1"),
+                    coding_bases_removed: 1,
+                    wholly_inside: true,
+                }
+        );
+    }
+
+    #[test]
+    fn a_deletion_across_the_cds_end_counts_only_its_coding_bases() {
+        // A 12-base CDS and a deletion of `[10,14)`: positions 10 and 11 are
+        // coding, 12 and 13 lie past the annotation, so 2 coding bases shift
+        // the frame and the warning says the deletion extends outside the CDS.
+        let request: Q5SdmRequest = Q5SdmRequest::create(
+            template(),
+            None,
+            deletion_intent(10, 14, "ATCA".to_string()),
+        )
+        .unwrap();
+        let run: Q5WorkflowExecution =
+            execute(request.clone(), vec![cds_of("cds-1", 12)], edited_name()).unwrap();
+        assert!(run.is_verified());
+        let warnings: Vec<Q5EditWarning> = run.warnings();
+        assert!(warnings.len() == 1);
+        assert!(
+            warnings[0]
+                == Q5EditWarning::Frameshift {
+                    cds: cds_name("cds-1"),
+                    coding_bases_removed: 2,
+                    wholly_inside: false,
+                }
+        );
+        assert!(warnings[0].describe().contains("outside the CDS"));
+    }
+
+    #[test]
+    fn a_deletion_outside_the_cds_proceeds_without_warning() {
+        // §10 decision 1: an unscoped DNA edit outside the resolved CDS
+        // proceeds, and no coding base was removed, so there is no frame to
+        // shift and nothing to warn about.
+        let request: Q5SdmRequest =
+            Q5SdmRequest::create(template(), None, deletion_intent(12, 15, "CAG".to_string()))
+                .unwrap();
+        let run: Q5WorkflowExecution =
+            execute(request.clone(), vec![cds_of("cds-1", 12)], edited_name()).unwrap();
+        assert!(run.is_verified());
+        assert!(run.warnings().is_empty());
+    }
+
+    #[test]
+    fn a_scoped_deletion_outside_its_cds_is_refused() {
+        // The same deletion, but the request scoped the CDS it does not lie
+        // inside, so Milestone 2's containment rule refuses it.
+        let request: Q5SdmRequest = Q5SdmRequest::create(
+            template(),
+            Some(cds_name("cds-1")),
+            deletion_intent(12, 15, "CAG".to_string()),
+        )
+        .unwrap();
+        let run: Result<Q5WorkflowExecution, DomainError> =
+            execute(request.clone(), vec![cds_of("cds-1", 12)], edited_name());
+        assert!(run.is_err());
+        let error: DomainError = run.unwrap_err();
+        assert!(matches!(error, DomainError::TargetOutsideFeature(_)));
+    }
+
+    #[test]
+    fn only_bases_inside_the_cds_intervals_count() {
+        // A circular artifact, so a CDS can cross the origin: `[21,30)` then
+        // `[0,6)` is one feature split across it. Of the deleted `[5,10)` only
+        // position 5 is coding, so 1 coding base shifts the frame and 6, 7, 8
+        // and 9 lie outside both intervals.
+        let circular: Sequence = normalize(
+            Identifier::create("q5-c".to_string()).unwrap(),
+            "ATGGCTTGGAATCAGCAGCAGCAGCAGCAG".to_string(),
+            SequenceTopology::Circular,
+        )
+        .unwrap();
+        let intervals: OrderedIntervals = vec![
+            create(&circular.reference(), 21, 30).unwrap(),
+            create(&circular.reference(), 0, 6).unwrap(),
+        ];
+        let annotation: Cds = Cds::create(
+            &circular,
+            cds_name("cds-1"),
+            intervals,
+            Strand::Plus,
+            Completeness::Complete,
+            "standard".to_string(),
+            Numbering::FromCdsStart,
+        )
+        .unwrap();
+        let intent: Q5MutationIntent =
+            deletion_intent_on(circular.clone(), 5, 10, "TTGGA".to_string());
+        let request: Q5SdmRequest = Q5SdmRequest::create(circular, None, intent).unwrap();
+        let run: Q5WorkflowExecution =
+            execute(request.clone(), vec![annotation], edited_name()).unwrap();
+        assert!(run.is_verified());
+        let warnings: Vec<Q5EditWarning> = run.warnings();
+        assert!(warnings.len() == 1);
+        assert!(
+            warnings[0]
+                == Q5EditWarning::Frameshift {
+                    cds: cds_name("cds-1"),
+                    coding_bases_removed: 1,
+                    wholly_inside: false,
+                }
+        );
+    }
+
+    #[test]
+    fn a_deletion_intent_on_another_artifact_is_refused() {
+        // The deletion intent addresses the decoy, so the request is refused
+        // where it is built, by Milestone 1's identity rule and its own
+        // category — the pattern the nucleotide form already pins.
+        let built: Result<Q5SdmRequest, DomainError> = Q5SdmRequest::create(
+            template(),
+            None,
+            deletion_intent_on(decoy(), 9, 12, "CAT".to_string()),
+        );
+        assert!(built.is_err());
+        let error: DomainError = built.unwrap_err();
+        assert!(matches!(error, DomainError::SequenceReferenceMismatch(_)));
+        assert!(error.category() == ErrorCategory::BiologicalValidation);
+    }
+
+    #[test]
+    fn each_set_member_carries_its_own_warnings() {
+        // Two members over one whole 30-base CDS: the first deletes one
+        // coding base and warns, the second deletes three and does not, so
+        // the set reports each member's warnings rather than one for all.
+        let members: Vec<Q5Variant> = vec![
+            Q5Variant::create(
+                Q5SdmRequest::create(template(), None, deletion_intent(9, 10, "A".to_string()))
+                    .unwrap(),
+                cds_name("m1"),
+            ),
+            Q5Variant::create(
+                Q5SdmRequest::create(template(), None, deletion_intent(9, 12, "AAT".to_string()))
+                    .unwrap(),
+                cds_name("m2"),
+            ),
+        ];
+        let set: Q5VariantSetRequest =
+            Q5VariantSetRequest::create(Q5Composition::SeparateVariants, members.clone()).unwrap();
+        let run: Q5VariantSetExecution =
+            execute_set(set.clone(), vec![cds_of("cds-1", 30)]).unwrap();
+        assert!(run.is_verified());
+        assert!(run.result_count() == 2);
+        assert!(run.results()[0].identifier() == cds_name("m1"));
+        assert!(
+            run.results()[0].warnings()
+                == vec![Q5EditWarning::Frameshift {
+                    cds: cds_name("cds-1"),
+                    coding_bases_removed: 1,
+                    wholly_inside: true,
+                },]
+        );
+        assert!(run.results()[1].warnings().is_empty());
+    }
+
+    // A DNA-level insertion on `artifact`: the gap at `position` and the exact
+    // bases on each side of it, as Milestone 4d-1's intent asserts them — the
+    // pattern `deletion_intent_on` establishes. The flanks come from plain
+    // string slicing of the template text (planner, 2026-10-15): at 9 they are
+    // `G`/`A` and at 12 they are `T`/`C`.
+    fn insertion_intent_on(
+        artifact: Sequence,
+        position: u64,
+        before: String,
+        after: String,
+        inserted: String,
+    ) -> Q5MutationIntent {
+        Q5MutationIntent::Insertion(
+            NucleotideInsertionIntent::create(
+                artifact.reference(),
+                create_point(&artifact.reference(), position as i64).unwrap(),
+                before.clone(),
+                after.clone(),
+                inserted.clone(),
+            )
+            .unwrap(),
+        )
+    }
+
+    fn insertion_intent(
+        position: u64,
+        before: String,
+        after: String,
+        inserted: String,
+    ) -> Q5MutationIntent {
+        insertion_intent_on(template(), position, before, after, inserted)
+    }
+
+    // A DNA-level replacement on `artifact`: the region it overwrites and the
+    // exact text there, as Milestone 4e-2's intent asserts it — the pattern
+    // `deletion_intent_on` establishes. The expected texts come from plain
+    // string slicing of the template (planner, 2026-10-15): `[9, 12)` is `AAT`,
+    // `[10, 14)` is `ATCA` and `[15, 18)` is `CAG`; on the decoy `[9, 12)` is
+    // `CAT`.
+    fn replacement_intent_on(
+        artifact: Sequence,
+        start: u64,
+        end: u64,
+        expected: String,
+        replacement: String,
+    ) -> Q5MutationIntent {
+        let intervals: OrderedIntervals =
+            vec![create(&artifact.reference(), start as i64, end as i64).unwrap()];
+        Q5MutationIntent::Replacement(
+            NucleotideReplacementIntent::create(
+                artifact.reference(),
+                intervals[0].clone(),
+                expected,
+                replacement,
+            )
+            .unwrap(),
+        )
+    }
+
+    fn replacement_intent(
+        start: u64,
+        end: u64,
+        expected: String,
+        replacement: String,
+    ) -> Q5MutationIntent {
+        replacement_intent_on(template(), start, end, expected, replacement)
+    }
+
+    #[test]
+    fn an_in_frame_insertion_has_no_warning() {
+        // Three bases inserted at 9 into a whole 30-base CDS: 3 is a multiple of
+        // 3, so the reading frame is kept and the run warns nothing. The edited
+        // text is the template with `GGG` placed into the gap at 9.
+        let request: Q5SdmRequest = Q5SdmRequest::create(
+            template(),
+            None,
+            insertion_intent(9, "G".to_string(), "A".to_string(), "GGG".to_string()),
+        )
+        .unwrap();
+        let run: Q5WorkflowExecution =
+            execute(request.clone(), vec![cds_of("cds-1", 30)], edited_name()).unwrap();
+        assert!(run.is_verified());
+        assert!(run.mutation().unwrap().is_insertion());
+        assert!(run.edited().unwrap().canonical_text() == "ATGGCTTGGGGGAATCAGCAGCAGCAGCAGCAG");
+        assert!(run.warnings().is_empty());
+    }
+
+    #[test]
+    fn a_one_base_insertion_warns_of_a_frameshift() {
+        // One base inserted inside a whole 30-base CDS: 1 is not a multiple of
+        // 3, so the reading frame shifts and the run warns while still editing.
+        let request: Q5SdmRequest = Q5SdmRequest::create(
+            template(),
+            None,
+            insertion_intent(9, "G".to_string(), "A".to_string(), "G".to_string()),
+        )
+        .unwrap();
+        let run: Q5WorkflowExecution =
+            execute(request.clone(), vec![cds_of("cds-1", 30)], edited_name()).unwrap();
+        assert!(run.is_verified());
+        assert!(run.edited().unwrap().canonical_text() == "ATGGCTTGGGAATCAGCAGCAGCAGCAGCAG");
+        let warnings: Vec<Q5EditWarning> = run.warnings();
+        assert!(warnings.len() == 1);
+        assert!(
+            warnings[0]
+                == Q5EditWarning::InsertionFrameshift {
+                    cds: cds_name("cds-1"),
+                    bases_inserted: 1,
+                }
+        );
+    }
+
+    #[test]
+    fn a_four_base_insertion_warns_too() {
+        // Four bases inserted inside the same CDS: 4 is not a multiple of 3
+        // either, and the warning counts the inserted bases.
+        let request: Q5SdmRequest = Q5SdmRequest::create(
+            template(),
+            None,
+            insertion_intent(9, "G".to_string(), "A".to_string(), "GGGG".to_string()),
+        )
+        .unwrap();
+        let run: Q5WorkflowExecution =
+            execute(request.clone(), vec![cds_of("cds-1", 30)], edited_name()).unwrap();
+        assert!(run.is_verified());
+        assert!(run.edited().unwrap().canonical_text() == "ATGGCTTGGGGGGAATCAGCAGCAGCAGCAGCAG");
+        let warnings: Vec<Q5EditWarning> = run.warnings();
+        assert!(warnings.len() == 1);
+        assert!(
+            warnings[0]
+                == Q5EditWarning::InsertionFrameshift {
+                    cds: cds_name("cds-1"),
+                    bases_inserted: 4,
+                }
+        );
+    }
+
+    #[test]
+    fn an_insertion_at_the_cds_edge_does_not_warn() {
+        // The gap at 12 is the far edge of a 12-base CDS: no interval of it has
+        // `start < 12 < end`, so the reading frame is left alone and nothing is
+        // warned. The request scoped nothing, so the edit proceeds.
+        let request: Q5SdmRequest = Q5SdmRequest::create(
+            template(),
+            None,
+            insertion_intent(12, "T".to_string(), "C".to_string(), "G".to_string()),
+        )
+        .unwrap();
+        let run: Q5WorkflowExecution =
+            execute(request.clone(), vec![cds_of("cds-1", 12)], edited_name()).unwrap();
+        assert!(run.is_verified());
+        assert!(run.warnings().is_empty());
+    }
+
+    #[test]
+    fn a_scoped_insertion_at_the_cds_edge_is_refused() {
+        // The same edge gap, but the request scoped the CDS it does not lie
+        // inside, so Milestone 4d-1's containment rule refuses it.
+        let request: Q5SdmRequest = Q5SdmRequest::create(
+            template(),
+            Some(cds_name("cds-1")),
+            insertion_intent(12, "T".to_string(), "C".to_string(), "G".to_string()),
+        )
+        .unwrap();
+        let run: Result<Q5WorkflowExecution, DomainError> =
+            execute(request.clone(), vec![cds_of("cds-1", 12)], edited_name());
+        assert!(run.is_err());
+        let error: DomainError = run.unwrap_err();
+        assert!(matches!(error, DomainError::TargetOutsideFeature(_)));
+    }
+
+    #[test]
+    fn an_insertion_intent_on_another_artifact_is_refused() {
+        // The insertion intent addresses the decoy, so the request is refused
+        // where it is built, by Milestone 1's identity rule and its own
+        // category — the pattern the deletion form already pins. The flanks are
+        // read off the decoy, so the intent is well formed on its own.
+        let before: char = decoy().letter_at(8).unwrap();
+        let after: char = decoy().letter_at(9).unwrap();
+        let built: Result<Q5SdmRequest, DomainError> = Q5SdmRequest::create(
+            template(),
+            None,
+            insertion_intent_on(
+                decoy(),
+                9,
+                before.to_string(),
+                after.to_string(),
+                "G".to_string(),
+            ),
+        );
+        assert!(built.is_err());
+        let error: DomainError = built.unwrap_err();
+        assert!(matches!(error, DomainError::SequenceReferenceMismatch(_)));
+        assert!(error.category() == ErrorCategory::BiologicalValidation);
+    }
+
+    #[test]
+    fn an_equal_length_replacement_carries_no_warning() {
+        // Three bases overwritten by three inside a whole 30-base CDS: `m − w` is
+        // 0, a multiple of 3, so the reading frame is kept and the run warns
+        // nothing. The edited text is the template with `GGC` in place of the
+        // `AAT` at `[9, 12)`: plain string slicing, planner 2026-10-15.
+        let request: Q5SdmRequest = Q5SdmRequest::create(
+            template(),
+            None,
+            replacement_intent(9, 12, "AAT".to_string(), "GGC".to_string()),
+        )
+        .unwrap();
+        let run: Q5WorkflowExecution =
+            execute(request.clone(), vec![cds_of("cds-1", 30)], edited_name()).unwrap();
+        assert!(run.is_verified());
+        assert!(run.mutation().unwrap().is_replacement());
+        assert!(run.edited().unwrap().canonical_text() == "ATGGCTTGGGGCCAGCAGCAGCAGCAGCAG");
+        assert!(run.warnings().is_empty());
+    }
+
+    #[test]
+    fn a_shorter_replacement_warns_of_a_frameshift() {
+        // Three coding bases overwritten by two inside a whole 30-base CDS: `m − w`
+        // is −1, not a multiple of 3, so the frame shifts and the run warns while
+        // still editing. Every overwritten base was coding, so the warning says
+        // nothing about reaching outside the CDS.
+        let request: Q5SdmRequest = Q5SdmRequest::create(
+            template(),
+            None,
+            replacement_intent(9, 12, "AAT".to_string(), "GG".to_string()),
+        )
+        .unwrap();
+        let run: Q5WorkflowExecution =
+            execute(request.clone(), vec![cds_of("cds-1", 30)], edited_name()).unwrap();
+        assert!(run.is_verified());
+        assert!(run.edited().unwrap().canonical_text() == "ATGGCTTGGGGCAGCAGCAGCAGCAGCAG");
+        let warnings: Vec<Q5EditWarning> = run.warnings();
+        assert!(warnings.len() == 1);
+        assert!(
+            warnings[0]
+                == Q5EditWarning::ReplacementFrameshift {
+                    cds: cds_name("cds-1"),
+                    bases_replaced: 3,
+                    bases_written: 2,
+                    wholly_inside: true,
+                }
+        );
+        assert!(
+            warnings[0].describe() == "replacing 3 bases with 2 in cds-1 shifts its reading frame"
+        );
+    }
+
+    #[test]
+    fn a_replacement_three_bases_longer_keeps_the_frame() {
+        // Three coding bases overwritten by six: `m − w` is 3, a multiple of 3, so
+        // the reading frame is kept and the run warns nothing.
+        let request: Q5SdmRequest = Q5SdmRequest::create(
+            template(),
+            None,
+            replacement_intent(9, 12, "AAT".to_string(), "GGGGGG".to_string()),
+        )
+        .unwrap();
+        let run: Q5WorkflowExecution =
+            execute(request.clone(), vec![cds_of("cds-1", 30)], edited_name()).unwrap();
+        assert!(run.is_verified());
+        assert!(run.edited().unwrap().canonical_text() == "ATGGCTTGGGGGGGGCAGCAGCAGCAGCAGCAG");
+        assert!(run.warnings().is_empty());
+    }
+
+    #[test]
+    fn a_longer_replacement_warns_too() {
+        // Three coding bases overwritten by four: `m − w` is 1, so the frame shifts
+        // the other way and the run warns again.
+        let request: Q5SdmRequest = Q5SdmRequest::create(
+            template(),
+            None,
+            replacement_intent(9, 12, "AAT".to_string(), "GGGG".to_string()),
+        )
+        .unwrap();
+        let run: Q5WorkflowExecution =
+            execute(request.clone(), vec![cds_of("cds-1", 30)], edited_name()).unwrap();
+        assert!(run.is_verified());
+        assert!(run.edited().unwrap().canonical_text() == "ATGGCTTGGGGGGCAGCAGCAGCAGCAGCAG");
+        let warnings: Vec<Q5EditWarning> = run.warnings();
+        assert!(warnings.len() == 1);
+        assert!(
+            warnings[0]
+                == Q5EditWarning::ReplacementFrameshift {
+                    cds: cds_name("cds-1"),
+                    bases_replaced: 3,
+                    bases_written: 4,
+                    wholly_inside: true,
+                }
+        );
+    }
+
+    #[test]
+    fn a_replacement_across_the_cds_edge_warns_and_says_so() {
+        // A 12-base CDS and a replacement of `[10, 14)`: positions 10 and 11 are
+        // coding, 12 and 13 lie past the annotation, so the region reaches
+        // outside and the warning says so. `m − w` is −2, not a multiple of 3, and
+        // the warning counts the whole 4-base region rather than the 2 coding
+        // bases, the pattern the deletion form already pins.
+        let request: Q5SdmRequest = Q5SdmRequest::create(
+            template(),
+            None,
+            replacement_intent(10, 14, "ATCA".to_string(), "GG".to_string()),
+        )
+        .unwrap();
+        let run: Q5WorkflowExecution =
+            execute(request.clone(), vec![cds_of("cds-1", 12)], edited_name()).unwrap();
+        assert!(run.is_verified());
+        assert!(run.edited().unwrap().canonical_text() == "ATGGCTTGGAGGGCAGCAGCAGCAGCAG");
+        let warnings: Vec<Q5EditWarning> = run.warnings();
+        assert!(warnings.len() == 1);
+        assert!(
+            warnings[0]
+                == Q5EditWarning::ReplacementFrameshift {
+                    cds: cds_name("cds-1"),
+                    bases_replaced: 4,
+                    bases_written: 2,
+                    wholly_inside: false,
+                }
+        );
+        assert!(warnings[0]
+            .describe()
+            .ends_with("; the replacement also extends outside the CDS"));
+    }
+
+    #[test]
+    fn a_scoped_replacement_across_the_cds_edge_is_refused() {
+        // The same region, but the request scoped the CDS it does not lie wholly
+        // inside, so Milestone 4e-2's containment rule refuses it.
+        let request: Q5SdmRequest = Q5SdmRequest::create(
+            template(),
+            Some(cds_name("cds-1")),
+            replacement_intent(10, 14, "ATCA".to_string(), "GG".to_string()),
+        )
+        .unwrap();
+        let run: Result<Q5WorkflowExecution, DomainError> =
+            execute(request.clone(), vec![cds_of("cds-1", 12)], edited_name());
+        assert!(run.is_err());
+        let error: DomainError = run.unwrap_err();
+        assert!(matches!(error, DomainError::TargetOutsideFeature(_)));
+    }
+
+    #[test]
+    fn a_replacement_outside_the_cds_does_not_warn() {
+        // §10 decision 1 again: an unscoped DNA edit outside the resolved CDS
+        // proceeds, and no region position is coding, so there is no frame to
+        // shift and nothing to warn about even though `m − w` is −2.
+        let request: Q5SdmRequest = Q5SdmRequest::create(
+            template(),
+            None,
+            replacement_intent(15, 18, "CAG".to_string(), "G".to_string()),
+        )
+        .unwrap();
+        let run: Q5WorkflowExecution =
+            execute(request.clone(), vec![cds_of("cds-1", 12)], edited_name()).unwrap();
+        assert!(run.is_verified());
+        assert!(run.edited().unwrap().canonical_text() == "ATGGCTTGGAATCAGGCAGCAGCAGCAG");
+        assert!(run.warnings().is_empty());
+    }
+
+    #[test]
+    fn a_replacement_intent_on_another_artifact_is_refused() {
+        // The replacement intent addresses the decoy, so the request is refused
+        // where it is built, by Milestone 1's identity rule and its own category —
+        // the pattern the insertion form already pins. `[9, 12)` is `CAT` on the
+        // decoy, so the intent is well formed on its own.
+        let built: Result<Q5SdmRequest, DomainError> = Q5SdmRequest::create(
+            template(),
+            None,
+            replacement_intent_on(decoy(), 9, 12, "CAT".to_string(), "GG".to_string()),
+        );
+        assert!(built.is_err());
+        let error: DomainError = built.unwrap_err();
+        assert!(matches!(error, DomainError::SequenceReferenceMismatch(_)));
+        assert!(error.category() == ErrorCategory::BiologicalValidation);
     }
 }
