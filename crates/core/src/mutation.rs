@@ -53,6 +53,8 @@ use crate::genetic_code::Residue;
 use crate::identity::Identifier;
 use crate::identity::SequenceReference;
 use crate::interval::create;
+use crate::interval::holds_point;
+use crate::interval::holds_region;
 use crate::interval::require_sequence;
 use crate::interval::InsertionPoint;
 use crate::interval::NucleotideInterval;
@@ -952,13 +954,8 @@ fn require_within_feature(
     sequence: String,
     intervals: &[NucleotideInterval],
 ) -> Result<(), DomainError> {
-    let mut index: usize = 0;
-    while index < intervals.len() {
-        let interval: NucleotideInterval = intervals[index].clone();
-        if position.start() >= interval.start() && position.end() <= interval.end() {
-            return Ok(());
-        }
-        index += 1;
+    if holds_region(intervals, position.start(), position.end()) {
+        return Ok(());
     }
     let problem = TargetOutsideFeatureProblem {
         feature,
@@ -983,13 +980,8 @@ fn require_point_within_feature(
     intervals: &[NucleotideInterval],
 ) -> Result<(), DomainError> {
     let position: u64 = point.position();
-    let mut index: usize = 0;
-    while index < intervals.len() {
-        let interval: NucleotideInterval = intervals[index].clone();
-        if position > interval.start() && position < interval.end() {
-            return Ok(());
-        }
-        index += 1;
+    if holds_point(intervals, position) {
+        return Ok(());
     }
     let problem = TargetOutsideFeatureProblem {
         feature,

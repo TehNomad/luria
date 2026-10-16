@@ -205,6 +205,36 @@ pub fn overlaps(first: &NucleotideInterval, second: &NucleotideInterval) -> bool
     first.start() < second.end() && second.start() < first.end()
 }
 
+/// True when some interval contains `position`, that is, `start <= position < end`.
+pub(crate) fn holds_position(intervals: &[NucleotideInterval], position: u64) -> bool {
+    for interval in intervals {
+        if position >= interval.start() && position < interval.end() {
+            return true;
+        }
+    }
+    false
+}
+
+/// True when one interval contains the whole half-open region `[start, end)`.
+pub(crate) fn holds_region(intervals: &[NucleotideInterval], start: u64, end: u64) -> bool {
+    for interval in intervals {
+        if start >= interval.start() && end <= interval.end() {
+            return true;
+        }
+    }
+    false
+}
+
+/// True when some interval has `start < position < end`: a base lies on each side.
+pub(crate) fn holds_point(intervals: &[NucleotideInterval], position: u64) -> bool {
+    for interval in intervals {
+        if position > interval.start() && position < interval.end() {
+            return true;
+        }
+    }
+    false
+}
+
 /// Reject a reference that does not denote `sequence`.
 ///
 /// Reference equality means the display identifier, the content digest, and
@@ -669,5 +699,43 @@ mod tests {
             .unwrap_err();
         assert!(error.category() == ErrorCategory::Unsupported);
         assert!(matches!(error, DomainError::UnsupportedFeatureStructure(_)));
+    }
+
+    // ---- containment over a list of intervals ------------------------------
+
+    // A position is held from `start` up to `end − 1`, the bases an interval
+    // selects; `end` names the first base it does not select.
+    #[test]
+    fn a_position_is_held_at_the_start_and_the_last_base() {
+        let name: SequenceReference = seq_a().reference();
+        let intervals: OrderedIntervals = vec![create(&name, 10, 14).unwrap()];
+        assert!(holds_position(intervals.as_slice(), 10));
+        assert!(holds_position(intervals.as_slice(), 13));
+        assert!(!holds_position(intervals.as_slice(), 14));
+        assert!(!holds_position(intervals.as_slice(), 9));
+    }
+
+    // A region is held only when one interval covers all of it: an interval
+    // equal to the region is held, a region one wider on either side is not.
+    #[test]
+    fn a_region_is_held_only_when_one_interval_contains_it() {
+        let name: SequenceReference = seq_a().reference();
+        let intervals: OrderedIntervals = vec![create(&name, 10, 14).unwrap()];
+        assert!(holds_region(intervals.as_slice(), 10, 14));
+        assert!(holds_region(intervals.as_slice(), 11, 13));
+        assert!(!holds_region(intervals.as_slice(), 9, 14));
+        assert!(!holds_region(intervals.as_slice(), 10, 15));
+    }
+
+    // A point selects no nucleotide, so it is inside only with a base on each
+    // side of it: both `start` and `end` are outside, `start + 1` is inside.
+    #[test]
+    fn a_point_is_held_only_strictly_inside_an_interval() {
+        let name: SequenceReference = seq_a().reference();
+        let intervals: OrderedIntervals = vec![create(&name, 10, 14).unwrap()];
+        assert!(holds_point(intervals.as_slice(), 11));
+        assert!(holds_point(intervals.as_slice(), 13));
+        assert!(!holds_point(intervals.as_slice(), 10));
+        assert!(!holds_point(intervals.as_slice(), 14));
     }
 }

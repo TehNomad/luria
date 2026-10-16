@@ -62,6 +62,8 @@ use crate::error::UnsupportedCompositionProblem;
 use crate::genetic_code::Residue;
 use crate::identity::Identifier;
 use crate::identity::SequenceReference;
+use crate::interval::holds_point;
+use crate::interval::holds_position;
 use crate::interval::require_sequence;
 use crate::interval::OrderedIntervals;
 use crate::mutation::apply_deletion;
@@ -561,46 +563,8 @@ impl Q5EditWarning {
 /// it, and the warning says whether the deletion lay wholly inside the CDS.
 /// The only position that does not count lies outside the CDS:
 /// `interval::validate_structure` refuses gaps between intervals, so a CDS
-/// here has no intron. `insertion_warnings` and `replacement_warnings` state
-/// the insertion and replacement rules (D032, D033's addenda).
-fn edit_warnings(mutation: &MutationResult, target: &Cds) -> Vec<Q5EditWarning> {
-    if mutation.is_insertion() {
-        return insertion_warnings(mutation.clone(), target);
-    }
-
-    if mutation.is_replacement() {
-        return replacement_warnings(mutation.clone(), target);
-    }
-
-    if !mutation.is_deletion() {
-        return Vec::new();
-    }
-
-    let removed: Vec<u64> = mutation.target_coordinates();
-    let intervals: OrderedIntervals = target.intervals();
-
-    let mut coding: u64 = 0;
-    for position in removed.iter() {
-        for interval in intervals.iter() {
-            if *position >= interval.start() && *position < interval.end() {
-                coding += 1;
-                break;
-            }
-        }
-    }
-
-    if coding == 0 || coding.is_multiple_of(3) {
-        return Vec::new();
-    }
-
-    let wholly_inside: bool = coding == removed.len() as u64;
-    vec![Q5EditWarning::Frameshift {
-        cds: target.id(),
-        coding_bases_removed: coding,
-        wholly_inside,
-    }]
-}
-
+/// here has no intron.
+///
 /// The warning one insertion carries against the resolved CDS (D032's
 /// related owner decision, 2026-10-15).
 ///
@@ -612,36 +576,7 @@ fn edit_warnings(mutation: &MutationResult, target: &Cds) -> Vec<Q5EditWarning> 
 /// or one wholly outside it, has no coding run of bases to shift and warns
 /// nothing. `mutation::require_point_within_feature` applies the same test
 /// when the edit itself was scoped to an annotation.
-fn insertion_warnings(mutation: MutationResult, target: &Cds) -> Vec<Q5EditWarning> {
-    match mutation {
-        MutationResult::Insertion(record) => {
-            let position: u64 = record.point().position();
-            let bases: u64 = record.inserted().len() as u64;
-
-            let mut inside: bool = false;
-            for interval in target.intervals().iter() {
-                if position > interval.start() && position < interval.end() {
-                    inside = true;
-                    break;
-                }
-            }
-
-            if inside && !bases.is_multiple_of(3) {
-                vec![Q5EditWarning::InsertionFrameshift {
-                    cds: target.id(),
-                    bases_inserted: bases,
-                }]
-            } else {
-                Vec::new()
-            }
-        }
-        MutationResult::Nucleotide(_record) => Vec::new(),
-        MutationResult::Residue(_record) => Vec::new(),
-        MutationResult::Deletion(_record) => Vec::new(),
-        MutationResult::Replacement(_record) => Vec::new(),
-    }
-}
-
+///
 /// The warning one replacement carries against the resolved CDS (D033's
 /// addenda, the owner decision of 2026-10-15).
 ///
@@ -656,21 +591,60 @@ fn insertion_warnings(mutation: MutationResult, target: &Cds) -> Vec<Q5EditWarni
 /// item 1 (owner 2026-10-14) lets an unscoped DNA edit do. The warning
 /// counts the whole region width and the text written, and `wholly_inside`
 /// says whether every overwritten base was coding.
-fn replacement_warnings(mutation: MutationResult, target: &Cds) -> Vec<Q5EditWarning> {
-    let positions: Vec<u64> = mutation.target_coordinates();
-
+///
+/// A nucleotide and a residue substitution carry no warning.
+fn edit_warnings(mutation: &MutationResult, target: &Cds) -> Vec<Q5EditWarning> {
     match mutation {
+        MutationResult::Deletion(_record) => {
+            let removed: Vec<u64> = mutation.target_coordinates();
+            let intervals: OrderedIntervals = target.intervals();
+
+            let mut coding: u64 = 0;
+            for position in removed.iter() {
+                if holds_position(intervals.as_slice(), *position) {
+                    coding += 1;
+                }
+            }
+
+            if coding == 0 || coding.is_multiple_of(3) {
+                Vec::new()
+            } else {
+                let wholly_inside: bool = coding == removed.len() as u64;
+                vec![Q5EditWarning::Frameshift {
+                    cds: target.id(),
+                    coding_bases_removed: coding,
+                    wholly_inside,
+                }]
+            }
+        }
+
+        MutationResult::Insertion(record) => {
+            let position: u64 = record.point().position();
+            let bases: u64 = record.inserted().len() as u64;
+            let intervals: OrderedIntervals = target.intervals();
+
+            let inside: bool = holds_point(intervals.as_slice(), position);
+            if inside && !bases.is_multiple_of(3) {
+                vec![Q5EditWarning::InsertionFrameshift {
+                    cds: target.id(),
+                    bases_inserted: bases,
+                }]
+            } else {
+                Vec::new()
+            }
+        }
+
         MutationResult::Replacement(record) => {
+            let positions: Vec<u64> = mutation.target_coordinates();
+            let intervals: OrderedIntervals = target.intervals();
+
             let replaced: u64 = positions.len() as u64;
             let written: u64 = record.replacement().len() as u64;
 
             let mut coding: u64 = 0;
             for position in positions.iter() {
-                for interval in target.intervals().iter() {
-                    if *position >= interval.start() && *position < interval.end() {
-                        coding += 1;
-                        break;
-                    }
+                if holds_position(intervals.as_slice(), *position) {
+                    coding += 1;
                 }
             }
 
@@ -686,10 +660,9 @@ fn replacement_warnings(mutation: MutationResult, target: &Cds) -> Vec<Q5EditWar
                 }]
             }
         }
+
         MutationResult::Nucleotide(_record) => Vec::new(),
         MutationResult::Residue(_record) => Vec::new(),
-        MutationResult::Deletion(_record) => Vec::new(),
-        MutationResult::Insertion(_record) => Vec::new(),
     }
 }
 
