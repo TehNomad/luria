@@ -57,7 +57,8 @@ the worker.
 ## B. Correctness defects (no decision needed)
 
 **Fixed 2026-10-16** (one commit each, contracts in `docs/tasks/review-b*.md`):
-B1 (`efd83d3`), B2 (`c38eec9`), B3 (`82a867f`), B15. Still open: B4–B14.
+B1 (`efd83d3`), B2 (`c38eec9`), B3 (`82a867f`), B15 (`5c3668f`), B4 (`c6a2b8f`),
+B5 (`a20b9ba`), B6. Still open: B7–B14, B16.
 
 ### High
 
@@ -112,6 +113,11 @@ B1 (`efd83d3`), B2 (`c38eec9`), B3 (`82a867f`), B15. Still open: B4–B14.
 - **B11. `verify` uses `unreachable!`** (`mutation.rs:1621-1627`). A sixth result kind would panic at runtime instead of failing to compile. Fix: one exhaustive match.
 - **B12. Algorithm version not bumped.** `MUTATION_ALGORITHM_VERSION` is still `0.2.0` (`mutation.rs:69`) after deletion, insertion and replacement were added (D021).
 - **B13. Half-open intervals printed with a closed bracket.** `primer.rs:~495`, `:613`, `:1226` print `[20, 40]` for `[20,40)` (D004). `:842` is correct.
+- **B16. Wrong position in the Tm alphabet error** (confirmed; found during
+  B6). `tm.rs` checks `primer.iter().chain(site.iter())`, so a non-ACGT base
+  in the site is reported at its index plus the primer length (site index 9
+  of an 18-base primer is reported as "position 27"). Reporting text only;
+  the error variant and aspect are correct.
 - **B14. Inline ambiguity scan has drifted** (suspected). `primer_design.rs:570` includes the edit region in the inline path's ambiguity scan; the deletion and tail paths skip it. Check against §18.2.
 
 ---
@@ -165,7 +171,10 @@ Reproduction check (reviewer c):
   - `:8`, `:17` say "Three intents"; there are five.
   - `:1347`'s whole-sequence rationale is wrong.
 - **`primer.rs`:**
-  - `:37-50` says no Tm exists and tails are insertion-only.
+  - `:37-50` says no Tm exists (the tail and design wording was fixed in B5).
+  - Still single-case after B5: the `PrimerPartRole` doc, the `abuts()` and
+    `boundary()` docs, and the `changed_positions` comment in
+    `construct_tailed_primer`.
   - `:345-349`, `:398-404` say tails and `deleted_width` are insertion/deletion-only.
 - **`primer_design.rs`:**
   - `:13` and `:56` give a `1 ≤ L ≤ 3` scope without D033.
