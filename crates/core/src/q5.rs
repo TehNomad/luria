@@ -4468,4 +4468,189 @@ mod tests {
         assert!(matches!(error, DomainError::SequenceReferenceMismatch(_)));
         assert!(error.category() == ErrorCategory::BiologicalValidation);
     }
+
+    // The whole 30-base annotation on the minus strand: mut-a read backwards
+    // translates to L L L L L L I P S H (`tests/fixtures/mutation/README.md`), so
+    // it is a valid complete annotation. The frame rules below count positions
+    // inside the CDS's intervals and never read their strand, so these tests pin
+    // that rather than assume it.
+    fn minus_cds_of(name: &str, length: i64) -> Cds {
+        Cds::create(
+            &template(),
+            cds_name(name),
+            whole(length),
+            Strand::Minus,
+            Completeness::Complete,
+            "standard".to_string(),
+            Numbering::FromCdsStart,
+        )
+        .unwrap()
+    }
+
+    // mut-c of the Milestone 2 fixture: circular, 24 bases, with the fixture's
+    // `res-c-origin` annotation `cds-1` over [22, 24) then [0, 7), plus strand,
+    // complete, reading TGG CTT GGA (W L G) across the origin.
+    fn seq_c() -> Sequence {
+        normalize(
+            Identifier::create("seq-c".to_string()).unwrap(),
+            "GCTTGGAACGAACGAACGAACATG".to_string(),
+            SequenceTopology::Circular,
+        )
+        .unwrap()
+    }
+
+    fn cds_c() -> Cds {
+        let intervals: OrderedIntervals = vec![
+            create(&seq_c().reference(), 22, 24).unwrap(),
+            create(&seq_c().reference(), 0, 7).unwrap(),
+        ];
+        Cds::create(
+            &seq_c(),
+            cds_name("cds-1"),
+            intervals,
+            Strand::Plus,
+            Completeness::Complete,
+            "standard".to_string(),
+            Numbering::FromCdsStart,
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn a_frameshift_deletion_in_a_minus_strand_cds_warns() {
+        // The one-base deletion of `[9, 10)` (`A`), scoped to a reverse CDS over
+        // [0, 30): one coding position is removed, 1 is not a multiple of 3, and
+        // the region lies wholly inside the single interval, so the warning is the
+        // one the plus-strand case already pins.
+        let request: Q5SdmRequest = Q5SdmRequest::create(
+            template(),
+            Some(cds_name("cds-1")),
+            deletion_intent(9, 10, "A".to_string()),
+        )
+        .unwrap();
+        let run: Q5WorkflowExecution = execute(
+            request.clone(),
+            vec![minus_cds_of("cds-1", 30)],
+            edited_name(),
+        )
+        .unwrap();
+        assert!(run.is_verified());
+        let warnings: Vec<Q5EditWarning> = run.warnings();
+        assert!(warnings.len() == 1);
+        assert!(
+            warnings[0]
+                == Q5EditWarning::Frameshift {
+                    cds: cds_name("cds-1"),
+                    coding_bases_removed: 1,
+                    wholly_inside: true,
+                }
+        );
+    }
+
+    #[test]
+    fn an_in_frame_deletion_in_a_minus_strand_cds_does_not_warn() {
+        // The same deletion as `an_in_frame_deletion_carries_no_warning`, scoped to
+        // a reverse CDS: `[9, 12)` is `AAT`, three coding positions, so the reading
+        // frame is kept and the run warns nothing.
+        let request: Q5SdmRequest = Q5SdmRequest::create(
+            template(),
+            Some(cds_name("cds-1")),
+            deletion_intent(9, 12, "AAT".to_string()),
+        )
+        .unwrap();
+        let run: Q5WorkflowExecution = execute(
+            request.clone(),
+            vec![minus_cds_of("cds-1", 30)],
+            edited_name(),
+        )
+        .unwrap();
+        assert!(run.is_verified());
+        assert!(run.warnings().is_empty());
+    }
+
+    #[test]
+    fn a_frameshift_insertion_in_a_minus_strand_cds_warns() {
+        // One base inserted at the gap at 12, whose flanks are `T` and `C`: the gap
+        // sits strictly inside [0, 30), so it is inside the CDS whatever its strand,
+        // and 1 is not a multiple of 3.
+        let request: Q5SdmRequest = Q5SdmRequest::create(
+            template(),
+            Some(cds_name("cds-1")),
+            insertion_intent(12, "T".to_string(), "C".to_string(), "A".to_string()),
+        )
+        .unwrap();
+        let run: Q5WorkflowExecution = execute(
+            request.clone(),
+            vec![minus_cds_of("cds-1", 30)],
+            edited_name(),
+        )
+        .unwrap();
+        assert!(run.is_verified());
+        let warnings: Vec<Q5EditWarning> = run.warnings();
+        assert!(warnings.len() == 1);
+        assert!(
+            warnings[0]
+                == Q5EditWarning::InsertionFrameshift {
+                    cds: cds_name("cds-1"),
+                    bases_inserted: 1,
+                }
+        );
+    }
+
+    #[test]
+    fn a_frameshift_replacement_in_a_minus_strand_cds_warns() {
+        // Two coding positions of `[9, 11)` (`AA`) overwritten by one base: `m − w`
+        // is 1, so the frame shifts, and every overwritten position was coding.
+        let request: Q5SdmRequest = Q5SdmRequest::create(
+            template(),
+            Some(cds_name("cds-1")),
+            replacement_intent(9, 11, "AA".to_string(), "G".to_string()),
+        )
+        .unwrap();
+        let run: Q5WorkflowExecution = execute(
+            request.clone(),
+            vec![minus_cds_of("cds-1", 30)],
+            edited_name(),
+        )
+        .unwrap();
+        assert!(run.is_verified());
+        let warnings: Vec<Q5EditWarning> = run.warnings();
+        assert!(warnings.len() == 1);
+        assert!(
+            warnings[0]
+                == Q5EditWarning::ReplacementFrameshift {
+                    cds: cds_name("cds-1"),
+                    bases_replaced: 2,
+                    bases_written: 1,
+                    wholly_inside: true,
+                }
+        );
+    }
+
+    #[test]
+    fn a_frameshift_deletion_in_an_origin_wrapping_cds_warns() {
+        // mut-c with its `res-c-origin` annotation: the deletion of `[2, 3)` (`T`)
+        // lies in the post-origin interval [0, 7), so one coding position is
+        // removed and the warning is the one a single interval gives. The CDS's
+        // other interval, [22, 24), is not consulted for this region.
+        let request: Q5SdmRequest = Q5SdmRequest::create(
+            seq_c(),
+            Some(cds_name("cds-1")),
+            deletion_intent_on(seq_c(), 2, 3, "T".to_string()),
+        )
+        .unwrap();
+        let run: Q5WorkflowExecution =
+            execute(request.clone(), vec![cds_c()], edited_name()).unwrap();
+        assert!(run.is_verified());
+        let warnings: Vec<Q5EditWarning> = run.warnings();
+        assert!(warnings.len() == 1);
+        assert!(
+            warnings[0]
+                == Q5EditWarning::Frameshift {
+                    cds: cds_name("cds-1"),
+                    coding_bases_removed: 1,
+                    wholly_inside: true,
+                }
+        );
+    }
 }

@@ -3819,4 +3819,129 @@ mod tests {
         )
         .is_ok());
     }
+
+    // mut-c of the Milestone 2 fixture: circular, 24 bases, and its `res-c-origin`
+    // annotation `cds-1` over [22, 24) then [0, 7), plus strand, complete, reading
+    // TGG CTT GGA (W L G) across the origin.
+    fn seq_c() -> Sequence {
+        normalize(
+            Identifier::create("seq-c".to_string()).unwrap(),
+            "GCTTGGAACGAACGAACGAACATG".to_string(),
+            SequenceTopology::Circular,
+        )
+        .unwrap()
+    }
+
+    fn cds_c() -> Cds {
+        let intervals: OrderedIntervals = vec![
+            create(&seq_c().reference(), 22, 24).unwrap(),
+            create(&seq_c().reference(), 0, 7).unwrap(),
+        ];
+        Cds::create(
+            &seq_c(),
+            cds_name(),
+            intervals,
+            Strand::Plus,
+            Completeness::Complete,
+            "standard".to_string(),
+            Numbering::FromCdsStart,
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn an_insertion_at_either_end_of_a_circular_sequence_is_refused() {
+        // D032: "the request states the bases at p − 1 and p … So 1 ≤ p ≤ n − 1:
+        // an insertion needs a base on both sides." That holds for every topology,
+        // so a circular artifact refuses the gap at its origin and the gap after
+        // its last base just as a linear one does. Both points fit the artifact —
+        // `InsertionPoint::within` accepts 0 and n — so the refusal below is D032's
+        // end rule, which `apply_insertion` reports as `InvalidMutationRequest`
+        // (`MalformedInput`), and not an out-of-range coordinate. The flanks named
+        // here are the bases a circular reading puts beside each gap, so the
+        // intents are well formed on their own.
+        let at_origin: NucleotideInsertionIntent = NucleotideInsertionIntent::create(
+            seq_c().reference(),
+            create_point(&seq_c().reference(), 0).unwrap(),
+            "G".to_string(),
+            "G".to_string(),
+            "A".to_string(),
+        )
+        .unwrap();
+        let error: DomainError =
+            apply_insertion(&seq_c().clone(), None, result_name(), at_origin).unwrap_err();
+        assert!(matches!(error, DomainError::InvalidMutationRequest(_)));
+        assert!(error.category() == ErrorCategory::MalformedInput);
+
+        let past_last: NucleotideInsertionIntent = NucleotideInsertionIntent::create(
+            seq_c().reference(),
+            create_point(&seq_c().reference(), 24).unwrap(),
+            "G".to_string(),
+            "G".to_string(),
+            "A".to_string(),
+        )
+        .unwrap();
+        let error: DomainError =
+            apply_insertion(&seq_c().clone(), None, result_name(), past_last).unwrap_err();
+        assert!(matches!(error, DomainError::InvalidMutationRequest(_)));
+        assert!(error.category() == ErrorCategory::MalformedInput);
+    }
+
+    #[test]
+    fn a_deletion_inside_the_post_origin_interval_of_a_wrapping_cds_is_applied() {
+        // [2, 5) is `TTG`, wholly inside the interval [0, 7) of the wrapping CDS, so
+        // the scoped containment rule accepts it. The edited artifact is mut-c with
+        // those three bases cut out, and it keeps the source's topology.
+        let intent: NucleotideDeletionIntent = NucleotideDeletionIntent::create(
+            seq_c().reference(),
+            create(&seq_c().reference(), 2, 5).unwrap(),
+            "TTG".to_string(),
+        )
+        .unwrap();
+        let made: MutationResult =
+            apply_deletion(&seq_c().clone(), Some(cds_c()), result_name(), intent).unwrap();
+        assert!(made.edited().canonical_text() == "GCGAACGAACGAACGAACATG");
+        assert!(made.edited().topology() == SequenceTopology::Circular);
+
+        let verified: MutationResult = verify(&seq_c().clone(), Some(cds_c()), made).unwrap();
+        assert!(verified.state() == MutationState::Verified);
+    }
+
+    #[test]
+    fn a_deletion_straddling_the_start_of_the_pre_origin_interval_is_refused() {
+        // [21, 23) is `AT`: 21 lies before [22, 24) and past [0, 7), so the region
+        // lies wholly in neither interval of the wrapping CDS and the containment
+        // rule refuses it before the bases are compared.
+        let intent: NucleotideDeletionIntent = NucleotideDeletionIntent::create(
+            seq_c().reference(),
+            create(&seq_c().reference(), 21, 23).unwrap(),
+            "AT".to_string(),
+        )
+        .unwrap();
+        let error: DomainError =
+            apply_deletion(&seq_c().clone(), Some(cds_c()), result_name(), intent).unwrap_err();
+        assert!(matches!(error, DomainError::TargetOutsideFeature(_)));
+        assert!(error.category() == ErrorCategory::BiologicalValidation);
+    }
+
+    #[test]
+    fn an_insertion_inside_the_pre_origin_interval_of_a_wrapping_cds_is_applied() {
+        // The gap at 23 sits strictly inside [22, 24), so both bases beside it are
+        // coding: `T` at 22 and `G` at 23. `A` is written into that gap, and the
+        // artifact keeps the source's topology.
+        let intent: NucleotideInsertionIntent = NucleotideInsertionIntent::create(
+            seq_c().reference(),
+            create_point(&seq_c().reference(), 23).unwrap(),
+            "T".to_string(),
+            "G".to_string(),
+            "A".to_string(),
+        )
+        .unwrap();
+        let made: MutationResult =
+            apply_insertion(&seq_c().clone(), Some(cds_c()), result_name(), intent).unwrap();
+        assert!(made.edited().canonical_text() == "GCTTGGAACGAACGAACGAACATAG");
+
+        let verified: MutationResult = verify(&seq_c().clone(), Some(cds_c()), made).unwrap();
+        assert!(verified.state() == MutationState::Verified);
+    }
 }

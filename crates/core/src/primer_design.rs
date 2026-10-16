@@ -1671,6 +1671,62 @@ mod tests {
         assert_tms(&design, 64.51, 62.79, 65.79);
     }
 
+    // §6: "a residue edit whose semantics are on a reverse CDS is the same DNA
+    // edit and produces the same pair". `[30, 33)` of the template is `GGG`, so
+    // a minus-strand CDS reads it as `CCC` (P) and writes the W codon `TGG` back
+    // as `rc(TGG) = CCA`; a plus-strand CDS reads `GGG` (G) and writes the
+    // supplied codon `CCA` as it stands; the DNA replacement of `[30, 33)` writes
+    // the same three bases. Three requests, one DNA edit, one design. The bases
+    // were read off the template text by hand (contract §3), and the Tm figures
+    // are compared with the module's own two-decimal tolerance.
+    #[test]
+    fn a_minus_strand_residue_edit_designs_the_same_pair_as_its_dna_edit() {
+        let minus: MutationResult = codon_edit(&template(), 30, Strand::Minus, "P", "W", "TGG");
+        let plus: MutationResult = codon_edit(&template(), 30, Strand::Plus, "G", "P", "CCA");
+        let dna: MutationResult = replacement(&template(), 30, 33, "CCA");
+
+        let minus_design: PrimerDesign = design_primers(&template(), minus, request(15)).unwrap();
+        let plus_design: PrimerDesign = design_primers(&template(), plus, request(15)).unwrap();
+        let dna_design: PrimerDesign = design_primers(&template(), dna, request(15)).unwrap();
+
+        assert!(texts(&minus_design) == texts(&plus_design));
+        assert!(texts(&minus_design) == texts(&dna_design));
+
+        assert!(spans(&minus_design) == spans(&plus_design));
+        assert!(spans(&minus_design) == spans(&dna_design));
+
+        assert!(minus_design.edit_span() == plus_design.edit_span());
+        assert!(minus_design.edit_span() == dna_design.edit_span());
+
+        assert!(minus_design.forward_tm().basis() == plus_design.forward_tm().basis());
+        assert!(minus_design.forward_tm().basis() == dna_design.forward_tm().basis());
+
+        assert!(close(
+            minus_design.forward_tm().celsius(),
+            plus_design.forward_tm().celsius(),
+        ));
+        assert!(close(
+            minus_design.forward_tm().celsius(),
+            dna_design.forward_tm().celsius(),
+        ));
+        assert!(close(
+            minus_design.reverse_tm().celsius(),
+            plus_design.reverse_tm().celsius(),
+        ));
+        assert!(close(
+            minus_design.reverse_tm().celsius(),
+            dna_design.reverse_tm().celsius(),
+        ));
+        assert!(close(
+            minus_design.annealing_temperature(),
+            plus_design.annealing_temperature(),
+        ));
+        assert!(close(
+            minus_design.annealing_temperature(),
+            dna_design.annealing_temperature(),
+        ));
+    }
+
     // At 24 the starting pair does not fit 5′ of the edit; at 25 it fits, but
     // 15 bases upstream cannot make a reverse primer reach 55 °C.
     #[test]
