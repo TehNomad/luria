@@ -311,24 +311,31 @@ Milestone 3: Supported Q5 workflow
 Implement the narrow Q5 workflow with documented design rules, candidate
 generation, warnings, and independent verification.
 
-Milestone 4: Machine-readable and CLI workflow
+Milestone 4: Insertions, deletions and replacements
+
+Extend mutation semantics and primer design to deletions, insertions, unequal
+replacements, and degenerate expansion (D031–D033).
+
+Milestone 5: Machine-readable and CLI workflow
 
 Provide a minimal CLI and structured output so complete scientific workflows
 can be exercised without a TUI, web frontend, or LLM.
 
-Milestone 5: Natural-language interpretation
+Milestone 6: Natural-language interpretation
 
 Add an LLM adapter that converts user requests into typed operations and
 clarification requests.
 
-Milestone 6: Review-oriented user interface
+Milestone 7: Review-oriented user interface
 
 Build the TUI around the same application capabilities and typed operations.
 
-Milestone 7: Web interface
+Milestone 8: Web interface
 
 Expose the same capabilities through a web interface without duplicating
 scientific logic.
+
+The order from Milestone 4 on was set by D034 (owner, 2026-10-16).
 
 Reorder these milestones only through an explicit scope decision.
 

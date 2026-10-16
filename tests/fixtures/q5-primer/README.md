@@ -36,7 +36,8 @@ Two kinds of case appear, and they are marked differently:
 | `reference/native-replacement.py` | The script that generates `native-replacement.tsv`. Same independence as the other two. |
 
 No sequence file is duplicated here. `sequence_file` is a path relative to
-`tests/fixtures/`, so the biological input is the artifact another fixture
+this directory (`tests/fixtures/q5-primer/`), e.g.
+`../example-construct/input/sid-1_cDNA.fa`, so the biological input is the artifact another fixture
 already validated.
 
 ## Column meanings
@@ -64,7 +65,8 @@ already validated.
 - `target_tm` is a number or `absent`; `absent` means the caller did not supply
   it, which is not the same as supplying a value.
 - `strand` is the strand the edit's *semantics* are stated on. It does not
-  change the DNA edit; it changes which primer is `forward` (§6).
+  change the DNA edit, and it does not change which primer is `forward`:
+  that is a property of the construct's orientation (§6).
 - `expected` is `design`, `design-per-variant`, `contract-only`, or
   `no-design`. `no-design` is the failure contract: the case has no design
   that satisfies the hard requirements, and a layer must say so (§10).
@@ -92,18 +94,19 @@ already validated.
 | `q5p-05-insertion` | The degenerate changed region. The inserted text occupies nothing in the template, so all overlap must come from context. |
 | `q5p-06-deletion` | The empty replacement. No primer position can carry a deletion; the pair is defined by the context it preserves. |
 | `q5p-07-separate-variants` | One pristine template, two independent pairs (D020). The reference spans 1176–1222 and 1469–1516 are disjoint; nothing is merged. |
-| `q5p-08-reverse-strand` | Which primer is `forward` when the edit's semantics are on the minus strand. The DNA edit at 9–12 is the same either way (§6). `mut-a.txt` is the artifact the mutation fixture's `res-a-minus-7` case uses, **not** the same edit: that case acts on residue 7 (`ATT → L`), which writes DNA `AAT → TAA` at 9–12 and the codon `ATT → TTA` at reference coordinates 9,10,11, while this case declares DNA `AAT → AAC` at 9–12. |
+| `q5p-08-reverse-strand` | Which primer is `forward` when the edit's semantics are on the minus strand. The DNA edit at 9–12 is the same either way (§6). `mut-a.txt` is the artifact the mutation fixture's `res-a-minus-7` case uses, **not** the same edit: that case acts on residue 7 (`ATT → L`), which writes DNA `AAT → CAG` at 9–12 and the codon `ATT → CTG` at reference coordinates 9,10,11, while this case declares DNA `AAT → AAC` at 9–12. (The `note` column of `cases.tsv` still gives the pre-2026-10-14 `TAA`/`TTA`.) |
 | `q5p-09-bound-exceeds-template` | A bound no design can meet: 31 required overlap against a 30-base template. Unsatisfiable under every geometry, so the failure is not a property of one search. |
 | `q5p-10-no-tm-target` | An unsupplied constraint. `target_tm = absent` must appear as absent in the output, never as a substituted default (§10). |
 
 ## Scope and known limitations
 
-- **Insertions and deletions are not representable in `crates/core` today.**
-  The mutation layer implements nucleotide and residue *substitution* only
-  (`apply_nucleotide`, `apply_residue`); there is no insert or delete
-  operation. `q5p-05` and `q5p-06` therefore state their edit directly rather
-  than taking it from a `MutationResult`, and are contract-level cases, not
-  validated mutation outputs.
+- **`q5p-05` and `q5p-06` predate indel support.** When they were written the
+  mutation layer had substitution only, so they state their edit directly
+  rather than taking it from a `MutationResult`, and they remain
+  contract-level cases. Insertions, deletions and replacements are now
+  implemented (`apply_insertion`, `apply_deletion`, `apply_replacement`,
+  D031–D033), and their expected designs are in `native-insertion.tsv`,
+  `native-deletion.tsv` and `native-replacement.tsv`.
 - **The reference designs cover the reference tool's `replace` path only.**
   Its insert and delete paths take a different shape — they design a whole
   fragment pair rather than a local pair — which is an observation about the
@@ -131,11 +134,15 @@ already validated.
   `AAT → TAA` and `TTA`). This case declares the DNA edit `AAT → AAC` at 9–12. At
   30 bases it is too short for any reference design, so the case is
   contract-only.
-- No case here asserts a Tm value for `luria`. The Tm values in
-  `designs.json` are labelled with the reference function that produced them;
-  the project's own Tm function is not yet defined (§11, §13.3).
-- No `Ta` rule is asserted. The reference tool prints one and nothing in this
-  workspace defines it (§13.1 item 8, §15 question 7).
+- `cases.tsv` and `designs.json` assert no Tm value for `luria`; the Tm
+  values in `designs.json` are labelled with the reference function that
+  produced them. luria's own Tm (`tm.rs`, D030) and annealing temperature are
+  asserted by the `native*.tsv` files (`forward_tm`, `reverse_tm`,
+  `annealing_temp`), not by these cases.
+- Test coverage of `cases.tsv` is partial: `q5_primer_fixtures.rs` reads
+  `case_id`, `sequence_file`, `sequence_digest_16` and `reference_design`
+  only, so the other columns, and the contract-only rows, are not checked by
+  any test (`docs/tasks/review-post-m4.md` C4).
 
 ## Provenance of the reference designs
 

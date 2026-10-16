@@ -52,11 +52,13 @@ the printed one. The printed values are rounded to 0.1, which propagates to
 about ±0.13 kcal/mol in ΔG°37, so that is the tolerance.
 
 **Result: all 48 single-mismatch motifs verified**, worst deviation 0.063
-kcal/mol, well inside the rounding tolerance. The Watson–Crick table verifies
-the same way against the review's own ΔG°37 column, worst deviation 0.015
-kcal/mol. The verification script is `.tmp/tm/verify_imm.py`; it is a working
-script, not part of the fixture, and the `dG37_published` column in
-`nn-mismatch.tsv` carries the verifier so the check can be rerun.
+kcal/mol, well inside the rounding tolerance. The Watson–Crick table was
+verified the same way against the review's own ΔG°37 column, worst deviation
+0.015 kcal/mol. The verification script is `.tmp/tm/verify_imm.py`, a working
+script that is **not tracked** in the repository. The `dG37_published` column
+in `nn-mismatch.tsv` lets `tm_tables.rs` rerun the mismatch check, but
+`nn-matched.tsv` has no ΔG°37 column, so the Watson–Crick check cannot be
+rerun from tracked files (`docs/tasks/review-post-m4.md` C2).
 
 ## Which Watson–Crick set, and why
 
@@ -114,7 +116,9 @@ Two conventions had to be settled to get there, and both are recorded in
 
 **Against the reference tool's recorded values.**
 `crates/core/tests/q5_primer_fixtures.rs` compares all twelve primers of the
-six reference designs. On the **matched** basis luria agrees to within
+six reference designs. They are not twelve distinct primers: q5p-01, -04 and
+-07a are the same design, and q5p-02 and -03 share a reverse primer, so about
+five distinct primers are compared. On the **matched** basis luria agrees to within
 **0.25 °C**, the worst case being 0.17 °C. That validates the whole path at
 once: parameters, doublet walk, terminal and symmetry terms, concentration
 term and salt correction.

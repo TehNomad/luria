@@ -1,11 +1,22 @@
 # Q5 site-directed mutagenesis: the workflow contract
 
 Status: Contract for the implemented slice; open decisions are marked
-Date: 2026-10-11
+Date: 2026-10-11; current-state note added 2026-10-16
 Implements: `docs/decisions.md` D005, D006, D007, D011, D013, D014, D016,
 D020, D021; the Q5 workflow boundary in `docs/product-brief.md`; the
 mutation-domain contract in `docs/tasks/milestone-2-mutation.md`.
 Code: `crates/core/src/q5.rs`.
+
+**Current state (2026-10-16).** This document was written before primer
+design existed and is kept as the workflow contract. Since then: D029–D033
+define primer design (`primer_design.rs`, `primer.rs`), `tm.rs` implements
+the Tm rules (D030), `q5_design.rs` wires the workflow to them (§12), and
+Milestone 4 added deletions, insertions, unequal replacements and degenerate
+expansion (D031–D033) to the intents `q5.rs` carries, with frameshift
+warnings. Read statements below that "no design rule is written" or that
+indels are out of scope as superseded. `q5.rs` itself still designs no
+primer. Where this document and `docs/decisions.md` disagree, the decisions
+win.
 
 This document is the specification of the part of the Q5 workflow that
 exists. It does not describe primer design: the workflow boundary in the
@@ -335,7 +346,7 @@ and by `DomainError` variant and `category()` (error.rs).
 ## 7. Workflow states and their invariants
 
 `Q5WorkflowState` is the workflow-level subset of D020's lifecycle reachable
-today: `NeedsClarification`, `Validated`. `proposed` is Milestone 5;
+today: `NeedsClarification`, `Validated`. `proposed` is Milestone 6;
 `calculated` and `verified` are M2's `MutationState`; `failed` is carried by
 a `DomainError`. **impl.**
 
@@ -398,7 +409,15 @@ trust boundary rather than re-implemented:
 
 * sequence identity: the result's source matches the artifact handed to it,
   by name, digest, and topology;
-* length preservation, the substitution invariant;
+* length, by kind: a substitution preserves it; a deletion of `w` bases
+  shortens the artifact by exactly `w`; an insertion of `k` bases lengthens it
+  by exactly `k`; a replacement of `w` bases by `m` leaves exactly
+  `n − w + m`;
+* deletion, insertion and replacement results: the edited artifact is rebuilt
+  from the source and the record's own fields (region, point, inserted or
+  replacement text) and must equal the recorded edited artifact; the source
+  must hold the recorded expected and actual bases (the deleted or replaced
+  text, or the bases on each side of an insertion point);
 * nucleotide results: the set of positions where source and edited differ is
   **exactly** the recorded target coordinates; the source holds the recorded
   expected nucleotide there and the edited artifact holds the recorded
@@ -428,6 +447,15 @@ changed to make the inertness obvious. The consequence is that a nucleotide
 result carries no CDS claim for verification to check against, which is what
 §4's open containment decision is about: alternative 2 would constrain the edit
 at the operation, not give `verify` a nucleotide CDS claim to check.
+
+A second limitation, recorded 2026-10-16 and open: `verify` re-translates
+only residue results. A DNA-level substitution, deletion, insertion or
+replacement inside a CDS is verified as a DNA edit, and its effect on the
+translation is not checked. A scoped substitution that writes a premature
+stop (`TGG` → `TAG`) comes back `Verified` with no warning. D013 asks for
+"the resulting translation where applicable"; whether this applies to
+DNA-level edits is an owner decision
+(`docs/tasks/review-post-m4.md` A5).
 
 Verification does not re-derive the residue-to-coordinate mapping: that is
 the generator's responsibility, checked by the residue and codon claims
@@ -567,9 +595,10 @@ one answer:
    nor distinct results are claimed as product policy. Authority needed: a
    product decision on whether a set's result identifiers must be distinct.
 
-Out of scope, and blocked by unwritten rules (D014 requires each to name a
-source): candidate generation, primer orientation, thermodynamic
-calculation method, sequence constraints, rejection criteria, warnings.
+Out of scope when this section was written, and now specified elsewhere:
+candidate generation, primer orientation, thermodynamic calculation method,
+sequence constraints and rejection criteria (D029–D033,
+`docs/q5-primer-design.md`), and edit warnings (frameshift, D031–D033).
 Comparison with external tools (NEBaseChanger fixtures under
 `tests/fixtures/nebasechanger-research/`) is development validation, not
 proof of experimental success (D014), and no comparison is claimed here.
@@ -578,11 +607,11 @@ Also out of scope: combined-construct composition (§11 keeps it
 representable and refuses it for exactly this reason — the overlap rules
 composing mutations into one construct needs are unwritten, and D014
 requires every design rule to name a source). Separate-variant composition
-is no longer out of scope: §11 implements it. Also out of scope: insertions
-and deletions,
-RNA alphabets, compound features, incomplete CDSs, non-standard genetic
-codes, non-`FromCdsStart` numbering, natural language (Milestone 5), CLI
-(Milestone 4), persistence.
+is no longer out of scope: §11 implements it. Insertions, deletions and
+unequal replacements are no longer out of scope either (D031–D033). Still out
+of scope: RNA alphabets, compound features, incomplete CDSs, non-standard genetic
+codes, non-`FromCdsStart` numbering, natural language (Milestone 6), CLI
+(Milestone 5), persistence (D034 sets the milestone order).
 
 ## 11. Separate-variant composition (Milestone 3a)
 

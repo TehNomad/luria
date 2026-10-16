@@ -931,8 +931,8 @@ number has no stated source.
 
 Related owner decision, 2026-10-15: a deletion inside a CDS whose width is not
 a multiple of 3 shifts the reading frame. luria **warns and still applies it**,
-because a frameshift is sometimes the intent, as in a knockout. Not yet
-implemented.
+because a frameshift is sometimes the intent, as in a knockout. Implemented
+2026-10-15 as `Q5EditWarning::Frameshift` (`crates/core/src/q5.rs`).
 
 Reversibility:
 
@@ -1091,3 +1091,56 @@ Addenda, 2026-10-15:
   expansion with no member left after skipping is refused as the no-op it is.
   The 64-design threshold counts the members actually emitted, after
   skipping (planner reading of "past 64 designs").
+
+## D034: Milestone order after Milestone 4
+
+Status: approved by the owner, 2026-10-16. Replaces the milestone list in
+`docs/product-brief.md` from Milestone 4 on.
+
+Decision:
+
+* **Milestone 4** is insertions, deletions, unequal replacements and
+  degenerate expansion (D031–D033), as implemented under
+  `docs/tasks/milestone-4-*.md`.
+* **Milestone 5** is the machine-readable and CLI workflow: a minimal CLI and
+  structured output, so complete scientific workflows can be exercised
+  without a TUI, web frontend, or LLM.
+* **Milestone 6** is natural-language interpretation: an LLM adapter that
+  turns user requests into typed operations and clarification requests.
+* **Milestone 7** is the review-oriented user interface (TUI).
+* **Milestone 8** is the web interface.
+
+Reason:
+
+Milestone 4 became indel support during implementation, and no scope decision
+recorded the change. This records it. The CLI comes before natural language,
+as the original order had it, so the LLM adapter targets a typed,
+machine-readable surface that already exists.
+
+Reversibility:
+
+Reordering again needs an explicit scope decision.
+
+## D035: Primer design treats every template as linear
+
+Status: approved by the owner, 2026-10-16. Amends `docs/q5-primer-design.md`
+§18.2.
+
+Decision:
+
+`luriaNative` primer design applies the linear availability bounds to every
+template, whatever its topology. A circular template is designed as though it
+were linear, so no primer crosses the origin, and an edit too close to the
+origin is reported with the ordinary availability obstacles. The mutation
+layer's circular semantics (D009) are unchanged.
+
+Reason:
+
+The reference tool, NEBaseChanger, designs on linear templates only, and no
+source for origin-spanning primer geometry has been reviewed. The earlier
+§18.2 sentence, "A circular template has no availability bound, only a length
+bound", was never implemented.
+
+Reversibility:
+
+Supporting origin-spanning primers needs a sourced geometry and approval.

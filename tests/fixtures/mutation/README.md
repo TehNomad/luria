@@ -97,7 +97,7 @@ with codon index `16 * place(first) + 4 * place(second) + place(third)`,
 
 | Case | CDS text (codons) | Residues |
 | --- | --- | --- |
-| `mut-a` over `[0,30)+` | `ATG GCT TGG AAT CAG CAG CAG CAG CAG CAG CAG` | `M A W N Q Q Q Q Q Q` |
+| `mut-a` over `[0,30)+` | `ATG GCT TGG AAT CAG CAG CAG CAG CAG CAG` | `M A W N Q Q Q Q Q Q` |
 | `mut-a` over `[0,30)-` | `CTG CTG CTG CTG CTG CTG ATT CCA AGC CAT` | `L L L L L L I P S H` |
 | `mut-c` over `[22,24)+[0,7)+` | `TGG CTT GGA` | `W L G` |
 | `mut-d` over `[0,18)+` | `ATG GCT TGG AAT TTT TAA` | `M A W N F`, final `TAA` is a stop, not a residue |
@@ -122,7 +122,9 @@ The previous rule, first codon in standard table order, gave `TTA` for `L`.
 
 These expectations were checked with a Python script that parses the Kazusa
 page and uses a codon table written out per amino acid, sharing no code with
-`crates/core`; it agreed with every success case.
+`crates/core`; it agreed with every success case. That script is not tracked
+in the repository, so this check cannot currently be rerun from tracked files
+(`docs/tasks/review-post-m4.md` A7).
 
 ### Edits
 
@@ -190,8 +192,10 @@ re-writes the letter already there is refused earlier, at intent construction.
 
 ## Scope and known limitations
 
-- Substitutions only. Insertions, deletions, and length-changing edits are not
-  modelled, so every success case preserves length.
+- Substitutions only. Every success case here preserves length. Insertions,
+  deletions and replacements are implemented (D031–D033) but are tested by
+  unit tests in `crates/core/src/mutation.rs` and by the `native-*.tsv`
+  design fixtures in `q5-primer/`, not by this set.
 - One intent per case. Composing mutations is a workflow concern, not a
   mutation-domain concern.
 - `verify` is computational only: no case here claims experimental success

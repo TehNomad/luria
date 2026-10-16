@@ -24,6 +24,23 @@ not.
 These block or shape the fixes below. None should be chosen by the planner or
 the worker.
 
+**Owner answers, 2026-10-16:**
+
+- **A1:** the CLI and machine-readable output become Milestone 5, and natural
+  language becomes Milestone 6. Recorded as D034, and `product-brief.md` is
+  updated.
+- **A2:** NEBaseChanger designs on linear templates only, so circular
+  templates are ignored for now. Recorded as D035; §18.2 is amended to say
+  every template is designed as linear. No code change.
+- **A3:** the existing warning past 64 designs (three fully ambiguous
+  positions) stays, and there is no cap. The overflow is still a bug: the
+  members are built before they are counted, so 32×`N` overflows before the
+  warning can fire. It moves to §B as **B15**: count with checked arithmetic
+  and return a structured error only when the count can't be represented. No
+  policy change.
+- **A4–A7:** deferred until the other items are done.
+- **A8:** granted for this pass. The doc fixes in §D are done (see §D).
+
 | # | Question | Context |
 | --- | --- | --- |
 | A1 | **What is the next milestone, and should the reordering be recorded?** | `product-brief.md` defines Milestone 4 as "Machine-readable and CLI workflow" and Milestone 5 as natural language. It says milestones are reordered "only through an explicit scope decision". The repo's Milestone 4 became indels, and no reorder decision is recorded. No CLI or binary exists. `README.md` "Status" still describes Milestone 1. |
@@ -77,6 +94,11 @@ the worker.
 - **Where:** `tm.rs:510-520`.
 - **What's wrong:** `melting_temperature_or_matched` falls back to matched for any `TmParametersUnavailable` (length, alphabet), not only for adjacent mismatches. The design paths are guarded today.
 - **Fix:** match on the `aspect`.
+
+- **B15. Degenerate expansion overflows before it warns** (confirmed; see A3).
+  - **Where:** `sequence.rs:251` (`stride *= len`, unchecked), reached from `q5_expand.rs:169`.
+  - **Effect:** 32×`N` panics in debug builds. In release the count wraps to 0, and `expand_replacement` misreports the request as a no-op.
+  - **Fix:** `checked_mul` while computing the count, and a structured error on overflow. The count limit is representability (`usize`), not a policy cap.
 
 ### Low
 
@@ -147,7 +169,10 @@ Reproduction check (reviewer c):
   - `:291-376` (`edit_span`, the flanks, `forward_tm`, `forward_whole_tm`, `tm_balance_met`) and `:1111-1236` (`Sizer`, `size_pair`) don't cover replacement or the tail path.
 - **General:** module docs narrate milestone history ("Milestone 4e-2's …") instead of current behavior. That's why they go stale. The `q5.rs` module doc alone is 95 lines. A trimming pass is worth one contract.
 
-**In docs** (needs A8):
+**In docs:** done 2026-10-16 under A8, except the `note` column of
+`q5-primer/cases.tsv` (q5p-08 still gives `TAA`/`TTA`). That column is part
+of a fixture file, so it was left alone and flagged in the README instead.
+The items as found:
 - **`decisions.md:934`:** D031's frameshift warning says "Not yet implemented"; it is implemented.
 - **`q5-sdm.md:401`, `:572`:** describe length-preservation only, and list indels and warnings as out of scope.
 - **`q5-primer-design.md` §7 H2:** not amended for D033's tail path, where neither primer covers the region.
@@ -191,10 +216,12 @@ Not findings: explicit type annotations, `while` loops and clone-returning gette
 
 ## Suggested Phase 2 order
 
-1. Owner answers A1–A8 (A1 decides what follows the review).
-2. **B1** (validator), then **B2 + B3** (panics), then **B5, B6** as single-function contracts, each with a failing test written first.
-3. **C1, C2, A7**: make verification reproducible from tracked files.
+1. ~~Owner answers A1–A8.~~ Done 2026-10-16, see §A. A4–A7 deferred.
+2. **B1** (validator), then **B2 + B3** (panics), then **B15, B4, B5, B6** as single-function contracts, each with a failing test written first.
+3. **C1, C2**: make verification reproducible from tracked files (partly
+   blocked by A7, which is deferred).
 4. **C4, C5**: read the remaining `cases.tsv` columns, and add minus-strand cases with independently verified expectations.
-5. **D**: one doc-trimming contract for code comments; the planner fixes docs once A8 is granted.
+5. **D**: one doc-trimming contract for code comments (`crates/`). The
+   non-code docs are done.
 6. **E1–E3** refactors, once the tests above are in place.
 7. Low items as time allows, or folded into the contracts above.
