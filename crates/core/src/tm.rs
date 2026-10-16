@@ -499,9 +499,18 @@ pub fn melting_temperature(
 /// The mismatch-aware Tm, falling back to the matched duplex where no
 /// published parameters cover the mismatch pattern.
 ///
-/// This is the hybrid the owner chose on 2026-10-14. The fallback is recorded
-/// on the value, so a caller can always tell which duplex a number describes;
-/// the two are never averaged or reported under one name.
+/// This is the hybrid the owner chose on 2026-10-14. The fallback is for a
+/// mismatch pattern the published parameters do not cover, which is what
+/// D030's "where published parameters cover the mismatch pattern" allows: a
+/// `TmParametersUnavailable` whose `aspect` is `"tandem mismatch"` (two
+/// adjacent positions are both mismatched) or `"motif"` (a doublet has no
+/// entry in the parameter table). Every other error is returned unchanged,
+/// including `TmParametersUnavailable` whose `aspect` is `"length"` or
+/// `"alphabet"`: a primer and a site of different lengths, or a base outside
+/// A/C/G/T, is not a mismatch pattern, so there is no basis to substitute.
+/// The fallback is recorded on the value, so a caller can always tell which
+/// duplex a number describes; the two are never averaged or reported under
+/// one name.
 pub fn melting_temperature_or_matched(
     primer: &[char],
     site: &[char],
@@ -509,7 +518,9 @@ pub fn melting_temperature_or_matched(
 ) -> Result<MeltingTemperature, DomainError> {
     match melting_temperature(primer, site, buffer) {
         Ok(value) => Ok(value),
-        Err(DomainError::TmParametersUnavailable(problem)) => {
+        Err(DomainError::TmParametersUnavailable(problem))
+            if problem.aspect == "tandem mismatch" || problem.aspect == "motif" =>
+        {
             let mut fallback: MeltingTemperature = melting_temperature(primer, primer, buffer)?;
             fallback.substituted_because = Some(format!(
                 "the mismatch-aware basis is unavailable ({}): {}",
@@ -740,6 +751,42 @@ mod tests {
                     .unwrap()
                     .celsius()
         );
+    }
+
+    // D030's fallback is for a mismatch pattern the published parameters do not
+    // cover. A length mismatch is not a mismatch pattern, so the hybrid must
+    // return the error rather than substitute the matched basis.
+    #[test]
+    fn the_hybrid_does_not_fall_back_on_a_length_mismatch() {
+        let primer: Vec<char> = letters("ATGCATGCATGCATGCAT"); // 18 bases
+        let site: Vec<char> = letters("ATGCATGCATGCATGCA"); // 17
+        let error: DomainError =
+            melting_temperature_or_matched(&primer, &site, &BufferModel::q5_reaction())
+                .unwrap_err();
+        match error {
+            DomainError::TmParametersUnavailable(problem) => {
+                assert!(problem.aspect == "length", "{}", problem.aspect);
+            }
+            other => panic!("expected TmParametersUnavailable, got {:?}", other),
+        }
+    }
+
+    // A non-ACGT base in the template site is not a mismatch pattern either:
+    // the ambiguity code's error is returned unchanged.
+    #[test]
+    fn the_hybrid_does_not_fall_back_on_an_ambiguous_site() {
+        let primer: Vec<char> = letters("ATGCATGCATGCATGCAT");
+        let mut site: Vec<char> = letters("ATGCATGCATGCATGCAT");
+        site[9] = 'N';
+        let error: DomainError =
+            melting_temperature_or_matched(&primer, &site, &BufferModel::q5_reaction())
+                .unwrap_err();
+        match error {
+            DomainError::TmParametersUnavailable(problem) => {
+                assert!(problem.aspect == "alphabet", "{}", problem.aspect);
+            }
+            other => panic!("expected TmParametersUnavailable, got {:?}", other),
+        }
     }
 
     #[test]
