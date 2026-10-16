@@ -661,13 +661,16 @@ pub struct NucleotideReplacement {
     state: MutationState,
 }
 
-/// The record of a residue substitution: the residue assertion, the DNA edit
-/// that satisfied it, and where that edit landed on the reference.
+/// The record of a residue substitution: the residue assertion, the CDS
+/// annotation it was applied to, the DNA edit that satisfied it, and where
+/// that edit landed on the reference. `verify` is handed that annotation, not
+/// another CDS that happens to share its name.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ResidueMutation {
     source: SequenceReference,
     edited: Sequence,
     cds: Identifier,
+    annotation: Cds,
     position: ResiduePosition,
     expected_original: Residue,
     actual_original: Residue,
@@ -889,6 +892,10 @@ impl NucleotideReplacement {
 impl ResidueMutation {
     pub fn cds(&self) -> Identifier {
         self.cds.clone()
+    }
+
+    pub fn annotation(&self) -> Cds {
+        self.annotation.clone()
     }
 
     pub fn position(&self) -> ResiduePosition {
@@ -1116,6 +1123,7 @@ pub fn apply_residue(
         source: sequence.reference(),
         edited: edited.clone(),
         cds: cds.id().clone(),
+        annotation: cds.clone(),
         position: intent.position().clone(),
         expected_original: intent.expected_original().clone(),
         actual_original: actual.clone(),
@@ -1482,9 +1490,11 @@ pub fn default_codon(residue: Residue) -> Result<Codon, DomainError> {
 /// nucleotide result and as a non-empty subset for a residue result, because
 /// a replacement triplet may share letters with the triplet it replaces.
 /// The result's own claims are then read back out of the two artifacts: the
-/// nucleotide at a nucleotide target, and for a residue result the CDS the
-/// result names, the residue sequences re-translated through Milestone 1's
-/// extraction and translation, and the codon read at the requested residue.
+/// nucleotide at a nucleotide target, and for a residue result the annotation
+/// the result records, which is the annotation `verify` has to be handed, the
+/// residue sequences re-translated through Milestone 1's extraction and
+/// translation, the residue and the codon read from the source, and the codon
+/// read at the requested residue of the edited artifact.
 /// Verification therefore accepts a residue result whose recorded codon
 /// coordinates are a superset of the letters that actually changed, and it
 /// does not re-derive the residue-to-coordinate mapping: that mapping is the
@@ -1884,6 +1894,19 @@ fn verify_residue_claims(
         return Err(DomainError::MutationVerificationFailure(problem));
     }
 
+    // The result records the whole annotation it was applied to, so a
+    // different CDS that shares that name is refused too: its intervals, its
+    // strand and its genetic code are what the residue and codon claims are
+    // read over.
+    if annotation != record.annotation() {
+        let problem = MutationVerificationFailureProblem {
+            result: record.edited.reference().describe(),
+            reason: "the CDS verified against is not the annotation the result was applied to"
+                .to_string(),
+        };
+        return Err(DomainError::MutationVerificationFailure(problem));
+    }
+
     require_sequence(annotation.reference().clone(), source)?;
 
     let before: Translation = translate(source, &annotation.clone())?;
@@ -1911,6 +1934,26 @@ fn verify_residue_claims(
         };
         return Err(DomainError::MutationVerificationFailure(problem));
     }
+    if before_residues[offset] != record.actual_original() {
+        let problem = MutationVerificationFailureProblem {
+            result: record.edited.reference().describe(),
+            reason: "the source does not hold the recorded actual original residue".to_string(),
+        };
+        return Err(DomainError::MutationVerificationFailure(problem));
+    }
+
+    let label: String = annotation.id().value().to_string();
+    let source_cds_text: String = extract_cds(source, &annotation.clone())?;
+    let source_codon: String = codon_slice(source_cds_text.clone(), number, label.clone())?;
+    if source_codon != record.original_codon() {
+        let problem = MutationVerificationFailureProblem {
+            result: record.edited.reference().describe(),
+            reason: "the codon read from the source CDS is not the recorded original codon"
+                .to_string(),
+        };
+        return Err(DomainError::MutationVerificationFailure(problem));
+    }
+
     if after_residues[offset] != record.replacement() {
         let problem = MutationVerificationFailureProblem {
             result: record.edited.reference().describe(),
@@ -1932,7 +1975,6 @@ fn verify_residue_claims(
     }
 
     let edited_cds_text: String = extract_cds(&edited.clone(), &rebuilt.clone())?;
-    let label: String = annotation.id().value().to_string();
     let codon: String = codon_slice(edited_cds_text.clone(), number, label)?;
     if codon != record.selected_codon().text() {
         let problem = MutationVerificationFailureProblem {
@@ -2516,6 +2558,147 @@ mod tests {
         // Without the CDS the residue claims cannot be checked at all.
         let error: DomainError = verify(&seq_a().clone(), None, calculated.clone()).unwrap_err();
         assert!(matches!(error, DomainError::MutationVerificationFailure(_)));
+    }
+
+    fn residue_record(result: MutationResult) -> ResidueMutation {
+        match result.clone() {
+            MutationResult::Residue(record) => record,
+            MutationResult::Nucleotide(_record) => {
+                panic!("a residue request produced a nucleotide result")
+            }
+            MutationResult::Deletion(_record) => {
+                panic!("a residue request produced a deletion result")
+            }
+            MutationResult::Insertion(_record) => {
+                panic!("a residue request produced an insertion result")
+            }
+            MutationResult::Replacement(_record) => {
+                panic!("a residue request produced a replacement result")
+            }
+        }
+    }
+
+    fn tampered_original_codon(result: MutationResult, codon: String) -> MutationResult {
+        let mut copy: ResidueMutation = residue_record(result.clone());
+        copy.original_codon = codon.clone();
+        MutationResult::Residue(copy)
+    }
+
+    fn tampered_actual_original(result: MutationResult, residue: Residue) -> MutationResult {
+        let mut copy: ResidueMutation = residue_record(result.clone());
+        copy.actual_original = residue.clone();
+        MutationResult::Residue(copy)
+    }
+
+    #[test]
+    fn a_residue_result_is_not_verified_against_a_same_named_annotation_with_other_coordinates() {
+        // `cds_of(18)` selects ATG GCT TGG AAT, which translates to M A W N,
+        // and `cds_of(21)` selects the same codons plus CAG, which translates
+        // to M A W N Q: one identifier, two annotations, both translatable
+        // over `seq-a`. The result was applied to the 18-base annotation, so
+        // the 21-base one is not the annotation its claims are about.
+        let intent: ResidueMutationIntent = ResidueMutationIntent::create(
+            residue(2),
+            "A".to_string(),
+            "W".to_string(),
+            CodonSelectionPolicy::Default,
+        )
+        .unwrap();
+        let calculated: MutationResult =
+            apply_residue(&seq_a().clone(), cds_of(18), result_name(), intent).unwrap();
+
+        let error: DomainError =
+            verify(&seq_a().clone(), Some(cds_of(21)), calculated.clone()).unwrap_err();
+        assert!(matches!(error, DomainError::MutationVerificationFailure(_)));
+        match error {
+            DomainError::MutationVerificationFailure(problem) => {
+                assert!(
+                    problem.reason.contains("not the annotation"),
+                    "{}",
+                    problem.reason
+                );
+            }
+            other => panic!("expected MutationVerificationFailure, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn a_residue_result_with_a_tampered_original_codon_is_refused() {
+        // The source holds GCT at residue 2; a record claiming another codon
+        // there does not describe the artifact it was computed from.
+        let intent: ResidueMutationIntent = ResidueMutationIntent::create(
+            residue(2),
+            "A".to_string(),
+            "W".to_string(),
+            CodonSelectionPolicy::Default,
+        )
+        .unwrap();
+        let calculated: MutationResult =
+            apply_residue(&seq_a().clone(), cds_of(30), result_name(), intent).unwrap();
+
+        let tampered: MutationResult =
+            tampered_original_codon(calculated.clone(), "GCA".to_string());
+        let error: DomainError =
+            verify(&seq_a().clone(), Some(cds_of(30)), tampered.clone()).unwrap_err();
+        assert!(matches!(error, DomainError::MutationVerificationFailure(_)));
+        match error {
+            DomainError::MutationVerificationFailure(problem) => {
+                assert!(
+                    problem.reason.contains("the source CDS"),
+                    "{}",
+                    problem.reason
+                );
+            }
+            other => panic!("expected MutationVerificationFailure, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn a_residue_result_with_a_tampered_actual_original_is_refused() {
+        // The source holds A at residue 2; a record claiming another residue
+        // there does not describe the artifact it was computed from.
+        let intent: ResidueMutationIntent = ResidueMutationIntent::create(
+            residue(2),
+            "A".to_string(),
+            "W".to_string(),
+            CodonSelectionPolicy::Default,
+        )
+        .unwrap();
+        let calculated: MutationResult =
+            apply_residue(&seq_a().clone(), cds_of(30), result_name(), intent).unwrap();
+
+        let tampered: MutationResult = tampered_actual_original(calculated.clone(), Residue::M);
+        let error: DomainError =
+            verify(&seq_a().clone(), Some(cds_of(30)), tampered.clone()).unwrap_err();
+        assert!(matches!(error, DomainError::MutationVerificationFailure(_)));
+        match error {
+            DomainError::MutationVerificationFailure(problem) => {
+                assert!(
+                    problem.reason.contains("actual original residue"),
+                    "{}",
+                    problem.reason
+                );
+            }
+            other => panic!("expected MutationVerificationFailure, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn a_residue_result_records_the_annotation_it_was_applied_to() {
+        let annotation: Cds = cds_of(30);
+        let intent: ResidueMutationIntent = ResidueMutationIntent::create(
+            residue(2),
+            "A".to_string(),
+            "W".to_string(),
+            CodonSelectionPolicy::Default,
+        )
+        .unwrap();
+        let calculated: MutationResult =
+            apply_residue(&seq_a().clone(), annotation.clone(), result_name(), intent).unwrap();
+
+        let record: ResidueMutation = residue_record(calculated.clone());
+        assert!(record.annotation() == annotation);
+        assert!(record.cds() == annotation.id());
     }
 
     #[test]
