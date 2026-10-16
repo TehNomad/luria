@@ -4,7 +4,7 @@
 | --- | --- |
 | [`core-foundation/`](./core-foundation/) | Synthetic sequences, features, and CDSs: canonical text, content hashing, coordinates, circular features, CDS extraction, translation. Drives the integration tests in `crates/core/tests/core_foundation.rs`. |
 | [`mutation/`](./mutation/) | Synthetic sequences and CDSs under mutation: nucleotide and residue substitution, expected-original checks, codon-selection policy, strand-aware coordinates, provenance, verification. Drives the integration tests in `crates/core/tests/mutation_fixtures.rs`. |
-| [`example-construct/`](./example-construct/) | The real *C. elegans* SID-1 construct and captured NEBaseChanger output. Its sequence is read by the `q5-primer/` cases; no test reads the NEBaseChanger output files yet (see below). |
+| [`example-construct/`](./example-construct/) | The real *C. elegans* SID-1 construct and captured NEBaseChanger output. Its sequence is read by the `q5-primer/` cases; `crates/core/tests/q5_primer_fixtures.rs` now reads the NEBaseChanger output files (see below). |
 | [`q5-primer/`](./q5-primer/) | The primer-design contract in `docs/q5-primer-design.md`: ten contract cases, reproducible reference designs for the substitution cases, and expected `luriaNative` outcomes for substitutions, deletions, insertions and replacements (`native*.tsv`). Drives `crates/core/tests/q5_primer_fixtures.rs`. |
 | [`tm/`](./tm/) | Published nearest-neighbour parameters for the Tm calculation (D030). Drives `crates/core/tests/tm_tables.rs`; `tm_crosscheck.rs` holds reference Tm values. |
 | [`primer-quality/`](./primer-quality/) | Sourced thresholds for the non-blocking primer-quality warnings. Drives `crates/core/tests/primer_quality_thresholds.rs`. |
@@ -58,8 +58,9 @@ Conversion: 1-indexed inclusive `[1210, 1212]` → zero-based half-open
 Do not read the description's `1209-1213` as the bounds of the edit: that
 would give `[1208, 1213)`, one base too wide on each side. The planned
 importer test (`tests/test_nebasechanger.py`, not yet runnable) asserts the
-parsed interval is `[1209, 1212)` and not `[1208, 1213)`. No Rust test reads
-these NEBaseChanger files today.
+parsed interval is `[1209, 1212)` and not `[1208, 1213)`. `q5_primer_fixtures.rs`
+checks the same `[1209, 1212)` reading against the final FASTA header, in
+`luria_reproduces_the_nebasechanger_final_construct`.
 
 For reference, neither number is a primer span: the forward primer targets
 1-based 1200–1222 and the reverse primer targets 1-based 1177–1199 (its
