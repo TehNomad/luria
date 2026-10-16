@@ -932,8 +932,8 @@ flanks are fixed by `a_f`. Primer lengths are `a_f + L` and `a_r`.
 H1–H8 of §7, evaluated on the output, plus:
 
 - **availability:** `s − u − w ≥ 0` and `s + L + v ≤ template.length` (linear,
-  D005/D019). Every template is designed as linear (D035): a circular
-  template gets the same bounds, so no primer crosses its origin.
+  D005/D019). Primer design is for linear templates only (D035): a circular
+  template is refused with `UnsupportedPrimerDesignScope`.
 - **alphabet:** H6, the project alphabet, no degenerate symbol in a primer.
   An ambiguity code in the **template** under the centered pair is reported as
   *no centered design fits* (§18.5 outcome 2, obstacle `AmbiguousTemplateBase`):

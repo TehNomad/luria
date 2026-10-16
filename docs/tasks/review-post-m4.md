@@ -30,8 +30,11 @@ the worker.
   language becomes Milestone 6. Recorded as D034, and `product-brief.md` is
   updated.
 - **A2:** NEBaseChanger designs on linear templates only, so circular
-  templates are ignored for now. Recorded as D035; §18.2 is amended to say
-  every template is designed as linear. No code change.
+  templates are ignored for now. Recorded as D035. No code change was needed.
+  The finding itself was wrong: `primer_design.rs` does read topology and
+  refuses a circular template (`UnsupportedPrimerDesignScope`). D035 first
+  said circular templates were designed as linear; it was corrected
+  2026-10-16, found during D3.
 - **A3:** the existing warning past 64 designs (three fully ambiguous
   positions) stays, and there is no cap. The overflow is still a bug: the
   members are built before they are counted, so 32×`N` overflows before the

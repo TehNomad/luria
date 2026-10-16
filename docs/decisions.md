@@ -1121,25 +1121,27 @@ Reversibility:
 
 Reordering again needs an explicit scope decision.
 
-## D035: Primer design treats every template as linear
+## D035: Primer design is for linear templates only
 
 Status: approved by the owner, 2026-10-16. Amends `docs/q5-primer-design.md`
-§18.2.
+§18.2. Corrected the same day: the first version said a circular template is
+designed as though it were linear, which is not what the code does.
 
 Decision:
 
-`luriaNative` primer design applies the linear availability bounds to every
-template, whatever its topology. A circular template is designed as though it
-were linear, so no primer crosses the origin, and an edit too close to the
-origin is reported with the ordinary availability obstacles. The mutation
-layer's circular semantics (D009) are unchanged.
+`luriaNative` primer design refuses a circular template. `design_primers`
+returns `UnsupportedPrimerDesignScope` for it before any geometry is computed,
+for every edit kind. The mutation layer's circular semantics (D009) are
+unchanged: circular sequences can still be edited and verified.
 
 Reason:
 
 The reference tool, NEBaseChanger, designs on linear templates only, and no
 source for origin-spanning primer geometry has been reviewed. The earlier
 §18.2 sentence, "A circular template has no availability bound, only a length
-bound", was never implemented.
+bound", was never implemented. The code already refused circular templates
+(`a_circular_template_is_out_of_scope` and its deletion and insertion
+counterparts in `primer_design.rs`); this decision records that as policy.
 
 Reversibility:
 
