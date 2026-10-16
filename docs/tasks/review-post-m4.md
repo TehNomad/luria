@@ -124,6 +124,23 @@ B5 (`a20b9ba`), B6. Still open: B7–B14, B16.
 
 ## C. Tests and fixtures
 
+**Status 2026-10-16:**
+
+- **Done** (contracts in `docs/tasks/review-c*.md`):
+  - C2 (`956ed0b`);
+  - C4, C6 and C9 (`977935b`);
+  - C5 and C13 (`6a6fe08`);
+  - C7 and C10 (`bb95baf`): all three C7 variants turned out unreachable and
+    are now documented as defensive checks;
+  - C12 (`d76bc78`).
+- **Blocked by A7** (deferred): C1 and C3, which need tracked verification
+  scripts and a Python environment. C11 is grouped with them: a codon-usage
+  fixture needs a source capture of the Kazusa page and a tracked parse.
+- **Proposed for Milestone 5:** C8, structured sub-kinds for
+  `InvalidMutationRequest` and `InvalidPrimerCandidate`. The CLI's
+  machine-readable errors need stable codes anyway, so that is where this
+  change belongs.
+
 ### High
 
 - **C1. Unit-test expectations credited to a script that cannot produce them.** `primer_design.rs:1377-1381` says its expectations came from `native-design.py`, but that script's `--synthetic` mode doesn't cover the `TEMPLATE` at `:1386`. The real drivers are untracked (`.tmp/review/native_design.py`, `.tmp/tm/rederive.py`). The same applies to the "run by the planner" values at `:1997` and `:2035`. Spot checks reproduce, but the provenance isn't reproducible from tracked files. This is the AGENTS.md fixture rule.
