@@ -250,6 +250,12 @@ fn variant_name(error: &DomainError) -> String {
         DomainError::PrimerPairCoverage(_) => "PrimerPairCoverage",
         DomainError::PrimerOrientationConflict(_) => "PrimerOrientationConflict",
         DomainError::UnsupportedPrimerPlacement(_) => "UnsupportedPrimerPlacement",
+        DomainError::InvalidPrimerDesignRequest(_) => "InvalidPrimerDesignRequest",
+        DomainError::UnsupportedPrimerDesignScope(_) => "UnsupportedPrimerDesignScope",
+        DomainError::NoPrimerDesignPossible(_) => "NoPrimerDesignPossible",
+        DomainError::NoPrimerDesignFits(_) => "NoPrimerDesignFits",
+        DomainError::InvalidBufferModel(_) => "InvalidBufferModel",
+        DomainError::TmParametersUnavailable(_) => "TmParametersUnavailable",
     }
     .to_string()
 }
