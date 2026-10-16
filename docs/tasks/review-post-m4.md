@@ -61,7 +61,8 @@ the worker.
 
 **Fixed 2026-10-16** (one commit each, contracts in `docs/tasks/review-b*.md`):
 B1 (`efd83d3`), B2 (`c38eec9`), B3 (`82a867f`), B15 (`5c3668f`), B4 (`c6a2b8f`),
-B5 (`a20b9ba`), B6. Still open: B7–B14, B16.
+B5 (`a20b9ba`), B6 (`260e494`), B11 (with E4). Still open: B7–B10, B12–B14,
+B16.
 
 ### High
 
@@ -180,6 +181,14 @@ Reproduction check (reviewer c):
 
 ## D. Documentation drift
 
+**Status 2026-10-16: done.**
+- **Commits:** D1 (`78245d6`, `q5.rs`), D2 (`65facfb`, `mutation.rs`,
+  `q5_design.rs`, `q5_expand.rs`) and D3 (`d9c037b`, `primer.rs`,
+  `primer_design.rs`). Each was comment-only, checked by a guard that
+  compares every non-comment line with `HEAD`.
+- **Found during D3:** D035 misdescribed the code. Circular templates are
+  refused, not designed as linear. Corrected in `6312712`.
+
 **In code** (worker contract, or planner one-liners):
 - **`q5.rs`:**
   - Module docs (`:5-10`, `:50-55`) and `execute` (`:843`) say no primer-design or thermodynamic rules exist; D029–D033 and `tm.rs` define them.
@@ -228,6 +237,23 @@ The items as found:
 ---
 
 ## E. Duplication and refactor candidates (behavior-preserving)
+
+**Status 2026-10-16: done, apart from the parts marked as left below.**
+Every refactor kept the public API unchanged (an API guard checked this),
+and no existing test changed.
+
+| Item | Commit | What was done |
+| --- | --- | --- |
+| E1 | `c0b2ba7` | `design_deletion` is now the edge-pair path with no tails; shared helpers |
+| E2 | `58290a6` | one tail-rebuild check; `primer_design` uses `primer.rs`'s claim readers |
+| E3 | `51618d4` | `interval::holds_*` predicates; `edit_warnings` is one match |
+| E4 | `d888e7a` | the `apply_*` scope check is shared; `verify` is one exhaustive match (also fixes B11) |
+
+Left:
+- `runs` and `replacement_runs` (E2): high risk, little gain.
+- The B14 inline ambiguity range.
+- The deletion-versus-replacement frame test (E3).
+- Abutting intervals (A4).
 
 Do these after B and C. Stronger tests make a refactor safe.
 
