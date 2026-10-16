@@ -928,19 +928,22 @@ impl ResidueMutation {
     }
 }
 
-/// Reject a target coordinate that lies outside the intervals of the feature
-/// or CDS it was scoped to.
-pub fn require_within_feature(
+/// Reject a target position that is not wholly inside one of the intervals of
+/// the feature or CDS it was scoped to.
+///
+/// A position is a half-open span of coordinates, so the whole span has to lie
+/// inside one interval rather than straddle the edge of two of them; for a
+/// single nucleotide that is the same as checking its start.
+fn require_within_feature(
     position: NucleotideInterval,
     feature: String,
     sequence: String,
     intervals: &[NucleotideInterval],
 ) -> Result<(), DomainError> {
-    let start: u64 = position.start();
     let mut index: usize = 0;
     while index < intervals.len() {
         let interval: NucleotideInterval = intervals[index].clone();
-        if start >= interval.start() && start < interval.end() {
+        if position.start() >= interval.start() && position.end() <= interval.end() {
             return Ok(());
         }
         index += 1;
@@ -954,41 +957,11 @@ pub fn require_within_feature(
     Err(DomainError::TargetOutsideFeature(problem))
 }
 
-/// Reject a region that is not wholly inside one of the intervals of the
-/// feature or CDS it was scoped to.
-///
-/// `require_within_feature` checks only the start of a position, which is
-/// enough for a single nucleotide; a deletion spans several coordinates, so
-/// the whole region has to lie inside one interval rather than straddle two
-/// of them.
-fn require_region_within_feature(
-    region: NucleotideInterval,
-    feature: String,
-    sequence: String,
-    intervals: &[NucleotideInterval],
-) -> Result<(), DomainError> {
-    let mut index: usize = 0;
-    while index < intervals.len() {
-        let interval: NucleotideInterval = intervals[index].clone();
-        if region.start() >= interval.start() && region.end() <= interval.end() {
-            return Ok(());
-        }
-        index += 1;
-    }
-    let problem = TargetOutsideFeatureProblem {
-        feature,
-        sequence,
-        start: region.start(),
-        end: region.end(),
-    };
-    Err(DomainError::TargetOutsideFeature(problem))
-}
-
 /// Reject a point that does not sit strictly inside one of the intervals of
 /// the feature or CDS it was scoped to.
 ///
-/// A point selects no nucleotide, so the rule differs from both `require_within_feature`, which
-/// accepts a coordinate inside an interval, and `require_region_within_feature`: an insertion
+/// A point selects no nucleotide, so the rule differs from `require_within_feature`, which
+/// requires every nucleotide a position selects to lie inside one interval: an insertion
 /// asserts and writes the bases on both sides of the point, so both of them have to lie inside
 /// the same interval. A point exactly at a CDS's edge is outside it.
 fn require_point_within_feature(
@@ -1184,7 +1157,7 @@ pub fn apply_deletion(
     if let Some(cds) = scope.clone() {
         require_sequence(cds.reference().clone(), sequence)?;
         let label: String = cds.id().value().to_string();
-        require_region_within_feature(
+        require_within_feature(
             intent.region().clone(),
             label,
             sequence.display_name(),
@@ -1369,7 +1342,7 @@ pub fn apply_replacement(
     if let Some(cds) = scope.clone() {
         require_sequence(cds.reference().clone(), sequence)?;
         let label: String = cds.id().value().to_string();
-        require_region_within_feature(
+        require_within_feature(
             intent.region().clone(),
             label,
             sequence.display_name(),
@@ -2029,7 +2002,7 @@ pub fn rebuild_cds(edited: Sequence, annotation: Cds) -> Result<Cds, DomainError
 
 /// Reference coordinates of the codon at a residue, in the order the codon
 /// is read on the CDS strand.
-pub fn codon_positions(
+fn codon_positions(
     intervals: OrderedIntervals,
     strand: Strand,
     number: u64,
@@ -2039,9 +2012,26 @@ pub fn codon_positions(
     let mut offset: usize = 0;
     let plus: bool = strand.clone().is_plus();
     while offset < 3 {
-        let read: u64 = 3 * (number - 1) + offset as u64;
-        let biological: u64 = if plus { read } else { total_length - 1 - read };
-        let found: Option<u64> = reference_of(intervals.as_slice(), biological);
+        // Residues are numbered from 1, so `number - 1` underflows at residue 0 and
+        // the offset can overflow the coordinate space; a minus strand reads the
+        // codon back from the end of the CDS, so `total_length - 1 - read` underflows
+        // for a residue past that end. A residue whose coordinates do not fit is
+        // refused the same way as one outside the CDS.
+        let read: Option<u64> = number
+            .checked_sub(1)
+            .and_then(|index| index.checked_mul(3))
+            .and_then(|base| base.checked_add(offset as u64));
+        let biological: Option<u64> = if plus {
+            read
+        } else {
+            read.and_then(|read_offset| {
+                total_length
+                    .checked_sub(1)
+                    .and_then(|last| last.checked_sub(read_offset))
+            })
+        };
+        let found: Option<u64> =
+            biological.and_then(|value| reference_of(intervals.as_slice(), value));
         if found.is_none() {
             let problem = InvalidMutationRequestProblem {
                 request: "codon coordinates".to_string(),
@@ -3594,5 +3584,56 @@ mod tests {
             }
             other => panic!("expected MutationVerificationFailure, got {:?}", other),
         }
+    }
+
+    #[test]
+    fn a_residue_number_of_zero_selects_no_codon() {
+        // Residues are numbered from 1, so residue 0 selects no codon: `number - 1`
+        // would underflow.
+        let error: DomainError = codon_positions(whole(30), Strand::Plus, 0, 30).unwrap_err();
+        assert!(matches!(error, DomainError::InvalidMutationRequest(_)));
+    }
+
+    #[test]
+    fn a_minus_strand_codon_past_the_cds_end_selects_no_codon() {
+        // Residue 20 on a minus strand reads offsets 57, 58 and 59, so the
+        // biological offset `30 - 1 - 57` would be negative: a 30-base CDS
+        // holds 10 residues, and residue 20 lies past its end.
+        let error: DomainError = codon_positions(whole(30), Strand::Minus, 20, 30).unwrap_err();
+        assert!(matches!(error, DomainError::InvalidMutationRequest(_)));
+
+        // Residue u64::MAX / 2 starts at offset 3 * (number - 1), which does not
+        // fit in a u64.
+        let overflow: DomainError =
+            codon_positions(whole(30), Strand::Plus, u64::MAX / 2, 30).unwrap_err();
+        assert!(matches!(overflow, DomainError::InvalidMutationRequest(_)));
+    }
+
+    #[test]
+    fn a_multi_base_interval_starting_inside_a_feature_but_ending_outside_is_refused() {
+        let intervals: OrderedIntervals = whole(10);
+        let error: DomainError = require_within_feature(
+            at(8, 12),
+            "cds-1".to_string(),
+            "seq-a".to_string(),
+            intervals.as_slice(),
+        )
+        .unwrap_err();
+        assert!(matches!(error, DomainError::TargetOutsideFeature(_)));
+        match error {
+            DomainError::TargetOutsideFeature(problem) => {
+                assert!(problem.start == 8);
+                assert!(problem.end == 12);
+            }
+            other => panic!("expected TargetOutsideFeature, got {:?}", other),
+        }
+        // The same start, ending on the interval's edge, lies wholly inside it.
+        assert!(require_within_feature(
+            at(8, 10),
+            "cds-1".to_string(),
+            "seq-a".to_string(),
+            intervals.as_slice(),
+        )
+        .is_ok());
     }
 }

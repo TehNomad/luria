@@ -372,7 +372,7 @@ impl Sequence {
                 CoordinateOutOfBoundsProblem {
                     sequence: self.name.value().to_string(),
                     start: position,
-                    end: position + 1,
+                    end: position.saturating_add(1),
                     length: self.length,
                 },
             ));
@@ -791,5 +791,28 @@ mod tests {
                     characters: "F".to_string(),
                 })
         );
+    }
+
+    #[test]
+    fn letter_at_the_largest_position_is_out_of_bounds() {
+        let identifier = crate::identity::Identifier::create("seq-a".to_string()).unwrap();
+        let sequence = normalize(
+            identifier,
+            "ATGGCTTGGAATCAGCAGCAGCAGCAGCAG".to_string(),
+            SequenceTopology::Linear,
+        )
+        .unwrap();
+        let error: DomainError = sequence.letter_at(u64::MAX).unwrap_err();
+        assert!(matches!(error, DomainError::CoordinateOutOfBounds(_)));
+        match error {
+            DomainError::CoordinateOutOfBounds(problem) => {
+                assert!(problem.start == u64::MAX);
+                // The half-open span [start, end) is clamped rather than wrapped:
+                // `end` cannot exceed the coordinate space.
+                assert!(problem.end == u64::MAX);
+                assert!(problem.length == 30);
+            }
+            other => panic!("expected CoordinateOutOfBounds, got {:?}", other),
+        }
     }
 }
