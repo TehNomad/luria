@@ -53,12 +53,22 @@ about ±0.13 kcal/mol in ΔG°37, so that is the tolerance.
 
 **Result: all 48 single-mismatch motifs verified**, worst deviation 0.063
 kcal/mol, well inside the rounding tolerance. The Watson–Crick table was
-verified the same way against the review's own ΔG°37 column, worst deviation
-0.015 kcal/mol. The verification script is `.tmp/tm/verify_imm.py`, a working
-script that is **not tracked** in the repository. The `dG37_published` column
-in `nn-mismatch.tsv` lets `tm_tables.rs` rerun the mismatch check, but
-`nn-matched.tsv` has no ΔG°37 column, so the Watson–Crick check cannot be
-rerun from tracked files (`docs/tasks/review-post-m4.md` C2).
+verified the same way against published ΔG°37 values, worst deviation 0.015
+kcal/mol. The 2004 review returned HTTP 403 on 2026-10-16 and could not be
+read, so the Watson–Crick ΔG°37 set comes from SantaLucia, J. Jr (1998),
+"A unified view of polymer, dumbbell, and oligonucleotide DNA nearest-neighbor
+thermodynamics", *PNAS* **95**:1460–1465 (PMC19045): Table 1, column "Unified
+(ref. 22)", plus the symmetry value +0.43 from the text — "ΔG°(sym) equals
++0.43 kcal/mol … if the duplex is self-complementary". The 1998 paper states
+initiation per duplex end: 0.98 for a terminal G·C and 1.03 for a terminal A·T.
+The fixture's formulation splits that into one `initiation` term plus a
+`terminal_AT` term per A·T end, so the equivalent values are `initiation` = 2 ×
+0.98 = **1.96** and `terminal_AT` = 1.03 − 0.98 = **0.05**. The verification
+script is `.tmp/tm/verify_imm.py`, a working script that is **not tracked** in
+the repository; the `dG37_published` columns in both `nn-mismatch.tsv` and
+`nn-matched.tsv` let `tm_tables.rs` rerun both checks, the Watson–Crick one as
+`every_watson_crick_parameter_still_reproduces_its_published_free_energy`
+(`docs/tasks/review-post-m4.md` C2).
 
 ## Which Watson–Crick set, and why
 

@@ -6,25 +6,39 @@
 # this set was chosen over the 1997/1998 one.
 #
 # motif: 5'-XY-3' paired with 3'-X'Y'-5', written XY/X'Y'.
-# dH: kcal/mol. dS: cal/(K mol) ("e.u." in the source).
+# dH: kcal/mol. dS: cal/(K mol) ("e.u." in the source). dG37: kcal/mol.
 # Sign convention is the source's: duplex formation is exothermic, so dH < 0.
 #
-motif	dH_kcal_per_mol	dS_cal_per_K_mol
-AA/TT	-7.6	-21.3
-AT/TA	-7.2	-20.4
-TA/AT	-7.2	-21.3
-CA/GT	-8.5	-22.7
-GT/CA	-8.4	-22.4
-CT/GA	-7.8	-21.0
-GA/CT	-8.2	-22.2
-CG/GC	-10.6	-27.2
-GC/CG	-9.8	-24.4
-GG/CC	-8.0	-19.9
+# dG37_published: SantaLucia, J. Jr (1998), "A unified view of polymer, dumbbell,
+#          and oligonucleotide DNA nearest-neighbor thermodynamics", PNAS
+#          95:1460-1465 (PMC19045), Table 1 column "Unified (ref. 22)"; the
+#          symmetry value is from the text: "dG(sym) equals +0.43 kcal/mol ... if
+#          the duplex is self-complementary". The 2004 review returned HTTP 403
+#          on 2026-10-16 and could not be read. Carried here as the verifier,
+#          not as an input: dH - 310.15*dS/1000 must reproduce it within the
+#          rounding of the printed dH and dS (+/- 0.13 kcal/mol).
+#
+# The 1998 paper states initiation per duplex end: 0.98 for a terminal G.C and
+#          1.03 for a terminal A.T. This set splits that into one initiation term
+#          plus a terminal_AT term per A.T end, so the equivalent values are
+#          initiation = 2 x 0.98 = 1.96 and terminal_AT = 1.03 - 0.98 = 0.05.
+#
+motif	dH_kcal_per_mol	dS_cal_per_K_mol	dG37_published
+AA/TT	-7.6	-21.3	-1.00
+AT/TA	-7.2	-20.4	-0.88
+TA/AT	-7.2	-21.3	-0.58
+CA/GT	-8.5	-22.7	-1.45
+GT/CA	-8.4	-22.4	-1.44
+CT/GA	-7.8	-21.0	-1.28
+GA/CT	-8.2	-22.2	-1.30
+CG/GC	-10.6	-27.2	-2.17
+GC/CG	-9.8	-24.4	-2.24
+GG/CC	-8.0	-19.9	-1.84
 #
 # Non-motif terms. "initiation" is applied once per duplex. "terminal_AT" is
 # applied once for each duplex end closed by an A-T pair. "symmetry" is applied
 # only to a self-complementary duplex.
 #
-initiation	0.2	-5.7
-terminal_AT	2.2	6.9
-symmetry	0.0	-1.4
+initiation	0.2	-5.7	1.96
+terminal_AT	2.2	6.9	0.05
+symmetry	0.0	-1.4	0.43
