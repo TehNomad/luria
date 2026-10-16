@@ -526,7 +526,12 @@ fn design_inline(
     let first_flank: u64 = bound.saturating_sub(MIN_FLANK).max(MIN_FLANK);
     let first_reverse: u64 = bound.max(MIN_REVERSE);
 
-    let smallest_pair: u64 = region + MIN_FLANK + first_flank + first_reverse;
+    // Saturating: a bound no template can hold saturates the sum to `u64::MAX`
+    // rather than wrapping it to a value the check below would accept.
+    let smallest_pair: u64 = region
+        .saturating_add(MIN_FLANK)
+        .saturating_add(first_flank)
+        .saturating_add(first_reverse);
     if smallest_pair > length {
         let problem = NoPrimerDesignPossibleProblem {
             template: template.display_name(),
@@ -693,7 +698,9 @@ fn design_deletion(
     let first: u64 = bound.max(MIN_REVERSE);
     let width: u64 = end - start;
 
-    let smallest_pair: u64 = width + 2 * first;
+    // Saturating: a bound no template can hold saturates the sum to `u64::MAX`
+    // rather than wrapping it to a value the check below would accept.
+    let smallest_pair: u64 = width.saturating_add(first.saturating_mul(2));
     if smallest_pair > length {
         let problem = NoPrimerDesignPossibleProblem {
             template: template.display_name(),
@@ -909,7 +916,9 @@ fn design_tailed(
     // The written bases stand in place of the region `[start, end)`, which is
     // empty for an insertion, so the smallest pair is the region plus its two
     // annealing portions.
-    let smallest_pair: u64 = (end - start) + 2 * first;
+    // Saturating: a bound no template can hold saturates the sum to `u64::MAX`
+    // rather than wrapping it to a value the check below would accept.
+    let smallest_pair: u64 = (end - start).saturating_add(first.saturating_mul(2));
     if smallest_pair > length {
         let problem = NoPrimerDesignPossibleProblem {
             template: template.display_name(),
@@ -1719,6 +1728,99 @@ mod tests {
                     template: "pd-a".to_string(),
                     template_length: 35,
                     smallest_pair: 36,
+                })
+        );
+    }
+
+    // B2: a bound so large that the smallest-pair sum overflows `u64` must
+    // saturate to `u64::MAX`, which is above every template length, so the
+    // failure stays `NoPrimerDesignPossible` (BiologicalValidation) rather
+    // than wrapping to a small sum that passes the check and reports
+    // `NoPrimerDesignFits` (Unsupported). `balanced()` is 100 bases.
+    //
+    // With `bound = i64::MAX` the inline sum is `2 * bound + region`, so a
+    // 3-base codon substitution overflows (`2 * i64::MAX` is `u64::MAX - 1`)
+    // and saturates to `u64::MAX`.
+    #[test]
+    fn an_overflowing_bound_on_a_substitution_is_no_design_possible() {
+        let sequence: Sequence = linear(&balanced());
+        let error: DomainError = design_primers(
+            &sequence,
+            codon_edit(&sequence, 37, Strand::Plus, "R", "K", "AAA"),
+            request(i64::MAX),
+        )
+        .unwrap_err();
+        assert!(error.category() == ErrorCategory::BiologicalValidation);
+        assert!(
+            error
+                == DomainError::NoPrimerDesignPossible(NoPrimerDesignPossibleProblem {
+                    template: "pd-a".to_string(),
+                    template_length: 100,
+                    smallest_pair: u64::MAX,
+                })
+        );
+    }
+
+    #[test]
+    fn an_overflowing_bound_on_a_deletion_is_no_design_possible() {
+        let sequence: Sequence = linear(&balanced());
+        let error: DomainError =
+            design_primers(&sequence, deletion(&sequence, 50, 53), request(i64::MAX)).unwrap_err();
+        assert!(error.category() == ErrorCategory::BiologicalValidation);
+        assert!(
+            error
+                == DomainError::NoPrimerDesignPossible(NoPrimerDesignPossibleProblem {
+                    template: "pd-a".to_string(),
+                    template_length: 100,
+                    smallest_pair: u64::MAX,
+                })
+        );
+    }
+
+    // An insertion writes no template position, so its region is empty and the
+    // sum is `2 * bound` exactly: `2 * i64::MAX` is `u64::MAX - 1`, which fits
+    // `u64`, so this bound does not overflow the tails sum and the reported
+    // `smallest_pair` is `u64::MAX - 1`, not `u64::MAX`. The failure is still
+    // `NoPrimerDesignPossible` (BiologicalValidation), as the fix leaves any
+    // sum that fits unchanged.
+    #[test]
+    fn an_overflowing_bound_on_an_insertion_is_no_design_possible() {
+        let sequence: Sequence = linear(&balanced());
+        let error: DomainError = design_primers(
+            &sequence,
+            insertion(&sequence, 50, "GAT"),
+            request(i64::MAX),
+        )
+        .unwrap_err();
+        assert!(error.category() == ErrorCategory::BiologicalValidation);
+        assert!(
+            error
+                == DomainError::NoPrimerDesignPossible(NoPrimerDesignPossibleProblem {
+                    template: "pd-a".to_string(),
+                    template_length: 100,
+                    smallest_pair: u64::MAX - 1,
+                })
+        );
+    }
+
+    // A replacement of a 7-base region by one base has t = max(7, 1) = 7,
+    // above `MAX_INLINE_REPLACEMENT`, so it takes the tails path.
+    #[test]
+    fn an_overflowing_bound_on_a_tailed_replacement_is_no_design_possible() {
+        let sequence: Sequence = linear(&balanced());
+        let error: DomainError = design_primers(
+            &sequence,
+            replacement(&sequence, 50, 57, "T"),
+            request(i64::MAX),
+        )
+        .unwrap_err();
+        assert!(error.category() == ErrorCategory::BiologicalValidation);
+        assert!(
+            error
+                == DomainError::NoPrimerDesignPossible(NoPrimerDesignPossibleProblem {
+                    template: "pd-a".to_string(),
+                    template_length: 100,
+                    smallest_pair: u64::MAX,
                 })
         );
     }
