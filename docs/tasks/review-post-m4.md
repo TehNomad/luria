@@ -56,6 +56,9 @@ the worker.
 
 ## B. Correctness defects (no decision needed)
 
+**Fixed 2026-10-16** (one commit each, contracts in `docs/tasks/review-b*.md`):
+B1 (`efd83d3`), B2 (`c38eec9`), B3 (`82a867f`), B15. Still open: B4–B14.
+
 ### High
 
 **B1. The pair validator accepts a tailed replacement primer that doesn't carry the edit** (confirmed)
