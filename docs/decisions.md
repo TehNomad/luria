@@ -660,16 +660,23 @@ explicit human approval; neither is a routine implementation choice.
 
 ## D029: The Luria-native candidate geometry
 
-Status: proposed, not yet approved. Amended in place on 2026-10-13 by the
-split-policy pass; the availability-aware split this entry previously stated is
-superseded and is recorded as such below.
+**Amended by D030 (2026-10-14):** primer lengths are now set by Tm; D029's fixed, centred lengths no longer apply. Its scope, failure outcomes and abutting pair stand.
+
+Status: **approved** by the project owner on 2026-10-14, as amended below.
+Amended in place on 2026-10-13 by the split-policy pass (the
+availability-aware split is superseded), and on 2026-10-14 by four owner
+decisions: a minimum of 10 unchanged bases on each side of the replacement,
+the extra base of an odd split on the 3′ side, a scope of any contiguous
+replacement region of at most 3 bases, and a reverse primer of at least 15
+bases. The owner's 2026-10-14 answers on failure reporting and on
+`maxAnnealingOverlap` are applied as well.
 
 Decision:
 
-Under `luriaNative`, for an edit at template span `[s, e)` with replacement
-length `L`:
+Under `luriaNative`, for an edit whose replacement region is the contiguous
+template span `[s, e)`, `L = e − s`, `1 ≤ L ≤ 3`:
 
-* the pair abuts at a template boundary `s − u`, `u ≥ 0`
+* the pair abuts at a template boundary `s − u`
 * the forward primer covers `[s − u, s + L + v)` and carries the replacement
   inline
 * the reverse primer covers `[s − u − w, s − u)` and is the reverse complement
@@ -677,18 +684,39 @@ length `L`:
 * the annealing totals are `a_f = u + v` and `a_r = w`, where `u` and `v` count
   the unchanged template-derived bases either side of the replacement region,
   so `a_f` excludes the replacement itself
-* the split `(u, v)` is mutation-centered: `u = ceil(a_f / 2)`,
-  `v = floor(a_f / 2)`, so `|u − v| ≤ 1` and the extra base of an odd `a_f`
-  goes to the 5′ side. `(u, v)` is a function of `a_f` alone; availability is a
-  feasibility test on the centered candidate, not a rule that moves the split.
-  If the centered geometry cannot satisfy the policy's hard constraints, the
-  policy reports that no design is available under it
-* the bounds are the annealing bounds and availability; there is no maximum
-  primer length and no Tm bound
+* each forward flank has at least `MIN_FLANK = 10` unchanged bases, so
+  `a_f ≥ max(minAnnealingOverlap, 20)`
+* the reverse primer has at least `MIN_REVERSE = 15` bases, so
+  `a_r ≥ max(minAnnealingOverlap, 15)`
+* the split `(u, v)` is mutation-centered: `u = floor(a_f / 2)`,
+  `v = ceil(a_f / 2)`, so `|u − v| ≤ 1` and the extra base of an odd `a_f`
+  goes to the 3′ side. `(u, v)` is a function of `a_f` alone; availability is a
+  feasibility test on the centered candidate, not a rule that moves the split
+* the bounds are the annealing bounds, the per-side minimum, and availability;
+  there is no maximum primer length, no `maxAnnealingOverlap`, and no Tm bound
 * candidates are ordered by `a_f + a_r` ascending then `a_f` ascending, and the
   order is independent of sequence content
-* an empty candidate set is a failure, reported with one of three named
-  outcomes
+* when no candidate fits, the policy emits no pair and reports one of the named
+  outcomes below
+
+Failure outcomes:
+
+* **no design possible** — the template is shorter than the smallest pair,
+  `L + max(minAnnealingOverlap, 20) + max(minAnnealingOverlap, 15) >
+  template.length`,
+  so no placement of any abutting pair fits. `BiologicalValidation`.
+  `q5p-09` (bound 31, 30-base template) is this outcome
+* **no centered design fits** — a pair of that size fits the template, but not
+  centered on this edit. The report names the binding side, the bases available
+  on it, and the flank asked for. `Unsupported`: a different geometry might fit,
+  and this policy does not shift
+* **not searched** — the request is refused before enumeration:
+  `minAnnealingOverlap < 1` is `MalformedInput`; a replacement region longer
+  than 3, a non-contiguous changed set, a circular template, or a composed
+  variant request is `Unsupported`
+
+The error carriers for the first two outcomes are `NoPrimerDesignPossible` and
+`NoPrimerDesignFits` (`crates/core/src/primer_design.rs`, 2026-10-14).
 
 Reason:
 
@@ -696,82 +724,370 @@ Primer lengths are `a_f + L` and `a_r`, so minimising `a_f + a_r` is minimising
 total primer length; `L` is fixed by the edit. That is the objective, stated
 rather than implied.
 
+The per-side minimum exists because the annealing total alone allowed primers
+the reference tool's documented rule would never produce: at a bound of 15 the
+forward primer's 3′ flank was 7 bases. That flank is what the polymerase
+extends from, and with no Tm function nothing else rejects a weak primer. The
+reference tool's manual states "at least 10 nucleotides that are 100%
+complementary on both sides of the mutation region" for short substitutions;
+the minimum adopts that number as a length floor. It adopts the number, not the
+reference algorithm: there is no Tm growth, no G/C clamp, and no Tm balance.
+H1 is unchanged and remains a bound on the annealing total (the 2026-10-12
+pass's A9); the per-side minimum is a rule of this policy, not a contract
+requirement of every policy.
+
+The extra base of an odd split goes 3′ because the 3′ flank primes extension,
+and because the 3′ flank is the side the reference tool grows.
+
 The split is centered because the centered geometry is the proposed native
-default: the mutation region sits in the middle of the unchanged annealing
-flanks, so a design's shape follows from the request and availability only
-decides whether that shape fits. The version of this record written on
-2026-10-12 made the split availability-aware, which let one request emit an
-off-center primer on a template whose 3′ flank was exhausted; that rule is
-superseded. What that pass found — that a fixed split can report no design
-where a shifted one would fit — is now a **named outcome** of the centered
-policy (§18.5 outcome 1), not a defect to be hidden by moving the split.
+default: the shape follows from the request, and availability only decides
+whether that shape fits. The 2026-10-12 availability-aware split, which let one
+request emit an off-center primer on a template whose 3′ flank was exhausted,
+stays superseded.
 
-Centering is a Luria choice about the candidate geometry. It is not a
-universal biological law, and it is not a compatibility claim. The saved help
-text describes the reference tool's short-substitution path as anchoring the
-center of the primer to the nucleotide region and extending in both the 5′ and
-3′ directions with at least 10 fully complementary nucleotides on each side;
-that is source evidence about that path. This record adopts neither its
-per-side bound nor its growth order, and D028's rule that matching a numeric
-default or adopting a similar geometry is not proof of compatibility applies
-unchanged to this one.
+Centering is a Luria choice. It is not a universal biological law and it is
+not a compatibility claim. The reference tool's code pins the forward primer's
+5′ flank at its pad of 10 and grows only the 3′ flank for Tm; D028's rule that
+a similar geometry is not proof of compatibility applies unchanged.
 
-The three failure outcomes are distinguished because collapsing them loses
-information the caller needs: no centered candidate fits, the domain was capped
-by a supplied `maxAnnealingOverlap`, and the request was rejected before
-enumeration are different reasons, and the fixture `q5p-09` is the first of
-them. Under the centered split the first two report the same absence (§18.3's
-monotonicity), so what they distinguish is what the request supplied, not two
-reasons in the geometry.
-
-The abut rule, the absence of a maximum primer length and the absence of a Tm
-bound are Luria choices recorded as such: the reference build documents a
-minimum length and a minimum Tm and no maximum, and its back-to-back rule is
-reference scope only.
+The scope covers codon edits because a residue substitution, the most common
+SDM request, claims a 3-base region; the centered definition applies unchanged
+to any contiguous region.
 
 Evidence:
 
-* `crates/core/src/mutation.rs` — `NucleotideMutationIntent` carries one
-  `replacement: char` at a one-nucleotide interval, which fixes `L = 1` for the
-  native scope
+* `crates/core/src/mutation.rs` — a nucleotide substitution claims one base and
+  a residue substitution claims its codon's three, so `1 ≤ L ≤ 3` covers every
+  edit the mutation layer produces on a linear template
 * `crates/core/src/primer.rs` — `construct_primer`, `assemble_pair` and
   `require_design_constraints` already express the spans, the parts and the
-  annealing flag that this geometry is built on
-* `tests/fixtures/q5-primer/reference/designs.json` — `q5p-09` is an outcome-1
-  case: bound 31 against a 30-base template, so no candidate fits under any rule,
-  and the failure is not a property of one search
-* `tests/fixtures/q5-primer/reference/designs.json` — `q5p-01`'s forward primer
-  has annealing spans `[[1199, 1209], [1212, 1222]]` around an edit at
-  `[1209, 1212)`, i.e. `u = v = 10`, `L = 3`, `a_f = 20`, primer length 23: its
-  flanks are equal, so the reference's forward geometry is centered in the same
-  direction as this rule. The difference is the total and the growth rule, not
-  the shape — evidence about the reference design, not a compatibility claim
+  annealing flag this geometry is built on
 * `docs/research/nbc_help_v284.txt` line 200, quoted at
   `docs/research/nebasechanger-live-build-4330b0c7-2026-10-10.md` §15.4
-  (`@19261`) — the reference's short-substitution path is described as center-
-  anchored and extended in both directions with at least 10 complementary
-  nucleotides per side. Evidence about that path, not about `luriaNative`
-* `tests/fixtures/nebasechanger-research/replay_dispatcher_geometry.py` — the
-  reference geometry, replayed, is *not* this geometry; the reference's forward
-  5′ context is the pad and never shrinks
+  (`@19261`) — the source of the 10-bases-per-side number
+* `docs/research/q5-primer-policy-review-2026-10-12.md` C8, and
+  `tests/fixtures/nebasechanger-research/replay_dispatcher_geometry.py` (on
+  the `research/nebasechanger_reverse_engineer` branch) — the reference's 5′
+  flank is its pad and never moves; its 3′ flank is seeded at 10 and grown
+  for Tm; its minimum-length setting applies to the reverse primer only
+* `tests/fixtures/q5-primer/reference/designs.json` — every reference design
+  has forward flanks of exactly 10 and 10, because the Tm target was already
+  met at the seed. No saved design distinguishes a centered rule from a pinned
+  5′ flank. Under this policy the forward primer covers the same span as the
+  reference forward primer for the four designs at bound 15 (`q5p-01`,
+  `q5p-04`, both `q5p-07` variants). For `q5p-02` and `q5p-03` (bounds 24, 25)
+  this policy uses `a_f` of 24 and 25, where the reference keeps 20 and fails
+  H1. Reverse primers differ throughout (this policy: the bound; the
+  reference: grown for Tm). An observation, not a compatibility claim
 
 Consequences:
 
-* under the centered split the initial native policy has a closed form: a
-  design exists if and only if `s ≥ bound + ceil(bound / 2)` and
-  `template.length − s − L ≥ floor(bound / 2)`, where `bound` is
-  `minAnnealingOverlap`. Near a template end, an edit the superseded
-  availability-aware rule would have designed now reports no design, which is
-  the intended behaviour and must be reported as such
-* `maxAnnealingOverlap` cannot make an infeasible edit feasible, because
-  availability is monotone along the candidate order under a centered split
-* the centered-geometry failure must stay distinguishable from an H1 bound
-  failure and from an unsupported-placement refusal; `crates/core/src/error.rs`
-  has no design-level failure carrier yet, so the carrier is an open item
+* with Tm inert the policy has a closed form. With `b = minAnnealingOverlap`
+  `A = max(b, 20)` and `R = max(b, 15)`, the one candidate is `a_f = A`,
+  `a_r = R`, `u = floor(A/2)`, `v = ceil(A/2)`, and a design exists if and
+  only if `s ≥ R + floor(A/2)` and `template.length − s − L ≥ ceil(A/2)`. At
+  `b = 15` that is `s ≥ 25` and at least 10 bases after the replacement
+* the shortest forward primer is `L + 20` and the shortest reverse primer is
+  15. The reverse floor matches the reference tool's minimum-length clamp
+  (`minLen < 15 ? 15 : minLen`), adopted as a length floor only
+* availability is monotone along the candidate order, so the first candidate
+  is the only one that can fit
+* the centered-geometry failure stays distinguishable from an H1 bound failure
+  and from an unsupported-placement refusal
 * the native policy and the compatibility target are different geometries, and
   neither is adjusted to fit the other
-* a native design at `a_f` equal to the bound satisfies H1 and would never be
-  emitted by the reference, whose per-side wording implies `a_f ≥ 20`
-* Tm is inert in the initial native policy, so the policy has a closed form and
-  the enumeration is stated so that enabling Tm later extends the same order
+* Tm is inert in the initial native policy; the enumeration is stated so that
+  enabling Tm later extends the same order
 
+Reversibility:
+
+Changing the per-side minimum, the reverse-primer minimum, the side of the
+extra base, or the scope is a policy change and needs approval. Removing the per-side minimum would again
+allow primers below the reference tool's documented floor.
+
+## D030: Tm-driven primer length for `luriaNative`
+
+Status: approved by the owner, 2026-10-14. Amends D029: D029's scope, its
+failure outcomes and its abutting pair stand; its fixed, centred lengths do
+not.
+
+Decision:
+
+A `luriaNative` design sizes each primer by melting temperature. For a
+replacement region `[s, e)` on a linear template of length `n`, with bound
+`b = minAnnealingOverlap`:
+
+* **Junction.** The primers abut at `B = s − 10`. The junction never moves:
+  the forward primer keeps exactly 10 unchanged bases on its 5′ side, and both
+  primers grow only at their 3′ ends.
+* **Starting lengths.** The forward primer's 3′ flank starts at
+  `v = max(10, b − 10)`, so its annealing overlap `10 + v` meets the bound
+  (H1). The reverse primer starts at `r = max(b, 15)`.
+* **Tm floor, 55 °C.** Each primer grows one base at a time until its Tm is at
+  least 55 °C. A primer that runs out of template first is a failure of the
+  "no design fits" kind, naming the side and the Tm reached.
+* **G/C 3′ end.** After the floor, a primer keeps growing toward a G or C last
+  base while its Tm is below 63 °C; if it does not reach one it returns to the
+  shortest length that met the floor. A preference, not a requirement.
+* **Order.** Forward first, then reverse.
+* **Balance, 5 °C.** If the two Tms differ by more than 5 °C, the colder primer
+  grows until they are within 5 °C, then toward a G/C last base while its Tm
+  stays at or below the other's, returning to the balanced length otherwise. A
+  preference: if template runs out first, the design is emitted and records
+  that balance was not met.
+* **Tm basis.** The forward primer uses the mismatch-aware Tm against the
+  wild-type site where published parameters cover the mismatch pattern, and
+  the matched Tm where they do not; the reverse primer, which carries no
+  mismatch, uses the matched Tm. Each Tm records its basis.
+* **Buffer.** Named by the caller in the request, never defaulted.
+* **Annealing temperature.** Reported as the lower of the two Tms plus 3 °C,
+  capped at 72 °C, using the same Tms the sizing used.
+* **Ambiguity codes.** An ambiguity code in the template ends availability on
+  that side: a primer cannot grow across it.
+
+Sources:
+
+* 55 °C floor: owner, 2026-10-14, as the practical minimum Tm for a PCR primer;
+  also the reference tool's documented minimum.
+* 5 °C balance: NEB, *Guidelines for PCR Optimization with Thermophilic DNA
+  Polymerases*: "Primer pairs should have Tms within 5 °C of each other."
+* Annealing temperature: NEB, Q5 *PCR Optimization* (E0555): "a 10–30 second
+  annealing step at 3 °C above the Tm of the lower Tm primer"; Q5
+  Site-Directed Mutagenesis Kit FAQ: "For predesigned back-to-back primer sets,
+  a Tm+3 rule can be applied but optimization may be necessary." NEB computes
+  that Tm with its own calculator; luria applies the rule to its own Tm and
+  claims nothing about NEB's number. The 72 °C cap is the top of the Q5 SDM
+  protocol's 50–72 °C annealing range.
+* G/C 3′ end and the 63 °C ceiling on G/C extension: owner, 2026-10-14, as
+  general PCR practice.
+* Tm model: `crates/core/src/tm.rs` and `tests/fixtures/tm/README.md`.
+
+Reason:
+
+The fixed lengths of D029 emit primers that cannot work: at a bound of 15 the
+`native-04` reverse primer is 15 bases and melts at 45.4 °C. Growing only at
+3′ ends keeps the junction, and so the abutment, fixed while each primer is
+sized, and puts any extra length on the side the polymerase extends from.
+
+Deviation recorded:
+
+NEB's Q5 SDM primer-design FAQ says "Substitutions are created by designing a
+mismatch in the center of the mutagenic primer." Under this decision the
+mismatch is centred only while the forward 3′ flank is 10 bases; a colder site
+grows the 3′ flank and moves the mismatch toward the 5′ side. This matches
+NEB's own design tool, whose forward primer keeps a fixed 10-base 5′ flank
+(`docs/research/nebasechanger-live-build-4330b0c7-2026-10-10.md` §6.1), and was
+chosen by the owner over centred growth on 2026-10-14.
+
+Not adopted from the reference tool: its 1 °C annealing offset (the Q5
+documentation says 3 °C), and its mismatch-aware Tm, which differs from the
+published model by several degrees (`tests/fixtures/tm/README.md`).
+
+Reversibility:
+
+Each threshold — 55, 63, 5, the 10-base 5′ flank and the +3 annealing offset — is
+a policy value and changing one needs approval. Centred growth was considered
+and rejected; adopting it later would change every design with a 3′ flank
+above 10.
+
+## D031: Deletion primer geometry for `luriaNative`
+
+Status: approved by the owner, 2026-10-15. Extends D030 to deletions; D030
+is unchanged for substitutions.
+
+Decision:
+
+For a deletion of `[s, e)`, width `w = e − s`, on a linear template of length
+`n`, with bound `b = minAnnealingOverlap`:
+
+* **Geometry.** The forward primer's 5′ end is at `e` and it reads rightward,
+  `[e, e + f)`. The reverse primer's 5′ end is at `s` and it reads leftward,
+  `[s − r, s)`. Neither primer carries a non-template base.
+* **Pair invariant.** Reverse end + `w` = forward start. In the product the
+  two 5′ ends meet at `s`. Template abutment, the substitution rule, is the
+  case `w = 0` (owner, 2026-10-14, `docs/tasks/milestone-4-indels.md` 4.3).
+* **Starting lengths.** Both primers start at `max(b, 15)`.
+* **Everything else is D030.** The 55 °C floor, the G/C 3′ end below 63 °C,
+  forward first, the 5 °C balance, annealing temperature as the lower Tm plus
+  3 °C capped at 72 °C, ambiguity codes ending availability, the buffer named
+  by the caller, and D030's two failure kinds. Both Tms are on the matched
+  basis.
+* **Scope.** Linear templates only. No cap on `w`: both primers only have to
+  fit.
+
+Sources:
+
+* Geometry: the reference tool's help text, "For deletions, the 5′ ends of the
+  primers align with the edges of the deletion"
+  (`docs/research/nbc_help_v284.txt`).
+* Starting length: owner, 2026-10-15. D030's forward start of 20 exists to put
+  10 unchanged bases on each side of a mismatch. A deletion primer has no
+  mismatch, so both primers use the reverse primer's existing floor.
+
+Not adopted from the reference tool: its refusal when fewer than 62 bases
+remain after a deletion
+(`docs/research/nebasechanger-live-build-4330b0c7-2026-10-10.md` §17.8). The
+number has no stated source.
+
+Related owner decision, 2026-10-15: a deletion inside a CDS whose width is not
+a multiple of 3 shifts the reading frame. luria **warns and still applies it**,
+because a frameshift is sometimes the intent, as in a knockout. Not yet
+implemented.
+
+Reversibility:
+
+The starting length and the absence of a width cap are policy values;
+changing either needs approval.
+
+## D032: Insertion representation and primer geometry for `luriaNative`
+
+Status: approved by the owner, 2026-10-15. Builds on owner decisions 4.1,
+4.2, 4.4 and 4.5 in `docs/tasks/milestone-4-indels.md`.
+
+Decision:
+
+* **Representation.** An `InsertionPoint` is one 0-based coordinate `p`,
+  meaning "between base `p − 1` and base `p`". The inserted bases occupy
+  `[p, p + k)` of the edited artifact. Inserted bases are `A`, `C`, `G`, `T`
+  only; degenerate insertions are a later pass.
+* **What an insertion asserts (D011).** The base on each side of the point:
+  the request states the bases at `p − 1` and `p`, and a mismatch refuses the
+  edit. So `1 ≤ p ≤ n − 1`: an insertion needs a base on both sides.
+* **Verification.** The edited artifact has exactly `n + k` bases and is
+  `source[..p] + inserted + source[p..]`.
+* **Geometry**, on a linear template. Both primers' annealing portions abut at
+  `p`: the forward primer anneals to `[p, p + f)`, the reverse to
+  `[p − r, p)`.
+  * `k ≤ 6`: the whole insertion is the forward primer's 5′ tail.
+  * `k > 6`: the forward tail is the last `ceil(k/2)` inserted bases; the
+    reverse tail is the reverse complement of the first `floor(k/2)`.
+* **Starting lengths.** Both annealing portions start at `max(b, 15)`.
+* **Tm.** Sizing, balance and annealing temperature use each annealing
+  portion's Tm on the matched basis. Each primer's whole-primer Tm is also
+  reported, labelled.
+* **Everything else is D030**: 55 °C floor, G/C end below 63 °C, forward
+  first, 5 °C balance, ambiguity codes ending availability, the same failure
+  kinds. The "confine to 5′ tails" option does not change an insertion.
+* **No cap on insertion length.** Any primer longer than **100 nt** gets a
+  quality warning, not a refusal.
+
+Sources:
+
+* Tail placement and the 6-nt threshold: the reference tool's help text,
+  "If 6 or fewer nucleotides are to be inserted, they will be placed at the 5′
+  end of one primer. If more than 6 … they will be split between the two
+  primers to keep the primer lengths and Tm's similar"
+  (`docs/research/nbc_help_v284.txt`).
+* The split point `ceil(k/2)` forward: **luria-native**, owner, 2026-10-15.
+  The reference tool's own split was never substantiated: a recorded run put an
+  8-nt replacement wholly on the forward primer.
+* Annealing-only minimum length: the same help text, "When modifications are
+  constrained to the 5′ tails, the minimum primer length only applies to the
+  annealing portion of the primer."
+* 100 nt: owner, 2026-10-15, as the practical limit for ordering a standard
+  oligo from IDT. A vendor limit, so a warning.
+
+Related owner decision, 2026-10-15: an insertion of `k` bases inside a CDS
+with `k` not a multiple of 3 shifts the reading frame. As for deletions,
+luria **warns and still applies it**. "Inside" means both bases beside the
+point lie in the same interval of the CDS (`start < p < end`). An insertion
+exactly at a CDS's edge does not warn.
+
+Reversibility:
+
+The 6-nt threshold, the split point, the flanking assertion and the 100-nt
+warning are policy values; changing one needs approval.
+
+## D033: Unequal replacements and degenerate expansion for `luriaNative`
+
+Status: approved by the owner, 2026-10-15. Generalises D029/D030's
+substitution scope; D031 and D032 are unchanged.
+
+Decision:
+
+A replacement names a target region `[s, e)` of width `w >= 1` and a
+replacement text of length `m >= 1`. `m` need not equal `w`, so one request
+may carry several changes at once — that is how two codons are altered with a
+single primer pair — and a replacement with `m != w` changes the artifact's
+length. `w = 0` is an insertion (D032) and `m = 0` a deletion (D031); neither
+is reached through this path.
+
+* **Geometry.** With `t = max(w, m)`:
+  * `t <= 6`: **inline**, exactly D030's geometry with the replacement region
+    in place of the substituted bases. The junction stays at `s - 10`, the
+    forward primer keeps its fixed 10-base 5′ flank, and its 3′ flank starts
+    at `max(10, b - 10)`. `MAX_REPLACEMENT_REGION` rises from 3 to 6.
+  * `t > 6`: **split across both 5′ tails**, exactly D032's rule with the
+    replacement text in place of the inserted text — forward tail the last
+    `ceil(m/2)` bases, reverse tail the reverse complement of the first
+    `floor(m/2)`. Both annealing portions' 5′ ends sit at the edges of the
+    target region, so the replaced bases are carried by the tails and
+    annealed over by neither primer. Both start at `max(b, 15)`.
+* **Sizing** is D030's throughout: the 55 °C floor, the G/C end below 63 °C,
+  forward first, the 5 °C balance, and `Ta = min(72, lower Tm + 3)`. On the
+  tail path sizing uses the annealing portions only, with the whole-primer Tm
+  reported, as D032 does.
+* **Pair invariant**, generalising D031's: reverse end + `w` = forward start.
+* **Tm basis.** On the inline path with `m == w` the forward primer uses
+  D030's hybrid basis, unchanged. With `m != w` it uses the **matched** basis:
+  the primer and the template site are different lengths, so there is no
+  position-by-position alignment for a mismatch-aware Tm to read, and the
+  model offers no other answer. This is forced by the thermodynamic model
+  rather than chosen (planner, 2026-10-15). On the tail path both primers are
+  pure template, so both are matched, as in D031 and D032.
+* **Degenerate expansion.** The replacement may contain IUPAC ambiguity
+  codes. Each expands over the bases it stands for, giving **one design per
+  concrete sequence**. Each position's bases are taken in `A`, `C`, `G`, `T`
+  order, and the **leftmost position varies fastest**, so `NS` gives
+  `AC, CC, GC, TC, AG, CG, GG, TG` — the order the reference tool's help text
+  lists, checked against it on 2026-10-15. (The planner first wrote this
+  order backwards, as leftmost-slowest, which gives
+  `AC, AG, CC, CG, …`; the quoted list settles it.) Expansion happens at the **request** layer, before any
+  edit: each concrete sequence is its own mutation, independently verified,
+  with its own pair. `mutation.rs` does not loosen — an applied edit still
+  writes only `A`, `C`, `G`, `T`.
+* **Expansion count.** No cap. Past **64** designs (three fully ambiguous
+  positions) the request carries a warning and every design is still emitted.
+* **Naming.** An expanded design's result name is the caller's base name, a
+  hyphen, and its concrete replacement sequence: `mut-1-AC`, `mut-1-CC`, and
+  so on. Names are distinct by construction, which satisfies the variant
+  set's existing duplicate-name rule.
+
+Sources:
+
+* The 6-nucleotide threshold, splitting across both tails, combinatorial
+  expansion, and several changes in one non-degenerate replacement: the
+  reference tool's help text (`docs/research/nbc_help_v284.txt`), confirmed by
+  the owner on 2026-10-15 as the behaviour luria should match.
+* The split point `ceil(m/2)` forward is luria-native, as in D032: the
+  reference tool's own split was never substantiated.
+* The 64-design warning threshold and the naming scheme: owner, 2026-10-15.
+  Warning rather than refusing follows D032's treatment of the 100-nt limit.
+
+Reversibility:
+
+The inline limit of 6, the split point, the 64-design threshold and the
+naming scheme are policy values; changing one needs approval.
+
+Addenda, 2026-10-15:
+
+* **Expansion and variant sets** (owner). A request whose replacement holds
+  ambiguity codes expands into a **variant set**, one member per concrete
+  sequence, named as above. The set's per-member reporting applies: a member
+  that cannot be designed is reported and the others are still designed. A
+  degenerate replacement **inside** an existing variant set is refused; sets
+  do not nest.
+* **Frameshift** (owner). A replacement inside a CDS whose length change
+  `m − w` is not a multiple of 3 carries a non-blocking frameshift warning and
+  still applies, the policy already chosen for deletions and insertions.
+* **Implementation note** (planner). The inline limit of 6 is the constant
+  `MAX_INLINE_REPLACEMENT` in `primer_design.rs`, used only for replacements.
+  `MAX_REPLACEMENT_REGION` stays at 3: it bounds only single-base and codon
+  substitutions, whose regions never exceed 3, so the "rises from 3 to 6"
+  above is met by the new constant with no change in behaviour.
+* **Wild-type members** (owner). When an expansion includes the bases the
+  region already holds, that member would be a no-op edit. It is **skipped
+  with a warning** naming it, and the other members are designed. An
+  expansion with no member left after skipping is refused as the no-op it is.
+  The 64-design threshold counts the members actually emitted, after
+  skipping (planner reading of "past 64 designs").

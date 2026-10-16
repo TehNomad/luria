@@ -108,7 +108,7 @@ open product decision in `docs/q5-sdm.md` §4, with the three alternatives and
 their consequences. It was not implemented as though it were settled: no
 containment rule was added, and no test asserts one of the alternatives that
 adds it. What the test suite does encode is alternative 1: the test is named
-`an_unscoped_nucleotide_edit_pins_alternative_one_of_the_open_containment_decision`
+`an_unscoped_nucleotide_edit_outside_the_resolved_cds_proceeds`
 for exactly that reason, and §10 of the specification lists it among the tests
 that currently pin an open answer. A residue mutation is different in kind — its
 position names its CDS, so the resolved annotation is always its scope, and
@@ -254,13 +254,14 @@ successful partial set and no per-variant failure carrier exists.
 
 ### Result-identifier uniqueness (D-F)
 
-Left open, as the contract requires: no uniqueness check, no duplicate-identifier
-error, and no identifier length, case-folding, or uniqueness rule invented.
-`two_identical_variants_with_one_result_name_are_representable` asserts only
-that the pair is accepted and run; the identical artifact identity the two
-results carry is Milestone 1's identity semantics for identical content,
-not a claim that duplicate result names are legal or illegal as product
-policy. The question is recorded as `docs/q5-sdm.md` §10 item 6.
+Left open at Milestone 3a, as the contract then required. **Decided by the
+owner on 2026-10-14** (`docs/q5-sdm.md` §10 item 6): result identifiers in a
+set must be distinct. `Q5VariantSetRequest::create` refuses a repeat with
+`InvalidMutationRequest` (`MalformedInput`), the variant an empty set gets.
+Names are compared exactly, with no case folding. The 3a test
+`two_identical_variants_with_one_result_name_are_representable` was replaced
+by `two_variants_sharing_a_result_name_are_refused` and
+`result_names_are_compared_exactly`.
 
 ### Deviation from the task contract's worked example
 
@@ -383,7 +384,13 @@ tests cover those paths where they are reachable.
 * Unwritten design rules block the rest of the Q5 boundary (D014 requires
   each to name a documented source): candidate generation, primer
   orientation, thermodynamic calculation method, sequence constraints,
-  rejection criteria, warnings.
+  rejection criteria, warnings. **Partly closed on 2026-10-14:** D029 fixes
+  the candidate geometry for a contiguous replacement of at most 3 bases, and
+  the workflow now reaches a primer pair through
+  `crates/core/src/q5_design.rs` (`docs/tasks/milestone-3c-q5-design-wiring.md`,
+  `docs/q5-sdm.md` §12). `q5.rs` itself is unchanged and still designs
+  nothing. Thermodynamics, candidate ranking, rejection criteria and warnings
+  remain unwritten.
 * Separate variants now run in one typed set request (§11 of the
   specification); combined constructs remain out of scope, refused at
   construction because composing mutations into one construct needs overlap

@@ -2,11 +2,12 @@
 
 ## Purpose
 
-These cases pin the **contract** in `docs/q5-primer-design.md`. They do not
-test a primer-design algorithm: `crates/core` has none, and none is claimed
-here. Every case states inputs and the invariants that must hold of *any*
-design of those inputs, so the contract is testable before an algorithm is
-chosen (§14 of the contract document).
+These cases pin the **contract** in `docs/q5-primer-design.md`. `cases.tsv`
+does not test a primer-design algorithm: every case states inputs and the
+invariants that must hold of *any* design of those inputs, so the contract is
+testable independently of an algorithm (§14 of the contract document).
+`native.tsv` is the exception: it holds expected designs under luria's own
+policy, `luriaNative` (D029), described in "Native designs" below.
 
 Two kinds of case appear, and they are marked differently:
 
@@ -25,6 +26,14 @@ Two kinds of case appear, and they are marked differently:
 | `cases.tsv` | 10 cases, one per line, tab-separated. Column meanings below. |
 | `reference/designs.json` | The reference designs for the reference-design cases, keyed by `case_id`. Generated, not transcribed. |
 | `reference/neb-q5-sdm-reference.py` | The script that generates `designs.json`. **Not** luria's algorithm; a transcription of the reference tool's Q5 SDM `replace` path, kept so the reference values are reproducible. |
+| `native.tsv` | 8 expected `luriaNative` outcomes (D029): four designs and four failures. Generated, not transcribed. |
+| `reference/native-design.py` | The script that generates `native.tsv` from D029's closed form. Shares no code with `crates/core`. |
+| `native-deletion.tsv` | 13 expected `luriaNative` deletion outcomes (D031): seven designs and six failures. Generated, not transcribed. |
+| `reference/native-deletion.py` | The script that generates `native-deletion.tsv`. Reuses only the Tm and reverse-complement helpers of `native-design.py`. Shares no code with `crates/core`. |
+| `native-insertion.tsv` | 15 expected `luriaNative` insertion outcomes (D032): 11 designs and 4 failures. Generated, not transcribed. |
+| `reference/native-insertion.py` | The script that generates `native-insertion.tsv`. Same independence as the deletion script. |
+| `native-replacement.tsv` | 15 expected `luriaNative` replacement outcomes (D033): 11 designs and 4 failures. Generated, not transcribed. |
+| `reference/native-replacement.py` | The script that generates `native-replacement.tsv`. Same independence as the other two. |
 
 No sequence file is duplicated here. `sequence_file` is a path relative to
 `tests/fixtures/`, so the biological input is the artifact another fixture
@@ -202,6 +211,178 @@ rather than being written. The named checks are:
 - **H2** — the changed region lies inside the pair's covered span;
 - **H5** — `gap` and `abut` are derivable from the two spans, not stored apart;
 - **I-6** — `builtAgainst` is the digest of the template actually loaded.
+
+## Native designs
+
+`native.tsv` holds the outcome D029 and D030 predict for eight edits. Its
+expectations are **independently derived**: `reference/native-design.py`
+restates the policy in plain Python, reads the template, computes every Tm with
+**Biopython 1.88** (an independent implementation of the published model; see
+`tests/fixtures/tm/README.md`), and writes the spans, lengths, Tms and failure
+detail. It does not import or run `crates/core`, and was not written from
+luria's output. Rerunning it reproduces `native.tsv` byte for byte (sha256
+checked twice on 2026-10-14, after D030). It needs Biopython; the project's
+working copy lives in `.tmp/tm/venv`, which is not committed.
+
+Columns: `edit` is `start:end:original:replacement` (0-based, half-open);
+`expected` is `design`, `error:NoPrimerDesignPossible` or
+`error:NoPrimerDesignFits`; spans are `start:end`; `flanks` is `10:v`, the
+forward primer's unchanged bases 5′ (fixed under D030) and 3′ of the edit;
+`forward_tm`, `reverse_tm` and `annealing_temp` are °C to two decimals at the
+Q5 buffer condition (150 mM monovalent, 500 nM primer); `forward_tm_basis` is
+`mismatched_wild_type_site` or, where two changed bases are adjacent,
+`matched_complement`; `balance_met` says whether the two Tms ended within
+5 °C. `failure` is `pair:<smallest pair>><template length>` for no design
+possible, one `<side>:<available><<needed>` per binding side when the starting
+pair does not fit, or `tm-floor <side>:<available>:<Tm reached>` when a primer
+runs out of template below 55 °C.
+
+The rows cover: the `q5p-01` and `q5p-07` variant-b edits at bound 15
+(`native-01`, `native-04`); `q5p-01`'s edit at bounds 24 and 25, where the
+forward 3′ flank starts at 14 and 15 (`native-02`, `-03`); the `q5p-08` and
+`q5p-09` edits on the 30-base `mut-a`, which no pair fits (`native-05`, `-06`);
+and single-base edits 20 bases from SID-1's 5′ end and 4 from its 3′ end
+(`native-07`, `-08`). The Tm-floor failures, the G/C revert, both directions
+of balancing, an unmet balance and the annealing cap are covered by the unit
+tests in `crates/core/src/primer_design.rs` on synthetic templates, with
+expectations from the same script's `--synthetic` mode.
+
+**Cross-checks against the reference tool.** For `native-01` and `native-04`
+luria's forward primer equals the reference's — same span and text — because
+neither needed to grow past 10 + 10. For `native-04` the **reverse primer
+matches too**, `[1469, 1493)`, 24 bases: the forward Tm there is on the matched
+basis (two adjacent changes), where luria and the reference agree to 0.1 °C,
+so both balance to the same length. For `native-01` the reverse primers differ,
+19 bases against 23: luria balances against its published-model mismatch-aware
+forward Tm of 67.72 °C, the reference against its own, several degrees higher
+(`tests/fixtures/tm/README.md`, "Validation of the implementation").
+
+## Native deletion designs
+
+`native-deletion.tsv` holds the outcome D031 predicts for 13 deletions. It
+was written by the planner on 2026-10-15, before any deletion design code
+existed. `reference/native-deletion.py` restates D031 in plain Python. Its
+sizing loops are D030's, with the forward 3′ flank replaced by the whole
+forward length. It computes both Tms with Biopython 1.88 on the matched basis.
+It loads `native-design.py` only for `bio`, `rc`, `ends_gc` and the
+thresholds, and does not import or run `crates/core`. Rerunning it reproduced
+the file byte for byte (sha256 `9dc30ca1…`, checked twice on 2026-10-15).
+
+Columns differ from `native.tsv`. `template` is either a fixture path or
+`seq:` followed by a synthetic template's full text, and the synthetic
+templates are the ones `primer_design.rs`'s unit tests build. `deletion` is
+`start:end:deleted bases` (0-based, half-open). `forward` and `reverse` are
+the primer texts, 5′→3′. There is no `flanks` or Tm-basis column: a deletion
+primer has no mismatch, and both Tms are on the matched basis. `failure`
+uses `native.tsv`'s forms.
+
+What the rows cover:
+
+- **Ordinary deletions:** a codon (`del-01`), a single base (`del-02`), 40
+  bases (`del-03`), and bound 25 (`del-04`).
+- **Floor growth:** on the 5′ side, with balance left unmet (`del-05`); and on
+  the 3′ side with a G/C revert (`del-06`).
+- **Starting pair does not fit:** on the 5′ side (`del-07`) and the 3′ side
+  (`del-08`).
+- **Failures:** a template too short for any pair (`del-09`), an `N` under the
+  starting reverse primer (`del-10`), and a Tm floor unreachable on each side
+  (`del-12`, `del-13`).
+- **Real sequence:** `q5p-01`'s codon deleted from SID-1 (`del-11`), where
+  balance grows the reverse primer and then extends it to a G/C end.
+
+In every design row, reverse end + width = forward start (D031's pair
+invariant). The script asserts it.
+
+## Native insertion designs
+
+`native-insertion.tsv` holds the outcome D032 predicts for 15 insertions. It
+was written by the planner on 2026-10-15, before any insertion design code
+existed. `reference/native-insertion.py` restates D032 in plain Python, reusing
+only `native-design.py`'s `bio`, `rc`, `ends_gc` and thresholds. Rerunning it
+reproduced the file byte for byte (sha256 `a9d655ba…`, checked twice).
+
+Columns. `template` is a fixture path or `seq:` followed by a synthetic
+template's text. `point` is the 0-based insertion point `p`: the inserted bases
+go between `p − 1` and `p`. `inserted` is the inserted text.
+`forward_anneal_span` and `reverse_anneal_span` are the **annealing** portions
+on the template; a tail covers no template, so it has no span. `forward_tail`
+and `reverse_tail` are the non-annealing 5′ tails, or `none`. `forward` and
+`reverse` are the whole primers, 5′→3′, tail then annealing portion.
+`forward_tm` and `reverse_tm` are the **annealing portions'** Tms, which is
+what D032 sizes and balances on; `forward_whole_tm` and `reverse_whole_tm` are
+the whole primers' Tms, reported but never used for sizing. `failure` uses
+`native.tsv`'s forms.
+
+What the rows cover:
+
+- **The tail rule:** 3 bases (`ins-01`), 1 base (`ins-02`), 6 bases, the
+  threshold, still one tail (`ins-03`), 7 bases split 3 reverse / 4 forward
+  (`ins-04`), and 14 split 7 / 7 (`ins-05`). The script asserts that the
+  reverse tail's reverse complement followed by the forward tail rebuilds the
+  insertion exactly.
+- **Sizing:** bound 25 (`ins-06`), an AT-rich 5′ side where the reverse primer
+  grows (`ins-07`), an AT-rich 3′ side where the forward primer grows
+  (`ins-08`), and a point with exactly 15 bases of 3′ room, where the forward
+  primer just fits, cannot grow, and balance is left unmet (`ins-10`).
+- **Failures:** too little room on the 5′ side (`ins-09`) and the 3′ side
+  (`ins-15`), a template too short for any pair (`ins-11`), and an `N` under
+  the starting reverse annealing portion (`ins-12`).
+- **A 210-base insertion** (`ins-13`), which makes both primers 120 nt, past
+  the owner's 100-nt practical ordering limit. D032 still emits it; the length
+  is a quality warning, not a refusal.
+- **A real template:** an insertion into SID-1 (`ins-14`).
+
+Note that `forward_whole_tm` is *below* `forward_tm` in `ins-06`: a long
+annealing portion plus a short tail can melt lower than the annealing portion
+alone, because the tail is unpaired. That is why D032 sizes on the annealing
+portion.
+
+## Native replacement designs
+
+`native-replacement.tsv` holds the outcome D033 predicts for 15 replacements:
+a target region of width `w` replaced by a text of length `m`, with `m` free
+to differ from `w`. The planner wrote it on 2026-10-15, before any replacement
+design code existed. `reference/native-replacement.py` restates D033 in plain
+Python, reusing only `native-design.py`'s `bio`, `rc`, `ends_gc`,
+`forward_tm` and thresholds. Rerunning it reproduced the file byte for byte
+(sha256 `19ef9087…`, checked twice).
+
+**A cross-check worth noting.** Row `rep-14` is the `q5p-01` edit, 1209–1212
+`GAT`→`AAC` at bound 15, expressed as a replacement instead of a codon
+substitution. It reproduces `native.tsv`'s `native-01` exactly — forward span
+`1199:1222`, reverse `1180:1199`, Tms 67.72 (mismatched basis) and 62.90,
+Ta 65.90, balance met. Two scripts written weeks apart agree, which is direct
+evidence that D033's inline path really is D030 generalised rather than a
+second geometry.
+
+Columns extend `native.tsv`'s. `region` is `start:end:replaced bases` and
+`replacement` the new text. `path` is `inline` or `tails`, the branch D033
+chose. `forward_tail` and `reverse_tail` are `none` on the inline path.
+`forward_whole_tm` and `reverse_whole_tm` are `none` on the inline path too,
+where there is no tail and the primer's Tm is already the whole primer's.
+
+What the rows cover:
+
+- **The inline path** (`max(w, m) <= 6`): 3 for 3, which is an ordinary
+  substitution (`rep-01`); 3 for 2 and 3 for 5, where the lengths differ
+  (`rep-02`, `rep-03`); and 6 for 6, the threshold (`rep-04`).
+- **The tail path** (`max(w, m) > 6`): 7 for 7 (`rep-05`); 3 for 7, where the
+  replacement's length forces it (`rep-06`); 10 for 2, where the region's
+  width does (`rep-07`); and a 12-base replacement split 6 and 6 (`rep-08`).
+- **The Tm basis.** `rep-01`, `rep-10` and `rep-14` have `m == w` and use
+  D030's mismatch-aware basis. Every row with `m != w` uses the matched
+  basis, because a primer and a template site of different lengths have no
+  position-by-position alignment for a mismatch-aware Tm to read.
+- **Sizing and failures:** an AT-rich 5′ side where the reverse primer cannot
+  reach the floor (`rep-09`); an AT-rich 3′ side where the forward primer
+  grows and balance is left unmet (`rep-10`); too little 5′ room
+  (`rep-11`); a template too short for the pair (`rep-12`); an `N` under the
+  starting reverse primer (`rep-13`).
+- **A real template:** `rep-14` and `rep-15` on SID-1.
+
+The script asserts D033's tail invariant on every tail row: the reverse
+tail's reverse complement followed by the forward tail rebuilds the
+replacement exactly.
 
 ## Cloud sharing
 

@@ -45,8 +45,8 @@ not yet recorded in `docs/decisions.md` and are not binding until they are.
 | **The primer-design layer is a pure function of its inputs** | new |
 | **Design policy is explicit, typed, and required: `luriaNative` or a versioned compatibility target** | new (§16) |
 | **A compatibility mode is not a parameter preset; matching numerical defaults are not algorithmic compatibility** | new (§16) |
-| **The initial Luria-native scope is one inline nucleotide substitution, one back-to-back pair, no Tm selection** | new (§18) |
-| **The initial Luria-native split is mutation-centered; availability is a feasibility test, not a split rule** | new (§18.1); D029 amended |
+| **The initial Luria-native scope is one inline substitution of a contiguous region of at most 3 bases, one back-to-back pair, no Tm selection** | D029 (approved 2026-10-14) |
+| **The initial Luria-native split is mutation-centered, with at least 10 unchanged bases on each side, the extra base 3′, and a reverse primer of at least 15; availability is a feasibility test, not a split rule** | D029 (approved 2026-10-14) |
 | **A compatibility design reports which behaviours it reproduces and which it does not** | new (§19) |
 | **The existing fixture's `minimum_overlap_bp` is not mapped to `minAnnealingOverlap`** | new (§20) |
 
@@ -86,7 +86,7 @@ re-implementation of `verifyMutation`.
 | --- | --- | --- | --- |
 | `style` | enum | yes | `q5_polymerase` (D006) or `classic_two_primer`. No other style is in scope. |
 | `minAnnealingOverlap` | integer ≥ 1 | yes | Hard lower bound on the annealing overlap of every emitted primer. A bound, not a target (§9). |
-| `maxAnnealingOverlap` | integer ≥ `minAnnealingOverlap` | no | Upper bound. Absent means "not supplied" (§10). |
+| `maxAnnealingOverlap` | integer ≥ `minAnnealingOverlap` | no | Upper bound. Absent means "not supplied" (§10). **Not accepted for now** (owner, 2026-10-14): it cannot change any outcome under the centered split, so it is added only with a Tm-based length policy. |
 | `minTm` | number | no | Minimum acceptable Tm per primer. Absent means no preference. |
 | `tmFunction` | identifier | no | Which Tm function to use. Absent means the project default (§12). |
 | `saltModel` | identifier | no | Which salt/buffer model the Tm function assumes. Absent means "not supplied" (§10). |
@@ -381,7 +381,7 @@ reported as **unresolved**, with the effect of leaving it unset.
 | `minTm` absent | No Tm preference was applied. Reported Tm values are informational, not satisfied constraints. |
 | `tmFunction` absent | The project default was used, named in the output. |
 | `saltModel` absent | The Tm function's own assumption is reported as unknown, and each Tm value is labelled as computed under an unstated salt assumption. |
-| `maxAnnealingOverlap` absent | No upper bound was applied; the output states the overlap actually chosen. |
+| `maxAnnealingOverlap` absent | No upper bound was applied; the output states the overlap actually chosen. (Until the field is accepted, it is always absent.) |
 | `mutationPlacement` absent | The default for the style was used, and named. |
 
 **Rule (new):** the layer does not ask the caller to supply a missing input
@@ -818,14 +818,29 @@ network is used.
 
 ## 18. The Luria-native policy
 
+**Amended by D030 (2026-10-14).** Primer lengths are now set by melting
+temperature, and §18.1's centred split, §18.3's enumeration and §18.4's
+statement that Tm is not enabled are superseded for lengths: the forward
+primer keeps a fixed 10-base 5′ flank, both primers grow at their 3′ ends to a
+55 °C floor, prefer a G/C last base below 63 °C, and are balanced to within
+5 °C, and the annealing temperature is the lower Tm + 3 °C capped at 72 °C.
+`docs/decisions.md` D030 is the rule and its sources; the text below is kept as
+the record of D029 and still governs scope, hard constraints and the failure
+outcomes, as amended in §18.5. The Tm function is `crates/core/src/tm.rs`
+(SantaLucia & Hicks 2004, Owczarzy 2004), validated as
+`tests/fixtures/tm/README.md` records.
+
 Small, coherent, and deliberately narrower than the contract. Everything
 outside the scope below is out of scope for the initial native policy, not
 unsupported by it.
 
-**Scope:** one edit, one nucleotide substitution — the only edit the mutation
-layer can produce (`NucleotideMutationIntent` carries one `replacement: char`
-at a one-nucleotide interval, `crates/core/src/mutation.rs`) — one pair, linear
-template, inline placement, separate variants not composed.
+**Scope (amended 2026-10-14):** one edit whose replacement region is one
+contiguous template interval of at most 3 bases — a nucleotide substitution
+(`L = 1`) or a residue substitution's codon (`L = 3`), the two edits the
+mutation layer produces — one pair, linear template, inline placement,
+separate variants not composed. The earlier scope was the nucleotide
+substitution alone; it excluded the most common SDM request, a residue
+change.
 
 ### 18.1 Candidate geometry
 
@@ -851,14 +866,22 @@ For an edit at template span `[s, e)` with replacement length `L`, edited span
 **mutation-centered**. For a candidate annealing total `a_f`:
 
 ```
-u = ceil(a_f / 2)      v = floor(a_f / 2)      |u − v| ≤ 1
+u = floor(a_f / 2)     v = ceil(a_f / 2)      |u − v| ≤ 1
+a_f ≥ max(minAnnealingOverlap, 2 · MIN_FLANK)  MIN_FLANK = 10
 ```
 
 so the replacement region sits in the middle of the forward primer's unchanged
-annealing flanks, and the extra base, when `a_f` is odd, goes to the **5′**
-side. That assignment is a stated convention, recorded so that a second run
-cannot choose the other one; the alternative (extra base 3′) is equally
-arbitrary and is not chosen here.
+annealing flanks, each flank has at least 10 bases, and the extra base, when
+`a_f` is odd, goes to the **3′** side.
+
+**Amended 2026-10-14 (owner decisions, D029).** The extra base moved from the
+5′ to the 3′ side: the 3′ flank primes extension, and it is the side the
+reference tool grows. The per-side minimum is new: without it, a bound of 15
+gave a 3′ flank of 7 bases, below the reference manual's "at least 10
+nucleotides that are 100% complementary on both sides". The minimum adopts that
+number as a length floor, not the reference algorithm. H1 is unchanged; it
+remains a bound on the annealing total, and the per-side minimum is a rule of
+`luriaNative` only.
 
 `(u, v)` is a function of `a_f` **alone**. Availability never moves it:
 availability is a feasibility test applied to the centered candidate,
@@ -871,9 +894,8 @@ on a linear template (D005/D019). A centered candidate that fails either test
 is **not shifted** to one that fits; the search reports no design under this
 policy and names the side that bound it (§18.5).
 
-For the initial native scope the replacement region is one nucleotide
-(`L = e − s = 1`), so `|u − v| ≤ 1` is the whole rule. For a longer **contiguous**
-replacement region the same definition applies unchanged: the region's `L` bases
+The initial native scope admits `L = e − s` from 1 to 3. For any **contiguous**
+replacement region the definition is the same: the region's `L` bases
 sit between the two flanks, so centering the region in the primer and equalising
 the flanks are one statement. A changed set that is not one contiguous interval
 — a residue edit on a CDS that wraps the origin of a circular reference — has
@@ -903,6 +925,10 @@ H1–H8 of §7, evaluated on the output, plus:
   D005/D019). A circular template has no availability bound, only a length
   bound.
 - **alphabet:** H6, the project alphabet, no degenerate symbol in a primer.
+  An ambiguity code in the **template** under the centered pair is reported as
+  *no centered design fits* (§18.5 outcome 2, obstacle `AmbiguousTemplateBase`):
+  a shifted pair might avoid it, and this policy does not shift (owner,
+  2026-10-14, for point-mutation mode).
 
 **The centered split is not a hard constraint added here.** It fixes which
 `(u, v)` a candidate has — the candidate set — and is stated in §18.1. The hard
@@ -918,9 +944,12 @@ Tm bound.
 
 ### 18.3 Deterministic enumeration and tie-break
 
-Enumerate `a_f` from `minAnnealingOverlap` upward and `a_r` from
-`minAnnealingOverlap` upward, each capped by `maxAnnealingOverlap` when
-supplied and by availability always. Order the candidate set by the total
+Enumerate `a_f` from `max(minAnnealingOverlap, 20)` upward and `a_r` from
+`max(minAnnealingOverlap, 15)` upward, each capped by availability. (Amended
+2026-10-14: the starting `a_f` carries the per-side minimum, and
+`maxAnnealingOverlap` is not part of the request; the owner left it out until a
+Tm-based length policy exists, because it cannot change any outcome under the
+centered split.) Order the candidate set by the total
 order:
 
 1. `a_f + a_r` ascending — P3, shorter primers preferred;
@@ -933,14 +962,14 @@ nothing. With `a_f` fixed, `(u, v)` is a function of `a_f` alone, so the two
 keys above determine a unique candidate and no third key is needed.
 
 **Consequence of the centered split (2026-10-13).** Availability is monotone
-along the order: `u = ceil(a_f/2)` and `v = floor(a_f/2)` are non-decreasing in
+along the order: `u = floor(a_f/2)` and `v = ceil(a_f/2)` are non-decreasing in
 `a_f`, and the 5′ test `u ≤ s − a_r` only gets harder as `a_r` grows. So if the
-first candidate in the order — `a_f = a_r = minAnnealingOverlap` — fails
-availability, every later candidate does too. The enumeration is stated for the
+first candidate in the order — `a_f = max(minAnnealingOverlap, 20)`,
+`a_r = max(minAnnealingOverlap, 15)` — fails availability, every later candidate does
+too. The enumeration is stated for the
 general case, because a Tm rule enabled later can make a larger candidate the
-first fitting one; under the initial native policy it has a closed form (§18.4)
-and `maxAnnealingOverlap` cannot make an infeasible edit feasible. §18.5's
-outcome 2 is read against that.
+first fitting one; under the initial native policy it has a closed form
+(§18.4).
 
 The objective is total primer length: primer lengths are `a_f + L` and `a_r`, so
 minimising `a_f + a_r` **is** minimising total primer length, since `L` is fixed
@@ -948,12 +977,15 @@ by the edit. It is **not** a bound on the longer primer and not a Tm balance:
 `(20, 10)` and `(15, 15)` tie at 30, and the second key picks `(15, 15)` because
 it has the smaller `a_f`, not because the objective prefers an even pair.
 
-The order is input-independent: it is a function of `(s, L, n, minAnnealingOverlap,
-maxAnnealingOverlap)` alone. Sequence content never enters it, so I-11 holds by
+The order is input-independent: it is a function of `(s, L, n,
+minAnnealingOverlap)` alone. Sequence content never enters it, so I-11 holds by
 construction. The first candidate in the order that satisfies the hard
 constraints is the design.
 
 ### 18.4 Tm-based selection is **not enabled**
+
+*Superseded by D030 (2026-10-14): Tm-based sizing is enabled. Kept as the
+record of the D029-era policy.*
 
 The initial native policy runs without a Tm function. P1 and P2 are inert; the
 output says so (§10). This is a policy statement, not a deferral of a rule:
@@ -961,46 +993,56 @@ output says so (§10). This is a policy statement, not a deferral of a rule:
 - the project's Tm function is not defined (§11), and inventing one would
   violate §11's rule that no Tm model may be added on the basis of a reference
   tool;
-- with Tm inert, the policy has a closed form: `a_r = minAnnealingOverlap`,
-  `a_f = minAnnealingOverlap`, and `(u, v) = (ceil(a_f/2), floor(a_f/2))` from
-  §18.1. A design exists if and only if that one candidate fits availability,
-  i.e. if and only if
+- with Tm inert, the policy has a closed form. With `b = minAnnealingOverlap`
+  `A = max(b, 20)` and `R = max(b, 15)`: `a_r = R`, `a_f = A`, and
+  `(u, v) = (floor(A/2), ceil(A/2))` from §18.1. A design exists if and only if
+  that one candidate fits availability, i.e. if and only if
 
   ```
-  s ≥ minAnnealingOverlap + ceil(minAnnealingOverlap / 2)
-  template.length − s − L ≥ floor(minAnnealingOverlap / 2)
+  s ≥ R + floor(A / 2)
+  template.length − s − L ≥ ceil(A / 2)
   ```
+
+  (amended 2026-10-14; checked against a full enumeration of the §18.3 order
+  for templates of 20–74 bases, `L` of 1–3, and nine bounds, with no
+  disagreement)
 
   and §18.5 reports no design when either fails. The enumeration in §18.3 is
   stated anyway, so that enabling Tm later extends the same order instead of
   replacing it.
 
-**Rule (new, amended 2026-10-13):** the split of `a_f` into `(u, v)` is no
-longer arbitrary. It is the mutation-centered split of §18.1, with the extra
-base on the 5′ side when `a_f` is odd — a stated Luria choice, recorded as
-**proposed** in D029, not a conclusion of evidence. It is **not** the reference
-tool's rule. The saved help text describes the reference's short-substitution
-path as anchoring the center of the primer to the nucleotide region and
-extending in both the 5′ and 3′ directions "so that there are at least 10
-nucleotides that are 100% complementary on both sides of the mutation region".
-That is source evidence about that path's behaviour
-(§13.1 items 4 and 6; `docs/research/nbc_help_v284.txt` line 200, quoted at
+**Rule (new, amended 2026-10-13 and 2026-10-14):** the split of `a_f` into
+`(u, v)` is the mutation-centered split of §18.1, with at least 10 bases per
+side and the extra base on the 3′ side — stated Luria choices, recorded in
+D029, **approved 2026-10-14**. It is **not** the reference
+tool's rule. The reference's code pins the forward primer's 5′ flank at its
+pad of 10 and grows only the 3′ flank toward a Tm target (2026-10-12 review,
+C8; `replay_dispatcher_geometry.py`). Its manual describes the result as
+"at least 10 nucleotides that are 100% complementary on both sides of the
+mutation region" (`docs/research/nbc_help_v284.txt` line 200, quoted at
 `docs/research/nebasechanger-live-build-4330b0c7-2026-10-10.md` §15.4,
-`@19261`). Three things stay separate: the reference path's behaviour, the
-`luriaNative` centered rule, and anything unverified. The per-side ≥ 10 bound is
-**not** adopted for `luriaNative` — the 2026-10-12 pass's A9 decision keeps H1 a
-bound on the total — and adopting a similar shape is not evidence that
-`luriaNative` matches the reference build. The direction of the geometry
-agrees; nothing about the reference's numbers, growth order or Tm engine
-follows. The direction is checked against the corpus, not asserted: `q5p-01`'s
-forward primer has annealing spans `[[1199, 1209], [1212, 1222]]` around an edit
-at `[1209, 1212)`, so `u = v = 10`, `L = 3`, `a_f = 20`, primer length 23 — equal
-flanks. What differs between the two policies is the total and the growth rule:
-with `minAnnealingOverlap = 15` the native design sets `a_f = 15` (`u = 8`,
-`v = 7`, primer length 16), while the reference design carries `a_f = 20` because
-it grew past the bound toward a Tm target.
+`@19261`). `luriaNative` adopts that number as a per-side length floor, and
+nothing else: no Tm growth, no G/C clamp, no Tm balance.
+
+The corpus cannot tell the two geometries apart. Every reference design has
+forward flanks of exactly 10 and 10 (`q5p-01`: annealing spans
+`[[1199, 1209], [1212, 1222]]` around `[1209, 1212)`), because the Tm target
+was already met at the seed. Under the amended rule the native forward primer
+covers the same span as the reference forward primer for the four designs at
+bound 15 (`q5p-01`, `q5p-04`, `q5p-07` variants a and b); for `q5p-02` and
+`q5p-03` the native `a_f` is 24 and 25, where the reference keeps 20 and fails
+H1. Reverse primers differ throughout: the native reverse primer is
+`max(bound, 15)`,
+the reference's is grown for Tm. That is an observation about the corpus, not
+a compatibility claim (D028).
 
 ### 18.5 Failure semantics
+
+**Amended by D030 (2026-10-14).** Outcome 2 is renamed *no design fits*
+(`NoPrimerDesignFits`) and gains a cause: a primer that runs out of template
+before its Tm reaches 55 °C, reported with the side, the bases available and
+the Tm reached. An unmet 5 °C balance or a missing G/C last base is not a
+failure; the design records it.
 
 A candidate set that yields nothing satisfying the hard constraints is a
 failure, not a smaller design. Per D005 and §10: no pair, no partial pair.
@@ -1016,24 +1058,24 @@ outcome 2's promise that a design "may exist above them" is dropped, because
 availability is monotone under a centered split (§18.3). The list below is the
 current wording.
 
-1. **no centered candidate fits** — the domain was capped by availability alone
-   (`maxAnnealingOverlap` absent, or at or above the availability cap): no
-   mutation-centered candidate exists for this edit on this template. The
-   report names the side that bound it — the 5′ test `u ≤ s − a_r` or the 3′
-   test `v ≤ n − s − L` — with the bases available on that side and the flank
-   the centered split asked for;
-2. **capped by a supplied `maxAnnealingOverlap`** — the domain was capped by a
-   supplied `maxAnnealingOverlap`. Under the centered split availability is
-   monotone in both totals (§18.3), so this outcome reports the same absence as
-   outcome 1 and must **not** claim that a design may exist above the cap:
-   raising the cap cannot make a centered candidate fit. The two outcomes stay
-   separate reports of what the request supplied, not two reasons in the
-   geometry;
-3. **not searched** — the request was rejected before enumeration
-   (`minAnnealingOverlap < 1`, `L ≠ e − s`, a non-linear template, a composed
-   variant request): the failure is in the request, not in the geometry.
+**Amended again (2026-10-14, owner decisions).** The outcomes are split by
+cause, and the `maxAnnealingOverlap` outcome is dropped with the field:
 
-A centered-geometry failure is outcome 1. It is never reported as an H1 bound
+1. **no design possible** — the template is shorter than the smallest pair,
+   `L + max(b, 20) + max(b, 15) > template.length`, so no placement of any abutting pair
+   fits. `BiologicalValidation`: the request is well formed and the template
+   cannot support it. `q5p-09` (bound 31, 30-base template) is this outcome;
+2. **no centered design fits** — a pair of that size fits the template, but not
+   centered on this edit. The report names the side that bound it — the 5′ test
+   `u ≤ s − a_r` or the 3′ test `v ≤ n − s − L` — with the bases available on
+   that side and the flank the centered split asked for. `Unsupported`: another
+   geometry might fit, and this policy does not shift;
+3. **not searched** — the request was refused before enumeration.
+   `minAnnealingOverlap < 1` is `MalformedInput`; a replacement region longer
+   than 3, a non-contiguous changed set, a non-linear template, or a composed
+   variant request is `Unsupported`.
+
+A centered-geometry failure is outcome 2. It is never reported as an H1 bound
 failure or as an unsupported-placement refusal: the bound was met by the
 candidate that did not fit, and the placement was supported.
 
@@ -1042,14 +1084,16 @@ the error model does not yet carry it. `crates/core/src/error.rs` has no
 variant for a design-level failure — the design layer is unimplemented — and
 its primer-level variants sort as `AnnealingOverlapBelowBound` →
 `BiologicalValidation`, `InvalidPrimerCandidate` → `MalformedInput`,
-`UnsupportedPrimerPlacement` → `Unsupported`. A carrier for outcomes 1 and 2 is
-an open item, and which `ErrorCategory` it belongs to is a contract choice to
-record, not to invent at implementation time.
+`UnsupportedPrimerPlacement` → `Unsupported`. **Implemented 2026-10-14:**
+outcome 1 is `NoPrimerDesignPossible`, outcome 2 `NoPrimerDesignFits`, and
+outcome 3 `InvalidPrimerDesignRequest` or `UnsupportedPrimerDesignScope`, with
+the categories recorded above (`crates/core/src/primer_design.rs`).
 
 Each failure names the constraint that bound the search and states the range
 that was searched, as the pair of totals `(a_f, a_r)` actually enumerated.
-`q5p-09` is outcome 1, and its fixture note already says the failure "is not a
-property of one search"; the fixture and the semantics now agree. This is
+`q5p-09` is outcome 1 (no design possible), and its fixture note already says
+the failure "is not a property of one search"; the fixture and the semantics
+agree. This is
 Luria's own reporting rule; the reference tool's throw messages (§17.1) are not
 reused as Luria's wording.
 
@@ -1120,6 +1164,20 @@ the stored scripts, and expressible as a rule rather than as a number:
   policy supports them; the contract's §5 cases stay contract-level.
 - **all mutation types, degenerate replacements, merged codon ops, NEBuilder
   assembly, batch mode, legacy mode.** Out of scope for the target.
+
+  **Owner note on degenerate replacements (2026-10-14).** If an
+  indel/substitution mode like NEBaseChanger's is added, it should accept
+  ambiguity codes in the replacement sequence and expand them combinatorially,
+  one primer pair per concrete sequence. NEBaseChanger's help: "Ambiguous base
+  codes can be entered in the replacement sequence (N,Y,S,W, etc) and will be
+  expanded combinatorialy over multiple primers. For example, a replacement
+  sequence containing NS will be expanded to 8 sequences containing: AC, CC,
+  GC, TC, AG, CG, GG, and TG, generating 8 primer pairs." Each expanded primer
+  is concrete, so H6 still holds of every primer emitted. Two things would have
+  to change first: the mutation layer restricts replacements to A/C/G/T (core
+  review, 2026-10-14), and one request would yield several designs rather than
+  one. This concerns the replacement only; an ambiguity code in the template
+  is still an obstacle (§18.2).
 
 **Rule (new):** where the reference behaviour conflicts with a Luria hard
 requirement, the incompatibility is recorded, not absorbed. The existing
@@ -1227,3 +1285,23 @@ is recorded as superseded inside the entry.
 **What the pass left open** is the readiness report's blocker list. Nothing in
 §§1–§15 was changed by the pass, and no compatibility claim, no Tm rule and no
 maximum primer length was touched.
+
+---
+
+## 23. Owner decisions on D029, 2026-10-14
+
+| Where | Change |
+| --- | --- |
+| §1 rule table | scope and split rows restated |
+| §18 scope | `L = 1` widened to any contiguous replacement region of at most 3 bases, so residue (codon) substitutions are in scope |
+| §18.1 | per-side minimum of 10 unchanged bases (`a_f ≥ max(minAnnealingOverlap, 20)`); extra base of an odd split moved to the 3′ side |
+| §18.3 | enumeration starts at `a_f = max(minAnnealingOverlap, 20)`; `maxAnnealingOverlap` removed from the request |
+| §18.4 | closed form restated and checked against full enumeration; the reference comparison corrected: the reference pins its 5′ flank and grows its 3′ flank, and no saved design distinguishes that from centering |
+| §18.5 | outcomes split by cause: *no design possible* (`BiologicalValidation`), *no centered design fits* (`Unsupported`), *not searched*; the `maxAnnealingOverlap` outcome dropped |
+| `docs/decisions.md` | D029 rewritten to match |
+| §18.3, §18.4, §18.5 | reverse primer floor of 15 bases: `a_r ≥ max(minAnnealingOverlap, 15)` (owner, 2026-10-14) |
+| D029 status | **approved** by the owner, 2026-10-14 |
+| §18.2 | an ambiguity code in the template under the centered pair is *no centered design fits* (point-mutation mode) |
+| §19 | future indel/substitution mode: expand ambiguity codes in the replacement combinatorially, one pair per concrete sequence |
+| §18, §18.4, §18.5 | **D030**: Tm-driven lengths (55 °C floor, G/C preference below 63 °C, 5 °C balance, 3′-only growth with a fixed 10-base forward 5′ flank, Ta = lower Tm + 3 capped at 72); outcome 2 renamed *no design fits* with a Tm-floor cause |
+| §2.2 | under `luriaNative` the buffer (salt and primer concentration) is a required request field rather than an optional `saltModel`: the reference tool uses two different conditions at two call sites, so a default would be an unmade decision. `tmFunction` is fixed by the policy and `minTm` is not accepted (D030's floor is fixed) |

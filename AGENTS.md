@@ -17,11 +17,42 @@ sequences, primer designs, coordinates, or experimental results.
 
 ## Roles
 - The planner (Claude) writes task contracts, resolves ambiguity with the
-  user, and reviews diffs and check results.
-- The worker (local model subagent) implements one task contract, runs the
-  required checks, and reports back.
+  user, and reviews diffs and check results. The planner does not implement.
+- The worker (local model subagent) is the default and expected implementer
+  of all source and test code. It wrote most of milestones 1–2. Code quality
+  is established by tests, clippy, fixtures and planner review, not by who
+  wrote the code.
 - Workers cannot ask the user. If blocked or uncertain, stop and report to
   the planner instead of guessing.
+
+## Delegation rules
+- The planner does not edit files under `crates/`, `src/` or `tests/`.
+  Allowed direct edits: `docs/tasks/` and a one-line typo or formatting fix.
+- All other implementation goes to the `worker` subagent.
+- Do not skip delegation because the task seems small or the worker's style
+  differs from what the planner would write. Style differences are not
+  defects; failing checks, wrong behavior and scope violations are.
+- If worker output fails review or checks, `resume` the same worker with
+  concrete feedback: file, line, what is wrong, what is expected.
+- Worker runs are capped at 80 turns by default. If runs often end with
+  the turn limit reached, pass a higher `max_turns` on the `subagent` call
+  for large contracts instead of resuming, and tell the user so the
+  default can be revisited.
+- The planner may take over a fix only after 3 failed rounds on the same
+  issue, and must tell the user when it does and why.
+- Tests and fixtures come first where practical: the planner writes or
+  approves them, then the worker makes them pass. Fixture expectations still
+  need independent verification (see Working method).
+
+## Writing contracts for the worker
+- Name exact files, function signatures, types, and edge cases.
+- List the tests that must pass and the commands to run.
+- Include a "Do not" list (no new dependencies, no changes outside the named
+  files, no changes to existing tests or fixtures).
+- Prefer several small contracts, one function or module each, over one
+  large one.
+- Give the worker the relevant `docs/decisions.md` sections inline or by
+  exact heading, not "see the docs".
 
 ## Current task
 - The task contract is the file named in the prompt, normally

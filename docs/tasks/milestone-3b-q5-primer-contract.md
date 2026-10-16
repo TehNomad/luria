@@ -287,8 +287,11 @@ failures.
 Answers to the blockers in
 `docs/research/q5-primer-implementation-readiness-2026-10-13.md` Part 4:
 
-- **P0-3, D029:** not approved yet. The centered split stays proposed, so the
-  design layer (`PrimerDesign`, candidate generation) is still not started.
+- **P0-3, D029:** **approved** on 2026-10-14, with four amendments applied to
+  D029 and `docs/q5-primer-design.md` §18 (§23 lists them): at least 10
+  unchanged bases on each side of the replacement, the extra base of an odd
+  split on the 3′ side, a scope of any contiguous replacement region of at most
+  3 bases, and a reverse primer of at least 15 bases.
 - **P0-2, error carrier for "no design":** split by cause. When D029 is
   implemented, a single new variant reports a no-design outcome and names the
   binding side. Its category depends on the cause: `Unsupported` when the
@@ -324,6 +327,57 @@ Tests added in this pass:
 
 The workspace suite now runs 233 tests (197 unit; 8, 6, 14 and 8
 integration), 0 failures.
+
+## 11. Design layer: `luriaNative` (D029), 2026-10-14
+
+Implemented after D029's approval, in `crates/core/src/primer_design.rs`:
+
+- `PrimerDesignRequest` (style `Q5Polymerase`, policy `LuriaNative`, required
+  `minAnnealingOverlap ≥ 1`, placement) and `design_primers(template, result,
+  request)`, which returns a `PrimerDesign`: the pair, the request, the
+  template and edited-artifact references, the replacement region, `u`, `v`,
+  `a_r`, the algorithm name and version (D021), and the unresolved inputs
+  (`minTm`, `tmFunction`, `saltModel`, `maxAnnealingOverlap`; §10).
+- The pair is proposed by D029's closed form and then passed through
+  `construct_primer`, `assemble_pair` and `require_design_constraints`, so the
+  output is checked by the same code as any other primer.
+- Four error variants in `error.rs`: `InvalidPrimerDesignRequest`
+  (`MalformedInput`: bound below 1, unverified result),
+  `UnsupportedPrimerDesignScope` (`Unsupported`: circular template,
+  non-contiguous or over-3-base region), `NoPrimerDesignPossible`
+  (`BiologicalValidation`) and `NoCenteredPrimerDesign` (`Unsupported`, with
+  one obstacle per binding side). A confine-to-tail request is refused with the
+  existing `UnsupportedPrimerPlacement`.
+
+Deviations, confirmed by the owner on 2026-10-14:
+
+- §10 records the no-design answer as "a single new variant" whose category
+  depends on the cause. `error.rs` assigns one category per variant, so the
+  two causes are two variants. The categories are the ones chosen.
+  **Confirmed.**
+- An ambiguity code (H6) in the template under the centered pair is not one
+  of §18.5's outcomes. It is reported as a `NoCenteredPrimerDesign` obstacle
+  (`AmbiguousTemplateBase`), on the reasoning that a shifted pair might avoid
+  it. **Confirmed for point-mutation mode** (`docs/q5-primer-design.md`
+  §18.2, §18.5).
+
+Owner note for future work (2026-10-14): if an indel/substitution mode like
+NEBaseChanger's is added, it should accept ambiguity codes in the
+**replacement** sequence and expand them combinatorially into one primer pair
+per concrete sequence, as NEBaseChanger's help describes ("a replacement
+sequence containing NS will be expanded to 8 sequences containing: AC, CC, GC,
+TC, AG, CG, GG, and TG, generating 8 primer pairs"). Recorded in
+`docs/q5-primer-design.md` §19. Not implemented; the mutation layer currently
+restricts replacements to A/C/G/T.
+
+Tests: 16 unit tests in `primer_design.rs` on a 60-base synthetic template,
+with expectations derived by hand from D029's closed form (the derivation is
+written into the test module's comment; no shared code); and 3
+integration tests in `q5_primer_fixtures.rs` against the new
+`tests/fixtures/q5-primer/native.tsv` (8 cases; see that README), including
+an exact forward-primer match with the reference designs for `q5p-01` and
+`q5p-07` variant-b. Moving the split point by one base was confirmed to fail
+both suites.
 
 ---
 
