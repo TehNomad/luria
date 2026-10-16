@@ -36,8 +36,10 @@ which is what this script does.
 import hashlib
 import json
 import math
+import os
 
-FIXTURES = "/home/timw/Projects/luria/tests/fixtures"
+HERE = os.path.dirname(os.path.abspath(__file__))
+FIXTURES = os.path.dirname(os.path.dirname(HERE))
 
 # --- the reference Tm model, inlined -----------------------------------------
 # NEBaseChanger's "method 4" at salt 150 mM and ct 0.5, as read from the saved
@@ -485,7 +487,7 @@ def main() -> None:
     # ID, Fwd Primer Seq, Length, Tm Fwd, Rev Primer ID, Rev Primer Seq, Length,
     # Tm Rev, Ta. It reports no span, no orientation, no overlap, no tail/annealing
     # split. Only the D404N row corresponds to a design in this file.
-    neb_row = f"{FIXTURES}/example-construct/raw/sdmsummary.txt (row D404N)"
+    neb_row = "example-construct/raw/sdmsummary.txt (row D404N)"
     reported = ["forward.sequence", "forward.length", "reverse.sequence",
                 "reverse.length", "ta"]
     derived = ["span", "oneBasedSpan", "editedSpan", "orientation", "parts",

@@ -160,7 +160,7 @@
     "ta": 71,
     "tmFunction": "reference method 4, salt 150 mM, ct 0.5 (NEBaseChanger)",
     "provenance": {
-      "reportedBy": "/home/timw/Projects/luria/tests/fixtures/example-construct/raw/sdmsummary.txt (row D404N)",
+      "reportedBy": "example-construct/raw/sdmsummary.txt (row D404N)",
       "reportedFields": [
         "forward.sequence",
         "forward.length",
@@ -717,7 +717,7 @@
       "ta": 71,
       "tmFunction": "reference method 4, salt 150 mM, ct 0.5 (NEBaseChanger)",
       "provenance": {
-        "reportedBy": "/home/timw/Projects/luria/tests/fixtures/example-construct/raw/sdmsummary.txt (row D404N)",
+        "reportedBy": "example-construct/raw/sdmsummary.txt (row D404N)",
         "reportedFields": [
           "forward.sequence",
           "forward.length",
@@ -909,7 +909,7 @@
       "ta": 71,
       "tmFunction": "reference method 4, salt 150 mM, ct 0.5 (NEBaseChanger)",
       "provenance": {
-        "reportedBy": "/home/timw/Projects/luria/tests/fixtures/example-construct/raw/sdmsummary.txt (row D404N)",
+        "reportedBy": "example-construct/raw/sdmsummary.txt (row D404N)",
         "reportedFields": [
           "forward.sequence",
           "forward.length",
