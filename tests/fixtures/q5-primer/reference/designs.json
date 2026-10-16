@@ -1,0 +1,1125 @@
+{
+  "q5p-01": {
+    "request": {
+      "minOverlapSupplied": 15,
+      "targetTm": 55.0,
+      "pad": 10,
+      "referenceParameterSlot": "the reference tool's *minimum primer length*. The help text restricts that parameter to the annealing portion only when modifications are constrained to the 5' tails (13.1 item 5); these designs are inline, so the restriction does not apply and the script feeds the supplied value into that slot unchanged",
+      "contractField": "minAnnealingOverlap (2.2). The two quantities are NOT established to be the same (15, question 4); the value is passed through unchanged and the comparison is reported separately."
+    },
+    "edit": {
+      "start": 1209,
+      "end": 1212,
+      "original": "GAT",
+      "replacement": "AAC"
+    },
+    "forward": {
+      "sequence": "CGTTGAGCAAAACTTCGGGGCGC",
+      "length": 23,
+      "span": [
+        1199,
+        1222
+      ],
+      "oneBasedSpan": [
+        1200,
+        1222
+      ],
+      "editedSpan": [
+        1199,
+        1222
+      ],
+      "orientation": "same",
+      "mutationPlacement": "inline",
+      "parts": [
+        {
+          "role": "context",
+          "sequence": "CGTTGAGCAA",
+          "span": [
+            1199,
+            1209
+          ],
+          "primerIndices": [
+            0,
+            10
+          ],
+          "annealing": true
+        },
+        {
+          "role": "mutation",
+          "sequence": "AAC",
+          "span": [
+            1209,
+            1212
+          ],
+          "primerIndices": [
+            10,
+            13
+          ],
+          "annealing": false
+        },
+        {
+          "role": "context",
+          "sequence": "TTCGGGGCGC",
+          "span": [
+            1212,
+            1222
+          ],
+          "primerIndices": [
+            13,
+            23
+          ],
+          "annealing": true
+        }
+      ],
+      "tail": null,
+      "tailReason": "no 5' tail: the mutated positions sit at primer indices 10..13, not at the 5' end",
+      "changedPositions": [
+        10,
+        11,
+        12
+      ],
+      "annealing": {
+        "sequence": "CGTTGAGCAATTCGGGGCGC",
+        "spans": [
+          [
+            1199,
+            1209
+          ],
+          [
+            1212,
+            1222
+          ]
+        ],
+        "length": 20
+      },
+      "annealingOverlap": 20,
+      "wholePrimerMatchCount": 21,
+      "tm": 74.18
+    },
+    "reverse": {
+      "sequence": "AGCGGATTGAGCAGTTTTCCGTC",
+      "length": 23,
+      "span": [
+        1176,
+        1199
+      ],
+      "oneBasedSpan": [
+        1177,
+        1199
+      ],
+      "editedSpan": null,
+      "orientation": "opposite",
+      "mutationPlacement": "none",
+      "parts": [
+        {
+          "role": "context",
+          "sequence": "AGCGGATTGAGCAGTTTTCCGTC",
+          "span": [
+            1176,
+            1199
+          ],
+          "primerIndices": [
+            0,
+            23
+          ],
+          "annealing": true
+        }
+      ],
+      "tail": null,
+      "tailReason": "carries no mutated base: the whole primer is wild-type context",
+      "changedPositions": [],
+      "annealing": {
+        "sequence": "AGCGGATTGAGCAGTTTTCCGTC",
+        "spans": [
+          [
+            1176,
+            1199
+          ]
+        ],
+        "length": 23
+      },
+      "annealingOverlap": 23,
+      "wholePrimerMatchCount": 23,
+      "tm": 69.94
+    },
+    "relationship": {
+      "abut": true,
+      "boundary": 1199,
+      "gap": 0,
+      "boundaryOffsetFromEdit": 10,
+      "contractGeometry": "5 requires the pair's inner boundary at the edit; this design puts it 10 bases before it (inline placement)"
+    },
+    "h1": {
+      "minAnnealingOverlapSupplied": 15,
+      "forwardAnnealingOverlap": 20,
+      "reverseAnnealingOverlap": 23,
+      "satisfied": true,
+      "forward": "above",
+      "reverse": "above"
+    },
+    "ta": 71,
+    "tmFunction": "reference method 4, salt 150 mM, ct 0.5 (NEBaseChanger)",
+    "provenance": {
+      "reportedBy": "/home/timw/Projects/luria/tests/fixtures/example-construct/raw/sdmsummary.txt (row D404N)",
+      "reportedFields": [
+        "forward.sequence",
+        "forward.length",
+        "reverse.sequence",
+        "reverse.length",
+        "ta"
+      ],
+      "reportedTm": "74 (fwd), 70 (rev) as printed; this script computes 74.18 and 69.94 before rounding",
+      "derivedFields": [
+        "span",
+        "oneBasedSpan",
+        "editedSpan",
+        "orientation",
+        "parts",
+        "tail",
+        "tailReason",
+        "changedPositions",
+        "annealing",
+        "annealingOverlap",
+        "wholePrimerMatchCount",
+        "tm",
+        "h1"
+      ],
+      "note": "raw/sdmsummary.txt reports no overlap column: both overlap quantities here are derived by this script, not observed"
+    },
+    "builtAgainst": "54704740a9f04b79"
+  },
+  "q5p-02": {
+    "request": {
+      "minOverlapSupplied": 24,
+      "targetTm": 55.0,
+      "pad": 10,
+      "referenceParameterSlot": "the reference tool's *minimum primer length*. The help text restricts that parameter to the annealing portion only when modifications are constrained to the 5' tails (13.1 item 5); these designs are inline, so the restriction does not apply and the script feeds the supplied value into that slot unchanged",
+      "contractField": "minAnnealingOverlap (2.2). The two quantities are NOT established to be the same (15, question 4); the value is passed through unchanged and the comparison is reported separately."
+    },
+    "edit": {
+      "start": 1209,
+      "end": 1212,
+      "original": "GAT",
+      "replacement": "AAC"
+    },
+    "forward": {
+      "sequence": "CGTTGAGCAAAACTTCGGGGCGC",
+      "length": 23,
+      "span": [
+        1199,
+        1222
+      ],
+      "oneBasedSpan": [
+        1200,
+        1222
+      ],
+      "editedSpan": [
+        1199,
+        1222
+      ],
+      "orientation": "same",
+      "mutationPlacement": "inline",
+      "parts": [
+        {
+          "role": "context",
+          "sequence": "CGTTGAGCAA",
+          "span": [
+            1199,
+            1209
+          ],
+          "primerIndices": [
+            0,
+            10
+          ],
+          "annealing": true
+        },
+        {
+          "role": "mutation",
+          "sequence": "AAC",
+          "span": [
+            1209,
+            1212
+          ],
+          "primerIndices": [
+            10,
+            13
+          ],
+          "annealing": false
+        },
+        {
+          "role": "context",
+          "sequence": "TTCGGGGCGC",
+          "span": [
+            1212,
+            1222
+          ],
+          "primerIndices": [
+            13,
+            23
+          ],
+          "annealing": true
+        }
+      ],
+      "tail": null,
+      "tailReason": "no 5' tail: the mutated positions sit at primer indices 10..13, not at the 5' end",
+      "changedPositions": [
+        10,
+        11,
+        12
+      ],
+      "annealing": {
+        "sequence": "CGTTGAGCAATTCGGGGCGC",
+        "spans": [
+          [
+            1199,
+            1209
+          ],
+          [
+            1212,
+            1222
+          ]
+        ],
+        "length": 20
+      },
+      "annealingOverlap": 20,
+      "wholePrimerMatchCount": 21,
+      "tm": 74.18
+    },
+    "reverse": {
+      "sequence": "AGCGGATTGAGCAGTTTTCCGTCAG",
+      "length": 25,
+      "span": [
+        1174,
+        1199
+      ],
+      "oneBasedSpan": [
+        1175,
+        1199
+      ],
+      "editedSpan": null,
+      "orientation": "opposite",
+      "mutationPlacement": "none",
+      "parts": [
+        {
+          "role": "context",
+          "sequence": "AGCGGATTGAGCAGTTTTCCGTCAG",
+          "span": [
+            1174,
+            1199
+          ],
+          "primerIndices": [
+            0,
+            25
+          ],
+          "annealing": true
+        }
+      ],
+      "tail": null,
+      "tailReason": "carries no mutated base: the whole primer is wild-type context",
+      "changedPositions": [],
+      "annealing": {
+        "sequence": "AGCGGATTGAGCAGTTTTCCGTCAG",
+        "spans": [
+          [
+            1174,
+            1199
+          ]
+        ],
+        "length": 25
+      },
+      "annealingOverlap": 25,
+      "wholePrimerMatchCount": 25,
+      "tm": 71.54
+    },
+    "relationship": {
+      "abut": true,
+      "boundary": 1199,
+      "gap": 0,
+      "boundaryOffsetFromEdit": 10,
+      "contractGeometry": "5 requires the pair's inner boundary at the edit; this design puts it 10 bases before it (inline placement)"
+    },
+    "h1": {
+      "minAnnealingOverlapSupplied": 24,
+      "forwardAnnealingOverlap": 20,
+      "reverseAnnealingOverlap": 25,
+      "satisfied": false,
+      "forward": "below",
+      "reverse": "above"
+    },
+    "ta": 72,
+    "tmFunction": "reference method 4, salt 150 mM, ct 0.5 (NEBaseChanger)",
+    "provenance": {
+      "reportedBy": null,
+      "reportedFields": [],
+      "reportedTm": null,
+      "derivedFields": [
+        "span",
+        "oneBasedSpan",
+        "editedSpan",
+        "orientation",
+        "parts",
+        "tail",
+        "tailReason",
+        "changedPositions",
+        "annealing",
+        "annealingOverlap",
+        "wholePrimerMatchCount",
+        "tm",
+        "h1"
+      ],
+      "note": "raw/sdmsummary.txt reports no overlap column: both overlap quantities here are derived by this script, not observed"
+    },
+    "builtAgainst": "54704740a9f04b79"
+  },
+  "q5p-03": {
+    "request": {
+      "minOverlapSupplied": 25,
+      "targetTm": 55.0,
+      "pad": 10,
+      "referenceParameterSlot": "the reference tool's *minimum primer length*. The help text restricts that parameter to the annealing portion only when modifications are constrained to the 5' tails (13.1 item 5); these designs are inline, so the restriction does not apply and the script feeds the supplied value into that slot unchanged",
+      "contractField": "minAnnealingOverlap (2.2). The two quantities are NOT established to be the same (15, question 4); the value is passed through unchanged and the comparison is reported separately."
+    },
+    "edit": {
+      "start": 1209,
+      "end": 1212,
+      "original": "GAT",
+      "replacement": "AAC"
+    },
+    "forward": {
+      "sequence": "CGTTGAGCAAAACTTCGGGGCGC",
+      "length": 23,
+      "span": [
+        1199,
+        1222
+      ],
+      "oneBasedSpan": [
+        1200,
+        1222
+      ],
+      "editedSpan": [
+        1199,
+        1222
+      ],
+      "orientation": "same",
+      "mutationPlacement": "inline",
+      "parts": [
+        {
+          "role": "context",
+          "sequence": "CGTTGAGCAA",
+          "span": [
+            1199,
+            1209
+          ],
+          "primerIndices": [
+            0,
+            10
+          ],
+          "annealing": true
+        },
+        {
+          "role": "mutation",
+          "sequence": "AAC",
+          "span": [
+            1209,
+            1212
+          ],
+          "primerIndices": [
+            10,
+            13
+          ],
+          "annealing": false
+        },
+        {
+          "role": "context",
+          "sequence": "TTCGGGGCGC",
+          "span": [
+            1212,
+            1222
+          ],
+          "primerIndices": [
+            13,
+            23
+          ],
+          "annealing": true
+        }
+      ],
+      "tail": null,
+      "tailReason": "no 5' tail: the mutated positions sit at primer indices 10..13, not at the 5' end",
+      "changedPositions": [
+        10,
+        11,
+        12
+      ],
+      "annealing": {
+        "sequence": "CGTTGAGCAATTCGGGGCGC",
+        "spans": [
+          [
+            1199,
+            1209
+          ],
+          [
+            1212,
+            1222
+          ]
+        ],
+        "length": 20
+      },
+      "annealingOverlap": 20,
+      "wholePrimerMatchCount": 21,
+      "tm": 74.18
+    },
+    "reverse": {
+      "sequence": "AGCGGATTGAGCAGTTTTCCGTCAG",
+      "length": 25,
+      "span": [
+        1174,
+        1199
+      ],
+      "oneBasedSpan": [
+        1175,
+        1199
+      ],
+      "editedSpan": null,
+      "orientation": "opposite",
+      "mutationPlacement": "none",
+      "parts": [
+        {
+          "role": "context",
+          "sequence": "AGCGGATTGAGCAGTTTTCCGTCAG",
+          "span": [
+            1174,
+            1199
+          ],
+          "primerIndices": [
+            0,
+            25
+          ],
+          "annealing": true
+        }
+      ],
+      "tail": null,
+      "tailReason": "carries no mutated base: the whole primer is wild-type context",
+      "changedPositions": [],
+      "annealing": {
+        "sequence": "AGCGGATTGAGCAGTTTTCCGTCAG",
+        "spans": [
+          [
+            1174,
+            1199
+          ]
+        ],
+        "length": 25
+      },
+      "annealingOverlap": 25,
+      "wholePrimerMatchCount": 25,
+      "tm": 71.54
+    },
+    "relationship": {
+      "abut": true,
+      "boundary": 1199,
+      "gap": 0,
+      "boundaryOffsetFromEdit": 10,
+      "contractGeometry": "5 requires the pair's inner boundary at the edit; this design puts it 10 bases before it (inline placement)"
+    },
+    "h1": {
+      "minAnnealingOverlapSupplied": 25,
+      "forwardAnnealingOverlap": 20,
+      "reverseAnnealingOverlap": 25,
+      "satisfied": false,
+      "forward": "below",
+      "reverse": "at"
+    },
+    "ta": 72,
+    "tmFunction": "reference method 4, salt 150 mM, ct 0.5 (NEBaseChanger)",
+    "provenance": {
+      "reportedBy": null,
+      "reportedFields": [],
+      "reportedTm": null,
+      "derivedFields": [
+        "span",
+        "oneBasedSpan",
+        "editedSpan",
+        "orientation",
+        "parts",
+        "tail",
+        "tailReason",
+        "changedPositions",
+        "annealing",
+        "annealingOverlap",
+        "wholePrimerMatchCount",
+        "tm",
+        "h1"
+      ],
+      "note": "raw/sdmsummary.txt reports no overlap column: both overlap quantities here are derived by this script, not observed"
+    },
+    "builtAgainst": "54704740a9f04b79"
+  },
+  "q5p-04": {
+    "note": "same design as q5p-01; this case is about the overlap count",
+    "design": {
+      "request": {
+        "minOverlapSupplied": 15,
+        "targetTm": 55.0,
+        "pad": 10,
+        "referenceParameterSlot": "the reference tool's *minimum primer length*. The help text restricts that parameter to the annealing portion only when modifications are constrained to the 5' tails (13.1 item 5); these designs are inline, so the restriction does not apply and the script feeds the supplied value into that slot unchanged",
+        "contractField": "minAnnealingOverlap (2.2). The two quantities are NOT established to be the same (15, question 4); the value is passed through unchanged and the comparison is reported separately."
+      },
+      "edit": {
+        "start": 1209,
+        "end": 1212,
+        "original": "GAT",
+        "replacement": "AAC"
+      },
+      "forward": {
+        "sequence": "CGTTGAGCAAAACTTCGGGGCGC",
+        "length": 23,
+        "span": [
+          1199,
+          1222
+        ],
+        "oneBasedSpan": [
+          1200,
+          1222
+        ],
+        "editedSpan": [
+          1199,
+          1222
+        ],
+        "orientation": "same",
+        "mutationPlacement": "inline",
+        "parts": [
+          {
+            "role": "context",
+            "sequence": "CGTTGAGCAA",
+            "span": [
+              1199,
+              1209
+            ],
+            "primerIndices": [
+              0,
+              10
+            ],
+            "annealing": true
+          },
+          {
+            "role": "mutation",
+            "sequence": "AAC",
+            "span": [
+              1209,
+              1212
+            ],
+            "primerIndices": [
+              10,
+              13
+            ],
+            "annealing": false
+          },
+          {
+            "role": "context",
+            "sequence": "TTCGGGGCGC",
+            "span": [
+              1212,
+              1222
+            ],
+            "primerIndices": [
+              13,
+              23
+            ],
+            "annealing": true
+          }
+        ],
+        "tail": null,
+        "tailReason": "no 5' tail: the mutated positions sit at primer indices 10..13, not at the 5' end",
+        "changedPositions": [
+          10,
+          11,
+          12
+        ],
+        "annealing": {
+          "sequence": "CGTTGAGCAATTCGGGGCGC",
+          "spans": [
+            [
+              1199,
+              1209
+            ],
+            [
+              1212,
+              1222
+            ]
+          ],
+          "length": 20
+        },
+        "annealingOverlap": 20,
+        "wholePrimerMatchCount": 21,
+        "tm": 74.18
+      },
+      "reverse": {
+        "sequence": "AGCGGATTGAGCAGTTTTCCGTC",
+        "length": 23,
+        "span": [
+          1176,
+          1199
+        ],
+        "oneBasedSpan": [
+          1177,
+          1199
+        ],
+        "editedSpan": null,
+        "orientation": "opposite",
+        "mutationPlacement": "none",
+        "parts": [
+          {
+            "role": "context",
+            "sequence": "AGCGGATTGAGCAGTTTTCCGTC",
+            "span": [
+              1176,
+              1199
+            ],
+            "primerIndices": [
+              0,
+              23
+            ],
+            "annealing": true
+          }
+        ],
+        "tail": null,
+        "tailReason": "carries no mutated base: the whole primer is wild-type context",
+        "changedPositions": [],
+        "annealing": {
+          "sequence": "AGCGGATTGAGCAGTTTTCCGTC",
+          "spans": [
+            [
+              1176,
+              1199
+            ]
+          ],
+          "length": 23
+        },
+        "annealingOverlap": 23,
+        "wholePrimerMatchCount": 23,
+        "tm": 69.94
+      },
+      "relationship": {
+        "abut": true,
+        "boundary": 1199,
+        "gap": 0,
+        "boundaryOffsetFromEdit": 10,
+        "contractGeometry": "5 requires the pair's inner boundary at the edit; this design puts it 10 bases before it (inline placement)"
+      },
+      "h1": {
+        "minAnnealingOverlapSupplied": 15,
+        "forwardAnnealingOverlap": 20,
+        "reverseAnnealingOverlap": 23,
+        "satisfied": true,
+        "forward": "above",
+        "reverse": "above"
+      },
+      "ta": 71,
+      "tmFunction": "reference method 4, salt 150 mM, ct 0.5 (NEBaseChanger)",
+      "provenance": {
+        "reportedBy": "/home/timw/Projects/luria/tests/fixtures/example-construct/raw/sdmsummary.txt (row D404N)",
+        "reportedFields": [
+          "forward.sequence",
+          "forward.length",
+          "reverse.sequence",
+          "reverse.length",
+          "ta"
+        ],
+        "reportedTm": "74 (fwd), 70 (rev) as printed; this script computes 74.18 and 69.94 before rounding",
+        "derivedFields": [
+          "span",
+          "oneBasedSpan",
+          "editedSpan",
+          "orientation",
+          "parts",
+          "tail",
+          "tailReason",
+          "changedPositions",
+          "annealing",
+          "annealingOverlap",
+          "wholePrimerMatchCount",
+          "tm",
+          "h1"
+        ],
+        "note": "raw/sdmsummary.txt reports no overlap column: both overlap quantities here are derived by this script, not observed"
+      },
+      "builtAgainst": "54704740a9f04b79"
+    }
+  },
+  "q5p-07": {
+    "note": "two independent variants against one pristine template",
+    "variant-a": {
+      "request": {
+        "minOverlapSupplied": 15,
+        "targetTm": 55.0,
+        "pad": 10,
+        "referenceParameterSlot": "the reference tool's *minimum primer length*. The help text restricts that parameter to the annealing portion only when modifications are constrained to the 5' tails (13.1 item 5); these designs are inline, so the restriction does not apply and the script feeds the supplied value into that slot unchanged",
+        "contractField": "minAnnealingOverlap (2.2). The two quantities are NOT established to be the same (15, question 4); the value is passed through unchanged and the comparison is reported separately."
+      },
+      "edit": {
+        "start": 1209,
+        "end": 1212,
+        "original": "GAT",
+        "replacement": "AAC"
+      },
+      "forward": {
+        "sequence": "CGTTGAGCAAAACTTCGGGGCGC",
+        "length": 23,
+        "span": [
+          1199,
+          1222
+        ],
+        "oneBasedSpan": [
+          1200,
+          1222
+        ],
+        "editedSpan": [
+          1199,
+          1222
+        ],
+        "orientation": "same",
+        "mutationPlacement": "inline",
+        "parts": [
+          {
+            "role": "context",
+            "sequence": "CGTTGAGCAA",
+            "span": [
+              1199,
+              1209
+            ],
+            "primerIndices": [
+              0,
+              10
+            ],
+            "annealing": true
+          },
+          {
+            "role": "mutation",
+            "sequence": "AAC",
+            "span": [
+              1209,
+              1212
+            ],
+            "primerIndices": [
+              10,
+              13
+            ],
+            "annealing": false
+          },
+          {
+            "role": "context",
+            "sequence": "TTCGGGGCGC",
+            "span": [
+              1212,
+              1222
+            ],
+            "primerIndices": [
+              13,
+              23
+            ],
+            "annealing": true
+          }
+        ],
+        "tail": null,
+        "tailReason": "no 5' tail: the mutated positions sit at primer indices 10..13, not at the 5' end",
+        "changedPositions": [
+          10,
+          11,
+          12
+        ],
+        "annealing": {
+          "sequence": "CGTTGAGCAATTCGGGGCGC",
+          "spans": [
+            [
+              1199,
+              1209
+            ],
+            [
+              1212,
+              1222
+            ]
+          ],
+          "length": 20
+        },
+        "annealingOverlap": 20,
+        "wholePrimerMatchCount": 21,
+        "tm": 74.18
+      },
+      "reverse": {
+        "sequence": "AGCGGATTGAGCAGTTTTCCGTC",
+        "length": 23,
+        "span": [
+          1176,
+          1199
+        ],
+        "oneBasedSpan": [
+          1177,
+          1199
+        ],
+        "editedSpan": null,
+        "orientation": "opposite",
+        "mutationPlacement": "none",
+        "parts": [
+          {
+            "role": "context",
+            "sequence": "AGCGGATTGAGCAGTTTTCCGTC",
+            "span": [
+              1176,
+              1199
+            ],
+            "primerIndices": [
+              0,
+              23
+            ],
+            "annealing": true
+          }
+        ],
+        "tail": null,
+        "tailReason": "carries no mutated base: the whole primer is wild-type context",
+        "changedPositions": [],
+        "annealing": {
+          "sequence": "AGCGGATTGAGCAGTTTTCCGTC",
+          "spans": [
+            [
+              1176,
+              1199
+            ]
+          ],
+          "length": 23
+        },
+        "annealingOverlap": 23,
+        "wholePrimerMatchCount": 23,
+        "tm": 69.94
+      },
+      "relationship": {
+        "abut": true,
+        "boundary": 1199,
+        "gap": 0,
+        "boundaryOffsetFromEdit": 10,
+        "contractGeometry": "5 requires the pair's inner boundary at the edit; this design puts it 10 bases before it (inline placement)"
+      },
+      "h1": {
+        "minAnnealingOverlapSupplied": 15,
+        "forwardAnnealingOverlap": 20,
+        "reverseAnnealingOverlap": 23,
+        "satisfied": true,
+        "forward": "above",
+        "reverse": "above"
+      },
+      "ta": 71,
+      "tmFunction": "reference method 4, salt 150 mM, ct 0.5 (NEBaseChanger)",
+      "provenance": {
+        "reportedBy": "/home/timw/Projects/luria/tests/fixtures/example-construct/raw/sdmsummary.txt (row D404N)",
+        "reportedFields": [
+          "forward.sequence",
+          "forward.length",
+          "reverse.sequence",
+          "reverse.length",
+          "ta"
+        ],
+        "reportedTm": "74 (fwd), 70 (rev) as printed; this script computes 74.18 and 69.94 before rounding",
+        "derivedFields": [
+          "span",
+          "oneBasedSpan",
+          "editedSpan",
+          "orientation",
+          "parts",
+          "tail",
+          "tailReason",
+          "changedPositions",
+          "annealing",
+          "annealingOverlap",
+          "wholePrimerMatchCount",
+          "tm",
+          "h1"
+        ],
+        "note": "raw/sdmsummary.txt reports no overlap column: both overlap quantities here are derived by this script, not observed"
+      },
+      "builtAgainst": "54704740a9f04b79"
+    },
+    "variant-b": {
+      "request": {
+        "minOverlapSupplied": 15,
+        "targetTm": 55.0,
+        "pad": 10,
+        "referenceParameterSlot": "the reference tool's *minimum primer length*. The help text restricts that parameter to the annealing portion only when modifications are constrained to the 5' tails (13.1 item 5); these designs are inline, so the restriction does not apply and the script feeds the supplied value into that slot unchanged",
+        "contractField": "minAnnealingOverlap (2.2). The two quantities are NOT established to be the same (15, question 4); the value is passed through unchanged and the comparison is reported separately."
+      },
+      "edit": {
+        "start": 1503,
+        "end": 1506,
+        "original": "CTG",
+        "replacement": "GAG"
+      },
+      "forward": {
+        "sequence": "TTGTGCAAATGAGATAACTGTGC",
+        "length": 23,
+        "span": [
+          1493,
+          1516
+        ],
+        "oneBasedSpan": [
+          1494,
+          1516
+        ],
+        "editedSpan": [
+          1493,
+          1516
+        ],
+        "orientation": "same",
+        "mutationPlacement": "inline",
+        "parts": [
+          {
+            "role": "context",
+            "sequence": "TTGTGCAAAT",
+            "span": [
+              1493,
+              1503
+            ],
+            "primerIndices": [
+              0,
+              10
+            ],
+            "annealing": true
+          },
+          {
+            "role": "mutation",
+            "sequence": "GAG",
+            "span": [
+              1503,
+              1506
+            ],
+            "primerIndices": [
+              10,
+              13
+            ],
+            "annealing": false
+          },
+          {
+            "role": "context",
+            "sequence": "ATAACTGTGC",
+            "span": [
+              1506,
+              1516
+            ],
+            "primerIndices": [
+              13,
+              23
+            ],
+            "annealing": true
+          }
+        ],
+        "tail": null,
+        "tailReason": "no 5' tail: the mutated positions sit at primer indices 10..13, not at the 5' end",
+        "changedPositions": [
+          10,
+          11,
+          12
+        ],
+        "annealing": {
+          "sequence": "TTGTGCAAATATAACTGTGC",
+          "spans": [
+            [
+              1493,
+              1503
+            ],
+            [
+              1506,
+              1516
+            ]
+          ],
+          "length": 20
+        },
+        "annealingOverlap": 20,
+        "wholePrimerMatchCount": 21,
+        "tm": 63.28
+      },
+      "reverse": {
+        "sequence": "ATATCATCTTCACTGTACAATGTG",
+        "length": 24,
+        "span": [
+          1469,
+          1493
+        ],
+        "oneBasedSpan": [
+          1470,
+          1493
+        ],
+        "editedSpan": null,
+        "orientation": "opposite",
+        "mutationPlacement": "none",
+        "parts": [
+          {
+            "role": "context",
+            "sequence": "ATATCATCTTCACTGTACAATGTG",
+            "span": [
+              1469,
+              1493
+            ],
+            "primerIndices": [
+              0,
+              24
+            ],
+            "annealing": true
+          }
+        ],
+        "tail": null,
+        "tailReason": "carries no mutated base: the whole primer is wild-type context",
+        "changedPositions": [],
+        "annealing": {
+          "sequence": "ATATCATCTTCACTGTACAATGTG",
+          "spans": [
+            [
+              1469,
+              1493
+            ]
+          ],
+          "length": 24
+        },
+        "annealingOverlap": 24,
+        "wholePrimerMatchCount": 24,
+        "tm": 59.43
+      },
+      "relationship": {
+        "abut": true,
+        "boundary": 1493,
+        "gap": 0,
+        "boundaryOffsetFromEdit": 10,
+        "contractGeometry": "5 requires the pair's inner boundary at the edit; this design puts it 10 bases before it (inline placement)"
+      },
+      "h1": {
+        "minAnnealingOverlapSupplied": 15,
+        "forwardAnnealingOverlap": 20,
+        "reverseAnnealingOverlap": 24,
+        "satisfied": true,
+        "forward": "above",
+        "reverse": "above"
+      },
+      "ta": 60,
+      "tmFunction": "reference method 4, salt 150 mM, ct 0.5 (NEBaseChanger)",
+      "provenance": {
+        "reportedBy": null,
+        "reportedFields": [],
+        "reportedTm": null,
+        "derivedFields": [
+          "span",
+          "oneBasedSpan",
+          "editedSpan",
+          "orientation",
+          "parts",
+          "tail",
+          "tailReason",
+          "changedPositions",
+          "annealing",
+          "annealingOverlap",
+          "wholePrimerMatchCount",
+          "tm",
+          "h1"
+        ],
+        "note": "raw/sdmsummary.txt reports no overlap column: both overlap quantities here are derived by this script, not observed"
+      },
+      "builtAgainst": "54704740a9f04b79"
+    },
+    "spansDisjoint": true
+  }
+}

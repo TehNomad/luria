@@ -232,6 +232,18 @@ pub struct UnsupportedMutationPolicyProblem {
     pub policy: String,
 }
 
+/// Payload: a composition mode of a multi-variant request that this
+/// milestone refuses to execute. `composition` names the mode the caller
+/// asked for and `variant_count` how many members it carried, so the
+/// refusal says which request it is about; `reason` states why the mode is
+/// out of scope. Nothing about the members was executed.
+#[derive(Clone, Debug, PartialEq)]
+pub struct UnsupportedCompositionProblem {
+    pub composition: String,
+    pub variant_count: usize,
+    pub reason: String,
+}
+
 /// Payload: the nucleotide at the target is not the expected original.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ExpectedNucleotideMismatchProblem {
@@ -266,6 +278,182 @@ pub struct MutationVerificationFailureProblem {
     pub reason: String,
 }
 
+/// Payload: a proposed primer cannot become a primer record at all.
+#[derive(Clone, Debug, PartialEq)]
+pub struct InvalidPrimerCandidateProblem {
+    pub primer: String,
+    pub reason: String,
+}
+
+/// Payload: primer text is not the sequence the contract says sits at its span.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PrimerTextAtSpanMismatchProblem {
+    pub primer: String,
+    pub span: String,
+    pub expected: String,
+    pub actual: String,
+}
+
+/// Payload: an annealing portion is not the wild-type template under its spans.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PrimerAnnealingNotTemplateProblem {
+    pub primer: String,
+    pub position: u64,
+    pub expected: String,
+    pub actual: String,
+}
+
+/// Payload: a primer's parts do not partition its text.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PrimerPartitionProblem {
+    pub primer: String,
+    pub reason: String,
+}
+
+/// Payload: a primer's annealing overlap is below the supplied bound.
+#[derive(Clone, Debug, PartialEq)]
+pub struct AnnealingOverlapBelowBoundProblem {
+    pub primer: String,
+    pub overlap: u64,
+    pub bound: u64,
+}
+
+/// Payload: a pair does not cover the changed region of its edit.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PrimerPairCoverageProblem {
+    pub pair: String,
+    pub changed: String,
+    pub uncovered: String,
+}
+
+/// Payload: the two primers do not state opposite orientations.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PrimerOrientationConflictProblem {
+    pub forward: String,
+    pub reverse: String,
+}
+
+/// Payload: a primer placement the contract leaves open is requested.
+#[derive(Clone, Debug, PartialEq)]
+pub struct UnsupportedPrimerPlacementProblem {
+    pub placement: String,
+    pub reason: String,
+}
+
+/// Payload: a primer-design request that cannot be acted on as given, such as
+/// a `minAnnealingOverlap` below 1 or a mutation result that was never
+/// verified.
+#[derive(Clone, Debug, PartialEq)]
+pub struct InvalidPrimerDesignRequestProblem {
+    pub field: String,
+    pub reason: String,
+}
+
+/// Payload: an edit or template outside the design policy's scope (D029:
+/// a contiguous replacement region of at most 3 bases on a linear template).
+#[derive(Clone, Debug, PartialEq)]
+pub struct UnsupportedPrimerDesignScopeProblem {
+    pub policy: String,
+    pub reason: String,
+}
+
+/// Payload: the template is shorter than the smallest pair the policy can
+/// emit, so no placement of any abutting pair fits (D029).
+#[derive(Clone, Debug, PartialEq)]
+pub struct NoPrimerDesignPossibleProblem {
+    pub template: String,
+    pub template_length: u64,
+    pub smallest_pair: u64,
+}
+
+/// One reason a design under D029/D030 does not fit the template.
+#[derive(Clone, Debug, PartialEq)]
+pub enum DesignObstacle {
+    /// Too few template bases 5′ of the edit for the forward 5′ flank plus
+    /// the reverse primer.
+    FivePrimeAvailability { available: u64, needed: u64 },
+    /// Too few template bases 3′ of the edit for the forward 3′ flank.
+    ThreePrimeAvailability { available: u64, needed: u64 },
+    /// The template holds an ambiguity code where a primer base would be
+    /// (H6: no degenerate symbol in a primer).
+    AmbiguousTemplateBase { position: u64, base: String },
+    /// The reverse primer ran out of template 5′ of the junction before its
+    /// Tm reached the 55 °C floor (D030). `reached_celsius` is its Tm at the
+    /// longest length available.
+    FivePrimeTmFloorUnreachable {
+        available: u64,
+        reached_celsius: f64,
+    },
+    /// The forward primer ran out of template 3′ of the edit before its Tm
+    /// reached the floor.
+    ThreePrimeTmFloorUnreachable {
+        available: u64,
+        reached_celsius: f64,
+    },
+}
+
+impl DesignObstacle {
+    pub fn describe(&self) -> String {
+        match self {
+            DesignObstacle::FivePrimeAvailability { available, needed } => format!(
+                "5' side: {} template bases before the edit, {} needed",
+                available, needed
+            ),
+            DesignObstacle::ThreePrimeAvailability { available, needed } => format!(
+                "3' side: {} template bases after the edit, {} needed",
+                available, needed
+            ),
+            DesignObstacle::AmbiguousTemplateBase { position, base } => format!(
+                "template position {} is the ambiguity code {}",
+                position, base
+            ),
+            DesignObstacle::FivePrimeTmFloorUnreachable {
+                available,
+                reached_celsius,
+            } => format!(
+                "5' side: the reverse primer reaches only {:.2} °C using all {} bases available",
+                reached_celsius, available
+            ),
+            DesignObstacle::ThreePrimeTmFloorUnreachable {
+                available,
+                reached_celsius,
+            } => format!(
+                "3' side: the forward primer reaches only {:.2} °C using all {} bases available",
+                reached_celsius, available
+            ),
+        }
+    }
+}
+
+/// Payload: a pair of the policy's starting size fits the template, but not
+/// around this edit, or not at a Tm the policy accepts. Another geometry might
+/// fit; this policy keeps the junction fixed and does not shift (D029, D030).
+#[derive(Clone, Debug, PartialEq)]
+pub struct NoPrimerDesignFitsProblem {
+    pub template: String,
+    pub edit_start: u64,
+    pub edit_end: u64,
+    pub obstacles: Vec<DesignObstacle>,
+}
+
+/// Payload: a buffer model that cannot be used, such as a concentration of
+/// zero where the Tm equation takes a logarithm.
+#[derive(Clone, Debug, PartialEq)]
+pub struct InvalidBufferModelProblem {
+    pub field: String,
+    pub reason: String,
+}
+
+/// Payload: the named Tm function has no published parameters for this duplex.
+/// The commonest cause is two adjacent mismatches, for which no nearest-
+/// neighbour set exists (`tests/fixtures/tm/README.md`).
+#[derive(Clone, Debug, PartialEq)]
+pub struct TmParametersUnavailableProblem {
+    pub function: String,
+    pub aspect: String,
+    pub reason: String,
+}
+
 /// A structured domain failure.
 #[derive(Clone, Debug, PartialEq)]
 pub enum DomainError {
@@ -296,10 +484,25 @@ pub enum DomainError {
     InvalidMutationRequest(InvalidMutationRequestProblem),
     UnspecifiedCodonPolicy(UnspecifiedCodonPolicyProblem),
     UnsupportedMutationPolicy(UnsupportedMutationPolicyProblem),
+    UnsupportedComposition(UnsupportedCompositionProblem),
     ExpectedNucleotideMismatch(ExpectedNucleotideMismatchProblem),
     ExpectedResidueMismatch(ExpectedResidueMismatchProblem),
     TargetOutsideFeature(TargetOutsideFeatureProblem),
     MutationVerificationFailure(MutationVerificationFailureProblem),
+    InvalidPrimerCandidate(InvalidPrimerCandidateProblem),
+    PrimerTextAtSpanMismatch(PrimerTextAtSpanMismatchProblem),
+    PrimerAnnealingNotTemplate(PrimerAnnealingNotTemplateProblem),
+    PrimerPartition(PrimerPartitionProblem),
+    AnnealingOverlapBelowBound(AnnealingOverlapBelowBoundProblem),
+    PrimerPairCoverage(PrimerPairCoverageProblem),
+    PrimerOrientationConflict(PrimerOrientationConflictProblem),
+    UnsupportedPrimerPlacement(UnsupportedPrimerPlacementProblem),
+    InvalidPrimerDesignRequest(InvalidPrimerDesignRequestProblem),
+    UnsupportedPrimerDesignScope(UnsupportedPrimerDesignScopeProblem),
+    NoPrimerDesignPossible(NoPrimerDesignPossibleProblem),
+    NoPrimerDesignFits(NoPrimerDesignFitsProblem),
+    InvalidBufferModel(InvalidBufferModelProblem),
+    TmParametersUnavailable(TmParametersUnavailableProblem),
 }
 
 impl ErrorCategory {
@@ -334,6 +537,9 @@ impl DomainError {
             | DomainError::InvalidResiduePosition(_)
             | DomainError::InvalidMutationRequest(_)
             | DomainError::UnspecifiedCodonPolicy(_) => ErrorCategory::MalformedInput,
+            DomainError::InvalidPrimerCandidate(_)
+            | DomainError::InvalidPrimerDesignRequest(_)
+            | DomainError::InvalidBufferModel(_) => ErrorCategory::MalformedInput,
             DomainError::CoordinateOutOfBounds(_)
             | DomainError::SequenceReferenceMismatch(_)
             | DomainError::CdsLengthNotDivisibleByThree(_)
@@ -345,12 +551,24 @@ impl DomainError {
             | DomainError::ExpectedNucleotideMismatch(_)
             | DomainError::ExpectedResidueMismatch(_)
             | DomainError::TargetOutsideFeature(_)
-            | DomainError::MutationVerificationFailure(_) => ErrorCategory::BiologicalValidation,
+            | DomainError::MutationVerificationFailure(_)
+            | DomainError::PrimerTextAtSpanMismatch(_)
+            | DomainError::PrimerAnnealingNotTemplate(_)
+            | DomainError::PrimerPartition(_)
+            | DomainError::AnnealingOverlapBelowBound(_)
+            | DomainError::PrimerPairCoverage(_)
+            | DomainError::PrimerOrientationConflict(_)
+            | DomainError::NoPrimerDesignPossible(_) => ErrorCategory::BiologicalValidation,
             DomainError::UnsupportedFeatureStructure(_)
             | DomainError::IncompleteCds(_)
             | DomainError::UnsupportedGeneticCode(_)
             | DomainError::UnsupportedNumberingScheme(_)
-            | DomainError::UnsupportedMutationPolicy(_) => ErrorCategory::Unsupported,
+            | DomainError::UnsupportedMutationPolicy(_)
+            | DomainError::UnsupportedComposition(_)
+            | DomainError::UnsupportedPrimerPlacement(_)
+            | DomainError::UnsupportedPrimerDesignScope(_)
+            | DomainError::NoPrimerDesignFits(_)
+            | DomainError::TmParametersUnavailable(_) => ErrorCategory::Unsupported,
         }
     }
 
@@ -438,6 +656,9 @@ impl DomainError {
             DomainError::UnsupportedMutationPolicy(problem) =>
                 format!("codon policy '{}' is not supported; only default and supplied:XXX are supported",
                     problem.policy),
+            DomainError::UnsupportedComposition(problem) =>
+                format!("the request composes {} variants as {}; {}; no variant was executed",
+                    problem.variant_count, problem.composition, problem.reason),
             DomainError::ExpectedNucleotideMismatch(problem) =>
                 format!("the nucleotide at position {} of '{}' is {}, but the mutation expected {}",
                     problem.position, problem.sequence, problem.actual, problem.expected),
@@ -449,6 +670,47 @@ impl DomainError {
                     problem.start, problem.end, problem.sequence, problem.feature),
             DomainError::MutationVerificationFailure(problem) =>
                 format!("mutation result '{}' does not follow from its source: {}", problem.result, problem.reason),
+            DomainError::InvalidPrimerCandidate(problem) =>
+                format!("primer candidate '{}' cannot be represented: {}", problem.primer, problem.reason),
+            DomainError::PrimerTextAtSpanMismatch(problem) =>
+                format!("primer '{}' does not hold the sequence the contract puts at [{}): expected '{}', found '{}'",
+                    problem.primer, problem.span, problem.expected, problem.actual),
+            DomainError::PrimerAnnealingNotTemplate(problem) =>
+                format!("primer '{}': its annealing portion at template position {} is '{}' where the template holds '{}'",
+                    problem.primer, problem.position, problem.actual, problem.expected),
+            DomainError::PrimerPartition(problem) =>
+                format!("primer '{}': its parts do not partition its text: {}", problem.primer, problem.reason),
+            DomainError::AnnealingOverlapBelowBound(problem) =>
+                format!("primer '{}' anneals {} positions, below the supplied bound of {}",
+                    problem.primer, problem.overlap, problem.bound),
+            DomainError::PrimerPairCoverage(problem) =>
+                format!("pair '{}' leaves the changed positions {} uncovered; it covers {}",
+                    problem.pair, problem.changed, problem.uncovered),
+            DomainError::PrimerOrientationConflict(problem) =>
+                format!("primer pair states orientations {} and {}, which are not opposite", problem.forward, problem.reverse),
+            DomainError::UnsupportedPrimerPlacement(problem) =>
+                format!("primer placement {} is not supported: {}", problem.placement, problem.reason),
+            DomainError::InvalidPrimerDesignRequest(problem) =>
+                format!("the primer-design request's {} cannot be used: {}", problem.field, problem.reason),
+            DomainError::UnsupportedPrimerDesignScope(problem) =>
+                format!("design policy {} does not cover this request: {}", problem.policy, problem.reason),
+            DomainError::NoPrimerDesignPossible(problem) =>
+                format!("no primer pair fits '{}': it has {} bases and the smallest pair spans {}",
+                    problem.template, problem.template_length, problem.smallest_pair),
+            DomainError::InvalidBufferModel(problem) => format!(
+                "the buffer model's {} cannot be used: {}",
+                problem.field, problem.reason
+            ),
+            DomainError::TmParametersUnavailable(problem) => format!(
+                "{} has no parameters for this duplex ({}): {}",
+                problem.function, problem.aspect, problem.reason
+            ),
+            DomainError::NoPrimerDesignFits(problem) => {
+                let reasons: Vec<String> =
+                    problem.obstacles.iter().map(DesignObstacle::describe).collect();
+                format!("no primer pair fits the edit [{}, {}) on '{}': {}",
+                    problem.edit_start, problem.edit_end, problem.template, reasons.join("; "))
+            }
         }
     }
 }

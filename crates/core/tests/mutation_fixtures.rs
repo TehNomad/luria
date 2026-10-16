@@ -209,10 +209,25 @@ fn variant_name(error: &DomainError) -> String {
         DomainError::InvalidMutationRequest(_) => "InvalidMutationRequest",
         DomainError::UnspecifiedCodonPolicy(_) => "UnspecifiedCodonPolicy",
         DomainError::UnsupportedMutationPolicy(_) => "UnsupportedMutationPolicy",
+        DomainError::UnsupportedComposition(_) => "UnsupportedComposition",
         DomainError::ExpectedNucleotideMismatch(_) => "ExpectedNucleotideMismatch",
         DomainError::ExpectedResidueMismatch(_) => "ExpectedResidueMismatch",
         DomainError::TargetOutsideFeature(_) => "TargetOutsideFeature",
         DomainError::MutationVerificationFailure(_) => "MutationVerificationFailure",
+        DomainError::InvalidPrimerCandidate(_) => "InvalidPrimerCandidate",
+        DomainError::PrimerTextAtSpanMismatch(_) => "PrimerTextAtSpanMismatch",
+        DomainError::PrimerAnnealingNotTemplate(_) => "PrimerAnnealingNotTemplate",
+        DomainError::PrimerPartition(_) => "PrimerPartition",
+        DomainError::AnnealingOverlapBelowBound(_) => "AnnealingOverlapBelowBound",
+        DomainError::PrimerPairCoverage(_) => "PrimerPairCoverage",
+        DomainError::PrimerOrientationConflict(_) => "PrimerOrientationConflict",
+        DomainError::UnsupportedPrimerPlacement(_) => "UnsupportedPrimerPlacement",
+        DomainError::InvalidPrimerDesignRequest(_) => "InvalidPrimerDesignRequest",
+        DomainError::UnsupportedPrimerDesignScope(_) => "UnsupportedPrimerDesignScope",
+        DomainError::NoPrimerDesignPossible(_) => "NoPrimerDesignPossible",
+        DomainError::NoPrimerDesignFits(_) => "NoPrimerDesignFits",
+        DomainError::InvalidBufferModel(_) => "InvalidBufferModel",
+        DomainError::TmParametersUnavailable(_) => "TmParametersUnavailable",
     }
     .to_string()
 }
@@ -824,6 +839,15 @@ fn residue_fixture_cases_match_their_documented_edits() {
             }
             MutationResult::Nucleotide(_record) => {
                 panic!("{}: a residue case produced a nucleotide result", case_id);
+            }
+            MutationResult::Deletion(_record) => {
+                panic!("{}: a residue case produced a deletion result", case_id);
+            }
+            MutationResult::Insertion(_record) => {
+                panic!("{}: a residue case produced an insertion result", case_id);
+            }
+            MutationResult::Replacement(_record) => {
+                panic!("{}: a residue case produced a replacement result", case_id);
             }
         }
 

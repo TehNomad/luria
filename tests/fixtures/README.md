@@ -5,6 +5,7 @@
 | [`core-foundation/`](./core-foundation/) | Synthetic sequences, features, and CDSs: canonical text, content hashing, coordinates, circular features, CDS extraction, translation. Drives the integration tests in `crates/core/tests/core_foundation.rs`. |
 | [`mutation/`](./mutation/) | Synthetic sequences and CDSs under mutation: nucleotide and residue substitution, expected-original checks, codon-selection policy, strand-aware coordinates, provenance, verification. Drives the integration tests in `crates/core/tests/mutation_fixtures.rs`. |
 | [`example-construct/`](./example-construct/) | The real *C. elegans* SID-1 construct and captured NEBaseChanger output. |
+| [`q5-primer/`](./q5-primer/) | The primer-design contract in `docs/q5-primer-design.md`: ten cases that pin the contract's invariants before any design algorithm exists, plus reproducible reference designs for the substitution cases. |
 
 ---
 
@@ -79,4 +80,4 @@ reverse complement), which abut at 1199|1200.
 The input cDNA FASTA is predominantly upper case (with one unrelated run of eight lower-case `t` at 1-based 1426–1433) and the NEBaseChanger output FASTA is entirely lower case. Sequence case is treated as non-semantic, so fixture comparisons are case-normalised. Primer sequences in `raw/sdmsummary.txt` preserve NEBaseChanger's mixed case: the lower-case run (`aac`) is the replacement, the only part of the forward primer that does not overlap wild-type context.
 
 ## Cloud sharing
-This fixture contains a real construct sequence and captured NEB tool output. No approval status for public cloud sharing has been recorded, so it must not be sent to a cloud model without explicit approval (D023).
+This fixture contains a real construct sequence and captured NEB tool output. **Approved for cloud-assisted review** by the project owner on 2026-10-14 (D023). The approval covers this fixture's files and the fixtures derived from it (the SID-1 cases in `q5-primer/`). It does not extend to any other private construct or experimental record, which stays local by default until approved the same way.

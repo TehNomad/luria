@@ -214,10 +214,25 @@ fn variant_name(error: &DomainError) -> String {
         DomainError::InvalidMutationRequest(_) => "InvalidMutationRequest",
         DomainError::UnspecifiedCodonPolicy(_) => "UnspecifiedCodonPolicy",
         DomainError::UnsupportedMutationPolicy(_) => "UnsupportedMutationPolicy",
+        DomainError::UnsupportedComposition(_) => "UnsupportedComposition",
         DomainError::ExpectedNucleotideMismatch(_) => "ExpectedNucleotideMismatch",
         DomainError::ExpectedResidueMismatch(_) => "ExpectedResidueMismatch",
         DomainError::TargetOutsideFeature(_) => "TargetOutsideFeature",
         DomainError::MutationVerificationFailure(_) => "MutationVerificationFailure",
+        DomainError::InvalidPrimerCandidate(_) => "InvalidPrimerCandidate",
+        DomainError::PrimerTextAtSpanMismatch(_) => "PrimerTextAtSpanMismatch",
+        DomainError::PrimerAnnealingNotTemplate(_) => "PrimerAnnealingNotTemplate",
+        DomainError::PrimerPartition(_) => "PrimerPartition",
+        DomainError::AnnealingOverlapBelowBound(_) => "AnnealingOverlapBelowBound",
+        DomainError::PrimerPairCoverage(_) => "PrimerPairCoverage",
+        DomainError::PrimerOrientationConflict(_) => "PrimerOrientationConflict",
+        DomainError::UnsupportedPrimerPlacement(_) => "UnsupportedPrimerPlacement",
+        DomainError::InvalidPrimerDesignRequest(_) => "InvalidPrimerDesignRequest",
+        DomainError::UnsupportedPrimerDesignScope(_) => "UnsupportedPrimerDesignScope",
+        DomainError::NoPrimerDesignPossible(_) => "NoPrimerDesignPossible",
+        DomainError::NoPrimerDesignFits(_) => "NoPrimerDesignFits",
+        DomainError::InvalidBufferModel(_) => "InvalidBufferModel",
+        DomainError::TmParametersUnavailable(_) => "TmParametersUnavailable",
     }
     .to_string()
 }
@@ -1048,6 +1063,15 @@ fn codon_policy_is_deterministic_and_never_guessed() {
         MutationResult::Nucleotide(_record) => {
             panic!("a residue request produced a nucleotide result");
         }
+        MutationResult::Deletion(_record) => {
+            panic!("a residue request produced a deletion result");
+        }
+        MutationResult::Insertion(_record) => {
+            panic!("a residue request produced an insertion result");
+        }
+        MutationResult::Replacement(_record) => {
+            panic!("a residue request produced a replacement result");
+        }
     }
 
     // Policies outside the three are out of scope, and matching is exact.
@@ -1110,6 +1134,15 @@ fn verification_requires_the_cds_the_result_names() {
         }
         MutationResult::Nucleotide(_record) => {
             panic!("a residue request produced a nucleotide result");
+        }
+        MutationResult::Deletion(_record) => {
+            panic!("a residue request produced a deletion result");
+        }
+        MutationResult::Insertion(_record) => {
+            panic!("a residue request produced an insertion result");
+        }
+        MutationResult::Replacement(_record) => {
+            panic!("a residue request produced a replacement result");
         }
     }
 

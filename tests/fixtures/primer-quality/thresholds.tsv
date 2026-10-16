@@ -1,0 +1,21 @@
+#
+# Thresholds for the primer-quality warnings in
+# crates/core/src/primer_quality.rs. Each is a published guideline, not a
+# biological rule: breaking one produces a warning on a design that is still
+# emitted (owner, 2026-10-14). See README.md for the source text of each and
+# for the one disagreement between sources.
+#
+# crates/core/tests/primer_quality_thresholds.rs checks that the Rust
+# constants still equal this file, so the fixture is the authority (D018).
+#
+# `name` matches the Rust constant. `value` is an integer or a percentage.
+#
+name	value	meaning
+GC_LOW_PERCENT	40	a primer whose G+C is below this is warned about
+GC_HIGH_PERCENT	60	a primer whose G+C is above this is warned about
+MAX_SINGLE_BASE_RUN	3	the longest acceptable run of one base; 4 or more is warned about
+MAX_DINUCLEOTIDE_REPEATS	4	the most acceptable repeats of a two-base unit; 5 or more is warned about
+MAX_THREE_PRIME_GC_RUN	2	the longest acceptable run of G/C ending the primer; 3 or more is warned about
+LENGTH_LOW	18	a primer shorter than this is warned about
+LENGTH_HIGH	30	a primer longer than this is warned about
+MAX_ORDERABLE_LENGTH	100	a primer longer than this is past the practical limit for ordering a standard oligo

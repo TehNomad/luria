@@ -134,6 +134,35 @@ pub fn complement_letter(ch: char) -> Option<char> {
     }
 }
 
+/// The concrete bases an IUPAC nucleotide code stands for, in `A`, `C`, `G`,
+/// `T` order. `None` for any character outside `DNA_ALPHABET`.
+///
+/// The sets are the standard IUPAC nucleotide sets, and each one is the
+/// complement-image of its partner's set under `A`<->`T`, `C`<->`G` (for
+/// example `B` = `C G T` complements to `V` = `A C G`), so the table below
+/// agrees with `complement_letter` by construction.
+pub fn bases_of(letter: char) -> Option<Vec<char>> {
+    let bases: &str = match letter {
+        'A' => "A",
+        'C' => "C",
+        'G' => "G",
+        'T' => "T",
+        'R' => "AG",
+        'Y' => "CT",
+        'S' => "CG",
+        'W' => "AT",
+        'K' => "GT",
+        'M' => "AC",
+        'B' => "CGT",
+        'D' => "AGT",
+        'H' => "ACT",
+        'V' => "ACG",
+        'N' => "ACGT",
+        _ => return None,
+    };
+    Some(bases.chars().collect())
+}
+
 /// Reverse complement of DNA letters.
 ///
 /// A letter outside the supported alphabet is `InvalidSequenceCharacters`,
@@ -166,6 +195,78 @@ pub fn canonical_text(letters: Vec<char>) -> String {
         text.push(ch);
     }
     text
+}
+
+/// Every concrete sequence a text of IUPAC codes denotes, in D033's order:
+/// each position's bases are taken in `A`, `C`, `G`, `T` order and the
+/// **leftmost position varies fastest**, so a replacement of `NS` gives
+/// `AC, CC, GC, TC, AG, CG, GG, TG`.
+///
+/// The order is produced by counting: for expansion index `i` of `n` total,
+/// each position's base is chosen from its own set with the leftmost
+/// position's set as the innermost-varying digit, so the order does not
+/// depend on the text's length. The number of expansions is the product of
+/// the set sizes; it is not capped here, because the 64-design warning of
+/// D033 belongs at the request layer, not in this function.
+///
+/// A character outside `DNA_ALPHABET` is `InvalidSequenceCharacters`, with
+/// `sequence` the text `replacement` and `position` the zero-based index of
+/// the first offending character. Nothing is case-folded here: callers pass
+/// canonical text, so lowercase letters are reported rather than folded.
+/// An empty text is not an error; it expands to no sequences, and the
+/// caller decides whether an empty replacement is legal.
+pub fn expand_degenerate(text: &str) -> Result<Vec<String>, DomainError> {
+    let letters: Vec<char> = text.chars().collect();
+
+    // The bases each position stands for, in `A`, `C`, `G`, `T` order.
+    let mut sets: Vec<Vec<char>> = Vec::new();
+    let mut index: usize = 0;
+    while index < letters.len() {
+        match bases_of(letters[index]) {
+            Some(bases) => sets.push(bases),
+            None => {
+                return Err(DomainError::InvalidSequenceCharacters(
+                    InvalidSequenceCharactersProblem {
+                        sequence: "replacement".to_string(),
+                        position: index as u64,
+                        characters: letters[index].to_string(),
+                    },
+                ));
+            }
+        }
+        index += 1;
+    }
+    if sets.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    // `strides[position]` is the product of the set sizes of the positions
+    // to the left of `position`, which makes the leftmost position the
+    // least significant digit and therefore the fastest varying one.
+    let mut strides: Vec<usize> = Vec::new();
+    let mut stride: usize = 1;
+    let mut set_index: usize = 0;
+    while set_index < sets.len() {
+        strides.push(stride);
+        stride *= sets[set_index].len();
+        set_index += 1;
+    }
+    let count: usize = stride;
+
+    let mut out: Vec<String> = Vec::new();
+    let mut expansion: usize = 0;
+    while expansion < count {
+        let mut word: Vec<char> = Vec::new();
+        let mut position: usize = 0;
+        while position < sets.len() {
+            let digit: usize = (expansion / strides[position]) % sets[position].len();
+            word.push(sets[position][digit]);
+            position += 1;
+        }
+        out.push(canonical_text(word));
+        expansion += 1;
+    }
+    Ok(out)
 }
 
 /// Normalization and validation of FASTA-style sequence text.
@@ -551,5 +652,144 @@ mod tests {
                 == "a83f6d825c144cef563438c085821ecbd8986cdaf0f65c75f7994ed616a2fd80"
         );
         assert!(reference.describe() == "seq-a@a83f6d82");
+    }
+
+    // D033 (approved 2026-10-15): each position's bases are taken in `A`, `C`,
+    // `G`, `T` order and the leftmost position varies fastest. The order below
+    // is quoted from the reference tool's help text, so it is the authority for
+    // `expand_degenerate`.
+    #[test]
+    fn the_quoted_expansion_of_ns_is_in_reference_order() {
+        let expansion = expand_degenerate("NS").unwrap();
+        let expected: Vec<String> = vec![
+            "AC".to_string(),
+            "CC".to_string(),
+            "GC".to_string(),
+            "TC".to_string(),
+            "AG".to_string(),
+            "CG".to_string(),
+            "GG".to_string(),
+            "TG".to_string(),
+        ];
+        assert!(expansion == expected);
+    }
+
+    #[test]
+    fn unambiguous_bases_expand_to_the_text_itself() {
+        assert!(expand_degenerate("ACGT").unwrap() == vec!["ACGT".to_string()]);
+    }
+
+    #[test]
+    fn a_single_code_expands_to_the_bases_it_stands_for() {
+        assert!(expand_degenerate("R").unwrap() == vec!["A".to_string(), "G".to_string()]);
+        assert!(
+            expand_degenerate("N").unwrap()
+                == vec![
+                    "A".to_string(),
+                    "C".to_string(),
+                    "G".to_string(),
+                    "T".to_string(),
+                ]
+        );
+    }
+
+    #[test]
+    fn the_leftmost_position_varies_fastest() {
+        // RRA stands for A/G, A/G, A. The first position cycles on every
+        // expansion, the second only every two, and the third never varies.
+        assert!(
+            expand_degenerate("RRA").unwrap()
+                == vec![
+                    "AAA".to_string(),
+                    "GAA".to_string(),
+                    "AGA".to_string(),
+                    "GGA".to_string(),
+                ]
+        );
+    }
+
+    #[test]
+    fn every_iupac_code_stands_for_its_bases_in_base_order() {
+        // The standard IUPAC nucleotide sets, each written in `A`, `C`, `G`,
+        // `T` order.
+        let expected: Vec<(char, String)> = vec![
+            ('A', "A".to_string()),
+            ('C', "C".to_string()),
+            ('G', "G".to_string()),
+            ('T', "T".to_string()),
+            ('R', "AG".to_string()),
+            ('Y', "CT".to_string()),
+            ('S', "CG".to_string()),
+            ('W', "AT".to_string()),
+            ('K', "GT".to_string()),
+            ('M', "AC".to_string()),
+            ('B', "CGT".to_string()),
+            ('D', "AGT".to_string()),
+            ('H', "ACT".to_string()),
+            ('V', "ACG".to_string()),
+            ('N', "ACGT".to_string()),
+        ];
+        assert!(expected.len() == 15);
+        for pair in expected {
+            assert!(is_dna_letter(pair.0));
+            let bases = bases_of(pair.0);
+            assert!(bases.is_some());
+            assert!(canonical_text(bases.unwrap()) == pair.1);
+        }
+        assert!(bases_of('F').is_none());
+        assert!(bases_of('a').is_none());
+    }
+
+    #[test]
+    fn each_code_set_is_the_complement_image_of_its_partner() {
+        // The table in `bases_of` must agree with `complement_letter`: the set
+        // of the partner code equals the complements of the code's own bases.
+        for ch in DNA_ALPHABET.chars() {
+            let partner: char = complement_letter(ch).unwrap();
+            let mut left: Vec<char> = bases_of(partner).unwrap();
+            let mut right: Vec<char> = Vec::new();
+            for base in bases_of(ch).unwrap() {
+                right.push(complement_letter(base).unwrap());
+            }
+            left.sort();
+            right.sort();
+            assert!(left == right);
+        }
+    }
+
+    #[test]
+    fn the_number_of_expansions_is_the_product_of_the_set_sizes() {
+        // `N` stands for four bases, so three and four of them denote 4^3 and
+        // 4^4 concrete sequences, all distinct.
+        let triples = expand_degenerate("NNN").unwrap();
+        assert!(triples.len() == 64);
+        let mut first: usize = 0;
+        while first < triples.len() {
+            let mut second: usize = first + 1;
+            while second < triples.len() {
+                assert!(triples[first] != triples[second]);
+                second += 1;
+            }
+            first += 1;
+        }
+        assert!(expand_degenerate("NNNN").unwrap().len() == 256);
+    }
+
+    #[test]
+    fn an_empty_text_expands_to_no_sequences() {
+        assert!(expand_degenerate("").unwrap().is_empty());
+    }
+
+    #[test]
+    fn a_character_outside_the_alphabet_is_reported_with_its_position() {
+        let error = expand_degenerate("ACFG").unwrap_err();
+        assert!(
+            error
+                == DomainError::InvalidSequenceCharacters(InvalidSequenceCharactersProblem {
+                    sequence: "replacement".to_string(),
+                    position: 2,
+                    characters: "F".to_string(),
+                })
+        );
     }
 }

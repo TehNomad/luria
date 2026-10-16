@@ -132,6 +132,74 @@ impl NucleotideInterval {
     }
 }
 
+/// A point between two nucleotides: a coordinate, not an interval.
+///
+/// A point selects nothing; it names the gap before base `position`, that is,
+/// the gap between base `position − 1` and base `position`. An insertion of
+/// `k` bases at `p` occupies `[p, p + k)` of the edited artifact. Unlike an
+/// interval a point has no length to order, and unlike `create` it does not
+/// reject a coordinate at the end of the sequence: `within` accepts `position
+/// == length`, which names the gap after the last base, and an edit that needs
+/// a base on each side of the point refuses it there.
+#[derive(Clone, Debug, PartialEq)]
+pub struct InsertionPoint {
+    sequence: SequenceReference,
+    position: u64,
+}
+
+/// Build a point from a signed coordinate.
+///
+/// A negative coordinate is malformed input; nothing is silently corrected. A
+/// coordinate past the end of a sequence is not rejected here, because a point
+/// constructor never sees a sequence: `within` is what bounds the coordinate.
+pub fn create_point(
+    sequence: &SequenceReference,
+    position: i64,
+) -> Result<InsertionPoint, DomainError> {
+    if position < 0 {
+        let problem = NegativeCoordinateProblem {
+            sequence: sequence.name().value().to_string(),
+            start: position,
+            end: position,
+        };
+        return Err(DomainError::NegativeCoordinate(problem));
+    }
+
+    Ok(InsertionPoint {
+        sequence: sequence.clone(),
+        position: unsigned(position),
+    })
+}
+
+impl InsertionPoint {
+    /// The reference sequence this point sits on.
+    pub fn reference(&self) -> SequenceReference {
+        self.sequence.clone()
+    }
+
+    /// Zero-based coordinate of the gap.
+    pub fn position(&self) -> u64 {
+        self.position
+    }
+
+    /// Check that the point fits inside `sequence`.
+    ///
+    /// `position == sequence.length()` fits: it names the gap after the last
+    /// base. An edit that needs a base after the point refuses it there.
+    pub fn within(&self, sequence: &Sequence) -> Result<(), DomainError> {
+        if self.position() > sequence.length() {
+            let problem = CoordinateOutOfBoundsProblem {
+                sequence: sequence.display_name(),
+                start: self.position(),
+                end: self.position(),
+                length: sequence.length(),
+            };
+            return Err(DomainError::CoordinateOutOfBounds(problem));
+        }
+        Ok(())
+    }
+}
+
 /// True when both intervals select at least one shared nucleotide position.
 pub fn overlaps(first: &NucleotideInterval, second: &NucleotideInterval) -> bool {
     first.start() < second.end() && second.start() < first.end()
@@ -559,6 +627,36 @@ mod tests {
                 assert!(problem.expected_digest == problem.actual_digest);
             }
             other => panic!("expected SequenceReferenceMismatch, got {:?}", other),
+        }
+    }
+
+    // ---- insertion points --------------------------------------------------
+
+    #[test]
+    fn a_negative_point_is_malformed() {
+        let error: DomainError = create_point(&seq_a().reference(), -1).unwrap_err();
+        assert!(error.category() == ErrorCategory::MalformedInput);
+        assert!(matches!(error, DomainError::NegativeCoordinate(_)));
+    }
+
+    // The gap after the last base is a point on the sequence; one past it is
+    // not a gap at all.
+    #[test]
+    fn a_point_may_sit_at_the_end_but_not_past_it() {
+        let at_end: InsertionPoint = create_point(&seq_a().reference(), 30).unwrap();
+        assert!(at_end.position() == 30);
+        assert!(at_end.within(&seq_a()).is_ok());
+
+        let past: InsertionPoint = create_point(&seq_a().reference(), 31).unwrap();
+        let error: DomainError = past.within(&seq_a()).unwrap_err();
+        assert!(matches!(error, DomainError::CoordinateOutOfBounds(_)));
+        match error {
+            DomainError::CoordinateOutOfBounds(problem) => {
+                assert!(problem.start == 31);
+                assert!(problem.end == 31);
+                assert!(problem.length == 30);
+            }
+            other => panic!("expected CoordinateOutOfBounds, got {:?}", other),
         }
     }
 

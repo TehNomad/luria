@@ -5,14 +5,16 @@
 //! than changing the old one. Nothing here is applied in place: the source
 //! artifact keeps its content and its digest, and the result names both.
 //!
-//! Two intents exist, and they are different types because they assert
+//! Three intents exist, and they are different types because they assert
 //! different things:
 //!
 //! * `NucleotideMutationIntent` asserts a base at a reference coordinate.
+//! * `NucleotideDeletionIntent` asserts the exact text of a contiguous region
+//!   of reference coordinates.
 //! * `ResidueMutationIntent` asserts a residue of a CDS and leaves the DNA
 //!   edit to a `CodonSelectionPolicy`.
 //!
-//! Both carry the expected original state, and both are checked before the
+//! All three carry the expected original state, and all three are checked before the
 //! edit. A mutation never applies to a different artifact, to a coordinate
 //! outside the sequence or outside its scope, or to a base or residue that
 //! disagrees with the request.
@@ -48,6 +50,7 @@ use crate::identity::Identifier;
 use crate::identity::SequenceReference;
 use crate::interval::create;
 use crate::interval::require_sequence;
+use crate::interval::InsertionPoint;
 use crate::interval::NucleotideInterval;
 use crate::interval::OrderedIntervals;
 use crate::sequence::canonical_text;
@@ -324,6 +327,261 @@ impl ResidueMutationIntent {
     }
 }
 
+/// A DNA-level deletion: a contiguous region of the reference, removed.
+///
+/// Like a substitution it asserts the original state (D011), but what it
+/// asserts is the exact text of every base it removes, so a request that
+/// disagrees with the artifact is refused before anything is written.
+#[derive(Clone, Debug, PartialEq)]
+pub struct NucleotideDeletionIntent {
+    source: SequenceReference,
+    region: NucleotideInterval,
+    expected_deleted: String,
+}
+
+impl NucleotideDeletionIntent {
+    /// Build a deletion, rejecting a request that cannot be represented: a
+    /// region naming a different artifact from the one the request claims,
+    /// a letter other than `A`, `C`, `G`, `T` (an ambiguity code is not a
+    /// base that can be asserted as removed), or an expected text whose
+    /// length does not match the number of nucleotides the region selects.
+    pub fn create(
+        source: SequenceReference,
+        region: NucleotideInterval,
+        expected_deleted: String,
+    ) -> Result<NucleotideDeletionIntent, DomainError> {
+        if region.reference() != source {
+            let problem = InvalidMutationRequestProblem {
+                request: "deletion".to_string(),
+                reason: "the target coordinate names a sequence other than the source".to_string(),
+            };
+            return Err(DomainError::InvalidMutationRequest(problem));
+        }
+
+        let mut asserted: Vec<char> = Vec::new();
+        for letter in expected_deleted.chars() {
+            let base: char = single_dna_base("expected deleted".to_string(), letter.to_string())?;
+            asserted.push(base);
+        }
+        if asserted.len() as u64 != region.length() {
+            let problem = InvalidMutationRequestProblem {
+                request: "deletion".to_string(),
+                reason: "the expected text is ".to_string()
+                    + &asserted.len().to_string()
+                    + " letters; the region selects "
+                    + &region.length().to_string()
+                    + " nucleotides",
+            };
+            return Err(DomainError::InvalidMutationRequest(problem));
+        }
+
+        Ok(NucleotideDeletionIntent {
+            source,
+            region,
+            expected_deleted: expected_deleted.clone(),
+        })
+    }
+
+    pub fn source(&self) -> SequenceReference {
+        self.source.clone()
+    }
+
+    pub fn region(&self) -> NucleotideInterval {
+        self.region.clone()
+    }
+
+    pub fn expected_deleted(&self) -> String {
+        self.expected_deleted.clone()
+    }
+}
+
+/// A DNA-level insertion: bases placed into the gap between two nucleotides.
+///
+/// Like a substitution and a deletion it asserts the original state (D011),
+/// but what an insertion asserts is the base on each side of the point: the
+/// point itself selects nothing, so the two flanking bases are what identify
+/// where the insertion sits. A request that disagrees with the artifact is
+/// refused before anything is written.
+#[derive(Clone, Debug, PartialEq)]
+pub struct NucleotideInsertionIntent {
+    source: SequenceReference,
+    point: InsertionPoint,
+    expected_before: char,
+    expected_after: char,
+    inserted: String,
+}
+
+impl NucleotideInsertionIntent {
+    /// Build an insertion, rejecting a request that cannot be represented: a
+    /// point naming a different artifact from the one the request claims, a
+    /// flank other than `A`, `C`, `G`, `T` (an ambiguity code is not a base
+    /// that can be asserted as sitting beside the point), an insertion of no
+    /// bases at all, or an inserted text holding a letter other than `A`, `C`,
+    /// `G`, `T`.
+    pub fn create(
+        source: SequenceReference,
+        point: InsertionPoint,
+        expected_before: String,
+        expected_after: String,
+        inserted: String,
+    ) -> Result<NucleotideInsertionIntent, DomainError> {
+        if point.reference() != source {
+            let problem = InvalidMutationRequestProblem {
+                request: "insertion".to_string(),
+                reason: "the target coordinate names a sequence other than the source".to_string(),
+            };
+            return Err(DomainError::InvalidMutationRequest(problem));
+        }
+
+        let before: char = single_dna_base("expected before".to_string(), expected_before.clone())?;
+        let after: char = single_dna_base("expected after".to_string(), expected_after.clone())?;
+
+        if inserted.is_empty() {
+            let problem = InvalidMutationRequestProblem {
+                request: "insertion".to_string(),
+                reason: "an insertion must insert at least one nucleotide".to_string(),
+            };
+            return Err(DomainError::InvalidMutationRequest(problem));
+        }
+
+        let mut added: Vec<char> = Vec::new();
+        for letter in inserted.chars() {
+            let base: char = single_dna_base("inserted".to_string(), letter.to_string())?;
+            added.push(base);
+        }
+
+        Ok(NucleotideInsertionIntent {
+            source,
+            point,
+            expected_before: before,
+            expected_after: after,
+            inserted: inserted.clone(),
+        })
+    }
+
+    pub fn source(&self) -> SequenceReference {
+        self.source.clone()
+    }
+
+    pub fn point(&self) -> InsertionPoint {
+        self.point.clone()
+    }
+
+    pub fn expected_before(&self) -> char {
+        self.expected_before
+    }
+
+    pub fn expected_after(&self) -> char {
+        self.expected_after
+    }
+
+    pub fn inserted(&self) -> String {
+        self.inserted.clone()
+    }
+}
+
+/// A DNA-level replacement: a contiguous region of the reference rewritten as
+/// a text of any length.
+///
+/// Like a substitution and a deletion it asserts the original state (D011),
+/// but what it asserts is the exact text of every base it overwrites, and what
+/// it writes need not have the width of what it removes. A request that
+/// disagrees with the artifact is refused before anything is written, and a
+/// request that writes back the text already in the region edits nothing.
+#[derive(Clone, Debug, PartialEq)]
+pub struct NucleotideReplacementIntent {
+    source: SequenceReference,
+    region: NucleotideInterval,
+    expected_original: String,
+    replacement: String,
+}
+
+impl NucleotideReplacementIntent {
+    /// Build a replacement, rejecting a request that cannot be represented: a
+    /// region naming a different artifact from the one the request claims, a
+    /// letter other than `A`, `C`, `G`, `T` in either text (an ambiguity code
+    /// is not a base that can be asserted or written), an expected text whose
+    /// length does not match the number of nucleotides the region selects, a
+    /// replacement of no bases at all, or a replacement that is the text
+    /// already in the region.
+    pub fn create(
+        source: SequenceReference,
+        region: NucleotideInterval,
+        expected_original: String,
+        replacement: String,
+    ) -> Result<NucleotideReplacementIntent, DomainError> {
+        if region.reference() != source {
+            let problem = InvalidMutationRequestProblem {
+                request: "replacement".to_string(),
+                reason: "the target coordinate names a sequence other than the source".to_string(),
+            };
+            return Err(DomainError::InvalidMutationRequest(problem));
+        }
+
+        let mut asserted: Vec<char> = Vec::new();
+        for letter in expected_original.chars() {
+            let base: char = single_dna_base("expected original".to_string(), letter.to_string())?;
+            asserted.push(base);
+        }
+        let mut written: Vec<char> = Vec::new();
+        for letter in replacement.chars() {
+            let base: char = single_dna_base("replacement".to_string(), letter.to_string())?;
+            written.push(base);
+        }
+
+        if asserted.len() as u64 != region.length() {
+            let problem = InvalidMutationRequestProblem {
+                request: "replacement".to_string(),
+                reason: "the expected text is ".to_string()
+                    + &asserted.len().to_string()
+                    + " letters; the region selects "
+                    + &region.length().to_string()
+                    + " nucleotides",
+            };
+            return Err(DomainError::InvalidMutationRequest(problem));
+        }
+
+        if written.is_empty() {
+            let problem = InvalidMutationRequestProblem {
+                request: "replacement".to_string(),
+                reason: "a replacement must write at least one nucleotide".to_string(),
+            };
+            return Err(DomainError::InvalidMutationRequest(problem));
+        }
+
+        if replacement == expected_original {
+            let problem = InvalidMutationRequestProblem {
+                request: "replacement".to_string(),
+                reason: "the replacement is the text that is already there".to_string(),
+            };
+            return Err(DomainError::InvalidMutationRequest(problem));
+        }
+
+        Ok(NucleotideReplacementIntent {
+            source,
+            region,
+            expected_original: expected_original.clone(),
+            replacement: replacement.clone(),
+        })
+    }
+
+    pub fn source(&self) -> SequenceReference {
+        self.source.clone()
+    }
+
+    pub fn region(&self) -> NucleotideInterval {
+        self.region.clone()
+    }
+
+    pub fn expected_original(&self) -> String {
+        self.expected_original.clone()
+    }
+
+    pub fn replacement(&self) -> String {
+        self.replacement.clone()
+    }
+}
+
 /// The lifecycle state of a mutation result: the mutation-domain subset of
 /// the D020 product lifecycle. A calculated result is never presented as
 /// verified, and the two states are unequal values.
@@ -362,6 +620,47 @@ pub struct NucleotideMutation {
     state: MutationState,
 }
 
+/// The record of a deletion: the region removed, the bases the request
+/// asserted, and the bases the artifact actually held.
+#[derive(Clone, Debug, PartialEq)]
+pub struct NucleotideDeletion {
+    source: SequenceReference,
+    edited: Sequence,
+    region: NucleotideInterval,
+    expected_deleted: String,
+    actual_deleted: String,
+    state: MutationState,
+}
+
+/// The record of an insertion: the point it sits at, the bases inserted, and
+/// the flanking bases the artifact actually held.
+#[derive(Clone, Debug, PartialEq)]
+pub struct NucleotideInsertion {
+    source: SequenceReference,
+    edited: Sequence,
+    point: InsertionPoint,
+    expected_before: char,
+    expected_after: char,
+    actual_before: char,
+    actual_after: char,
+    inserted: String,
+    state: MutationState,
+}
+
+/// The record of a replacement: the region it overwrote, the bases the request
+/// asserted there, the bases the artifact actually held, and the text written
+/// in their place.
+#[derive(Clone, Debug, PartialEq)]
+pub struct NucleotideReplacement {
+    source: SequenceReference,
+    edited: Sequence,
+    region: NucleotideInterval,
+    expected_original: String,
+    actual_original: String,
+    replacement: String,
+    state: MutationState,
+}
+
 /// The record of a residue substitution: the residue assertion, the DNA edit
 /// that satisfied it, and where that edit landed on the reference.
 #[derive(Clone, Debug, PartialEq)]
@@ -386,6 +685,9 @@ pub struct ResidueMutation {
 pub enum MutationResult {
     Nucleotide(NucleotideMutation),
     Residue(ResidueMutation),
+    Deletion(NucleotideDeletion),
+    Insertion(NucleotideInsertion),
+    Replacement(NucleotideReplacement),
 }
 
 impl MutationResult {
@@ -394,6 +696,9 @@ impl MutationResult {
         match self {
             MutationResult::Nucleotide(record) => record.source.clone(),
             MutationResult::Residue(record) => record.source.clone(),
+            MutationResult::Deletion(record) => record.source.clone(),
+            MutationResult::Insertion(record) => record.source.clone(),
+            MutationResult::Replacement(record) => record.source.clone(),
         }
     }
 
@@ -402,6 +707,9 @@ impl MutationResult {
         match self {
             MutationResult::Nucleotide(record) => record.edited.clone(),
             MutationResult::Residue(record) => record.edited.clone(),
+            MutationResult::Deletion(record) => record.edited.clone(),
+            MutationResult::Insertion(record) => record.edited.clone(),
+            MutationResult::Replacement(record) => record.edited.clone(),
         }
     }
 
@@ -410,11 +718,17 @@ impl MutationResult {
         self.edited().reference()
     }
 
-    /// Reference coordinates the mutation wrote, ascending.
+    /// Reference coordinates the mutation wrote or removed, ascending.
+    ///
+    /// An insertion contributes none: it writes and removes no source
+    /// coordinate, it puts bases into the gap between two of them.
     pub fn target_coordinates(&self) -> Vec<u64> {
         match self {
             MutationResult::Nucleotide(record) => coordinates_of(record.position.clone()),
             MutationResult::Residue(record) => coordinates_positions(record.coordinates.clone()),
+            MutationResult::Deletion(record) => coordinates_of(record.region.clone()),
+            MutationResult::Insertion(_record) => Vec::new(),
+            MutationResult::Replacement(record) => coordinates_of(record.region.clone()),
         }
     }
 
@@ -422,13 +736,55 @@ impl MutationResult {
         match self {
             MutationResult::Nucleotide(record) => record.state.clone(),
             MutationResult::Residue(record) => record.state.clone(),
+            MutationResult::Deletion(record) => record.state.clone(),
+            MutationResult::Insertion(record) => record.state.clone(),
+            MutationResult::Replacement(record) => record.state.clone(),
         }
     }
 
+    /// True only for a single-nucleotide substitution: a deletion and an
+    /// insertion are DNA edits too, but each writes nothing at a source
+    /// coordinate and its length rule differs.
     pub fn is_nucleotide(&self) -> bool {
         match self {
             MutationResult::Nucleotide(_record) => true,
             MutationResult::Residue(_record) => false,
+            MutationResult::Deletion(_record) => false,
+            MutationResult::Insertion(_record) => false,
+            MutationResult::Replacement(_record) => false,
+        }
+    }
+
+    /// True only for a DNA-level deletion.
+    pub fn is_deletion(&self) -> bool {
+        match self {
+            MutationResult::Deletion(_record) => true,
+            MutationResult::Nucleotide(_record) => false,
+            MutationResult::Residue(_record) => false,
+            MutationResult::Insertion(_record) => false,
+            MutationResult::Replacement(_record) => false,
+        }
+    }
+
+    /// True only for a DNA-level insertion.
+    pub fn is_insertion(&self) -> bool {
+        match self {
+            MutationResult::Insertion(_record) => true,
+            MutationResult::Nucleotide(_record) => false,
+            MutationResult::Residue(_record) => false,
+            MutationResult::Deletion(_record) => false,
+            MutationResult::Replacement(_record) => false,
+        }
+    }
+
+    /// True only for a DNA-level replacement.
+    pub fn is_replacement(&self) -> bool {
+        match self {
+            MutationResult::Replacement(_record) => true,
+            MutationResult::Nucleotide(_record) => false,
+            MutationResult::Residue(_record) => false,
+            MutationResult::Deletion(_record) => false,
+            MutationResult::Insertion(_record) => false,
         }
     }
 
@@ -453,6 +809,76 @@ impl NucleotideMutation {
 
     pub fn replacement(&self) -> char {
         self.replacement
+    }
+
+    pub fn state(&self) -> MutationState {
+        self.state.clone()
+    }
+}
+
+impl NucleotideDeletion {
+    pub fn region(&self) -> NucleotideInterval {
+        self.region.clone()
+    }
+
+    pub fn expected_deleted(&self) -> String {
+        self.expected_deleted.clone()
+    }
+
+    pub fn actual_deleted(&self) -> String {
+        self.actual_deleted.clone()
+    }
+
+    pub fn state(&self) -> MutationState {
+        self.state.clone()
+    }
+}
+
+impl NucleotideInsertion {
+    pub fn point(&self) -> InsertionPoint {
+        self.point.clone()
+    }
+
+    pub fn expected_before(&self) -> char {
+        self.expected_before
+    }
+
+    pub fn expected_after(&self) -> char {
+        self.expected_after
+    }
+
+    pub fn actual_before(&self) -> char {
+        self.actual_before
+    }
+
+    pub fn actual_after(&self) -> char {
+        self.actual_after
+    }
+
+    pub fn inserted(&self) -> String {
+        self.inserted.clone()
+    }
+
+    pub fn state(&self) -> MutationState {
+        self.state.clone()
+    }
+}
+
+impl NucleotideReplacement {
+    pub fn region(&self) -> NucleotideInterval {
+        self.region.clone()
+    }
+
+    pub fn expected_original(&self) -> String {
+        self.expected_original.clone()
+    }
+
+    pub fn actual_original(&self) -> String {
+        self.actual_original.clone()
+    }
+
+    pub fn replacement(&self) -> String {
+        self.replacement.clone()
     }
 
     pub fn state(&self) -> MutationState {
@@ -524,6 +950,67 @@ pub fn require_within_feature(
         sequence,
         start: position.start(),
         end: position.end(),
+    };
+    Err(DomainError::TargetOutsideFeature(problem))
+}
+
+/// Reject a region that is not wholly inside one of the intervals of the
+/// feature or CDS it was scoped to.
+///
+/// `require_within_feature` checks only the start of a position, which is
+/// enough for a single nucleotide; a deletion spans several coordinates, so
+/// the whole region has to lie inside one interval rather than straddle two
+/// of them.
+fn require_region_within_feature(
+    region: NucleotideInterval,
+    feature: String,
+    sequence: String,
+    intervals: &[NucleotideInterval],
+) -> Result<(), DomainError> {
+    let mut index: usize = 0;
+    while index < intervals.len() {
+        let interval: NucleotideInterval = intervals[index].clone();
+        if region.start() >= interval.start() && region.end() <= interval.end() {
+            return Ok(());
+        }
+        index += 1;
+    }
+    let problem = TargetOutsideFeatureProblem {
+        feature,
+        sequence,
+        start: region.start(),
+        end: region.end(),
+    };
+    Err(DomainError::TargetOutsideFeature(problem))
+}
+
+/// Reject a point that does not sit strictly inside one of the intervals of
+/// the feature or CDS it was scoped to.
+///
+/// A point selects no nucleotide, so the rule differs from both `require_within_feature`, which
+/// accepts a coordinate inside an interval, and `require_region_within_feature`: an insertion
+/// asserts and writes the bases on both sides of the point, so both of them have to lie inside
+/// the same interval. A point exactly at a CDS's edge is outside it.
+fn require_point_within_feature(
+    point: InsertionPoint,
+    feature: String,
+    sequence: String,
+    intervals: &[NucleotideInterval],
+) -> Result<(), DomainError> {
+    let position: u64 = point.position();
+    let mut index: usize = 0;
+    while index < intervals.len() {
+        let interval: NucleotideInterval = intervals[index].clone();
+        if position > interval.start() && position < interval.end() {
+            return Ok(());
+        }
+        index += 1;
+    }
+    let problem = TargetOutsideFeatureProblem {
+        feature,
+        sequence,
+        start: position,
+        end: position,
     };
     Err(DomainError::TargetOutsideFeature(problem))
 }
@@ -668,6 +1155,283 @@ pub fn apply_residue(
     }))
 }
 
+/// Apply a DNA-level deletion of a contiguous region.
+///
+/// The region is checked against the artifact and against its scope before
+/// anything is written, and the bases it removes are asserted exactly, so a
+/// request that disagrees with the artifact is refused rather than guessed.
+/// Nothing is written until every check has passed, and the source artifact
+/// is never modified: the edited artifact is a new one, one region shorter,
+/// that keeps the source's topology.
+pub fn apply_deletion(
+    sequence: &Sequence,
+    scope: Option<Cds>,
+    result: Identifier,
+    intent: NucleotideDeletionIntent,
+) -> Result<MutationResult, DomainError> {
+    require_sequence(intent.source().clone(), sequence)?;
+    require_sequence(intent.region().reference().clone(), sequence)?;
+    intent.region().within(sequence)?;
+
+    if intent.region().length() == sequence.length() {
+        let problem = InvalidMutationRequestProblem {
+            request: "deletion".to_string(),
+            reason: "a deletion may not remove the whole sequence".to_string(),
+        };
+        return Err(DomainError::InvalidMutationRequest(problem));
+    }
+
+    if let Some(cds) = scope.clone() {
+        require_sequence(cds.reference().clone(), sequence)?;
+        let label: String = cds.id().value().to_string();
+        require_region_within_feature(
+            intent.region().clone(),
+            label,
+            sequence.display_name(),
+            cds.intervals().as_slice(),
+        )?;
+    }
+
+    let start: u64 = intent.region().start();
+    let end: u64 = intent.region().end();
+    let letters: Vec<char> = sequence.letters();
+
+    let mut removed: Vec<char> = Vec::new();
+    let mut index: usize = start as usize;
+    while index < end as usize {
+        removed.push(letters[index]);
+        index += 1;
+    }
+
+    let actual_deleted: String = canonical_text(removed.clone());
+    if actual_deleted != intent.expected_deleted() {
+        let problem = ExpectedNucleotideMismatchProblem {
+            sequence: sequence.display_name(),
+            position: start,
+            expected: intent.expected_deleted().clone(),
+            actual: actual_deleted.clone(),
+        };
+        return Err(DomainError::ExpectedNucleotideMismatch(problem));
+    }
+
+    let mut kept: Vec<char> = Vec::new();
+    let count: usize = letters.len();
+    let mut kept_index: usize = 0;
+    while kept_index < count {
+        let position: u64 = kept_index as u64;
+        if position < start || position >= end {
+            kept.push(letters[kept_index]);
+        }
+        kept_index += 1;
+    }
+
+    let edited: Sequence = normalize(
+        result.clone(),
+        canonical_text(kept.clone()),
+        sequence.topology(),
+    )?;
+
+    Ok(MutationResult::Deletion(NucleotideDeletion {
+        source: sequence.reference(),
+        edited: edited.clone(),
+        region: intent.region().clone(),
+        expected_deleted: intent.expected_deleted().clone(),
+        actual_deleted: actual_deleted.clone(),
+        state: MutationState::Calculated,
+    }))
+}
+
+/// Apply a DNA-level insertion of bases into the gap at a point.
+///
+/// The point is checked against the artifact and against its scope before
+/// anything is written, and the bases on each side of it are asserted exactly,
+/// so a request that disagrees with the artifact is refused rather than
+/// guessed. A point at either end of the sequence has no base on one side of
+/// it, which is what makes the insertion ambiguous there. Nothing is written
+/// until every check has passed, and the source artifact is never modified:
+/// the edited artifact is a new one, `inserted.len()` bases longer, that keeps
+/// the source's topology.
+pub fn apply_insertion(
+    sequence: &Sequence,
+    scope: Option<Cds>,
+    result: Identifier,
+    intent: NucleotideInsertionIntent,
+) -> Result<MutationResult, DomainError> {
+    require_sequence(intent.source().clone(), sequence)?;
+    require_sequence(intent.point().reference().clone(), sequence)?;
+    intent.point().within(sequence)?;
+
+    let position: u64 = intent.point().position();
+    if position == 0 || position == sequence.length() {
+        let problem = InvalidMutationRequestProblem {
+            request: "insertion".to_string(),
+            reason: "an insertion needs a base on each side of the point, so the point may not sit at either end of the sequence".to_string(),
+        };
+        return Err(DomainError::InvalidMutationRequest(problem));
+    }
+
+    if let Some(cds) = scope.clone() {
+        require_sequence(cds.reference().clone(), sequence)?;
+        let label: String = cds.id().value().to_string();
+        require_point_within_feature(
+            intent.point().clone(),
+            label,
+            sequence.display_name(),
+            cds.intervals().as_slice(),
+        )?;
+    }
+
+    let letters: Vec<char> = sequence.letters();
+    let before: char = letters[position as usize - 1];
+    let after: char = letters[position as usize];
+
+    if before != intent.expected_before() {
+        let problem = ExpectedNucleotideMismatchProblem {
+            sequence: sequence.display_name(),
+            position: position - 1,
+            expected: intent.expected_before().to_string(),
+            actual: before.to_string(),
+        };
+        return Err(DomainError::ExpectedNucleotideMismatch(problem));
+    }
+    if after != intent.expected_after() {
+        let problem = ExpectedNucleotideMismatchProblem {
+            sequence: sequence.display_name(),
+            position,
+            expected: intent.expected_after().to_string(),
+            actual: after.to_string(),
+        };
+        return Err(DomainError::ExpectedNucleotideMismatch(problem));
+    }
+
+    let inserted: Vec<char> = intent.inserted().clone().chars().collect();
+
+    let mut kept: Vec<char> = Vec::new();
+    let count: usize = letters.len();
+    let mut index: usize = 0;
+    while index < count {
+        if index as u64 == position {
+            kept.extend(inserted.clone());
+        }
+        kept.push(letters[index]);
+        index += 1;
+    }
+
+    let edited: Sequence = normalize(
+        result.clone(),
+        canonical_text(kept.clone()),
+        sequence.topology(),
+    )?;
+
+    Ok(MutationResult::Insertion(NucleotideInsertion {
+        source: sequence.reference(),
+        edited: edited.clone(),
+        point: intent.point().clone(),
+        expected_before: intent.expected_before(),
+        expected_after: intent.expected_after(),
+        actual_before: before,
+        actual_after: after,
+        inserted: intent.inserted().clone(),
+        state: MutationState::Calculated,
+    }))
+}
+
+/// Apply a DNA-level replacement of a contiguous region by a text of any
+/// length.
+///
+/// The region is checked against the artifact and against its scope before
+/// anything is written, and the bases it overwrites are asserted exactly, so
+/// a request that disagrees with the artifact is refused rather than guessed.
+/// The text written need not have the width of the region, which is what makes
+/// the edit a replacement rather than a substitution, and a region that is the
+/// whole sequence would leave an artifact of no bases at all. Nothing is
+/// written until every check has passed, and the source artifact is never
+/// modified: the edited artifact is a new one, `w − m` bases shorter or longer,
+/// that keeps the source's topology.
+pub fn apply_replacement(
+    sequence: &Sequence,
+    scope: Option<Cds>,
+    result: Identifier,
+    intent: NucleotideReplacementIntent,
+) -> Result<MutationResult, DomainError> {
+    require_sequence(intent.source().clone(), sequence)?;
+    require_sequence(intent.region().reference().clone(), sequence)?;
+    intent.region().within(sequence)?;
+
+    if intent.region().length() == sequence.length() {
+        let problem = InvalidMutationRequestProblem {
+            request: "replacement".to_string(),
+            reason: "a replacement may not replace the whole sequence".to_string(),
+        };
+        return Err(DomainError::InvalidMutationRequest(problem));
+    }
+
+    if let Some(cds) = scope.clone() {
+        require_sequence(cds.reference().clone(), sequence)?;
+        let label: String = cds.id().value().to_string();
+        require_region_within_feature(
+            intent.region().clone(),
+            label,
+            sequence.display_name(),
+            cds.intervals().as_slice(),
+        )?;
+    }
+
+    let start: u64 = intent.region().start();
+    let end: u64 = intent.region().end();
+    let letters: Vec<char> = sequence.letters();
+
+    let mut replaced: Vec<char> = Vec::new();
+    let mut replaced_index: usize = start as usize;
+    while replaced_index < end as usize {
+        replaced.push(letters[replaced_index]);
+        replaced_index += 1;
+    }
+
+    let actual_original: String = canonical_text(replaced.clone());
+    if actual_original != intent.expected_original() {
+        let problem = ExpectedNucleotideMismatchProblem {
+            sequence: sequence.display_name(),
+            position: start,
+            expected: intent.expected_original().clone(),
+            actual: actual_original.clone(),
+        };
+        return Err(DomainError::ExpectedNucleotideMismatch(problem));
+    }
+
+    let replacement_letters: Vec<char> = intent.replacement().clone().chars().collect();
+
+    let mut kept: Vec<char> = Vec::new();
+    let head: usize = start as usize;
+    let mut index: usize = 0;
+    while index < head {
+        kept.push(letters[index]);
+        index += 1;
+    }
+    kept.extend(replacement_letters.clone());
+    let mut tail: usize = end as usize;
+    while tail < letters.len() {
+        kept.push(letters[tail]);
+        tail += 1;
+    }
+
+    let edited: Sequence = normalize(
+        result.clone(),
+        canonical_text(kept.clone()),
+        sequence.topology(),
+    )?;
+
+    Ok(MutationResult::Replacement(NucleotideReplacement {
+        source: sequence.reference(),
+        edited: edited.clone(),
+        region: intent.region().clone(),
+        expected_original: intent.expected_original().clone(),
+        actual_original: actual_original.clone(),
+        replacement: intent.replacement().clone(),
+        state: MutationState::Calculated,
+    }))
+}
+
 /// Resolve a codon policy. Nothing is chosen when the policy is missing, and
 /// a supplied codon that does not encode the replacement residue is a
 /// contradictory request rather than something to interpret.
@@ -752,7 +1516,13 @@ pub fn default_codon(residue: Residue) -> Result<Codon, DomainError> {
 /// coordinates are a superset of the letters that actually changed, and it
 /// does not re-derive the residue-to-coordinate mapping: that mapping is the
 /// generator's responsibility, checked here by the residue and codon claims
-/// rather than by a second copy of the mapping.
+/// rather than by a second copy of the mapping. A deletion is handled in its
+/// own branch, before the length rule a substitution obeys, because its own
+/// length rule is stated per kind (owner decision 4.2): a deletion of `w`
+/// bases shortens the artifact by exactly `w`. An insertion is handled the
+/// same way: an insertion of `k` bases lengthens the artifact by exactly `k`.
+/// A replacement is handled the same way: a replacement of a region of `w`
+/// bases by a text of `m` bases leaves exactly `n − w + m`.
 pub fn verify(
     source: &Sequence,
     cds: Option<Cds>,
@@ -761,6 +1531,33 @@ pub fn verify(
     require_sequence(result.source().clone(), source)?;
 
     let edited: Sequence = result.edited();
+
+    // A deletion changes the artifact's length, so it is re-derived here
+    // rather than under the substitution checks below. The `cds` argument is
+    // as irrelevant to it as it is to a nucleotide substitution.
+    match result.clone() {
+        MutationResult::Deletion(record) => {
+            verify_deletion(source, &edited.clone(), record)?;
+            return Ok(accepted(result.clone()));
+        }
+        // An insertion changes the artifact's length too, and it changes no
+        // source coordinate, so it is re-derived here rather than under the
+        // substitution checks below.
+        MutationResult::Insertion(record) => {
+            verify_insertion(source, &edited.clone(), record)?;
+            return Ok(accepted(result.clone()));
+        }
+        // A replacement changes the artifact's length too, and it neither
+        // removes a region nor writes into a gap, so it is re-derived here
+        // rather than under the substitution checks below.
+        MutationResult::Replacement(record) => {
+            verify_replacement(source, &edited.clone(), record)?;
+            return Ok(accepted(result.clone()));
+        }
+        MutationResult::Nucleotide(_record) => {}
+        MutationResult::Residue(_record) => {}
+    }
+
     let source_letters: Vec<char> = source.letters();
     let edited_letters: Vec<char> = edited.letters();
 
@@ -820,6 +1617,15 @@ pub fn verify(
             }
             verify_residue_claims(source, cds, &edited.clone(), record)?;
         }
+        MutationResult::Deletion(_record) => {
+            unreachable!("a deletion is verified in its own branch above")
+        }
+        MutationResult::Insertion(_record) => {
+            unreachable!("an insertion is verified in its own branch above")
+        }
+        MutationResult::Replacement(_record) => {
+            unreachable!("a replacement is verified in its own branch above")
+        }
     }
 
     Ok(accepted(result.clone()))
@@ -841,6 +1647,237 @@ fn verify_nucleotide_claims(
         };
         return Err(DomainError::MutationVerificationFailure(problem));
     }
+    Ok(())
+}
+
+/// The deletion claims of a result, re-derived from both artifacts (D013).
+///
+/// The edit is not re-run: the source's own bases at the recorded region are
+/// read back out, and the edited artifact has to be the source with exactly
+/// that region removed and exactly `region.length()` bases fewer.
+fn verify_deletion(
+    source: &Sequence,
+    edited: &Sequence,
+    record: NucleotideDeletion,
+) -> Result<(), DomainError> {
+    let region: NucleotideInterval = record.region();
+    let start: u64 = region.start();
+    let end: u64 = region.end();
+    let width: u64 = region.length();
+
+    if edited.length() + width != source.length() {
+        let problem = MutationVerificationFailureProblem {
+            result: record.edited.reference().describe(),
+            reason: "a deletion of ".to_string()
+                + &width.to_string()
+                + " bases shortens the artifact by exactly "
+                + &width.to_string(),
+        };
+        return Err(DomainError::MutationVerificationFailure(problem));
+    }
+
+    let source_letters: Vec<char> = source.letters();
+    let edited_letters: Vec<char> = edited.letters();
+    let mut kept: Vec<char> = Vec::new();
+    let mut removed: Vec<char> = Vec::new();
+    let count: usize = source_letters.len();
+    let mut index: usize = 0;
+    while index < count {
+        let position: u64 = index as u64;
+        if position < start || position >= end {
+            kept.push(source_letters[index]);
+        } else {
+            removed.push(source_letters[index]);
+        }
+        index += 1;
+    }
+
+    if kept != edited_letters {
+        let problem = MutationVerificationFailureProblem {
+            result: record.edited.reference().describe(),
+            reason: "the edited artifact is not the source with ".to_string()
+                + &start.to_string()
+                + ".."
+                + &end.to_string()
+                + " removed",
+        };
+        return Err(DomainError::MutationVerificationFailure(problem));
+    }
+
+    let removed_text: String = canonical_text(removed.clone());
+    if removed_text != record.expected_deleted() || removed_text != record.actual_deleted() {
+        let problem = MutationVerificationFailureProblem {
+            result: record.edited.reference().describe(),
+            reason: "the deletion claims do not match the source".to_string(),
+        };
+        return Err(DomainError::MutationVerificationFailure(problem));
+    }
+
+    Ok(())
+}
+
+/// The insertion claims of a result, re-derived from both artifacts (D013).
+///
+/// The edit is not re-run: the edited artifact has to be the source with the
+/// recorded bases sitting at the recorded point and exactly `inserted.len()`
+/// bases more, and the source has to hold the flanking bases the record
+/// claims on each side of the point. A point at either end of the sequence
+/// has no base on one side, so its claims cannot be read back and fail here.
+fn verify_insertion(
+    source: &Sequence,
+    edited: &Sequence,
+    record: NucleotideInsertion,
+) -> Result<(), DomainError> {
+    let position: u64 = record.point().position();
+    let inserted: Vec<char> = record.inserted().clone().chars().collect();
+    let width: u64 = inserted.len() as u64;
+
+    if edited.length() != source.length() + width {
+        let problem = MutationVerificationFailureProblem {
+            result: record.edited.reference().describe(),
+            reason: "an insertion of ".to_string()
+                + &width.to_string()
+                + " bases lengthens the artifact by exactly "
+                + &width.to_string(),
+        };
+        return Err(DomainError::MutationVerificationFailure(problem));
+    }
+
+    let source_letters: Vec<char> = source.letters();
+    let edited_letters: Vec<char> = edited.letters();
+
+    let mut placed: Vec<char> = Vec::new();
+    let count: usize = source_letters.len();
+    let mut index: usize = 0;
+    while index < count {
+        let coordinate: u64 = index as u64;
+        if coordinate == position {
+            placed.extend(inserted.clone());
+        }
+        placed.push(source_letters[index]);
+        index += 1;
+    }
+    if position >= source.length() {
+        placed.extend(inserted.clone());
+    }
+
+    if placed != edited_letters {
+        let problem = MutationVerificationFailureProblem {
+            result: record.edited.reference().describe(),
+            reason: "the edited artifact is not the source with ".to_string()
+                + &canonical_text(inserted.clone())
+                + " inserted at "
+                + &position.to_string(),
+        };
+        return Err(DomainError::MutationVerificationFailure(problem));
+    }
+
+    let before_claim: bool = position >= 1
+        && position <= source.length()
+        && source.letter_at(position - 1).unwrap() == record.expected_before()
+        && source.letter_at(position - 1).unwrap() == record.actual_before();
+    let after_claim: bool = position < source.length()
+        && source.letter_at(position).unwrap() == record.expected_after()
+        && source.letter_at(position).unwrap() == record.actual_after();
+    if !before_claim || !after_claim {
+        let problem = MutationVerificationFailureProblem {
+            result: record.edited.reference().describe(),
+            reason: "the insertion claims do not match the source".to_string(),
+        };
+        return Err(DomainError::MutationVerificationFailure(problem));
+    }
+
+    Ok(())
+}
+
+/// The replacement claims of a result, re-derived from both artifacts (D013).
+///
+/// The edit is not re-run: the source's own bases at the recorded region are
+/// read back out, and the edited artifact has to be the source with exactly
+/// that region replaced by exactly the recorded text and holding exactly
+/// `source.length() − region.length() + replacement.length()` bases.
+fn verify_replacement(
+    source: &Sequence,
+    edited: &Sequence,
+    record: NucleotideReplacement,
+) -> Result<(), DomainError> {
+    let region: NucleotideInterval = record.region();
+    let start: u64 = region.start();
+    let end: u64 = region.end();
+    let width: u64 = region.length();
+    let replacement: Vec<char> = record.replacement().clone().chars().collect();
+    let written: u64 = replacement.len() as u64;
+
+    // `source.length() - width + written` would underflow for a region wider
+    // than the artifact, so the length rule is stated on both sides.
+    if edited.length() + width != source.length() + written {
+        let expected_length: u64 = source.length().saturating_sub(width) + written;
+        let problem = MutationVerificationFailureProblem {
+            result: record.edited.reference().describe(),
+            reason: "replacing ".to_string()
+                + &width.to_string()
+                + " bases with "
+                + &written.to_string()
+                + " gives "
+                + &expected_length.to_string()
+                + " bases; the artifact holds "
+                + &edited.length().to_string(),
+        };
+        return Err(DomainError::MutationVerificationFailure(problem));
+    }
+
+    let source_letters: Vec<char> = source.letters();
+    let edited_letters: Vec<char> = edited.letters();
+
+    let mut placed: Vec<char> = Vec::new();
+    let count: usize = source_letters.len();
+    let mut index: usize = 0;
+    while index < count {
+        let position: u64 = index as u64;
+        if position == start {
+            placed.extend(replacement.clone());
+        }
+        if position < start || position >= end {
+            placed.push(source_letters[index]);
+        }
+        index += 1;
+    }
+    if start >= source.length() {
+        placed.extend(replacement.clone());
+    }
+
+    if placed != edited_letters {
+        let problem = MutationVerificationFailureProblem {
+            result: record.edited.reference().describe(),
+            reason: "the edited artifact is not the source with ".to_string()
+                + &start.to_string()
+                + ".."
+                + &end.to_string()
+                + " replaced by "
+                + &canonical_text(replacement.clone()),
+        };
+        return Err(DomainError::MutationVerificationFailure(problem));
+    }
+
+    let mut claimed: Vec<char> = Vec::new();
+    let mut claim_index: usize = 0;
+    while claim_index < count {
+        let position: u64 = claim_index as u64;
+        if position >= start && position < end {
+            claimed.push(source_letters[claim_index]);
+        }
+        claim_index += 1;
+    }
+
+    let claimed_text: String = canonical_text(claimed.clone());
+    if claimed_text != record.expected_original() || claimed_text != record.actual_original() {
+        let problem = MutationVerificationFailureProblem {
+            result: record.edited.reference().describe(),
+            reason: "the replacement claims do not match the source".to_string(),
+        };
+        return Err(DomainError::MutationVerificationFailure(problem));
+    }
+
     Ok(())
 }
 
@@ -947,6 +1984,21 @@ fn accepted(result: MutationResult) -> MutationResult {
             let mut copy: ResidueMutation = record.clone();
             copy.state = MutationState::Verified;
             MutationResult::Residue(copy)
+        }
+        MutationResult::Deletion(record) => {
+            let mut copy: NucleotideDeletion = record.clone();
+            copy.state = MutationState::Verified;
+            MutationResult::Deletion(copy)
+        }
+        MutationResult::Insertion(record) => {
+            let mut copy: NucleotideInsertion = record.clone();
+            copy.state = MutationState::Verified;
+            MutationResult::Insertion(copy)
+        }
+        MutationResult::Replacement(record) => {
+            let mut copy: NucleotideReplacement = record.clone();
+            copy.state = MutationState::Verified;
+            MutationResult::Replacement(copy)
         }
     }
 }
@@ -1171,6 +2223,7 @@ mod tests {
     use crate::genetic_code::Residue;
     use crate::identity::Identifier;
     use crate::interval::create;
+    use crate::interval::create_point;
     use crate::interval::OrderedIntervals;
     use crate::sequence::normalize;
     use crate::sequence::Sequence;
@@ -1219,6 +2272,57 @@ mod tests {
 
     fn residue(number: i64) -> ResiduePosition {
         ResiduePosition::create(cds_name(), number).unwrap()
+    }
+
+    fn deletion_of(start: i64, end: i64, expected: String) -> MutationResult {
+        apply_deletion(
+            &seq_a().clone(),
+            None,
+            result_name(),
+            NucleotideDeletionIntent::create(seq_a().reference(), at(start, end), expected)
+                .unwrap(),
+        )
+        .unwrap()
+    }
+
+    fn deletion_record(result: MutationResult) -> NucleotideDeletion {
+        match result {
+            MutationResult::Deletion(record) => record,
+            MutationResult::Nucleotide(_record) => {
+                panic!("a deletion request produced a nucleotide result")
+            }
+            MutationResult::Residue(_record) => {
+                panic!("a deletion request produced a residue result")
+            }
+            MutationResult::Insertion(_record) => {
+                panic!("a deletion request produced an insertion result")
+            }
+            MutationResult::Replacement(_record) => {
+                panic!("a deletion request produced a replacement result")
+            }
+        }
+    }
+
+    fn tampered_deletion(
+        result: MutationResult,
+        text: String,
+        expected: String,
+        actual: String,
+    ) -> MutationResult {
+        match result.clone() {
+            MutationResult::Deletion(record) => {
+                let mut copy: NucleotideDeletion = record.clone();
+                copy.edited =
+                    normalize(result_name(), text.clone(), SequenceTopology::Linear).unwrap();
+                copy.expected_deleted = expected.clone();
+                copy.actual_deleted = actual.clone();
+                MutationResult::Deletion(copy)
+            }
+            MutationResult::Nucleotide(_record) => result.clone(),
+            MutationResult::Residue(_record) => result.clone(),
+            MutationResult::Insertion(_record) => result.clone(),
+            MutationResult::Replacement(_record) => result.clone(),
+        }
     }
 
     #[test]
@@ -1386,6 +2490,9 @@ mod tests {
                 MutationResult::Nucleotide(copy)
             }
             MutationResult::Residue(_record) => calculated.clone(),
+            MutationResult::Deletion(_record) => calculated.clone(),
+            MutationResult::Insertion(_record) => calculated.clone(),
+            MutationResult::Replacement(_record) => calculated.clone(),
         };
         let error: DomainError = verify(&seq_a().clone(), None, tampered.clone()).unwrap_err();
         assert!(matches!(error, DomainError::MutationVerificationFailure(_)));
@@ -1454,5 +2561,1038 @@ mod tests {
         assert!(missing_policy != out_of_scope);
         assert!(disagreement != missing_policy);
         assert!(disagreement != out_of_scope);
+    }
+
+    // ---- deletions ---------------------------------------------------------
+
+    #[test]
+    fn a_deletion_cannot_target_another_sequence() {
+        let other: Sequence = normalize(
+            Identifier::create("seq-b".to_string()).unwrap(),
+            "ATTCCAAGCCATCAGCAGCAGCAGCAGCAG".to_string(),
+            SequenceTopology::Linear,
+        )
+        .unwrap();
+        let refusal: Result<NucleotideDeletionIntent, DomainError> =
+            NucleotideDeletionIntent::create(
+                seq_a().reference(),
+                create(&other.reference(), 3, 6).unwrap(),
+                "GCT".to_string(),
+            );
+        assert!(matches!(
+            refusal.unwrap_err(),
+            DomainError::InvalidMutationRequest(_)
+        ));
+    }
+
+    #[test]
+    fn a_deletion_that_asserts_the_wrong_number_of_bases_is_refused() {
+        // A length that disagrees with the region names both numbers.
+        let mismatch: DomainError =
+            NucleotideDeletionIntent::create(seq_a().reference(), at(3, 6), "GC".to_string())
+                .unwrap_err();
+        assert!(matches!(mismatch, DomainError::InvalidMutationRequest(_)));
+        match mismatch {
+            DomainError::InvalidMutationRequest(problem) => {
+                assert!(problem.reason.contains("2"), "{}", problem.reason);
+                assert!(problem.reason.contains("3"), "{}", problem.reason);
+            }
+            other => panic!("expected InvalidMutationRequest, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn a_deletion_asserts_only_the_bases_it_removes() {
+        // An ambiguity code is a sequence letter, not a base that can be
+        // asserted as removed.
+        let ambiguity: DomainError =
+            NucleotideDeletionIntent::create(seq_a().reference(), at(3, 6), "GCN".to_string())
+                .unwrap_err();
+        assert!(matches!(ambiguity, DomainError::InvalidMutationRequest(_)));
+        match ambiguity {
+            DomainError::InvalidMutationRequest(problem) => {
+                assert!(problem.reason.contains("A, C, G, T"), "{}", problem.reason);
+            }
+            other => panic!("expected InvalidMutationRequest, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn a_deletion_removes_the_region_and_keeps_the_source() {
+        let source: Sequence = seq_a();
+        let intent: NucleotideDeletionIntent = NucleotideDeletionIntent::create(
+            source.reference(),
+            create(&source.reference(), 3, 6).unwrap(),
+            "GCT".to_string(),
+        )
+        .unwrap();
+        let made: MutationResult = apply_deletion(&source, None, result_name(), intent).unwrap();
+        let record: NucleotideDeletion = deletion_record(made.clone());
+
+        assert!(made.edited().canonical_text() == "ATGTGGAATCAGCAGCAGCAGCAGCAG");
+        assert!(made.edited().length() == 27);
+        assert!(made.edited().topology() == SequenceTopology::Linear);
+        assert!(made.state() == MutationState::Calculated);
+        assert!(made.target_coordinates() == vec![3, 4, 5]);
+        assert!(made.is_deletion());
+        assert!(!made.is_nucleotide());
+        assert!(record.actual_deleted() == "GCT");
+
+        // The source keeps its content, its length and its digest.
+        assert!(source.length() == 30);
+        assert!(source.canonical_text() == "ATGGCTTGGAATCAGCAGCAGCAGCAGCAG");
+        assert!(made.source() == source.reference());
+    }
+
+    #[test]
+    fn a_deletion_at_either_end_of_the_sequence_is_applied() {
+        let head: MutationResult = deletion_of(0, 3, "ATG".to_string());
+        assert!(head.edited().canonical_text() == "GCTTGGAATCAGCAGCAGCAGCAGCAG");
+        let tail: MutationResult = deletion_of(27, 30, "CAG".to_string());
+        assert!(tail.edited().canonical_text() == "ATGGCTTGGAATCAGCAGCAGCAGCAG");
+    }
+
+    #[test]
+    fn a_deletion_from_a_circular_sequence_stays_circular() {
+        let circular: Sequence = normalize(
+            Identifier::create("seq-a".to_string()).unwrap(),
+            seq_a().canonical_text(),
+            SequenceTopology::Circular,
+        )
+        .unwrap();
+        let intent: NucleotideDeletionIntent = NucleotideDeletionIntent::create(
+            circular.reference(),
+            create(&circular.reference(), 3, 6).unwrap(),
+            "GCT".to_string(),
+        )
+        .unwrap();
+        let made: MutationResult = apply_deletion(&circular, None, result_name(), intent).unwrap();
+        assert!(made.edited().topology() == SequenceTopology::Circular);
+        assert!(made.edited().canonical_text() == "ATGTGGAATCAGCAGCAGCAGCAGCAG");
+    }
+
+    #[test]
+    fn a_deletion_that_asserts_the_wrong_bases_names_the_bases_that_are_there() {
+        let error: DomainError = apply_deletion(
+            &seq_a().clone(),
+            None,
+            result_name(),
+            NucleotideDeletionIntent::create(seq_a().reference(), at(3, 6), "GCA".to_string())
+                .unwrap(),
+        )
+        .unwrap_err();
+        assert!(matches!(error, DomainError::ExpectedNucleotideMismatch(_)));
+        match error {
+            DomainError::ExpectedNucleotideMismatch(problem) => {
+                assert!(problem.expected == "GCA");
+                assert!(problem.actual == "GCT");
+            }
+            other => panic!("expected ExpectedNucleotideMismatch, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn a_deletion_may_not_remove_the_whole_sequence() {
+        let error: DomainError = apply_deletion(
+            &seq_a().clone(),
+            None,
+            result_name(),
+            NucleotideDeletionIntent::create(
+                seq_a().reference(),
+                at(0, 30),
+                seq_a().canonical_text(),
+            )
+            .unwrap(),
+        )
+        .unwrap_err();
+        assert!(matches!(error, DomainError::InvalidMutationRequest(_)));
+    }
+
+    #[test]
+    fn a_deletion_inside_its_scoped_cds_is_applied() {
+        let made: MutationResult = apply_deletion(
+            &seq_a().clone(),
+            Some(cds_of(12).clone()),
+            result_name(),
+            NucleotideDeletionIntent::create(seq_a().reference(), at(3, 6), "GCT".to_string())
+                .unwrap(),
+        )
+        .unwrap();
+        assert!(made.state() == MutationState::Calculated);
+        assert!(made.edited().canonical_text() == "ATGTGGAATCAGCAGCAGCAGCAGCAG");
+    }
+
+    #[test]
+    fn a_deletion_that_straddles_the_scoped_cds_is_refused() {
+        let error: DomainError = apply_deletion(
+            &seq_a().clone(),
+            Some(cds_of(12).clone()),
+            result_name(),
+            NucleotideDeletionIntent::create(seq_a().reference(), at(9, 15), "AATCAG".to_string())
+                .unwrap(),
+        )
+        .unwrap_err();
+        assert!(matches!(error, DomainError::TargetOutsideFeature(_)));
+    }
+
+    #[test]
+    fn a_deletion_result_is_verified_against_its_source() {
+        let calculated: MutationResult = deletion_of(3, 6, "GCT".to_string());
+        let verified: MutationResult = verify(&seq_a().clone(), None, calculated.clone()).unwrap();
+        assert!(verified.state() == MutationState::Verified);
+        assert!(verified != calculated);
+        assert!(verified.edited().canonical_text() == "ATGTGGAATCAGCAGCAGCAGCAGCAG");
+        assert!(verified.target_coordinates() == vec![3, 4, 5]);
+        assert!(verified.is_deletion());
+        let record: NucleotideDeletion = deletion_record(verified.clone());
+        assert!(record.region() == at(3, 6));
+        assert!(record.expected_deleted() == "GCT");
+        assert!(record.actual_deleted() == "GCT");
+    }
+
+    #[test]
+    fn verify_refuses_a_deletion_that_shortens_the_artifact_by_the_wrong_amount() {
+        let calculated: MutationResult = deletion_of(3, 6, "GCT".to_string());
+        // The same record, whose artifact lost only two bases.
+        let tampered: MutationResult = tampered_deletion(
+            calculated.clone(),
+            "ATGTTGGAATCAGCAGCAGCAGCAGCAG".to_string(),
+            "GCT".to_string(),
+            "GCT".to_string(),
+        );
+        let error: DomainError = verify(&seq_a().clone(), None, tampered.clone()).unwrap_err();
+        assert!(matches!(error, DomainError::MutationVerificationFailure(_)));
+        match error {
+            DomainError::MutationVerificationFailure(problem) => {
+                assert!(
+                    problem
+                        .reason
+                        .contains("shortens the artifact by exactly 3"),
+                    "{}",
+                    problem.reason,
+                );
+            }
+            other => panic!("expected MutationVerificationFailure, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn verify_refuses_an_edited_artifact_that_is_not_the_source_minus_the_region() {
+        let calculated: MutationResult = deletion_of(3, 6, "GCT".to_string());
+        // The right length, but the wrong bases were removed.
+        let tampered: MutationResult = tampered_deletion(
+            calculated.clone(),
+            "ATGGGGAATCAGCAGCAGCAGCAGCAG".to_string(),
+            "GCT".to_string(),
+            "GCT".to_string(),
+        );
+        let error: DomainError = verify(&seq_a().clone(), None, tampered.clone()).unwrap_err();
+        assert!(matches!(error, DomainError::MutationVerificationFailure(_)));
+    }
+
+    #[test]
+    fn verify_refuses_deletion_claims_that_disagree_with_the_source() {
+        let calculated: MutationResult = deletion_of(3, 6, "GCT".to_string());
+        // The artifacts agree, but the record claims other bases were removed.
+        let tampered: MutationResult = tampered_deletion(
+            calculated.clone(),
+            calculated.edited().canonical_text(),
+            "GCA".to_string(),
+            "GCA".to_string(),
+        );
+        let error: DomainError = verify(&seq_a().clone(), None, tampered.clone()).unwrap_err();
+        assert!(matches!(error, DomainError::MutationVerificationFailure(_)));
+    }
+
+    // ---- insertions --------------------------------------------------------
+
+    fn ins(position: i64, before: &str, after: &str, inserted: &str) -> NucleotideInsertionIntent {
+        NucleotideInsertionIntent::create(
+            seq_a().reference(),
+            create_point(&seq_a().reference(), position).unwrap(),
+            before.to_string(),
+            after.to_string(),
+            inserted.to_string(),
+        )
+        .unwrap()
+    }
+
+    fn insertion_record(result: MutationResult) -> NucleotideInsertion {
+        match result {
+            MutationResult::Insertion(record) => record,
+            MutationResult::Nucleotide(_record) => {
+                panic!("an insertion request produced a nucleotide result")
+            }
+            MutationResult::Residue(_record) => {
+                panic!("an insertion request produced a residue result")
+            }
+            MutationResult::Deletion(_record) => {
+                panic!("an insertion request produced a deletion result")
+            }
+            MutationResult::Replacement(_record) => {
+                panic!("an insertion request produced a replacement result")
+            }
+        }
+    }
+
+    // The same record, claiming another edited artifact.
+    fn tampered_insertion(result: MutationResult, text: String) -> MutationResult {
+        match result.clone() {
+            MutationResult::Insertion(record) => {
+                let mut copy: NucleotideInsertion = record.clone();
+                copy.edited =
+                    normalize(result_name(), text.clone(), SequenceTopology::Linear).unwrap();
+                MutationResult::Insertion(copy)
+            }
+            MutationResult::Nucleotide(_record) => result.clone(),
+            MutationResult::Residue(_record) => result.clone(),
+            MutationResult::Deletion(_record) => result.clone(),
+            MutationResult::Replacement(_record) => result.clone(),
+        }
+    }
+
+    // The same artifacts, claiming another base before the point.
+    fn tampered_insertion_claims(result: MutationResult, claimed: char) -> MutationResult {
+        match result.clone() {
+            MutationResult::Insertion(record) => {
+                let mut copy: NucleotideInsertion = record.clone();
+                copy.expected_before = claimed;
+                copy.actual_before = claimed;
+                MutationResult::Insertion(copy)
+            }
+            MutationResult::Nucleotide(_record) => result.clone(),
+            MutationResult::Residue(_record) => result.clone(),
+            MutationResult::Deletion(_record) => result.clone(),
+            MutationResult::Replacement(_record) => result.clone(),
+        }
+    }
+
+    #[test]
+    fn an_insertion_cannot_target_another_sequence() {
+        let other: Sequence = normalize(
+            Identifier::create("seq-b".to_string()).unwrap(),
+            "ATTCCAAGCCATCAGCAGCAGCAGCAGCAG".to_string(),
+            SequenceTopology::Linear,
+        )
+        .unwrap();
+        let refusal: Result<NucleotideInsertionIntent, DomainError> =
+            NucleotideInsertionIntent::create(
+                seq_a().reference(),
+                create_point(&other.reference(), 9).unwrap(),
+                "G".to_string(),
+                "A".to_string(),
+                "GGG".to_string(),
+            );
+        assert!(matches!(
+            refusal.unwrap_err(),
+            DomainError::InvalidMutationRequest(_)
+        ));
+    }
+
+    #[test]
+    fn an_insertion_of_no_bases_is_refused() {
+        let error: DomainError = NucleotideInsertionIntent::create(
+            seq_a().reference(),
+            create_point(&seq_a().reference(), 9).unwrap(),
+            "G".to_string(),
+            "A".to_string(),
+            "".to_string(),
+        )
+        .unwrap_err();
+        assert!(matches!(error, DomainError::InvalidMutationRequest(_)));
+        match error {
+            DomainError::InvalidMutationRequest(problem) => {
+                assert!(
+                    problem.reason.contains("at least one"),
+                    "{}",
+                    problem.reason
+                );
+            }
+            other => panic!("expected InvalidMutationRequest, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn an_insertion_inserts_only_plain_bases() {
+        let error: DomainError = NucleotideInsertionIntent::create(
+            seq_a().reference(),
+            create_point(&seq_a().reference(), 9).unwrap(),
+            "G".to_string(),
+            "A".to_string(),
+            "GNG".to_string(),
+        )
+        .unwrap_err();
+        assert!(matches!(error, DomainError::InvalidMutationRequest(_)));
+        match error {
+            DomainError::InvalidMutationRequest(problem) => {
+                assert!(problem.reason.contains("A, C, G, T"), "{}", problem.reason);
+            }
+            other => panic!("expected InvalidMutationRequest, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn an_insertion_asserts_only_plain_bases_beside_the_point() {
+        let error: DomainError = NucleotideInsertionIntent::create(
+            seq_a().reference(),
+            create_point(&seq_a().reference(), 9).unwrap(),
+            "N".to_string(),
+            "A".to_string(),
+            "GGG".to_string(),
+        )
+        .unwrap_err();
+        assert!(matches!(error, DomainError::InvalidMutationRequest(_)));
+    }
+
+    #[test]
+    fn an_insertion_puts_its_bases_at_the_point_and_keeps_the_source() {
+        let source: Sequence = seq_a();
+        let made: MutationResult =
+            apply_insertion(&source, None, result_name(), ins(9, "G", "A", "GGG")).unwrap();
+        let record: NucleotideInsertion = insertion_record(made.clone());
+
+        assert!(made.edited().canonical_text() == "ATGGCTTGGGGGAATCAGCAGCAGCAGCAGCAG");
+        assert!(made.edited().length() == 33);
+        assert!(made.edited().topology() == SequenceTopology::Linear);
+        assert!(made.state() == MutationState::Calculated);
+        assert!(made.is_insertion());
+        assert!(!made.is_deletion());
+        assert!(!made.is_nucleotide());
+        assert!(made.target_coordinates().is_empty());
+        assert!(record.inserted() == "GGG");
+        assert!(record.actual_before() == 'G');
+        assert!(record.actual_after() == 'A');
+
+        // The source keeps its content, its length and its digest.
+        assert!(source.length() == 30);
+        assert!(source.canonical_text() == "ATGGCTTGGAATCAGCAGCAGCAGCAGCAG");
+        assert!(made.source() == source.reference());
+    }
+
+    #[test]
+    fn an_insertion_near_either_end_of_the_sequence_is_applied() {
+        let head: MutationResult =
+            apply_insertion(&seq_a().clone(), None, result_name(), ins(1, "A", "T", "C")).unwrap();
+        assert!(head.edited().canonical_text() == "ACTGGCTTGGAATCAGCAGCAGCAGCAGCAG");
+        let tail: MutationResult = apply_insertion(
+            &seq_a().clone(),
+            None,
+            result_name(),
+            ins(29, "A", "G", "T"),
+        )
+        .unwrap();
+        assert!(tail.edited().canonical_text() == "ATGGCTTGGAATCAGCAGCAGCAGCAGCATG");
+    }
+
+    #[test]
+    fn an_insertion_at_either_end_of_the_sequence_is_refused() {
+        for pair in [vec![0], vec![30]] {
+            let error: DomainError = apply_insertion(
+                &seq_a().clone(),
+                None,
+                result_name(),
+                ins(pair[0], "A", "T", "C"),
+            )
+            .unwrap_err();
+            assert!(matches!(error, DomainError::InvalidMutationRequest(_)));
+            match error {
+                DomainError::InvalidMutationRequest(problem) => {
+                    assert!(
+                        problem.reason.contains("a base on each side"),
+                        "{}",
+                        problem.reason,
+                    );
+                }
+                other => panic!("expected InvalidMutationRequest, got {:?}", other),
+            }
+        }
+    }
+
+    #[test]
+    fn a_point_past_the_end_of_the_sequence_is_out_of_bounds() {
+        let error: DomainError = apply_insertion(
+            &seq_a().clone(),
+            None,
+            result_name(),
+            ins(31, "A", "T", "C"),
+        )
+        .unwrap_err();
+        assert!(matches!(error, DomainError::CoordinateOutOfBounds(_)));
+    }
+
+    #[test]
+    fn a_wrong_flank_names_the_position_beside_the_point() {
+        let error: DomainError = apply_insertion(
+            &seq_a().clone(),
+            None,
+            result_name(),
+            ins(9, "C", "A", "GGG"),
+        )
+        .unwrap_err();
+        assert!(matches!(error, DomainError::ExpectedNucleotideMismatch(_)));
+        match error {
+            DomainError::ExpectedNucleotideMismatch(problem) => {
+                assert!(problem.position == 8);
+                assert!(problem.expected == "C");
+                assert!(problem.actual == "G");
+            }
+            other => panic!("expected ExpectedNucleotideMismatch, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn an_insertion_from_a_circular_sequence_stays_circular() {
+        let circular: Sequence = normalize(
+            Identifier::create("seq-a".to_string()).unwrap(),
+            seq_a().canonical_text(),
+            SequenceTopology::Circular,
+        )
+        .unwrap();
+        let intent: NucleotideInsertionIntent = NucleotideInsertionIntent::create(
+            circular.reference(),
+            create_point(&circular.reference(), 9).unwrap(),
+            "G".to_string(),
+            "A".to_string(),
+            "GGG".to_string(),
+        )
+        .unwrap();
+        let made: MutationResult = apply_insertion(&circular, None, result_name(), intent).unwrap();
+        assert!(made.edited().topology() == SequenceTopology::Circular);
+        assert!(made.edited().canonical_text() == "ATGGCTTGGGGGAATCAGCAGCAGCAGCAGCAG");
+    }
+
+    #[test]
+    fn an_insertion_inside_its_scoped_cds_is_applied() {
+        let made: MutationResult = apply_insertion(
+            &seq_a().clone(),
+            Some(cds_of(12).clone()),
+            result_name(),
+            ins(9, "G", "A", "GGG"),
+        )
+        .unwrap();
+        assert!(made.state() == MutationState::Calculated);
+        assert!(made.edited().canonical_text() == "ATGGCTTGGGGGAATCAGCAGCAGCAGCAGCAG");
+    }
+
+    #[test]
+    fn an_insertion_at_the_scoped_cds_edge_is_refused() {
+        let error: DomainError = apply_insertion(
+            &seq_a().clone(),
+            Some(cds_of(12).clone()),
+            result_name(),
+            ins(12, "T", "C", "GGG"),
+        )
+        .unwrap_err();
+        assert!(matches!(error, DomainError::TargetOutsideFeature(_)));
+    }
+
+    #[test]
+    fn an_insertion_result_is_verified_against_its_source() {
+        let calculated: MutationResult = apply_insertion(
+            &seq_a().clone(),
+            None,
+            result_name(),
+            ins(9, "G", "A", "GGG"),
+        )
+        .unwrap();
+        let verified: MutationResult = verify(&seq_a().clone(), None, calculated.clone()).unwrap();
+        assert!(verified.state() == MutationState::Verified);
+        assert!(verified != calculated);
+        assert!(verified.edited().canonical_text() == "ATGGCTTGGGGGAATCAGCAGCAGCAGCAGCAG");
+        assert!(verified.target_coordinates().is_empty());
+        assert!(verified.is_insertion());
+        let record: NucleotideInsertion = insertion_record(verified.clone());
+        assert!(record.point() == create_point(&seq_a().reference(), 9).unwrap());
+        assert!(record.inserted() == "GGG");
+        assert!(record.expected_before() == 'G');
+        assert!(record.actual_before() == 'G');
+        assert!(record.expected_after() == 'A');
+        assert!(record.actual_after() == 'A');
+    }
+
+    #[test]
+    fn verify_refuses_an_insertion_that_lengthens_the_artifact_by_the_wrong_amount() {
+        let calculated: MutationResult = apply_insertion(
+            &seq_a().clone(),
+            None,
+            result_name(),
+            ins(9, "G", "A", "GGG"),
+        )
+        .unwrap();
+        // The same record, whose artifact gained only two bases.
+        let tampered: MutationResult = tampered_insertion(
+            calculated.clone(),
+            "ATGGCTTGGGGGAATCAGCAGCAGCAGCAGCA".to_string(),
+        );
+        let error: DomainError = verify(&seq_a().clone(), None, tampered.clone()).unwrap_err();
+        assert!(matches!(error, DomainError::MutationVerificationFailure(_)));
+        match error {
+            DomainError::MutationVerificationFailure(problem) => {
+                assert!(
+                    problem
+                        .reason
+                        .contains("lengthens the artifact by exactly 3"),
+                    "{}",
+                    problem.reason,
+                );
+            }
+            other => panic!("expected MutationVerificationFailure, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn verify_refuses_an_insertion_at_another_place() {
+        let calculated: MutationResult = apply_insertion(
+            &seq_a().clone(),
+            None,
+            result_name(),
+            ins(9, "G", "A", "GGG"),
+        )
+        .unwrap();
+        // The right length and the right bases, but inserted one gap later.
+        let tampered: MutationResult = tampered_insertion(
+            calculated.clone(),
+            "ATGGCTTGGAGGGATCAGCAGCAGCAGCAGCAG".to_string(),
+        );
+        let error: DomainError = verify(&seq_a().clone(), None, tampered.clone()).unwrap_err();
+        assert!(matches!(error, DomainError::MutationVerificationFailure(_)));
+    }
+
+    #[test]
+    fn verify_refuses_insertion_claims_that_disagree_with_the_source() {
+        let calculated: MutationResult = apply_insertion(
+            &seq_a().clone(),
+            None,
+            result_name(),
+            ins(9, "G", "A", "GGG"),
+        )
+        .unwrap();
+        // The artifacts agree, but the record claims another base sits before
+        // the point.
+        let tampered: MutationResult = tampered_insertion_claims(calculated.clone(), 'C');
+        let error: DomainError = verify(&seq_a().clone(), None, tampered.clone()).unwrap_err();
+        assert!(matches!(error, DomainError::MutationVerificationFailure(_)));
+        match error {
+            DomainError::MutationVerificationFailure(problem) => {
+                assert!(
+                    problem.reason.contains("insertion claims"),
+                    "{}",
+                    problem.reason
+                );
+            }
+            other => panic!("expected MutationVerificationFailure, got {:?}", other),
+        }
+    }
+
+    // ---- replacements ----------------------------------------------------
+
+    fn replacement_of(
+        start: i64,
+        end: i64,
+        expected: String,
+        replacement: String,
+    ) -> MutationResult {
+        apply_replacement(
+            &seq_a().clone(),
+            None,
+            result_name(),
+            NucleotideReplacementIntent::create(
+                seq_a().reference(),
+                at(start, end),
+                expected.clone(),
+                replacement.clone(),
+            )
+            .unwrap(),
+        )
+        .unwrap()
+    }
+
+    fn replacement_record(result: MutationResult) -> NucleotideReplacement {
+        match result {
+            MutationResult::Replacement(record) => record,
+            MutationResult::Nucleotide(_record) => {
+                panic!("a replacement request produced a nucleotide result")
+            }
+            MutationResult::Residue(_record) => {
+                panic!("a replacement request produced a residue result")
+            }
+            MutationResult::Deletion(_record) => {
+                panic!("a replacement request produced a deletion result")
+            }
+            MutationResult::Insertion(_record) => {
+                panic!("a replacement request produced an insertion result")
+            }
+        }
+    }
+
+    // The same record, claiming another edited artifact.
+    fn tampered_replacement(result: MutationResult, text: String) -> MutationResult {
+        match result.clone() {
+            MutationResult::Replacement(record) => {
+                let mut copy: NucleotideReplacement = record.clone();
+                copy.edited =
+                    normalize(result_name(), text.clone(), SequenceTopology::Linear).unwrap();
+                MutationResult::Replacement(copy)
+            }
+            MutationResult::Nucleotide(_record) => result.clone(),
+            MutationResult::Residue(_record) => result.clone(),
+            MutationResult::Deletion(_record) => result.clone(),
+            MutationResult::Insertion(_record) => result.clone(),
+        }
+    }
+
+    // The same artifacts, claiming other bases in the region.
+    fn tampered_replacement_claims(result: MutationResult, claimed: String) -> MutationResult {
+        match result.clone() {
+            MutationResult::Replacement(record) => {
+                let mut copy: NucleotideReplacement = record.clone();
+                copy.expected_original = claimed.clone();
+                copy.actual_original = claimed.clone();
+                MutationResult::Replacement(copy)
+            }
+            MutationResult::Nucleotide(_record) => result.clone(),
+            MutationResult::Residue(_record) => result.clone(),
+            MutationResult::Deletion(_record) => result.clone(),
+            MutationResult::Insertion(_record) => result.clone(),
+        }
+    }
+
+    #[test]
+    fn a_replacement_cannot_target_another_sequence() {
+        let other: Sequence = normalize(
+            Identifier::create("seq-b".to_string()).unwrap(),
+            "ATTCCAAGCCATCAGCAGCAGCAGCAGCAG".to_string(),
+            SequenceTopology::Linear,
+        )
+        .unwrap();
+        let refusal: Result<NucleotideReplacementIntent, DomainError> =
+            NucleotideReplacementIntent::create(
+                seq_a().reference(),
+                create(&other.reference(), 9, 12).unwrap(),
+                "AAT".to_string(),
+                "GG".to_string(),
+            );
+        assert!(matches!(
+            refusal.unwrap_err(),
+            DomainError::InvalidMutationRequest(_)
+        ));
+    }
+
+    #[test]
+    fn a_replacement_that_asserts_the_wrong_number_of_bases_is_refused() {
+        // A length that disagrees with the region names both numbers.
+        let mismatch: DomainError = NucleotideReplacementIntent::create(
+            seq_a().reference(),
+            at(9, 12),
+            "AA".to_string(),
+            "GG".to_string(),
+        )
+        .unwrap_err();
+        assert!(matches!(mismatch, DomainError::InvalidMutationRequest(_)));
+        match mismatch {
+            DomainError::InvalidMutationRequest(problem) => {
+                assert!(problem.reason.contains("2"), "{}", problem.reason);
+                assert!(problem.reason.contains("3"), "{}", problem.reason);
+            }
+            other => panic!("expected InvalidMutationRequest, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn a_replacement_asserts_and_writes_only_plain_bases() {
+        // An ambiguity code is a sequence letter, not a base that can be
+        // asserted as replaced or written in its place.
+        let error: DomainError = NucleotideReplacementIntent::create(
+            seq_a().reference(),
+            at(9, 12),
+            "AAT".to_string(),
+            "GNG".to_string(),
+        )
+        .unwrap_err();
+        assert!(matches!(error, DomainError::InvalidMutationRequest(_)));
+        match error {
+            DomainError::InvalidMutationRequest(problem) => {
+                assert!(problem.reason.contains("A, C, G, T"), "{}", problem.reason);
+            }
+            other => panic!("expected InvalidMutationRequest, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn a_replacement_of_no_bases_is_refused() {
+        let error: DomainError = NucleotideReplacementIntent::create(
+            seq_a().reference(),
+            at(9, 12),
+            "AAT".to_string(),
+            "".to_string(),
+        )
+        .unwrap_err();
+        assert!(matches!(error, DomainError::InvalidMutationRequest(_)));
+        match error {
+            DomainError::InvalidMutationRequest(problem) => {
+                assert!(
+                    problem.reason.contains("at least one"),
+                    "{}",
+                    problem.reason
+                );
+            }
+            other => panic!("expected InvalidMutationRequest, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn a_replacement_that_writes_back_the_text_already_there_is_refused() {
+        let error: DomainError = NucleotideReplacementIntent::create(
+            seq_a().reference(),
+            at(9, 12),
+            "AAT".to_string(),
+            "AAT".to_string(),
+        )
+        .unwrap_err();
+        assert!(matches!(error, DomainError::InvalidMutationRequest(_)));
+        match error {
+            DomainError::InvalidMutationRequest(problem) => {
+                assert!(
+                    problem.reason.contains("already there"),
+                    "{}",
+                    problem.reason
+                );
+            }
+            other => panic!("expected InvalidMutationRequest, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn a_replacement_shorter_than_its_region_is_applied() {
+        let source: Sequence = seq_a();
+        let made: MutationResult = replacement_of(9, 12, "AAT".to_string(), "GG".to_string());
+        let record: NucleotideReplacement = replacement_record(made.clone());
+
+        assert!(made.edited().canonical_text() == "ATGGCTTGGGGCAGCAGCAGCAGCAGCAG");
+        assert!(made.edited().length() == 29);
+        assert!(made.edited().topology() == SequenceTopology::Linear);
+        assert!(made.state() == MutationState::Calculated);
+        assert!(made.is_replacement());
+        assert!(!made.is_deletion());
+        assert!(!made.is_insertion());
+        assert!(!made.is_nucleotide());
+        assert!(made.target_coordinates() == vec![9, 10, 11]);
+        assert!(record.actual_original() == "AAT");
+
+        // The source keeps its content, its length and its digest.
+        assert!(source.length() == 30);
+        assert!(source.canonical_text() == "ATGGCTTGGAATCAGCAGCAGCAGCAGCAG");
+        assert!(made.source() == source.reference());
+    }
+
+    #[test]
+    fn a_replacement_longer_than_its_region_is_applied() {
+        let made: MutationResult = replacement_of(9, 12, "AAT".to_string(), "GGGGG".to_string());
+        assert!(made.edited().canonical_text() == "ATGGCTTGGGGGGGCAGCAGCAGCAGCAGCAG");
+        assert!(made.edited().length() == 32);
+    }
+
+    #[test]
+    fn a_replacement_of_the_same_width_is_applied() {
+        let made: MutationResult = replacement_of(9, 12, "AAT".to_string(), "CCC".to_string());
+        assert!(made.edited().canonical_text() == "ATGGCTTGGCCCCAGCAGCAGCAGCAGCAG");
+        assert!(made.edited().length() == 30);
+    }
+
+    #[test]
+    fn one_base_replaced_by_two_is_applied() {
+        let made: MutationResult = replacement_of(9, 10, "A".to_string(), "GG".to_string());
+        assert!(made.edited().canonical_text() == "ATGGCTTGGGGATCAGCAGCAGCAGCAGCAG");
+        assert!(made.edited().length() == 31);
+    }
+
+    #[test]
+    fn a_replacement_at_either_end_of_the_sequence_is_applied() {
+        let head: MutationResult = replacement_of(0, 3, "ATG".to_string(), "C".to_string());
+        assert!(head.edited().canonical_text() == "CGCTTGGAATCAGCAGCAGCAGCAGCAG");
+        let tail: MutationResult = replacement_of(27, 30, "CAG".to_string(), "TT".to_string());
+        assert!(tail.edited().canonical_text() == "ATGGCTTGGAATCAGCAGCAGCAGCAGTT");
+    }
+
+    #[test]
+    fn a_replacement_may_not_replace_the_whole_sequence() {
+        let error: DomainError = apply_replacement(
+            &seq_a().clone(),
+            None,
+            result_name(),
+            NucleotideReplacementIntent::create(
+                seq_a().reference(),
+                at(0, 30),
+                seq_a().canonical_text(),
+                "AAAA".to_string(),
+            )
+            .unwrap(),
+        )
+        .unwrap_err();
+        assert!(matches!(error, DomainError::InvalidMutationRequest(_)));
+        match error {
+            DomainError::InvalidMutationRequest(problem) => {
+                assert!(
+                    problem.reason.contains("the whole sequence"),
+                    "{}",
+                    problem.reason
+                );
+            }
+            other => panic!("expected InvalidMutationRequest, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn a_replacement_that_asserts_the_wrong_bases_names_the_bases_that_are_there() {
+        let error: DomainError = apply_replacement(
+            &seq_a().clone(),
+            None,
+            result_name(),
+            NucleotideReplacementIntent::create(
+                seq_a().reference(),
+                at(9, 12),
+                "AAC".to_string(),
+                "GG".to_string(),
+            )
+            .unwrap(),
+        )
+        .unwrap_err();
+        assert!(matches!(error, DomainError::ExpectedNucleotideMismatch(_)));
+        match error {
+            DomainError::ExpectedNucleotideMismatch(problem) => {
+                assert!(problem.expected == "AAC");
+                assert!(problem.actual == "AAT");
+            }
+            other => panic!("expected ExpectedNucleotideMismatch, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn a_replacement_from_a_circular_sequence_stays_circular() {
+        let circular: Sequence = normalize(
+            Identifier::create("seq-a".to_string()).unwrap(),
+            seq_a().canonical_text(),
+            SequenceTopology::Circular,
+        )
+        .unwrap();
+        let intent: NucleotideReplacementIntent = NucleotideReplacementIntent::create(
+            circular.reference(),
+            create(&circular.reference(), 9, 12).unwrap(),
+            "AAT".to_string(),
+            "GG".to_string(),
+        )
+        .unwrap();
+        let made: MutationResult =
+            apply_replacement(&circular, None, result_name(), intent).unwrap();
+        assert!(made.edited().topology() == SequenceTopology::Circular);
+        assert!(made.edited().canonical_text() == "ATGGCTTGGGGCAGCAGCAGCAGCAGCAG");
+    }
+
+    #[test]
+    fn a_replacement_inside_its_scoped_cds_is_applied() {
+        let made: MutationResult = apply_replacement(
+            &seq_a().clone(),
+            Some(cds_of(12).clone()),
+            result_name(),
+            NucleotideReplacementIntent::create(
+                seq_a().reference(),
+                at(9, 12),
+                "AAT".to_string(),
+                "GG".to_string(),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert!(made.state() == MutationState::Calculated);
+        assert!(made.edited().canonical_text() == "ATGGCTTGGGGCAGCAGCAGCAGCAGCAG");
+    }
+
+    #[test]
+    fn a_replacement_that_straddles_the_scoped_cds_is_refused() {
+        let error: DomainError = apply_replacement(
+            &seq_a().clone(),
+            Some(cds_of(12).clone()),
+            result_name(),
+            NucleotideReplacementIntent::create(
+                seq_a().reference(),
+                at(10, 14),
+                "ATCA".to_string(),
+                "G".to_string(),
+            )
+            .unwrap(),
+        )
+        .unwrap_err();
+        assert!(matches!(error, DomainError::TargetOutsideFeature(_)));
+    }
+
+    #[test]
+    fn a_replacement_result_is_verified_against_its_source() {
+        let calculated: MutationResult = replacement_of(9, 12, "AAT".to_string(), "GG".to_string());
+        let verified: MutationResult = verify(&seq_a().clone(), None, calculated.clone()).unwrap();
+        assert!(verified.state() == MutationState::Verified);
+        assert!(verified != calculated);
+        assert!(verified.edited().canonical_text() == "ATGGCTTGGGGCAGCAGCAGCAGCAGCAG");
+        assert!(verified.target_coordinates() == vec![9, 10, 11]);
+        assert!(verified.is_replacement());
+        let record: NucleotideReplacement = replacement_record(verified.clone());
+        assert!(record.region() == at(9, 12));
+        assert!(record.expected_original() == "AAT");
+        assert!(record.actual_original() == "AAT");
+        assert!(record.replacement() == "GG");
+    }
+
+    #[test]
+    fn verify_refuses_a_replacement_that_changes_the_length_by_the_wrong_amount() {
+        let calculated: MutationResult = replacement_of(9, 12, "AAT".to_string(), "GG".to_string());
+        // The same record, whose artifact has the length an equal-width
+        // replacement would leave.
+        let tampered: MutationResult = tampered_replacement(
+            calculated.clone(),
+            "ATGGCTTGGCCCCAGCAGCAGCAGCAGCAG".to_string(),
+        );
+        let error: DomainError = verify(&seq_a().clone(), None, tampered.clone()).unwrap_err();
+        assert!(matches!(error, DomainError::MutationVerificationFailure(_)));
+        match error {
+            DomainError::MutationVerificationFailure(problem) => {
+                assert!(
+                    problem.reason.contains("replacing 3 bases with 2"),
+                    "{}",
+                    problem.reason,
+                );
+            }
+            other => panic!("expected MutationVerificationFailure, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn verify_refuses_an_edited_artifact_that_is_not_the_source_with_the_region_replaced() {
+        let calculated: MutationResult = replacement_of(9, 12, "AAT".to_string(), "GG".to_string());
+        // The right length, but other bases were written.
+        let tampered: MutationResult = tampered_replacement(
+            calculated.clone(),
+            "ATGGCTTGGTTCAGCAGCAGCAGCAGCAG".to_string(),
+        );
+        let error: DomainError = verify(&seq_a().clone(), None, tampered.clone()).unwrap_err();
+        assert!(matches!(error, DomainError::MutationVerificationFailure(_)));
+    }
+
+    #[test]
+    fn verify_refuses_replacement_claims_that_disagree_with_the_source() {
+        let calculated: MutationResult = replacement_of(9, 12, "AAT".to_string(), "GG".to_string());
+        // The artifacts agree, but the record claims other bases were replaced.
+        let tampered: MutationResult =
+            tampered_replacement_claims(calculated.clone(), "AAC".to_string());
+        let error: DomainError = verify(&seq_a().clone(), None, tampered.clone()).unwrap_err();
+        assert!(matches!(error, DomainError::MutationVerificationFailure(_)));
+        match error {
+            DomainError::MutationVerificationFailure(problem) => {
+                assert!(
+                    problem.reason.contains("replacement claims"),
+                    "{}",
+                    problem.reason,
+                );
+            }
+            other => panic!("expected MutationVerificationFailure, got {:?}", other),
+        }
     }
 }
