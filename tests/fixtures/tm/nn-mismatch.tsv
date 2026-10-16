@@ -1,0 +1,66 @@
+#
+# Nearest-neighbour parameters for a DNA doublet containing ONE internal
+# mismatch, in 1 M NaCl. Orientation: Watson-Crick pair first, mismatch second,
+# as SantaLucia & Hicks (2004) Table 2 tabulates them. A doublet whose mismatch
+# comes first is the same motif read from the other strand.
+#
+# dH, dS:  Allawi & SantaLucia 1997/1998 and Peyret et al. 1999, via the
+#          independent transcription in Biopython's DNA_IMM1.
+# dG37_published: SantaLucia & Hicks (2004) Table 2, open access. Carried here
+#          as the verifier, not as an input: dH - 310.15*dS/1000 must reproduce
+#          it within the rounding of the printed dH and dS (+/- 0.13 kcal/mol).
+#
+# This set is COMPLETE for single mismatches (48 of 48) and does NOT cover two
+# adjacent mismatches. See README.md.
+#
+# dH: kcal/mol. dS: cal/(K mol). dG37: kcal/mol.
+#
+motif	dH_kcal_per_mol	dS_cal_per_K_mol	dG37_published
+AA/TA	1.2	1.7	0.61
+AA/TC	2.3	4.6	0.88
+AA/TG	-0.6	-2.3	0.14
+AC/TA	5.3	14.6	0.77
+AC/TC	0.0	-4.4	1.33
+AC/TT	0.7	0.2	0.64
+AG/TA	-0.7	-2.3	0.02
+AG/TG	-3.1	-9.5	-0.13
+AG/TT	1.0	0.9	0.71
+AT/TC	-1.2	-6.2	0.73
+AT/TG	-2.5	-8.3	0.07
+AT/TT	-2.7	-10.8	0.69
+CA/GA	-0.9	-4.2	0.43
+CA/GC	1.9	3.7	0.75
+CA/GG	-0.7	-2.3	0.03
+CC/GA	0.6	-0.6	0.79
+CC/GC	-1.5	-7.2	0.7
+CC/GT	-0.8	-4.5	0.62
+CG/GA	-4.0	-13.2	0.11
+CG/GG	-4.9	-15.3	-0.11
+CG/GT	-4.1	-11.7	-0.47
+CT/GC	-1.5	-6.1	0.4
+CT/GG	-2.8	-8.0	-0.32
+CT/GT	-5.0	-15.8	-0.12
+GA/CA	-2.9	-9.8	0.17
+GA/CC	5.2	14.2	0.81
+GA/CG	-0.6	-1.0	-0.25
+GC/CA	-0.7	-3.8	0.47
+GC/CC	3.6	8.9	0.79
+GC/CT	2.3	5.4	0.62
+GG/CA	0.5	3.2	-0.52
+GG/CG	-6.0	-15.8	-1.11
+GG/CT	3.3	10.4	0.08
+GT/CC	5.2	13.5	0.98
+GT/CG	-4.4	-12.3	-0.59
+GT/CT	-2.2	-8.4	0.45
+TA/AA	4.7	12.9	0.69
+TA/AC	3.4	8.0	0.92
+TA/AG	0.7	0.7	0.42
+TC/AA	7.6	20.2	1.33
+TC/AC	6.1	16.4	1.05
+TC/AT	1.2	0.7	0.97
+TG/AA	3.0	7.4	0.74
+TG/AG	1.6	3.6	0.44
+TG/AT	-0.1	-1.7	0.43
+TT/AC	1.0	0.7	0.75
+TT/AG	-1.3	-5.3	0.34
+TT/AT	0.2	-1.5	0.68
