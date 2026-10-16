@@ -990,6 +990,12 @@ fn check_verification(
                 case_id,
                 name,
             );
+            assert!(
+                problem.category() == ErrorCategory::BiologicalValidation,
+                "{}: the fixture declares a narrower CDS as BiologicalValidation, category() gives {}",
+                case_id,
+                category_name(problem.category()),
+            );
             return;
         }
         panic!(

@@ -891,6 +891,20 @@ pub fn construct_primer(
         )?
     };
     let under: Vec<char> = pick(template_region.clone(), annealing_indices.clone());
+    // Defensive check: the text-at-span check above already compared this
+    // primer's text with the slice it reads, and `changed` is exactly the
+    // result's claimed coordinates inside that slice, so every annealing
+    // index reads a coordinate the two artifacts agree on. For a deletion,
+    // an insertion and a replacement's reverse primer, `letters_of_span`
+    // is `before` itself, so `region` and `template_region` are the same
+    // slice and the two texts are equal by construction; for a
+    // substitution, the §2.1 containment check (`stray`, reported as
+    // MutationVerificationFailure) is what makes the edited artifact equal
+    // the template outside the claimed coordinates; and for a
+    // replacement's forward primer, `replacement_template` aligns the
+    // template to the splice `mutation::apply_replacement` built. A
+    // mismatch here would mean one of those checks was bypassed, so it is
+    // reported rather than assumed.
     if canonical_text(under.clone()) != annealing_text.clone() {
         let problem = PrimerAnnealingNotTemplateProblem {
             primer: label,
@@ -904,6 +918,19 @@ pub fn construct_primer(
     // H8 / I-13: the parts partition the primer text, and the mutation parts
     // are exactly the changed positions.
     let fault: String = partition_fault(parts.clone(), changed.clone(), width);
+    // Defensive check: `partition_fault` re-reads the parts `runs` and
+    // `replacement_runs` just built from the same `changed` and `width`, so
+    // contiguity, non-empty parts and full coverage hold by construction,
+    // and the mutation runs are the maximal runs of that same list. The
+    // last clause is the only one that could fail, and only for a `changed`
+    // that is not ascending and duplicate-free inside `[0, width)`; both
+    // producers keep it there. `changed_within` filters the result's
+    // `target_coordinates` — ascending and duplicate-free, since they come
+    // from `OrderedIntervals` — and `reversed` puts a reverse primer's
+    // inverted mapping back into ascending order, while `replacement_changed`
+    // returns one ascending range within the primer's own width. The fault
+    // is reported rather than assumed, so a change to either run builder is
+    // caught here.
     if !fault.is_empty() {
         let problem = PrimerPartitionProblem {
             primer: label,
@@ -1267,6 +1294,15 @@ pub fn assemble_pair(
         return Err(DomainError::InvalidPrimerCandidate(problem));
     }
 
+    // Defensive check: H4 cannot fail for a pair this module built. Both
+    // orientations come from `oriented_of(role)`, and the two role checks
+    // above refuse any primer whose role is not the slot it stands in, so
+    // the comparison always sees `Same` against `Opposite` — the one pair
+    // `opposite_of` accepts. A `Primer` whose role and orientation disagree
+    // is not an input this API accepts: the struct's fields are private,
+    // `construct_primer` and `construct_tailed_primer` are the only
+    // constructors, and neither offers an orientation argument. The check
+    // stays so H4 remains stated rather than assumed.
     if !forward
         .clone()
         .orientation()

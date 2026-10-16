@@ -372,7 +372,7 @@ mod tests {
 
     #[test]
     fn near_matches_are_not_accepted() {
-        assert!(Cds::create(
+        let wrong_case = Cds::create(
             &seq_a(),
             Identifier::create("cds-1".to_string()).unwrap(),
             vec![create(&seq_a().reference(), 0, 18).unwrap()],
@@ -380,9 +380,12 @@ mod tests {
             Completeness::Complete,
             "STANDARD".to_string(),
             Numbering::FromCdsStart,
-        )
-        .is_err());
-        assert!(Cds::create(
+        );
+        assert!(wrong_case.is_err());
+        let error: DomainError = wrong_case.unwrap_err();
+        assert!(matches!(error, DomainError::UnsupportedGeneticCode(_)));
+        assert!(error.category() == ErrorCategory::Unsupported);
+        let other_name = Cds::create(
             &seq_a(),
             Identifier::create("cds-1".to_string()).unwrap(),
             vec![create(&seq_a().reference(), 0, 18).unwrap()],
@@ -390,8 +393,11 @@ mod tests {
             Completeness::Complete,
             "iso-1557-1".to_string(),
             Numbering::FromCdsStart,
-        )
-        .is_err());
+        );
+        assert!(other_name.is_err());
+        let error: DomainError = other_name.unwrap_err();
+        assert!(matches!(error, DomainError::UnsupportedGeneticCode(_)));
+        assert!(error.category() == ErrorCategory::Unsupported);
     }
 
     #[test]
