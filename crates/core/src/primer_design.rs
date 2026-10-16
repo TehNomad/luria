@@ -85,6 +85,8 @@ use crate::mutation::MutationResult;
 use crate::primer::assemble_pair;
 use crate::primer::construct_primer;
 use crate::primer::construct_tailed_primer;
+use crate::primer::insertion_claim;
+use crate::primer::replacement_claim;
 use crate::primer::require_design_constraints;
 use crate::primer::Primer;
 use crate::primer::PrimerPair;
@@ -484,22 +486,14 @@ pub fn design_primers(
     // read as a replacement region: D029's `MAX_REPLACEMENT_REGION` bounds the
     // substitution scope, not D033's, whose path is decided by `t = max(w, m)`.
     if result.is_replacement() {
-        let (region_start, region_end, text): (u64, u64, String) = match &result {
-            MutationResult::Replacement(record) => (
-                record.region().start(),
-                record.region().end(),
-                record.replacement(),
-            ),
-            MutationResult::Nucleotide(_)
-            | MutationResult::Residue(_)
-            | MutationResult::Deletion(_)
-            | MutationResult::Insertion(_) => {
-                return Err(out_of_scope(
-                    &policy,
-                    "the result is not a replacement: design_primers read it as one",
-                ))
-            }
-        };
+        let claim: Option<(u64, u64, String)> = replacement_claim(result.clone());
+        if claim.is_none() {
+            return Err(out_of_scope(
+                &policy,
+                "the result is not a replacement: design_primers read it as one",
+            ));
+        }
+        let (region_start, region_end, text): (u64, u64, String) = claim.clone().unwrap();
         let width: u64 = region_end - region_start;
         let written: u64 = text.chars().count() as u64;
         if width.max(written) <= MAX_INLINE_REPLACEMENT {
@@ -692,18 +686,14 @@ fn design_insertion(
     // D032: the point and the inserted text, read from the result itself.
     // Its `target_coordinates()` are empty, which is what makes an insertion
     // unreadable as a replacement region.
-    let (point, inserted): (u64, String) = match &result {
-        MutationResult::Insertion(record) => (record.point().position(), record.inserted()),
-        MutationResult::Nucleotide(_)
-        | MutationResult::Residue(_)
-        | MutationResult::Deletion(_)
-        | MutationResult::Replacement(_) => {
-            return Err(out_of_scope(
-                &policy,
-                "the result is not an insertion: design_insertion is the insertion path",
-            ))
-        }
-    };
+    let claim: Option<(u64, String)> = insertion_claim(result.clone());
+    if claim.is_none() {
+        return Err(out_of_scope(
+            &policy,
+            "the result is not an insertion: design_insertion is the insertion path",
+        ));
+    }
+    let (point, inserted): (u64, String) = claim.clone().unwrap();
 
     // An insertion writes no template position, so both edges of its region are
     // the point and it adds nothing to the pair's footprint; D033's replacement

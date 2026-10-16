@@ -1398,36 +1398,11 @@ pub fn assemble_pair(
             return Err(DomainError::InvalidPrimerCandidate(problem));
         }
 
-        // The two tails are the whole insertion, split between the primers: the
-        // reverse primer states its tail 5'->3' on the opposite strand, so its
-        // reverse complement is the first part of the inserted text in the
-        // template's own direction, and the forward tail follows it. A primer
-        // with no tail contributes an empty string, which is what a `k <= 6`
-        // insertion gives the reverse primer.
-        let forward_tail: String = tail_text_of(forward.clone());
-        let reverse_tail: String = tail_text_of(reverse.clone());
-        let reverse_head: String = tail_in_template_direction(reverse.clone())?;
-        let rebuilt: String = join(vec![reverse_head.clone(), forward_tail.clone()]);
-        if rebuilt != inserted {
-            let problem = InvalidPrimerCandidateProblem {
-                primer: "pair".to_string(),
-                reason: join(vec![
-                    "the reverse primer's tail reads ".to_string(),
-                    reverse_tail,
-                    ", which stands for ".to_string(),
-                    reverse_head,
-                    " in the template's direction, and the forward primer's tail reads "
-                        .to_string(),
-                    forward_tail,
-                    ": together they give ".to_string(),
-                    rebuilt,
-                    " and the insertion is ".to_string(),
-                    inserted,
-                    ", so the two tails do not rebuild the insertion".to_string(),
-                ]),
-            };
-            return Err(DomainError::InvalidPrimerCandidate(problem));
-        }
+        // D032: the two tails are the whole insertion, split between the primers:
+        // `require_tails_rebuild` states which half comes from which primer and
+        // what a mismatch reports. A primer with no tail contributes an empty
+        // string, which is what a `k <= 6` insertion gives the reverse primer.
+        require_tails_rebuild(&forward, &reverse, &inserted, "insertion")?;
     } else if replacement.is_some()
         && (forward.clone().tail().is_some() || reverse.clone().tail().is_some())
     {
@@ -1466,34 +1441,10 @@ pub fn assemble_pair(
             return Err(DomainError::InvalidPrimerCandidate(problem));
         }
 
-        // D033: the two tails are the whole replacement, split between the
-        // primers: the reverse primer states its tail 5'->3' on the opposite
-        // strand, so its reverse complement is the first part of the replaced
-        // text in the template's own direction and the forward tail follows it.
-        let forward_tail: String = tail_text_of(forward.clone());
-        let reverse_tail: String = tail_text_of(reverse.clone());
-        let reverse_head: String = tail_in_template_direction(reverse.clone())?;
-        let rebuilt: String = join(vec![reverse_head.clone(), forward_tail.clone()]);
-        if rebuilt != region.2.clone() {
-            let problem = InvalidPrimerCandidateProblem {
-                primer: "pair".to_string(),
-                reason: join(vec![
-                    "the reverse primer's tail reads ".to_string(),
-                    reverse_tail,
-                    ", which stands for ".to_string(),
-                    reverse_head,
-                    " in the template's direction, and the forward primer's tail reads "
-                        .to_string(),
-                    forward_tail,
-                    ": together they give ".to_string(),
-                    rebuilt,
-                    " and the replacement is ".to_string(),
-                    region.2.clone(),
-                    ", so the two tails do not rebuild the replacement".to_string(),
-                ]),
-            };
-            return Err(DomainError::InvalidPrimerCandidate(problem));
-        }
+        // D033: the two tails are the whole replacement, split between the primers;
+        // `require_tails_rebuild` states which half comes from which primer and
+        // what a mismatch reports, in the same shape D032's insertion check uses.
+        require_tails_rebuild(&forward, &reverse, &region.2, "replacement")?;
         // D033: the annealing portions sit at the two edges of the replaced
         // region, so `abuts()` means what it means across a deletion: the gap
         // between the spans is the width of the region the edit overwrote.
@@ -1603,7 +1554,7 @@ fn edited_span_of(role: PrimerRole, span: NucleotideInterval) -> Option<Nucleoti
 /// one past the last. A deletion always removes at least one base, since
 /// `interval::create` rejects an empty region; the guard keeps the helper total
 /// rather than panicking on a claim that cannot come from `mutation.rs`.
-fn deleted_region(claimed: Vec<u64>) -> (u64, u64) {
+pub(crate) fn deleted_region(claimed: Vec<u64>) -> (u64, u64) {
     if claimed.is_empty() {
         return (0, 0);
     }
@@ -1614,8 +1565,9 @@ fn deleted_region(claimed: Vec<u64>) -> (u64, u64) {
 /// `None` for every other edit. An insertion contributes no target coordinate
 /// — it writes into a gap — so this is how the primer layer reaches the two
 /// quantities its rules need. `MutationResult` gains no public accessor for
-/// the pair: the match stays inside this module.
-fn insertion_claim(result: MutationResult) -> Option<(u64, String)> {
+/// the pair: the match stays inside this module. `primer_design.rs` reads the
+/// same pair through this reader, so one match states it for both layers.
+pub(crate) fn insertion_claim(result: MutationResult) -> Option<(u64, String)> {
     match result {
         MutationResult::Insertion(record) => Some((record.point().position(), record.inserted())),
         MutationResult::Nucleotide(_) => None,
@@ -1629,8 +1581,9 @@ fn insertion_claim(result: MutationResult) -> Option<(u64, String)> {
 /// every other edit. D033: the primer layer needs the region's width and the
 /// replacement's width to know how far the edited artifact's coordinates have
 /// moved past the region's end. `MutationResult` gains no public accessor for
-/// the triple: the match stays inside this module.
-fn replacement_claim(result: MutationResult) -> Option<(u64, u64, String)> {
+/// the triple: the match stays inside this module. `primer_design.rs` reads the
+/// same triple through this reader, so one match states it for both layers.
+pub(crate) fn replacement_claim(result: MutationResult) -> Option<(u64, u64, String)> {
     match result {
         MutationResult::Replacement(record) => {
             let region: NucleotideInterval = record.region();
@@ -1877,6 +1830,51 @@ fn tail_in_template_direction(primer: Primer) -> Result<String, DomainError> {
     let letters: Vec<char> = text.chars().collect();
     let back: Vec<char> = reverse_complement(letters.clone())?;
     Ok(canonical_text(back.clone()))
+}
+
+/// D032 and D033, one check: the two 5′ tails together are the whole written
+/// run — the inserted text or the replacement — split between the primers. The
+/// reverse primer states its tail 5'->3' on the opposite strand, so its
+/// reverse complement is the first part of the run in the template's own
+/// direction and the forward tail follows it; a primer with no tail
+/// contributes an empty string. `kind` names the edit, `insertion` or
+/// `replacement`, and is the only difference between the two pair checks this
+/// helper serves: it appears twice in the reason, once naming the written run
+/// and once naming what the tails must rebuild, so the reason strings stay as
+/// each branch states them.
+fn require_tails_rebuild(
+    forward: &Primer,
+    reverse: &Primer,
+    written: &str,
+    kind: &str,
+) -> Result<(), DomainError> {
+    let forward_tail: String = tail_text_of(forward.clone());
+    let reverse_tail: String = tail_text_of(reverse.clone());
+    let reverse_head: String = tail_in_template_direction(reverse.clone())?;
+    let rebuilt: String = join(vec![reverse_head.clone(), forward_tail.clone()]);
+    if rebuilt == written {
+        return Ok(());
+    }
+    let problem = InvalidPrimerCandidateProblem {
+        primer: "pair".to_string(),
+        reason: join(vec![
+            "the reverse primer's tail reads ".to_string(),
+            reverse_tail,
+            ", which stands for ".to_string(),
+            reverse_head,
+            " in the template's direction, and the forward primer's tail reads ".to_string(),
+            forward_tail,
+            ": together they give ".to_string(),
+            rebuilt,
+            " and the ".to_string(),
+            kind.to_string(),
+            " is ".to_string(),
+            written.to_string(),
+            ", so the two tails do not rebuild the ".to_string(),
+            kind.to_string(),
+        ]),
+    };
+    Err(DomainError::InvalidPrimerCandidate(problem))
 }
 
 /// D031: the forward primer of a deletion reads the **edited** artifact, whose
