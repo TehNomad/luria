@@ -992,6 +992,54 @@ fn require_point_within_feature(
     Err(DomainError::TargetOutsideFeature(problem))
 }
 
+/// The scope check every `apply_*` operation runs before it reads the
+/// artifact: the scope must name this artifact, and the target must lie
+/// inside one of its intervals. No scope means nothing to check.
+///
+/// The scope's own reference check runs first, so a CDS of another artifact
+/// is refused as a sequence mismatch rather than as a coordinate outside a
+/// feature; the payload keeps the scope's label and this artifact's name.
+fn require_in_scope(
+    sequence: &Sequence,
+    scope: &Option<Cds>,
+    target: NucleotideInterval,
+) -> Result<(), DomainError> {
+    if let Some(cds) = scope {
+        require_sequence(cds.reference().clone(), sequence)?;
+        let label: String = cds.id().value().to_string();
+        require_within_feature(
+            target.clone(),
+            label,
+            sequence.display_name(),
+            cds.intervals().as_slice(),
+        )?;
+    }
+    Ok(())
+}
+
+/// The scope check of an insertion: the scope must name this artifact, and
+/// the point must sit strictly inside one of its intervals.
+///
+/// Same order as `require_in_scope`: the scope's own reference check first,
+/// then containment, with the scope's label and this artifact's name.
+fn require_point_in_scope(
+    sequence: &Sequence,
+    scope: &Option<Cds>,
+    point: InsertionPoint,
+) -> Result<(), DomainError> {
+    if let Some(cds) = scope {
+        require_sequence(cds.reference().clone(), sequence)?;
+        let label: String = cds.id().value().to_string();
+        require_point_within_feature(
+            point.clone(),
+            label,
+            sequence.display_name(),
+            cds.intervals().as_slice(),
+        )?;
+    }
+    Ok(())
+}
+
 /// Apply a nucleotide substitution.
 ///
 /// `scope` optionally names a feature or CDS the coordinate must lie inside;
@@ -1008,16 +1056,7 @@ pub fn apply_nucleotide(
     require_sequence(intent.position().reference().clone(), sequence)?;
     intent.position().within(sequence)?;
 
-    if let Some(cds) = scope.clone() {
-        require_sequence(cds.reference().clone(), sequence)?;
-        let label: String = cds.id().value().to_string();
-        require_within_feature(
-            intent.position().clone(),
-            label,
-            sequence.display_name(),
-            cds.intervals().as_slice(),
-        )?;
-    }
+    require_in_scope(sequence, &scope, intent.position().clone())?;
 
     let position: u64 = intent.position().start();
     let actual: char = sequence.letter_at(position)?;
@@ -1159,16 +1198,7 @@ pub fn apply_deletion(
         return Err(DomainError::InvalidMutationRequest(problem));
     }
 
-    if let Some(cds) = scope.clone() {
-        require_sequence(cds.reference().clone(), sequence)?;
-        let label: String = cds.id().value().to_string();
-        require_within_feature(
-            intent.region().clone(),
-            label,
-            sequence.display_name(),
-            cds.intervals().as_slice(),
-        )?;
-    }
+    require_in_scope(sequence, &scope, intent.region().clone())?;
 
     let start: u64 = intent.region().start();
     let end: u64 = intent.region().end();
@@ -1248,16 +1278,7 @@ pub fn apply_insertion(
         return Err(DomainError::InvalidMutationRequest(problem));
     }
 
-    if let Some(cds) = scope.clone() {
-        require_sequence(cds.reference().clone(), sequence)?;
-        let label: String = cds.id().value().to_string();
-        require_point_within_feature(
-            intent.point().clone(),
-            label,
-            sequence.display_name(),
-            cds.intervals().as_slice(),
-        )?;
-    }
+    require_point_in_scope(sequence, &scope, intent.point().clone())?;
 
     let letters: Vec<char> = sequence.letters();
     let before: char = letters[position as usize - 1];
@@ -1343,16 +1364,7 @@ pub fn apply_replacement(
         return Err(DomainError::InvalidMutationRequest(problem));
     }
 
-    if let Some(cds) = scope.clone() {
-        require_sequence(cds.reference().clone(), sequence)?;
-        let label: String = cds.id().value().to_string();
-        require_within_feature(
-            intent.region().clone(),
-            label,
-            sequence.display_name(),
-            cds.intervals().as_slice(),
-        )?;
-    }
+    require_in_scope(sequence, &scope, intent.region().clone())?;
 
     let start: u64 = intent.region().start();
     let end: u64 = intent.region().end();
@@ -1516,55 +1528,33 @@ pub fn verify(
 
     let edited: Sequence = result.edited();
 
-    // A deletion changes the artifact's length, so it is re-derived here
-    // rather than under the substitution checks below. The `cds` argument is
-    // as irrelevant to it as it is to a nucleotide substitution.
+    // Every kind is re-derived in its own way, and every kind ends in
+    // `accepted`: a kind that has no arm here does not compile.
     match result.clone() {
+        // A deletion changes the artifact's length, so it is re-derived here
+        // rather than by `substitution_positions` below. The `cds` argument is
+        // as irrelevant to it as it is to a nucleotide substitution.
         MutationResult::Deletion(record) => {
             verify_deletion(source, &edited.clone(), record)?;
-            return Ok(accepted(result.clone()));
+            Ok(accepted(result.clone()))
         }
         // An insertion changes the artifact's length too, and it changes no
-        // source coordinate, so it is re-derived here rather than under the
-        // substitution checks below.
+        // source coordinate, so it is re-derived here rather than by
+        // `substitution_positions` below.
         MutationResult::Insertion(record) => {
             verify_insertion(source, &edited.clone(), record)?;
-            return Ok(accepted(result.clone()));
+            Ok(accepted(result.clone()))
         }
         // A replacement changes the artifact's length too, and it neither
         // removes a region nor writes into a gap, so it is re-derived here
-        // rather than under the substitution checks below.
+        // rather than by `substitution_positions` below.
         MutationResult::Replacement(record) => {
             verify_replacement(source, &edited.clone(), record)?;
-            return Ok(accepted(result.clone()));
+            Ok(accepted(result.clone()))
         }
-        MutationResult::Nucleotide(_record) => {}
-        MutationResult::Residue(_record) => {}
-    }
-
-    let source_letters: Vec<char> = source.letters();
-    let edited_letters: Vec<char> = edited.letters();
-
-    if source_letters.len() != edited_letters.len() {
-        let problem = MutationVerificationFailureProblem {
-            result: result.describe(),
-            reason: "a substitution preserves length".to_string(),
-        };
-        return Err(DomainError::MutationVerificationFailure(problem));
-    }
-
-    let want: Vec<u64> = result.target_coordinates();
-    let mut got: Vec<u64> = Vec::new();
-    let count: usize = source_letters.len();
-    let mut index: usize = 0;
-    while index < count {
-        if source_letters[index] != edited_letters[index] {
-            got.push(index as u64);
-        }
-        index += 1;
-    }
-    match result.clone() {
         MutationResult::Nucleotide(record) => {
+            let got: Vec<u64> = substitution_positions(source, &edited.clone())?;
+            let want: Vec<u64> = result.target_coordinates();
             if got != want {
                 let problem = MutationVerificationFailureProblem {
                     result: result.describe(),
@@ -1576,8 +1566,11 @@ pub fn verify(
                 return Err(DomainError::MutationVerificationFailure(problem));
             }
             verify_nucleotide_claims(source, &edited.clone(), record)?;
+            Ok(accepted(result.clone()))
         }
         MutationResult::Residue(record) => {
+            let got: Vec<u64> = substitution_positions(source, &edited.clone())?;
+            let want: Vec<u64> = result.target_coordinates();
             // A codon substitution may share letters with the codon it
             // replaces, so the edit has to lie inside the recorded codon
             // rather than fill it. It must not be empty: a result that
@@ -1600,19 +1593,39 @@ pub fn verify(
                 }
             }
             verify_residue_claims(source, cds, &edited.clone(), record)?;
-        }
-        MutationResult::Deletion(_record) => {
-            unreachable!("a deletion is verified in its own branch above")
-        }
-        MutationResult::Insertion(_record) => {
-            unreachable!("an insertion is verified in its own branch above")
-        }
-        MutationResult::Replacement(_record) => {
-            unreachable!("a replacement is verified in its own branch above")
+            Ok(accepted(result.clone()))
         }
     }
+}
 
-    Ok(accepted(result.clone()))
+/// The differing positions of a substitution, and the length rule that makes
+/// them comparable: a substitution and a residue substitution both keep the
+/// artifact's length (owner decision 4.2 in
+/// `docs/tasks/milestone-4-indels.md` §4.2), so a length change is a
+/// verification failure rather than a set of positions to compare. The name
+/// in the payload is the produced artifact's.
+fn substitution_positions(source: &Sequence, edited: &Sequence) -> Result<Vec<u64>, DomainError> {
+    let source_letters: Vec<char> = source.letters();
+    let edited_letters: Vec<char> = edited.letters();
+
+    if source_letters.len() != edited_letters.len() {
+        let problem = MutationVerificationFailureProblem {
+            result: edited.reference().describe(),
+            reason: "a substitution preserves length".to_string(),
+        };
+        return Err(DomainError::MutationVerificationFailure(problem));
+    }
+
+    let mut got: Vec<u64> = Vec::new();
+    let count: usize = source_letters.len();
+    let mut index: usize = 0;
+    while index < count {
+        if source_letters[index] != edited_letters[index] {
+            got.push(index as u64);
+        }
+        index += 1;
+    }
+    Ok(got)
 }
 
 /// The nucleotide claims of a result, checked against both artifacts.
