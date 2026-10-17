@@ -7,6 +7,7 @@ pub mod extraction;
 pub mod fasta;
 pub mod feature;
 pub mod genbank;
+pub mod genbank_cds;
 pub mod genbank_location;
 pub mod genetic_code;
 pub mod identity;

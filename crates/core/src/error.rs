@@ -632,6 +632,55 @@ impl GenBankLocationRule {
     }
 }
 
+/// Which rule refused a GenBank CDS. Stable: `code()` is part of the CLI's
+/// output contract (D041), and renaming one needs approval.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum GenBankCdsRule {
+    NotFound,
+    AmbiguousName,
+    RepeatedName,
+    NoId,
+    RepeatedQualifier,
+    Pseudo,
+    CodonStart,
+    TranslTable,
+    AlternativeStart,
+}
+
+impl GenBankCdsRule {
+    /// The rule's stable code: its name in snake_case.
+    pub fn code(self) -> &'static str {
+        use GenBankCdsRule::*;
+        match self {
+            NotFound => "not_found",
+            AmbiguousName => "ambiguous_name",
+            RepeatedName => "repeated_name",
+            NoId => "no_id",
+            RepeatedQualifier => "repeated_qualifier",
+            Pseudo => "pseudo",
+            CodonStart => "codon_start",
+            TranslTable => "transl_table",
+            AlternativeStart => "alternative_start",
+        }
+    }
+
+    /// The rule's failure class. `NotFound` and `AmbiguousName` are
+    /// `BiologicalValidation` because a well-formed request names a CDS the
+    /// record does not hold exactly once, as `CoordinateOutOfBounds` does; a
+    /// repeated request name or a repeated qualifier cannot be represented at
+    /// all (D041 G1, G2, G5).
+    pub fn category(self) -> ErrorCategory {
+        use GenBankCdsRule::*;
+        match self {
+            NotFound | AmbiguousName => ErrorCategory::BiologicalValidation,
+            RepeatedName | RepeatedQualifier => ErrorCategory::MalformedInput,
+            NoId | Pseudo | CodonStart | TranslTable | AlternativeStart => {
+                ErrorCategory::Unsupported
+            }
+        }
+    }
+}
+
 /// Which rule refused a GenBank text. Stable: `code()` is part of the CLI's
 /// output contract (D041), and renaming one needs approval.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -704,6 +753,33 @@ pub struct MalformedGenBankProblem {
     pub line: Option<u64>,
 }
 
+/// Payload: a GenBank CDS luria cannot import. `cds` is the requested name
+/// or the feature's id (empty for `NoId`). `line` is the feature's key line,
+/// `None` for `NotFound` and `RepeatedName`. `detail` is the offending
+/// value: the qualifier's value for `CodonStart` and `TranslTable` (`None`
+/// for a value-less flag), the first codon for `AlternativeStart`, the
+/// qualifier name for `RepeatedQualifier` and `Pseudo`; `None` otherwise.
+#[derive(Clone, Debug, PartialEq)]
+pub struct UnusableGenBankCdsProblem {
+    pub cds: String,
+    pub rule: GenBankCdsRule,
+    pub line: Option<u64>,
+    pub detail: Option<String>,
+}
+
+/// Payload: a CDS whose `/translation` differs from luria's translation
+/// without the terminal stop (D041 G3). `residue` is the first differing
+/// residue, counted from 1; `stated` and `translated` are the letters there,
+/// `None` where one translation has already ended.
+#[derive(Clone, Debug, PartialEq)]
+pub struct GenBankTranslationMismatchProblem {
+    pub cds: String,
+    pub line: u64,
+    pub residue: u64,
+    pub stated: Option<String>,
+    pub translated: Option<String>,
+}
+
 /// A structured domain failure.
 #[derive(Clone, Debug, PartialEq)]
 pub enum DomainError {
@@ -757,6 +833,8 @@ pub enum DomainError {
     MalformedFasta(MalformedFastaProblem),
     UnusableGenBankLocation(UnusableGenBankLocationProblem),
     MalformedGenBank(MalformedGenBankProblem),
+    UnusableGenBankCds(UnusableGenBankCdsProblem),
+    GenBankTranslationMismatch(GenBankTranslationMismatchProblem),
 }
 
 impl ErrorCategory {
@@ -814,7 +892,8 @@ impl DomainError {
             | DomainError::AnnealingOverlapBelowBound(_)
             | DomainError::PrimerPairCoverage(_)
             | DomainError::PrimerOrientationConflict(_)
-            | DomainError::NoPrimerDesignPossible(_) => ErrorCategory::BiologicalValidation,
+            | DomainError::NoPrimerDesignPossible(_)
+            | DomainError::GenBankTranslationMismatch(_) => ErrorCategory::BiologicalValidation,
             DomainError::UnsupportedFeatureStructure(_)
             | DomainError::IncompleteCds(_)
             | DomainError::UnsupportedGeneticCode(_)
@@ -826,11 +905,12 @@ impl DomainError {
             | DomainError::NoPrimerDesignFits(_)
             | DomainError::TmParametersUnavailable(_)
             | DomainError::DegenerateExpansionTooLarge(_) => ErrorCategory::Unsupported,
-            // The one variant whose category comes from its payload: the
-            // rule that refused the location decides, so `PastSequenceEnd`
-            // is `BiologicalValidation` and the rest are `MalformedInput`
-            // or `Unsupported`.
+            // The variants whose category comes from their payload: the rule
+            // that refused the location or the CDS decides, so `PastSequenceEnd`
+            // is `BiologicalValidation` and the rest are `MalformedInput` or
+            // `Unsupported`.
             DomainError::UnusableGenBankLocation(problem) => problem.rule.category(),
+            DomainError::UnusableGenBankCds(problem) => problem.rule.category(),
         }
     }
 
@@ -888,6 +968,8 @@ impl DomainError {
             DomainError::MalformedFasta(_) => "malformed_fasta",
             DomainError::UnusableGenBankLocation(_) => "unusable_genbank_location",
             DomainError::MalformedGenBank(_) => "malformed_genbank",
+            DomainError::UnusableGenBankCds(_) => "unusable_genbank_cds",
+            DomainError::GenBankTranslationMismatch(_) => "genbank_translation_mismatch",
         }
     }
 
@@ -1114,6 +1196,56 @@ impl DomainError {
                     None => "".to_string(),
                 };
                 format!("GenBank text for '{}': {}{}", problem.sequence, reason, located)
+            }
+            DomainError::UnusableGenBankCds(problem) => {
+                let located: String = match problem.line {
+                    Some(number) => format!(" (line {})", number),
+                    None => "".to_string(),
+                };
+                let stated: String = match &problem.detail {
+                    Some(text) => text.to_string(),
+                    None => "(no value)".to_string(),
+                };
+                match problem.rule {
+                    GenBankCdsRule::NotFound =>
+                        format!("GenBank CDS '{}' is not the id of any CDS feature in the record{}",
+                            problem.cds, located),
+                    GenBankCdsRule::AmbiguousName =>
+                        format!("GenBank CDS '{}' is the id of more than one CDS feature{}",
+                            problem.cds, located),
+                    GenBankCdsRule::RepeatedName =>
+                        format!("GenBank CDS '{}' is named more than once in the request{}",
+                            problem.cds, located),
+                    GenBankCdsRule::NoId =>
+                        format!("a GenBank CDS has none of /locus_tag, /gene or /label with a value, so it cannot be named{}",
+                            located),
+                    GenBankCdsRule::RepeatedQualifier =>
+                        format!("GenBank CDS '{}' repeats /{}{}", problem.cds, stated, located),
+                    GenBankCdsRule::Pseudo =>
+                        format!("GenBank CDS '{}' is marked /{}, so it is not a coding sequence luria edits{}",
+                            problem.cds, stated, located),
+                    GenBankCdsRule::CodonStart =>
+                        format!("GenBank CDS '{}' has /codon_start {}; only 1 is supported{}",
+                            problem.cds, stated, located),
+                    GenBankCdsRule::TranslTable =>
+                        format!("GenBank CDS '{}' has /transl_table {}; only 1, and 11 with an ATG start, are supported{}",
+                            problem.cds, stated, located),
+                    GenBankCdsRule::AlternativeStart =>
+                        format!("GenBank CDS '{}' has /transl_table 11 and starts with {}; table 11 is read as the standard code only for an ATG start{}",
+                            problem.cds, stated, located),
+                }
+            }
+            DomainError::GenBankTranslationMismatch(problem) => {
+                let stated: String = match &problem.stated {
+                    Some(letter) => letter.to_string(),
+                    None => "nothing".to_string(),
+                };
+                let translated: String = match &problem.translated {
+                    Some(letter) => letter.to_string(),
+                    None => "nothing".to_string(),
+                };
+                format!("GenBank CDS '{}' states a /translation that differs from luria's at residue {}: the record has {}, luria has {} (line {})",
+                    problem.cds, problem.residue, stated, translated, problem.line)
             }
         }
     }
@@ -1685,8 +1817,27 @@ mod tests {
                 }),
                 "malformed_genbank",
             ),
+            (
+                DomainError::UnusableGenBankCds(UnusableGenBankCdsProblem {
+                    cds: s(),
+                    rule: GenBankCdsRule::NotFound,
+                    line: None,
+                    detail: None,
+                }),
+                "unusable_genbank_cds",
+            ),
+            (
+                DomainError::GenBankTranslationMismatch(GenBankTranslationMismatchProblem {
+                    cds: s(),
+                    line: 1,
+                    residue: 1,
+                    stated: None,
+                    translated: None,
+                }),
+                "genbank_translation_mismatch",
+            ),
         ];
-        assert_eq!(cases.len(), 50);
+        assert_eq!(cases.len(), 52);
         let mut seen = std::collections::BTreeSet::new();
         for (error, code) in &cases {
             assert_eq!(error.code(), *code, "{:?}", error);
@@ -1836,6 +1987,29 @@ mod tests {
         let mut seen = std::collections::BTreeSet::new();
         for (rule, code) in cases {
             assert_eq!(rule.code(), code, "{:?}", rule);
+            assert!(seen.insert(code), "duplicate code {}", code);
+        }
+    }
+
+    #[test]
+    fn every_genbank_cds_rule_has_its_pinned_code_and_category() {
+        use ErrorCategory::*;
+        use GenBankCdsRule::*;
+        let cases: [(GenBankCdsRule, &str, ErrorCategory); 9] = [
+            (NotFound, "not_found", BiologicalValidation),
+            (AmbiguousName, "ambiguous_name", BiologicalValidation),
+            (RepeatedName, "repeated_name", MalformedInput),
+            (NoId, "no_id", Unsupported),
+            (RepeatedQualifier, "repeated_qualifier", MalformedInput),
+            (Pseudo, "pseudo", Unsupported),
+            (CodonStart, "codon_start", Unsupported),
+            (TranslTable, "transl_table", Unsupported),
+            (AlternativeStart, "alternative_start", Unsupported),
+        ];
+        let mut seen = std::collections::BTreeSet::new();
+        for (rule, code, category) in cases {
+            assert_eq!(rule.code(), code, "{:?}", rule);
+            assert!(rule.category() == category, "{:?}", rule);
             assert!(seen.insert(code), "duplicate code {}", code);
         }
     }

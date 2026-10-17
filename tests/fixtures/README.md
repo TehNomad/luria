@@ -6,6 +6,7 @@
 | [`mutation/`](./mutation/) | Synthetic sequences and CDSs under mutation: nucleotide and residue substitution, expected-original checks, codon-selection policy, strand-aware coordinates, provenance, verification. Drives the integration tests in `crates/core/tests/mutation_fixtures.rs`. |
 | [`example-construct/`](./example-construct/) | The real *C. elegans* SID-1 construct and captured NEBaseChanger output. Its sequence is read by the `q5-primer/` cases; `crates/core/tests/q5_primer_fixtures.rs` now reads the NEBaseChanger output files (see below). |
 | [`fasta/`](./fasta/) | Header, length and SHA-256 of the two SID-1 FASTA files, computed independently. Drives `crates/core/tests/fasta_fixtures.rs`. |
+| [`genbank/`](./genbank/) | pBR322 (NCBI J01749.1) read by Biopython, and a hand-written synthetic record with one CDS per accepted form and per refusal. Drives `crates/core/tests/genbank_fixtures.rs`. |
 | [`q5-primer/`](./q5-primer/) | The primer-design contract in `docs/q5-primer-design.md`: ten contract cases, reproducible reference designs for the substitution cases, and expected `luriaNative` outcomes for substitutions, deletions, insertions and replacements (`native*.tsv`). Drives `crates/core/tests/q5_primer_fixtures.rs`. |
 | [`tm/`](./tm/) | Published nearest-neighbour parameters for the Tm calculation (D030). Drives `crates/core/tests/tm_tables.rs`; `tm_crosscheck.rs` holds reference Tm values. |
 | [`primer-quality/`](./primer-quality/) | Sourced thresholds for the non-blocking primer-quality warnings. Drives `crates/core/tests/primer_quality_thresholds.rs`. |
@@ -29,7 +30,8 @@ python -I tests/fixtures/verify.py
 `verify.py` runs each check as `sys.executable -I <script> --check` and prints
 `PASS` or `FAIL` and the name of each, exiting 1 if any fails: the three Tm
 verifiers (`verify_imm.py`, `verify_matched.py`, `crosscheck.py`), the five
-q5-primer generators, the codon-usage parser, and the FASTA digest check.
+q5-primer generators, the codon-usage parser, the FASTA digest check, and the two
+GenBank checks.
 
 These Python checks are **not** part of the required cargo checks (D039, D026):
 the Rust tests never call Python, and `cargo test --workspace` does not run

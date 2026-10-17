@@ -1,0 +1,4 @@
+index	id	id_source	start	end	strand	codon_start	transl_table	start_codon	residues	translation_matches
+10	tet	gene	85	1276	+	1	11	ATG	396	yes
+26	-	-	1914	2106	+	1	11	GTG	63	no
+38	bla	gene	3292	4153	-	1	11	ATG	286	yes

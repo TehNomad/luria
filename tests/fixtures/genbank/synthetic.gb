@@ -1,0 +1,81 @@
+LOCUS       synthetic                 60 bp    DNA     circular SYN 17-OCT-2026
+DEFINITION  Hand-written record for luria's GenBank CDS import (5c3).
+ACCESSION   SYN0001
+VERSION     SYN0001.1
+KEYWORDS    .
+SOURCE      synthetic construct
+  ORGANISM  synthetic construct
+FEATURES             Location/Qualifiers
+     source          1..60
+                     /organism="synthetic construct"
+                     /mol_type="other DNA"
+     CDS             1..12
+                     /gene="p1"
+                     /translation="MAW"
+     CDS             complement(13..24)
+                     /gene="ignored-gene"
+                     /locus_tag="m1"
+                     /translation="MQQ"
+     CDS             join(55..60,1..12)
+                     /label=pj
+                     /translation="MKMAW"
+     CDS             complement(join(55..60,1..3))
+                     /gene="mj1"
+     CDS             join(complement(1..3),complement(55..60))
+                     /gene="mj2"
+                     /translation="HFH"
+     CDS             25..36
+                     /gene="alt11"
+                     /transl_table=11
+     CDS             1..12
+                     /gene="atg11"
+                     /transl_table=11
+                     /translation="MAW"
+     CDS             1..12
+                     /gene="cs2"
+                     /codon_start=2
+     CDS             1..12
+                     /gene="tt4"
+                     /transl_table=4
+     CDS             1..12
+                     /gene="ps"
+                     /pseudo
+     CDS             1..12
+                     /gene="badtr"
+                     /translation="MAV"
+     CDS             1..12
+                     /gene="shorttr"
+                     /translation="MA"
+     CDS             1..12
+                     /note="a CDS with no id"
+     CDS             1..12
+                     /gene="rep"
+                     /codon_start=1
+                     /codon_start=1
+     CDS             1..12
+                     /gene="dup"
+     CDS             complement(13..24)
+                     /gene="dup"
+     CDS             <1..12
+                     /gene="fuzzy"
+     CDS             order(1..6,7..12)
+                     /gene="ord"
+     CDS             join(1..6,7..12)
+                     /gene="exons"
+     CDS             5
+                     /gene="single"
+     CDS             X00001.1:1..12
+                     /gene="remote"
+     CDS             1..13
+                     /gene="len13"
+     CDS             37..48
+                     /gene="stop"
+     CDS             1..12
+                     /gene="bad id"
+     misc_feature    49..54
+                     /label=filler
+     gene            1..12
+                     /gene="p1"
+ORIGIN
+        1 atggcttggt aactactgct gcatgtggct tggtaaatgt aagcttaagg gcccatgaaa
+//
