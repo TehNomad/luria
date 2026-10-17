@@ -41,7 +41,24 @@ the worker.
   warning can fire. It moves to §B as **B15**: count with checked arithmetic
   and return a structured error only when the count can't be represented. No
   policy change.
-- **A4–A7:** deferred until the other items are done.
+- **A4–A7:** answered 2026-10-16 and recorded as D036–D039. Each is done
+  under its own contract, `docs/tasks/review-a*.md`:
+  - **A4**, D036 (`dd2ad44`): a circular feature may be split only at the
+    origin. Any other abutting split is refused at construction.
+  - **A5**, D037 (`ccad155`): an in-frame DNA-level edit inside the resolved
+    CDS that creates an internal stop gets a `PrematureStop` warning. The
+    edit still applies, and `verify` is unchanged. One review round: deleting
+    a whole CDS interval made the warning check fail the run, and now it
+    doesn't.
+  - **A6**, D038 (`a603d57`): `ConfineToTail` is accepted for insertions and
+    tail-path replacements, which it doesn't change. It's still refused for
+    substitutions, inline replacements and deletions.
+  - **A7**, D039: the verification scripts are tracked, each with
+    `--check`, the dependencies are pinned, and `tests/fixtures/verify.py`
+    runs all nine checks:
+    - A7a (`f0d6c45`): the Tm scripts;
+    - A7b (`6259e7a`): the q5-primer generators and `unit-expectations.py`;
+    - A7c (`5f1b003`): the Kazusa capture.
 - **A8:** granted for this pass. The doc fixes in §D are done (see §D).
 
 | # | Question | Context |
@@ -137,9 +154,10 @@ B16.
   - C7 and C10 (`bb95baf`): all three C7 variants turned out unreachable and
     are now documented as defensive checks;
   - C12 (`d76bc78`).
-- **Blocked by A7** (deferred): C1 and C3, which need tracked verification
-  scripts and a Python environment. C11 is grouped with them: a codon-usage
-  fixture needs a source capture of the Kazusa page and a tracked parse.
+- **Done under A7** (D039): C1 (`6259e7a`); C3 (`f0d6c45`, `6259e7a`,
+  `5f1b003`); C11 (`5f1b003`). Every value the `primer_design.rs` and
+  `q5_design.rs` unit tests assert was checked against
+  `unit-expectations.py`'s output, and all of them match.
 - **Proposed for Milestone 5:** C8, structured sub-kinds for
   `InvalidMutationRequest` and `InvalidPrimerCandidate`. The CLI's
   machine-readable errors need stable codes anyway, so that is where this
@@ -274,10 +292,10 @@ Not findings: explicit type annotations, `while` loops and clone-returning gette
 
 ## Suggested Phase 2 order
 
-1. ~~Owner answers A1–A8.~~ Done 2026-10-16, see §A. A4–A7 deferred.
+1. ~~Owner answers A1–A8.~~ Done 2026-10-16, see §A. A4–A7 done too.
 2. **B1** (validator), then **B2 + B3** (panics), then **B15, B4, B5, B6** as single-function contracts, each with a failing test written first.
-3. **C1, C2**: make verification reproducible from tracked files (partly
-   blocked by A7, which is deferred).
+3. ~~**C1, C2**: make verification reproducible from tracked files.~~ Done,
+   C1 under A7.
 4. **C4, C5**: read the remaining `cases.tsv` columns, and add minus-strand cases with independently verified expectations.
 5. **D**: one doc-trimming contract for code comments (`crates/`). The
    non-code docs are done.
