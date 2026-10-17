@@ -523,9 +523,9 @@ impl PrimerPair {
         join(vec![
             "reverse span [".to_string(),
             describe(back),
-            "] and forward span [".to_string(),
+            ") and forward span [".to_string(),
             describe(front),
-            "]: ".to_string(),
+            "): ".to_string(),
             phrase.clone(),
         ])
     }
@@ -640,7 +640,7 @@ pub fn construct_primer(
                 number(removed.0),
                 ", ".to_string(),
                 number(removed.1),
-                "]: a primer of a deletion covers template only, never a deleted base".to_string(),
+                "): a primer of a deletion covers template only, never a deleted base".to_string(),
             ]),
         };
         return Err(DomainError::InvalidPrimerCandidate(problem));
@@ -685,7 +685,7 @@ pub fn construct_primer(
                     number(region.0),
                     ", ".to_string(),
                     number(region.1),
-                    "]: a reverse primer of a replacement states the template, so it may "
+                    "): a reverse primer of a replacement states the template, so it may "
                         .to_string(),
                     "not cover a replaced base; the forward primer carries the replacement"
                         .to_string(),
@@ -1069,7 +1069,7 @@ pub fn construct_tailed_primer(
                     number(region.0),
                     ", ".to_string(),
                     number(region.1),
-                    "], so a tailed primer's annealing portion lies outside the ".to_string(),
+                    "), so a tailed primer's annealing portion lies outside the ".to_string(),
                     "replaced region: the span ".to_string(),
                     describe(span),
                     " overlaps it and would anneal over bases the replacement overwrites"
@@ -1352,7 +1352,7 @@ pub fn assemble_pair(
                     number(removed.0),
                     ", ".to_string(),
                     number(removed.1),
-                    "], so D031 requires the reverse primer to end at ".to_string(),
+                    "), so D031 requires the reverse primer to end at ".to_string(),
                     number(removed.0),
                     " and the forward primer to start at ".to_string(),
                     number(removed.1),
@@ -1428,7 +1428,7 @@ pub fn assemble_pair(
                     number(region.0),
                     ", ".to_string(),
                     number(region.1),
-                    "], so the reverse primer's annealing portion must end at ".to_string(),
+                    "), so the reverse primer's annealing portion must end at ".to_string(),
                     number(region.0),
                     " and the forward primer's must start at ".to_string(),
                     number(region.1),
@@ -2399,7 +2399,7 @@ mod tests {
         assert!(pair.clone().boundary() == Some(12));
         assert!(
             pair.clone().relationship()
-                == "reverse span [0, 12] and forward span [12, 30]: abutting"
+                == "reverse span [0, 12) and forward span [12, 30): abutting"
         );
         assert!(pair
             .clone()
@@ -2417,7 +2417,7 @@ mod tests {
         assert!(pair.clone().separation() == -8);
         assert!(!pair.clone().abuts());
         assert!(pair.clone().boundary().is_none());
-        assert!(pair.clone().relationship() == "reverse span [12, 30] and forward span [0, 20]: overlapping by 8 template positions", "actual=[{}]", pair.clone().relationship());
+        assert!(pair.clone().relationship() == "reverse span [12, 30) and forward span [0, 20): overlapping by 8 template positions", "actual=[{}]", pair.clone().relationship());
     }
 
     #[test]
@@ -2753,6 +2753,7 @@ mod tests {
             _ => "".to_string(),
         };
         assert!(reason.contains("deleted"));
+        assert!(reason.contains("the deleted region [9, 12)"));
     }
 
     // The last base of the template at [12, 22) is C, not A: a primer text that
@@ -2805,6 +2806,11 @@ mod tests {
             assemble_pair(forward.clone(), reverse.clone(), deletion().clone()).unwrap_err();
         assert!(matches!(error, DomainError::InvalidPrimerCandidate(_)));
         assert!(error.category() == ErrorCategory::MalformedInput);
+        let reason: String = match error {
+            DomainError::InvalidPrimerCandidate(problem) => problem.reason.clone(),
+            _ => "".to_string(),
+        };
+        assert!(reason.contains("the deletion is [9, 12)"));
     }
 
     // rc(ATGGCTTG) = CAAGCCAT: a well-formed reverse primer that stops one
@@ -2817,6 +2823,11 @@ mod tests {
             assemble_pair(forward.clone(), reverse.clone(), deletion().clone()).unwrap_err();
         assert!(matches!(error, DomainError::InvalidPrimerCandidate(_)));
         assert!(error.category() == ErrorCategory::MalformedInput);
+        let reason: String = match error {
+            DomainError::InvalidPrimerCandidate(problem) => problem.reason.clone(),
+            _ => "".to_string(),
+        };
+        assert!(reason.contains("the deletion is [9, 12)"));
     }
 
     // A substitution writes rather than removes, so its pair's width is 0 and
@@ -3156,6 +3167,7 @@ mod tests {
             _ => "".to_string(),
         };
         assert!(reason.contains("replaced"));
+        assert!(reason.contains("the replaced region [9, 12)"));
     }
 
     // D033's tail path: the replacement is 8 nucleotides, so the junction is
@@ -3215,6 +3227,11 @@ mod tests {
             assemble_pair(forward.clone(), reverse.clone(), result.clone()).unwrap_err();
         assert!(matches!(error, DomainError::InvalidPrimerCandidate(_)));
         assert!(error.category() == ErrorCategory::MalformedInput);
+        let reason: String = match error {
+            DomainError::InvalidPrimerCandidate(problem) => problem.reason.clone(),
+            _ => "".to_string(),
+        };
+        assert!(reason.contains("the replacement is [9, 12)"));
     }
 
     // D033: a forward primer of a replacement reads the edited artifact over its
@@ -3253,6 +3270,7 @@ mod tests {
             _ => "".to_string(),
         };
         assert!(reason.contains("replaced region"));
+        assert!(reason.contains("the replacement is [9, 12)"));
     }
 
     // The same rule on the insertion side: a tailed primer's annealing portion
