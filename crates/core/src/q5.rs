@@ -62,9 +62,12 @@ use crate::error::UnsupportedCompositionProblem;
 use crate::genetic_code::Residue;
 use crate::identity::Identifier;
 use crate::identity::SequenceReference;
+use crate::interval::create;
 use crate::interval::holds_point;
 use crate::interval::holds_position;
+use crate::interval::holds_region;
 use crate::interval::require_sequence;
+use crate::interval::NucleotideInterval;
 use crate::interval::OrderedIntervals;
 use crate::mutation::apply_deletion;
 use crate::mutation::apply_insertion;
@@ -82,12 +85,13 @@ use crate::mutation::NucleotideMutationIntent;
 use crate::mutation::NucleotideReplacementIntent;
 use crate::mutation::ResidueMutationIntent;
 use crate::sequence::Sequence;
+use crate::translation::translate;
 
 /// Identity of this workflow's code path (D021).
 pub const Q5_WORKFLOW_NAME: &str = "luria-core-q5-sdm";
 
 /// Version of this workflow's code path (D021).
-pub const Q5_WORKFLOW_VERSION: &str = "0.4.0";
+pub const Q5_WORKFLOW_VERSION: &str = "0.5.0";
 
 /// A mutation intent as the Q5 workflow carries it (D011, D016).
 ///
@@ -483,6 +487,17 @@ impl Q5WorkflowResult {
 /// coding and whether any of them lay outside the CDS, how many bases an
 /// insertion put into one CDS's gap, or how many bases a replacement overwrote
 /// and how many it wrote in their place.
+///
+/// The `PrematureStop` variant is the fourth warning, and it is not a frame
+/// warning (D037, the owner decision of 2026-10-16). A DNA edit that lies wholly
+/// inside the resolved CDS and keeps its reading frame re-translates that CDS on
+/// the edited artifact, and a stop that is not that CDS's last codon is this
+/// warning: the edit is still applied, because a nonsense mutation is sometimes
+/// the intent, as a frameshift one is. A residue intent states its replacement
+/// residue explicitly and gets no such warning, and `verify` stays a DNA-level
+/// check, so the rule is applied at this layer. A frameshift warning and a
+/// `PrematureStop` cannot both fire for one edit: one needs a frame change and
+/// the other needs none.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Q5EditWarning {
     Frameshift {
@@ -499,6 +514,10 @@ pub enum Q5EditWarning {
         bases_replaced: u64,
         bases_written: u64,
         wholly_inside: bool,
+    },
+    PrematureStop {
+        cds: Identifier,
+        codon_number: u64,
     },
 }
 
@@ -549,6 +568,13 @@ impl Q5EditWarning {
                 }
                 text + "; the replacement also extends outside the CDS"
             }
+            Q5EditWarning::PrematureStop { cds, codon_number } => {
+                "the edit puts a stop codon at codon ".to_string()
+                    + &codon_number.to_string()
+                    + " of "
+                    + cds.value()
+                    + ", before its last codon"
+            }
         }
     }
 }
@@ -593,8 +619,20 @@ impl Q5EditWarning {
 /// says whether every overwritten base was coding.
 ///
 /// A nucleotide and a residue substitution carry no warning.
-fn edit_warnings(mutation: &MutationResult, target: &Cds) -> Vec<Q5EditWarning> {
-    match mutation {
+///
+/// The `PrematureStop` warning (D037, the owner decision of 2026-10-16) is
+/// computed by `premature_stop_warning`, which re-translates the resolved CDS
+/// on the edited artifact; this function returns a `DomainError` only for what
+/// that re-translation reports other than an internal stop, which cannot occur
+/// for an in-frame ACGT edit of a CDS that translated before the edit.
+fn edit_warnings(
+    template: &Sequence,
+    mutation: &MutationResult,
+    target: &Cds,
+) -> Result<Vec<Q5EditWarning>, DomainError> {
+    let premature: Option<Q5EditWarning> = premature_stop_warning(template, mutation, target)?;
+
+    let mut warnings: Vec<Q5EditWarning> = match mutation {
         MutationResult::Deletion(_record) => {
             let removed: Vec<u64> = mutation.target_coordinates();
             let intervals: OrderedIntervals = target.intervals();
@@ -663,6 +701,173 @@ fn edit_warnings(mutation: &MutationResult, target: &Cds) -> Vec<Q5EditWarning> 
 
         MutationResult::Nucleotide(_record) => Vec::new(),
         MutationResult::Residue(_record) => Vec::new(),
+    };
+
+    match premature {
+        None => (),
+        Some(warning) => warnings.push(warning),
+    }
+
+    Ok(warnings)
+}
+
+/// The `PrematureStop` warning one edit carries against the resolved CDS (D037, the
+/// owner decision of 2026-10-16).
+///
+/// The rule runs in this order:
+///
+/// * the edit's half-open span on the template and the length change `delta` it
+///   makes: a substitution writes `[p, p + 1)` and changes 0, a deletion removes
+///   `[s, e)` and changes `−w`, an insertion into the gap at `p` changes `+k` and
+///   spans the gap itself, a replacement overwrites `[s, e)` by `m` bases and
+///   changes `m − w`, and a residue intent states its replacement residue
+///   explicitly, so D037 gives it no warning;
+/// * the edit must lie wholly inside one interval of the CDS — `holds_position`,
+///   `holds_region` and `holds_point` from `interval.rs` — and `delta` must be a
+///   multiple of 3, or the rule does not apply: an edit only partly inside the
+///   CDS and a frameshift are both recorded as open in D037, and the frameshift
+///   warning of D031–D033 already names the second;
+/// * the CDS must have translated before the edit, or there is nothing to
+///   compare the edited CDS against;
+/// * the CDS's intervals are rebuilt on the edited artifact in the original
+///   order: the interval holding the edit keeps its start and grows its end by
+///   `delta`, an interval starting at or past the edit's end moves by `delta`,
+///   any other interval is unchanged, and an interval the edit removed whole —
+///   one that would come out empty — is simply dropped. If that leaves no
+///   interval at all, the edit removed the whole CDS: there is nothing left to
+///   re-translate, so the rule warns nothing and the edit still applies;
+/// * the rebuilt CDS is translated. An internal stop is this warning, naming the
+///   CDS and the codon number on the edited CDS; a translation that succeeds warns
+///   nothing, and any other failure is returned as it stands — it cannot occur for
+///   an in-frame ACGT edit of a CDS that translated.
+fn premature_stop_warning(
+    template: &Sequence,
+    mutation: &MutationResult,
+    target: &Cds,
+) -> Result<Option<Q5EditWarning>, DomainError> {
+    let intervals: OrderedIntervals = target.intervals();
+
+    let edit: Option<(u64, u64, i64)> = match mutation {
+        MutationResult::Nucleotide(record) => {
+            let position: u64 = record.position().start();
+            if holds_position(intervals.as_slice(), position) {
+                Some((position, position + 1, 0))
+            } else {
+                None
+            }
+        }
+
+        MutationResult::Deletion(record) => {
+            let region: NucleotideInterval = record.region();
+            let delta: i64 = -(region.length() as i64);
+            if holds_region(intervals.as_slice(), region.start(), region.end()) {
+                Some((region.start(), region.end(), delta))
+            } else {
+                None
+            }
+        }
+
+        MutationResult::Insertion(record) => {
+            let position: u64 = record.point().position();
+            let delta: i64 = record.inserted().len() as i64;
+            if holds_point(intervals.as_slice(), position) {
+                Some((position, position, delta))
+            } else {
+                None
+            }
+        }
+
+        MutationResult::Replacement(record) => {
+            let region: NucleotideInterval = record.region();
+            let delta: i64 = (record.replacement().len() as i64) - (region.length() as i64);
+            if holds_region(intervals.as_slice(), region.start(), region.end()) {
+                Some((region.start(), region.end(), delta))
+            } else {
+                None
+            }
+        }
+
+        MutationResult::Residue(_record) => None,
+    };
+
+    let span: (u64, u64, i64) = match edit {
+        None => {
+            // The edit is not a DNA edit wholly inside one interval of the
+            // resolved CDS: D037's rule does not apply.
+            return Ok(None);
+        }
+        Some(value) => value,
+    };
+    let edit_start: u64 = span.0;
+    let edit_end: u64 = span.1;
+    let delta: i64 = span.2;
+
+    if delta % 3 != 0 {
+        // The edit changes the CDS's length by a non-multiple of 3, so it shifts
+        // the reading frame: D037 re-translates only an edit that keeps it, and
+        // the frameshift warning already names this edit.
+        return Ok(None);
+    }
+
+    if translate(template, target).is_err() {
+        // The CDS did not translate before the edit, so the rule has nothing to
+        // compare against: D037 records that case as open.
+        return Ok(None);
+    }
+
+    let edited: Sequence = mutation.edited();
+    let mut shifted: OrderedIntervals = Vec::new();
+    for interval in intervals.iter() {
+        let from: i64 = interval.start() as i64;
+        let to: i64 = interval.end() as i64;
+        let (start, end): (i64, i64) =
+            if interval.start() <= edit_start && edit_end <= interval.end() {
+                // The interval that holds the edit: it keeps its start.
+                (from, to + delta)
+            } else if interval.start() >= edit_end {
+                // An interval at or past the edit's end moves with the edit.
+                (from + delta, to + delta)
+            } else {
+                // An interval that ends before the edit starts: unchanged.
+                (from, to)
+            };
+        if start == end {
+            // The edit removed this interval whole: no interval is left there,
+            // so the rebuilt CDS simply does not carry one.
+            continue;
+        }
+        let moved: NucleotideInterval = create(&edited.reference(), start, end)?;
+        shifted.push(moved);
+    }
+
+    if shifted.is_empty() {
+        // The edit removed the whole CDS: there is nothing left to re-translate,
+        // so the rule warns nothing and the edit still applies.
+        return Ok(None);
+    }
+
+    // The same arguments `mutation::rebuild_cds` uses, so the rebuilt CDS is that
+    // annotation carried over the edited artifact and nothing else about it
+    // changes.
+    let rebuilt: Cds = Cds::create(
+        &edited,
+        target.id(),
+        shifted,
+        target.strand(),
+        target.completeness(),
+        target.genetic_code().name(),
+        target.numbering(),
+    )?;
+
+    match translate(&edited, &rebuilt) {
+        Ok(_translation) => Ok(None),
+        Err(error) => match error {
+            DomainError::InternalStopCodon(problem) => Ok(Some(Q5EditWarning::PrematureStop {
+                cds: target.id(),
+                codon_number: problem.codon_number as u64,
+            })),
+            other => Err(other),
+        },
     }
 }
 
@@ -820,9 +1025,10 @@ pub fn execute(
     }
     let target: Cds = resolved.unwrap();
 
+    let template: Sequence = request.template();
     let verified: MutationResult = run_resolved(request, target.clone(), result)?;
 
-    let warnings: Vec<Q5EditWarning> = edit_warnings(&verified, &target);
+    let warnings: Vec<Q5EditWarning> = edit_warnings(&template, &verified, &target)?;
 
     Ok(Q5WorkflowExecution {
         scope: gate,
@@ -1557,10 +1763,11 @@ pub fn execute_set(
         // member's CDS, never what a previous member edited.
         let mutation: MutationResult =
             run_resolved(variant.request(), target.clone(), variant.result_name())?;
+        let template: Sequence = variant.request().template();
         results.push(Q5VariantResult {
             identifier: variant.result_name(),
             mutation: mutation.clone(),
-            warnings: edit_warnings(&mutation, &target),
+            warnings: edit_warnings(&template, &mutation, &target)?,
         });
     }
 
@@ -4546,5 +4753,354 @@ mod tests {
                     wholly_inside: true,
                 }
         );
+    }
+
+    // D037: an in-frame DNA edit wholly inside the resolved CDS re-translates
+    // that CDS on the edited artifact, and a stop that is not that CDS's last
+    // codon is a warning the run carries while still applying the edit. The
+    // letters and codon numbers below were derived by hand over the template
+    // text `ATGGCTTGGAATCAGCAGCAGCAGCAGCAG` (planner, 2026-10-16): index 5 is
+    // `T`, 6–8 are `TGG`, 9–11 are `AAT`, and a whole 30-base plus-strand CDS
+    // reads M A W N Q Q Q Q Q Q with no terminal stop.
+    fn nucleotide_substitution_at(
+        position: u64,
+        expected: String,
+        replacement: String,
+    ) -> Q5MutationIntent {
+        let interval: OrderedIntervals = vec![create(
+            &template().reference(),
+            position as i64,
+            (position + 1) as i64,
+        )
+        .unwrap()];
+        Q5MutationIntent::Nucleotide(
+            NucleotideMutationIntent::create(
+                template().reference(),
+                interval[0].clone(),
+                expected,
+                replacement,
+            )
+            .unwrap(),
+        )
+    }
+
+    #[test]
+    fn a_substitution_that_writes_a_stop_warns() {
+        // Position 7 is the middle base of codon 3's `TGG`: writing `A` there
+        // gives `TAG`. The edit changes no length, so the frame is kept, and
+        // `[7, 8)` lies wholly inside [0, 30), so the CDS is re-translated:
+        // ATG GCT TAG AAT CAG CAG CAG CAG CAG CAG puts a stop at codon 3 of
+        // 10, before the last codon.
+        let request: Q5SdmRequest = Q5SdmRequest::create(
+            template(),
+            Some(cds_name("cds-1")),
+            nucleotide_substitution_at(7, "G".to_string(), "A".to_string()),
+        )
+        .unwrap();
+        let run: Q5WorkflowExecution =
+            execute(request.clone(), vec![cds_of("cds-1", 30)], edited_name()).unwrap();
+        assert!(run.is_verified());
+        assert!(run.edited().unwrap().canonical_text() == "ATGGCTTAGAATCAGCAGCAGCAGCAGCAG");
+        let warnings: Vec<Q5EditWarning> = run.warnings();
+        assert!(warnings.len() == 1);
+        assert!(
+            warnings[0]
+                == Q5EditWarning::PrematureStop {
+                    cds: cds_name("cds-1"),
+                    codon_number: 3,
+                }
+        );
+    }
+
+    #[test]
+    fn a_synonymous_substitution_does_not_warn() {
+        // Position 5 is the last base of codon 2's `GCT`: writing `C` gives
+        // `GCC`, still Thr. The edit is in-frame and wholly inside [0, 30), so
+        // the CDS is re-translated, and ATG GCT GCC TGG AAT CAG CAG CAG CAG CAG
+        // holds no stop at all: no warning.
+        let request: Q5SdmRequest = Q5SdmRequest::create(
+            template(),
+            Some(cds_name("cds-1")),
+            nucleotide_substitution_at(5, "T".to_string(), "C".to_string()),
+        )
+        .unwrap();
+        let run: Q5WorkflowExecution =
+            execute(request.clone(), vec![cds_of("cds-1", 30)], edited_name()).unwrap();
+        assert!(run.is_verified());
+        assert!(run.edited().unwrap().canonical_text() == "ATGGCCTGGAATCAGCAGCAGCAGCAGCAG");
+        assert!(run.warnings().is_empty());
+    }
+
+    #[test]
+    fn an_in_frame_insertion_of_a_stop_warns() {
+        // `TAA` inserted into the gap at 9, whose flanks are `G` (index 8) and
+        // `A` (index 9): 3 is a multiple of 3, so the frame is kept, and the
+        // gap lies inside [0, 30). The edited CDS reads ATG GCT TGG TAA AAT
+        // CAG CAG CAG CAG CAG CAG, so the stop sits at codon 4 of 11.
+        let request: Q5SdmRequest = Q5SdmRequest::create(
+            template(),
+            Some(cds_name("cds-1")),
+            insertion_intent(9, "G".to_string(), "A".to_string(), "TAA".to_string()),
+        )
+        .unwrap();
+        let run: Q5WorkflowExecution =
+            execute(request.clone(), vec![cds_of("cds-1", 30)], edited_name()).unwrap();
+        assert!(run.is_verified());
+        assert!(run.edited().unwrap().canonical_text() == "ATGGCTTGGTAAAATCAGCAGCAGCAGCAGCAG");
+        let warnings: Vec<Q5EditWarning> = run.warnings();
+        assert!(warnings.len() == 1);
+        assert!(
+            warnings[0]
+                == Q5EditWarning::PrematureStop {
+                    cds: cds_name("cds-1"),
+                    codon_number: 4,
+                }
+        );
+    }
+
+    #[test]
+    fn an_in_frame_insertion_without_a_stop_does_not_warn() {
+        // `GCT` inserted into the same gap: 3 is a multiple of 3, so the frame
+        // is kept and the CDS is re-translated, and ATG GCT TGG GCT AAT CAG
+        // CAG CAG CAG CAG CAG holds no stop: no warning.
+        let request: Q5SdmRequest = Q5SdmRequest::create(
+            template(),
+            Some(cds_name("cds-1")),
+            insertion_intent(9, "G".to_string(), "A".to_string(), "GCT".to_string()),
+        )
+        .unwrap();
+        let run: Q5WorkflowExecution =
+            execute(request.clone(), vec![cds_of("cds-1", 30)], edited_name()).unwrap();
+        assert!(run.is_verified());
+        assert!(run.edited().unwrap().canonical_text() == "ATGGCTTGGGCTAATCAGCAGCAGCAGCAGCAG");
+        assert!(run.warnings().is_empty());
+    }
+
+    #[test]
+    fn an_equal_length_replacement_that_writes_a_stop_warns() {
+        // `[9, 12)` is `AAT`, overwritten by `TGA`: `m − w` is 0, so the frame
+        // is kept, and the region lies wholly inside [0, 30). The edited CDS
+        // reads ATG GCT TGG TGA CAG CAG CAG CAG CAG CAG, so the stop is codon
+        // 4 of 10.
+        let request: Q5SdmRequest = Q5SdmRequest::create(
+            template(),
+            Some(cds_name("cds-1")),
+            replacement_intent(9, 12, "AAT".to_string(), "TGA".to_string()),
+        )
+        .unwrap();
+        let run: Q5WorkflowExecution =
+            execute(request.clone(), vec![cds_of("cds-1", 30)], edited_name()).unwrap();
+        assert!(run.is_verified());
+        assert!(run.edited().unwrap().canonical_text() == "ATGGCTTGGTGACAGCAGCAGCAGCAGCAG");
+        let warnings: Vec<Q5EditWarning> = run.warnings();
+        assert!(warnings.len() == 1);
+        assert!(
+            warnings[0]
+                == Q5EditWarning::PrematureStop {
+                    cds: cds_name("cds-1"),
+                    codon_number: 4,
+                }
+        );
+    }
+
+    #[test]
+    fn an_in_frame_unequal_replacement_that_writes_a_stop_warns() {
+        // `AAT` overwritten by six bases: `m − w` is 3, a multiple of 3, so the
+        // frame is kept and the CDS is re-translated. The edited text is
+        // ATGGCTTGGAATTAACAGCAGCAGCAGCAGCAG, which reads ATG GCT TGG AAT TAA
+        // CAG CAG CAG CAG CAG CAG: the stop is codon 5 of 11.
+        let request: Q5SdmRequest = Q5SdmRequest::create(
+            template(),
+            Some(cds_name("cds-1")),
+            replacement_intent(9, 12, "AAT".to_string(), "AATTAA".to_string()),
+        )
+        .unwrap();
+        let run: Q5WorkflowExecution =
+            execute(request.clone(), vec![cds_of("cds-1", 30)], edited_name()).unwrap();
+        assert!(run.is_verified());
+        assert!(run.edited().unwrap().canonical_text() == "ATGGCTTGGAATTAACAGCAGCAGCAGCAGCAG");
+        let warnings: Vec<Q5EditWarning> = run.warnings();
+        assert!(warnings.len() == 1);
+        assert!(
+            warnings[0]
+                == Q5EditWarning::PrematureStop {
+                    cds: cds_name("cds-1"),
+                    codon_number: 5,
+                }
+        );
+    }
+
+    #[test]
+    fn a_frameshift_does_not_also_warn_of_a_stop() {
+        // The one-base deletion of `[9, 10)` that `a_one_base_deletion_warns_of_a_frameshift`
+        // already pins: `delta` is −1, not a multiple of 3, so the reading frame
+        // shifts and D037 re-translates nothing. The run carries the frameshift
+        // warning and nothing else.
+        let request: Q5SdmRequest =
+            Q5SdmRequest::create(template(), None, deletion_intent(9, 10, "A".to_string()))
+                .unwrap();
+        let run: Q5WorkflowExecution =
+            execute(request.clone(), vec![cds_of("cds-1", 30)], edited_name()).unwrap();
+        assert!(run.is_verified());
+        let warnings: Vec<Q5EditWarning> = run.warnings();
+        assert!(warnings.len() == 1);
+        assert!(
+            warnings[0]
+                == Q5EditWarning::Frameshift {
+                    cds: cds_name("cds-1"),
+                    coding_bases_removed: 1,
+                    wholly_inside: true,
+                }
+        );
+    }
+
+    #[test]
+    fn a_stop_on_a_minus_strand_cds_warns() {
+        // The whole 30-base CDS on the minus strand reads L L L L L L I P S H,
+        // and codon 7 is the reverse complement of reference [9, 12), which is
+        // `AAT` → `ATT`. Overwriting that region with `TTA` changes no length
+        // and lies wholly inside [0, 30), so the CDS is re-translated: codon 7
+        // becomes revcomp(`TTA`) = `TAA`, a stop at codon 7 of 10.
+        let request: Q5SdmRequest = Q5SdmRequest::create(
+            template(),
+            Some(cds_name("cds-1")),
+            replacement_intent(9, 12, "AAT".to_string(), "TTA".to_string()),
+        )
+        .unwrap();
+        let run: Q5WorkflowExecution = execute(
+            request.clone(),
+            vec![minus_cds_of("cds-1", 30)],
+            edited_name(),
+        )
+        .unwrap();
+        assert!(run.is_verified());
+        assert!(run.edited().unwrap().canonical_text() == "ATGGCTTGGTTACAGCAGCAGCAGCAGCAG");
+        let warnings: Vec<Q5EditWarning> = run.warnings();
+        assert!(warnings.len() == 1);
+        assert!(
+            warnings[0]
+                == Q5EditWarning::PrematureStop {
+                    cds: cds_name("cds-1"),
+                    codon_number: 7,
+                }
+        );
+    }
+
+    #[test]
+    fn a_stop_in_an_origin_wrapping_cds_warns() {
+        // mut-c's `cds-1` at [22, 24)+[0, 7) reads TGG CTT GGA across the origin.
+        // `TAA` inserted into the gap at 1 — its flanks are `G` at index 0 and
+        // `C` at index 1 — is 3 bases, so the frame is kept, and the gap lies
+        // inside [0, 7). The edited artifact is 27 bases: the interval holding
+        // the gap grows to [0, 10) and the interval at or past the edit's end
+        // moves to [25, 27), so the CDS reads TGG TAA CTT GGA and the stop is
+        // codon 2 of 4.
+        let request: Q5SdmRequest = Q5SdmRequest::create(
+            seq_c(),
+            Some(cds_name("cds-1")),
+            insertion_intent_on(
+                seq_c(),
+                1,
+                "G".to_string(),
+                "C".to_string(),
+                "TAA".to_string(),
+            ),
+        )
+        .unwrap();
+        let run: Q5WorkflowExecution =
+            execute(request.clone(), vec![cds_c()], edited_name()).unwrap();
+        assert!(run.is_verified());
+        assert!(run.edited().unwrap().canonical_text() == "GTAACTTGGAACGAACGAACGAACATG");
+        let warnings: Vec<Q5EditWarning> = run.warnings();
+        assert!(warnings.len() == 1);
+        assert!(
+            warnings[0]
+                == Q5EditWarning::PrematureStop {
+                    cds: cds_name("cds-1"),
+                    codon_number: 2,
+                }
+        );
+    }
+
+    #[test]
+    fn an_edit_only_partly_inside_the_cds_does_not_warn_of_a_stop() {
+        // A plus-strand CDS over [0, 18) reads ATG GCT TGG AAT CAG CAG. The
+        // unscoped deletion of [15, 21) removes `CAGCAG`: three of those bases
+        // are coding, so the frame is kept and there is no frameshift, but the
+        // region is not wholly inside one interval, so D037's rule does not
+        // apply and the run warns nothing.
+        let request: Q5SdmRequest = Q5SdmRequest::create(
+            template(),
+            None,
+            deletion_intent(15, 21, "CAGCAG".to_string()),
+        )
+        .unwrap();
+        let run: Q5WorkflowExecution =
+            execute(request.clone(), vec![cds_of("cds-1", 18)], edited_name()).unwrap();
+        assert!(run.is_verified());
+        assert!(run.edited().unwrap().canonical_text() == "ATGGCTTGGAATCAGCAGCAGCAG");
+        assert!(run.warnings().is_empty());
+    }
+
+    // D037's rule must not turn a valid edit into a failure: an in-frame edit
+    // that removes a whole CDS leaves no CDS to re-translate, and the run still
+    // applies the edit. Values derived by hand (planner, 2026-10-16): mut-a's
+    // [0, 18) is `ATGGCTTGGAATCAGCAG` (ATG GCT TGG AAT CAG CAG, M A W N Q Q), so
+    // deleting it leaves the last four codons, `CAGCAGCAGCAG`; 18 removed bases
+    // are all coding and 18 is a multiple of 3, so there is no frameshift, and
+    // the rebuilt CDS has no interval left at all.
+    #[test]
+    fn deleting_a_whole_cds_does_not_warn_or_fail() {
+        let request: Q5SdmRequest = Q5SdmRequest::create(
+            template(),
+            Some(cds_name("cds-1")),
+            deletion_intent(0, 18, "ATGGCTTGGAATCAGCAG".to_string()),
+        )
+        .unwrap();
+        let run: Q5WorkflowExecution =
+            execute(request.clone(), vec![cds_of("cds-1", 18)], edited_name()).unwrap();
+        assert!(run.is_verified());
+        assert!(run.edited().unwrap().canonical_text() == "CAGCAGCAGCAG");
+        assert!(run.warnings().is_empty());
+    }
+
+    // The same rule against a wrapping CDS whose first interval is deleted whole
+    // and whose second is untouched: mut-c is `GCTTGGAACGAACGAACGAACATG` (24
+    // bases, circular), and [21, 24) is `ATG` while [0, 6) is `GCTTGG`, so the
+    // annotation [21, 24) + [0, 6) reads ATG GCT TGG (M A W). Deleting [21, 24)
+    // is 3 bases, all coding and a multiple of 3, so no frameshift; the holding
+    // interval becomes [21, 21) and is dropped, the interval at [0, 6) is
+    // unchanged, and the 21-base edit is `GCTTGGAACGAACGAACGAAC`, whose [0, 6)
+    // reads GCT TGG (A W): no stop, so no warning and no failure.
+    fn cds_c_at_21() -> Cds {
+        let intervals: OrderedIntervals = vec![
+            create(&seq_c().reference(), 21, 24).unwrap(),
+            create(&seq_c().reference(), 0, 6).unwrap(),
+        ];
+        Cds::create(
+            &seq_c(),
+            cds_name("cds-1"),
+            intervals,
+            Strand::Plus,
+            Completeness::Complete,
+            "standard".to_string(),
+            Numbering::FromCdsStart,
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn deleting_a_whole_interval_of_a_wrapping_cds_does_not_fail() {
+        let request: Q5SdmRequest = Q5SdmRequest::create(
+            seq_c(),
+            Some(cds_name("cds-1")),
+            deletion_intent_on(seq_c(), 21, 24, "ATG".to_string()),
+        )
+        .unwrap();
+        let run: Q5WorkflowExecution =
+            execute(request.clone(), vec![cds_c_at_21()], edited_name()).unwrap();
+        assert!(run.is_verified());
+        assert!(run.edited().unwrap().canonical_text() == "GCTTGGAACGAACGAACGAAC");
+        assert!(run.warnings().is_empty());
     }
 }
