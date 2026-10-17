@@ -57,6 +57,13 @@
 //! region's two edges: the forward primer anneals at `[e, e + f)` and the reverse
 //! at `[s − r, s)`.
 //!
+//! D038: a `ConfineToTail` placement is accepted where it changes nothing —
+//! an insertion (D032) and a replacement above `MAX_INLINE_REPLACEMENT` (D033)
+//! already write every base into the two 5′ tails, so both are designed exactly
+//! as the same `Inline` request designs them, and the design records the
+//! placement the caller asked for. Every other edit (a substitution, an inline
+//! replacement and a deletion) still refuses it.
+//!
 //! # Failure, by cause (D029, D030)
 //!
 //! * `NoPrimerDesignPossible` (`BiologicalValidation`): `L + 10 + v0 + r0 > n`,
@@ -68,7 +75,8 @@
 //! * refused before the search: `InvalidPrimerDesignRequest`
 //!   (`MalformedInput`) for a bound below 1 or an unverified result;
 //!   `UnsupportedPrimerDesignScope` or `UnsupportedPrimerPlacement`
-//!   (`Unsupported`) for a request outside the policy.
+//!   (`Unsupported`) for a request outside the policy, except D038's
+//!   `ConfineToTail` on the tails path.
 
 use crate::error::DesignObstacle;
 use crate::error::DomainError;
@@ -434,6 +442,13 @@ impl PrimerDesign {
 
 /// Design a primer pair for a verified mutation result under the request's
 /// policy. A failure emits no pair (D010).
+///
+/// D038: an unsupported placement is refused here, except where it changes
+/// nothing — an insertion (D032) and a replacement whose `max(w, m)` is above
+/// `MAX_INLINE_REPLACEMENT` (D033) already put every written base in the two
+/// 5′ tails, so a `ConfineToTail` request designs exactly the pair the `Inline`
+/// request does, and the design records the placement the caller asked for.
+/// Every other edit refuses it with `UnsupportedPrimerPlacement`.
 pub fn design_primers(
     template: &Sequence,
     result: MutationResult,
@@ -454,7 +469,24 @@ pub fn design_primers(
         return Err(DomainError::InvalidPrimerDesignRequest(problem));
     }
 
-    if !request.placement().is_supported() {
+    // D038: `ConfineToTail` is refused only where it would change the design.
+    // An insertion (D032) and a replacement above `MAX_INLINE_REPLACEMENT`
+    // (D033) already write every base into the two 5′ tails, so that placement
+    // asks for the design the `Inline` request gives; a substitution, an inline
+    // replacement and a deletion would need a geometry no source defines.
+    let tail_claim: Option<(u64, u64, String)> = replacement_claim(result.clone());
+    let tails_already: bool = if result.is_insertion() {
+        true
+    } else if tail_claim.is_none() {
+        false
+    } else {
+        let (region_start, region_end, text): (u64, u64, String) = tail_claim.clone().unwrap();
+        let width: u64 = region_end - region_start;
+        let written: u64 = text.chars().count() as u64;
+        width.max(written) > MAX_INLINE_REPLACEMENT
+    };
+
+    if !request.placement().is_supported() && !tails_already {
         let problem = UnsupportedPrimerPlacementProblem {
             placement: request.placement().name(),
             reason: "D029's native scope is inline placement".to_string(),
@@ -721,7 +753,11 @@ fn design_insertion(
 /// matched, and the whole primer's Tm is reported but never used. With
 /// `start == end == point` this is D032's insertion, whose region is empty; with
 /// an empty `text` it is D031's deletion, which writes nothing and whose primers
-/// are both untailed.
+/// are both untailed. D038: the untailed primers built here are inline by shape,
+/// so they are always constructed as `PrimerPlacement::Inline`; for today's
+/// inputs the request's placement is `Inline` there anyway, and `construct_primer`
+/// refuses a caller's `ConfineToTail`, while the tailed primers take no
+/// placement at all.
 fn design_edge_pair(
     template: &Sequence,
     result: MutationResult,
@@ -826,13 +862,15 @@ fn design_edge_pair(
     let reverse_span: NucleotideInterval = span(template, start - reverse, start)?;
 
     // The written text has at least one base, so the forward tail never is empty;
-    // a deletion writes nothing and both its primers are untailed.
+    // a deletion writes nothing and both its primers are untailed. An untailed
+    // primer is inline by shape, so it is constructed as `Inline` whatever the
+    // request asked for (D038); `construct_primer` would refuse `ConfineToTail`.
     let forward_primer: Primer = if text_letters.is_empty() {
         construct_primer(
             template,
             result.clone(),
             PrimerRole::Forward,
-            request.placement(),
+            PrimerPlacement::Inline,
             canonical_text(sizer.forward(forward)),
             forward_span,
         )
@@ -850,14 +888,15 @@ fn design_edge_pair(
     // A reverse primer with no tail is an untailed primer of the edit, which
     // `construct_tailed_primer` refuses rather than defaulting: an insertion of
     // at most `MAX_WHOLE_TAIL` bases, D033's replacement of a single base, and
-    // D031's deletion, which writes nothing.
+    // D031's deletion, which writes nothing. It is inline by shape, so it is
+    // constructed as `Inline` whatever the request asked for (D038).
     let reverse_text: String = canonical_text(sizer.reverse(reverse)?);
     let reverse_primer: Primer = if reverse_tail.is_empty() {
         construct_primer(
             template,
             result.clone(),
             PrimerRole::Reverse,
-            request.placement(),
+            PrimerPlacement::Inline,
             reverse_text,
             reverse_span,
         )
@@ -2207,6 +2246,174 @@ mod tests {
         let error: DomainError =
             design_primers(&template(), nucleotide(&template(), 30, "A"), tail).unwrap_err();
         assert!(matches!(error, DomainError::UnsupportedPrimerPlacement(_)));
+    }
+
+    // D038: `ConfineToTail` is accepted where it changes nothing. An insertion
+    // (D032) and a replacement above `MAX_INLINE_REPLACEMENT` (D033) already
+    // write every base into the two 5′ tails, so their design is the one the
+    // `Inline` request gives and the design records the placement asked for.
+    // Each case below is the edit an earlier test already designs, so its
+    // figures are pinned there; these tests compare the two placements.
+    fn confine_request(bound: i64) -> PrimerDesignRequest {
+        PrimerDesignRequest::create(
+            DesignStyle::Q5Polymerase,
+            DesignPolicy::LuriaNative,
+            bound,
+            PrimerPlacement::ConfineToTail,
+            BufferModel::q5_reaction(),
+        )
+        .unwrap()
+    }
+
+    /// The two designs agree on everything but the request they record: the
+    /// pair, the edit, every Tm, the balance and both warning lists.
+    fn assert_designs_agree(left: &PrimerDesign, right: &PrimerDesign) {
+        assert!(
+            left.pair() == right.pair(),
+            "pairs differ: {:?} / {:?}",
+            left.pair(),
+            right.pair()
+        );
+        assert!(
+            left.edit_span() == right.edit_span(),
+            "edit spans differ: {:?} / {:?}",
+            left.edit_span(),
+            right.edit_span(),
+        );
+        assert!(
+            left.forward_tm() == right.forward_tm(),
+            "forward Tms differ: {:?} / {:?}",
+            left.forward_tm(),
+            right.forward_tm(),
+        );
+        assert!(
+            left.reverse_tm() == right.reverse_tm(),
+            "reverse Tms differ: {:?} / {:?}",
+            left.reverse_tm(),
+            right.reverse_tm(),
+        );
+        assert!(
+            left.forward_whole_tm() == right.forward_whole_tm(),
+            "forward whole Tms differ: {:?} / {:?}",
+            left.forward_whole_tm(),
+            right.forward_whole_tm(),
+        );
+        assert!(
+            left.reverse_whole_tm() == right.reverse_whole_tm(),
+            "reverse whole Tms differ: {:?} / {:?}",
+            left.reverse_whole_tm(),
+            right.reverse_whole_tm(),
+        );
+        assert!(
+            left.annealing_temperature() == right.annealing_temperature(),
+            "annealing temperatures differ: {:.3} / {:.3}",
+            left.annealing_temperature(),
+            right.annealing_temperature(),
+        );
+        assert!(
+            left.tm_balance_met() == right.tm_balance_met(),
+            "tm_balance_met differs: {} / {}",
+            left.tm_balance_met(),
+            right.tm_balance_met(),
+        );
+        assert!(
+            left.forward_warnings() == right.forward_warnings(),
+            "forward warnings differ: {:?} / {:?}",
+            left.forward_warnings(),
+            right.forward_warnings(),
+        );
+        assert!(
+            left.reverse_warnings() == right.reverse_warnings(),
+            "reverse warnings differ: {:?} / {:?}",
+            left.reverse_warnings(),
+            right.reverse_warnings(),
+        );
+    }
+
+    // D038 (ins-01's edit): a 3-base insertion, at or below `MAX_WHOLE_TAIL`,
+    // sits whole on the forward primer's 5′ tail and the reverse primer has no
+    // tail, so `ConfineToTail` writes nothing the `Inline` request does not.
+    #[test]
+    fn confine_to_tail_designs_a_short_insertion_as_inline() {
+        let sequence: Sequence = linear(&balanced());
+        let inline: PrimerDesign =
+            design_primers(&sequence, insertion(&sequence, 50, "GAT"), request(15)).unwrap();
+        let confined: PrimerDesign = design_primers(
+            &sequence,
+            insertion(&sequence, 50, "GAT"),
+            confine_request(15),
+        )
+        .unwrap();
+        assert_designs_agree(&inline, &confined);
+        assert!(confined.request().placement() == PrimerPlacement::ConfineToTail);
+        assert!(confined.pair().forward().tail().unwrap().sequence() == "GAT");
+        assert!(confined.pair().reverse().tail().is_none());
+    }
+
+    // D038 (ins-04's edit): a 7-base insertion is above `MAX_WHOLE_TAIL`, so its
+    // tail is split between the two primers; both written halves are still tails.
+    #[test]
+    fn confine_to_tail_designs_a_long_insertion_as_inline() {
+        let sequence: Sequence = linear(&balanced());
+        let inline: PrimerDesign =
+            design_primers(&sequence, insertion(&sequence, 50, "GATTACA"), request(15)).unwrap();
+        let confined: PrimerDesign = design_primers(
+            &sequence,
+            insertion(&sequence, 50, "GATTACA"),
+            confine_request(15),
+        )
+        .unwrap();
+        assert_designs_agree(&inline, &confined);
+        assert!(confined.request().placement() == PrimerPlacement::ConfineToTail);
+        assert!(confined.pair().forward().tail().unwrap().sequence() == "TACA");
+        assert!(confined.pair().reverse().tail().unwrap().sequence() == "ATC");
+    }
+
+    // D038 (rep-05's edit): a replacement of a 7-base region by one base has
+    // `max(w, m) = 7`, above `MAX_INLINE_REPLACEMENT`, so it already takes the
+    // tails path and every written base is a tail.
+    #[test]
+    fn confine_to_tail_designs_a_tail_path_replacement_as_inline() {
+        let sequence: Sequence = linear(&balanced());
+        let inline: PrimerDesign =
+            design_primers(&sequence, replacement(&sequence, 50, 57, "T"), request(15)).unwrap();
+        let confined: PrimerDesign = design_primers(
+            &sequence,
+            replacement(&sequence, 50, 57, "T"),
+            confine_request(15),
+        )
+        .unwrap();
+        assert_designs_agree(&inline, &confined);
+        assert!(confined.request().placement() == PrimerPlacement::ConfineToTail);
+        assert!(confined.edit_span() == (50, 57));
+    }
+
+    // D038: the refusals stay. A replacement of a 2-base region by one base has
+    // `max(w, m) = 2`, at or below `MAX_INLINE_REPLACEMENT`, so it is written
+    // inline and `ConfineToTail` would need a geometry no source defines.
+    #[test]
+    fn confine_to_tail_is_refused_for_an_inline_replacement() {
+        let sequence: Sequence = linear(&balanced());
+        let error: DomainError = design_primers(
+            &sequence,
+            replacement(&sequence, 50, 52, "C"),
+            confine_request(15),
+        )
+        .unwrap_err();
+        assert!(matches!(error, DomainError::UnsupportedPrimerPlacement(_)));
+        assert!(error.category() == ErrorCategory::Unsupported);
+    }
+
+    // D038: a deletion removes bases and writes none, so nothing is written into
+    // a tail and the placement is refused as every other edit is.
+    #[test]
+    fn confine_to_tail_is_refused_for_a_deletion() {
+        let sequence: Sequence = linear(&balanced());
+        let error: DomainError =
+            design_primers(&sequence, deletion(&sequence, 50, 53), confine_request(15))
+                .unwrap_err();
+        assert!(matches!(error, DomainError::UnsupportedPrimerPlacement(_)));
+        assert!(error.category() == ErrorCategory::Unsupported);
     }
 
     #[test]
