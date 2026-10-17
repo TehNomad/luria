@@ -581,6 +581,60 @@ impl DomainError {
         }
     }
 
+    /// A stable machine-readable code: the variant name in snake_case.
+    /// Codes are part of the CLI's output contract; renaming one needs approval.
+    pub fn code(&self) -> &'static str {
+        match self {
+            DomainError::EmptyIdentifier => "empty_identifier",
+            DomainError::InvalidIdentifierCharacters(_) => "invalid_identifier_characters",
+            DomainError::EmptySequenceContent(_) => "empty_sequence_content",
+            DomainError::InvalidSequenceCharacters(_) => "invalid_sequence_characters",
+            DomainError::NegativeCoordinate(_) => "negative_coordinate",
+            DomainError::ReversedInterval(_) => "reversed_interval",
+            DomainError::EmptyInterval(_) => "empty_interval",
+            DomainError::CoordinateOutOfBounds(_) => "coordinate_out_of_bounds",
+            DomainError::SequenceReferenceMismatch(_) => "sequence_reference_mismatch",
+            DomainError::FeatureWithoutIntervals(_) => "feature_without_intervals",
+            DomainError::IntervalsOutOfOrder(_) => "intervals_out_of_order",
+            DomainError::OverlappingIntervals(_) => "overlapping_intervals",
+            DomainError::UnsupportedFeatureStructure(_) => "unsupported_feature_structure",
+            DomainError::MissingCdsAttribute(_) => "missing_cds_attribute",
+            DomainError::IncompleteCds(_) => "incomplete_cds",
+            DomainError::UnsupportedGeneticCode(_) => "unsupported_genetic_code",
+            DomainError::CdsLengthNotDivisibleByThree(_) => "cds_length_not_divisible_by_three",
+            DomainError::AmbiguousCodon(_) => "ambiguous_codon",
+            DomainError::InvalidCodon(_) => "invalid_codon",
+            DomainError::InternalStopCodon(_) => "internal_stop_codon",
+            DomainError::InvalidResiduePosition(_) => "invalid_residue_position",
+            DomainError::ResiduePositionOutsideCds(_) => "residue_position_outside_cds",
+            DomainError::ResiduePositionWrongCds(_) => "residue_position_wrong_cds",
+            DomainError::UnsupportedNumberingScheme(_) => "unsupported_numbering_scheme",
+            DomainError::InvalidMutationRequest(_) => "invalid_mutation_request",
+            DomainError::UnspecifiedCodonPolicy(_) => "unspecified_codon_policy",
+            DomainError::UnsupportedMutationPolicy(_) => "unsupported_mutation_policy",
+            DomainError::UnsupportedComposition(_) => "unsupported_composition",
+            DomainError::ExpectedNucleotideMismatch(_) => "expected_nucleotide_mismatch",
+            DomainError::ExpectedResidueMismatch(_) => "expected_residue_mismatch",
+            DomainError::TargetOutsideFeature(_) => "target_outside_feature",
+            DomainError::MutationVerificationFailure(_) => "mutation_verification_failure",
+            DomainError::InvalidPrimerCandidate(_) => "invalid_primer_candidate",
+            DomainError::PrimerTextAtSpanMismatch(_) => "primer_text_at_span_mismatch",
+            DomainError::PrimerAnnealingNotTemplate(_) => "primer_annealing_not_template",
+            DomainError::PrimerPartition(_) => "primer_partition",
+            DomainError::AnnealingOverlapBelowBound(_) => "annealing_overlap_below_bound",
+            DomainError::PrimerPairCoverage(_) => "primer_pair_coverage",
+            DomainError::PrimerOrientationConflict(_) => "primer_orientation_conflict",
+            DomainError::UnsupportedPrimerPlacement(_) => "unsupported_primer_placement",
+            DomainError::InvalidPrimerDesignRequest(_) => "invalid_primer_design_request",
+            DomainError::UnsupportedPrimerDesignScope(_) => "unsupported_primer_design_scope",
+            DomainError::NoPrimerDesignPossible(_) => "no_primer_design_possible",
+            DomainError::NoPrimerDesignFits(_) => "no_primer_design_fits",
+            DomainError::InvalidBufferModel(_) => "invalid_buffer_model",
+            DomainError::TmParametersUnavailable(_) => "tm_parameters_unavailable",
+            DomainError::DegenerateExpansionTooLarge(_) => "degenerate_expansion_too_large",
+        }
+    }
+
     /// Human-readable text. For reporting only.
     pub fn message(&self) -> String {
         match self {
@@ -908,5 +962,373 @@ mod tests {
             reason: "the replacement is not a DNA letter".to_string(),
         });
         assert!(bad_request.category() == ErrorCategory::MalformedInput);
+    }
+
+    // The codes are the CLI's output contract (D041). This pins every one,
+    // and checks that no two variants share a code.
+    #[test]
+    fn every_variant_has_its_pinned_code() {
+        let s = || "x".to_string();
+        let cases: Vec<(DomainError, &str)> = vec![
+            (DomainError::EmptyIdentifier, "empty_identifier"),
+            (
+                DomainError::InvalidIdentifierCharacters(InvalidIdentifierProblem {
+                    identifier: s(),
+                    reason: s(),
+                }),
+                "invalid_identifier_characters",
+            ),
+            (
+                DomainError::EmptySequenceContent(EmptySequenceProblem { sequence: s() }),
+                "empty_sequence_content",
+            ),
+            (
+                DomainError::InvalidSequenceCharacters(InvalidSequenceCharactersProblem {
+                    sequence: s(),
+                    position: 0,
+                    characters: s(),
+                }),
+                "invalid_sequence_characters",
+            ),
+            (
+                DomainError::NegativeCoordinate(NegativeCoordinateProblem {
+                    sequence: s(),
+                    start: -1,
+                    end: 0,
+                }),
+                "negative_coordinate",
+            ),
+            (
+                DomainError::ReversedInterval(ReversedIntervalProblem {
+                    sequence: s(),
+                    start: 2,
+                    end: 1,
+                }),
+                "reversed_interval",
+            ),
+            (
+                DomainError::EmptyInterval(EmptyIntervalProblem {
+                    sequence: s(),
+                    position: 0,
+                }),
+                "empty_interval",
+            ),
+            (
+                DomainError::CoordinateOutOfBounds(CoordinateOutOfBoundsProblem {
+                    sequence: s(),
+                    start: 0,
+                    end: 2,
+                    length: 1,
+                }),
+                "coordinate_out_of_bounds",
+            ),
+            (
+                DomainError::SequenceReferenceMismatch(SequenceReferenceMismatchProblem {
+                    expected_identifier: s(),
+                    actual_identifier: s(),
+                    expected_digest: s(),
+                    actual_digest: s(),
+                    expected_topology: SequenceTopology::Linear,
+                    actual_topology: SequenceTopology::Linear,
+                }),
+                "sequence_reference_mismatch",
+            ),
+            (
+                DomainError::FeatureWithoutIntervals(FeatureWithoutIntervalsProblem {
+                    feature: s(),
+                    sequence: s(),
+                }),
+                "feature_without_intervals",
+            ),
+            (
+                DomainError::IntervalsOutOfOrder(IntervalsOutOfOrderProblem {
+                    feature: s(),
+                    sequence: s(),
+                }),
+                "intervals_out_of_order",
+            ),
+            (
+                DomainError::OverlappingIntervals(OverlappingIntervalsProblem {
+                    feature: s(),
+                    sequence: s(),
+                    start: 0,
+                    end: 1,
+                }),
+                "overlapping_intervals",
+            ),
+            (
+                DomainError::UnsupportedFeatureStructure(UnsupportedFeatureStructureProblem {
+                    feature: s(),
+                    sequence: s(),
+                    interval_count: 2,
+                    reason: s(),
+                }),
+                "unsupported_feature_structure",
+            ),
+            (
+                DomainError::MissingCdsAttribute(MissingCdsAttributeProblem {
+                    cds: s(),
+                    attribute: s(),
+                    value: None,
+                }),
+                "missing_cds_attribute",
+            ),
+            (
+                DomainError::IncompleteCds(IncompleteCdsProblem {
+                    cds: s(),
+                    completeness: s(),
+                }),
+                "incomplete_cds",
+            ),
+            (
+                DomainError::UnsupportedGeneticCode(UnsupportedGeneticCodeProblem {
+                    cds: s(),
+                    genetic_code: s(),
+                }),
+                "unsupported_genetic_code",
+            ),
+            (
+                DomainError::CdsLengthNotDivisibleByThree(CdsLengthNotDivisibleByThreeProblem {
+                    cds: s(),
+                    length: 4,
+                }),
+                "cds_length_not_divisible_by_three",
+            ),
+            (
+                DomainError::AmbiguousCodon(AmbiguousCodonProblem {
+                    cds: s(),
+                    codon_number: 1,
+                    codon: s(),
+                }),
+                "ambiguous_codon",
+            ),
+            (
+                DomainError::InvalidCodon(InvalidCodonProblem {
+                    cds: s(),
+                    codon_number: 1,
+                    codon: s(),
+                }),
+                "invalid_codon",
+            ),
+            (
+                DomainError::InternalStopCodon(InternalStopCodonProblem {
+                    cds: s(),
+                    codon_number: 1,
+                    codon: s(),
+                }),
+                "internal_stop_codon",
+            ),
+            (
+                DomainError::InvalidResiduePosition(ResiduePositionProblem {
+                    cds: s(),
+                    number: 0,
+                }),
+                "invalid_residue_position",
+            ),
+            (
+                DomainError::ResiduePositionOutsideCds(ResiduePositionRangeProblem {
+                    cds: s(),
+                    number: 9,
+                    residue_count: 5,
+                }),
+                "residue_position_outside_cds",
+            ),
+            (
+                DomainError::ResiduePositionWrongCds(CdsMismatchProblem {
+                    expected: s(),
+                    actual: s(),
+                }),
+                "residue_position_wrong_cds",
+            ),
+            (
+                DomainError::UnsupportedNumberingScheme(UnsupportedNumberingProblem {
+                    cds: s(),
+                    numbering: s(),
+                }),
+                "unsupported_numbering_scheme",
+            ),
+            (
+                DomainError::InvalidMutationRequest(InvalidMutationRequestProblem {
+                    request: s(),
+                    reason: s(),
+                }),
+                "invalid_mutation_request",
+            ),
+            (
+                DomainError::UnspecifiedCodonPolicy(UnspecifiedCodonPolicyProblem { cds: s() }),
+                "unspecified_codon_policy",
+            ),
+            (
+                DomainError::UnsupportedMutationPolicy(UnsupportedMutationPolicyProblem {
+                    policy: s(),
+                }),
+                "unsupported_mutation_policy",
+            ),
+            (
+                DomainError::UnsupportedComposition(UnsupportedCompositionProblem {
+                    composition: s(),
+                    variant_count: 2,
+                    reason: s(),
+                }),
+                "unsupported_composition",
+            ),
+            (
+                DomainError::ExpectedNucleotideMismatch(ExpectedNucleotideMismatchProblem {
+                    sequence: s(),
+                    position: 0,
+                    expected: s(),
+                    actual: s(),
+                }),
+                "expected_nucleotide_mismatch",
+            ),
+            (
+                DomainError::ExpectedResidueMismatch(ExpectedResidueMismatchProblem {
+                    cds: s(),
+                    number: 1,
+                    expected: s(),
+                    actual: s(),
+                }),
+                "expected_residue_mismatch",
+            ),
+            (
+                DomainError::TargetOutsideFeature(TargetOutsideFeatureProblem {
+                    feature: s(),
+                    sequence: s(),
+                    start: 0,
+                    end: 1,
+                }),
+                "target_outside_feature",
+            ),
+            (
+                DomainError::MutationVerificationFailure(MutationVerificationFailureProblem {
+                    result: s(),
+                    reason: s(),
+                }),
+                "mutation_verification_failure",
+            ),
+            (
+                DomainError::InvalidPrimerCandidate(InvalidPrimerCandidateProblem {
+                    primer: s(),
+                    reason: s(),
+                }),
+                "invalid_primer_candidate",
+            ),
+            (
+                DomainError::PrimerTextAtSpanMismatch(PrimerTextAtSpanMismatchProblem {
+                    primer: s(),
+                    span: s(),
+                    expected: s(),
+                    actual: s(),
+                }),
+                "primer_text_at_span_mismatch",
+            ),
+            (
+                DomainError::PrimerAnnealingNotTemplate(PrimerAnnealingNotTemplateProblem {
+                    primer: s(),
+                    position: 0,
+                    expected: s(),
+                    actual: s(),
+                }),
+                "primer_annealing_not_template",
+            ),
+            (
+                DomainError::PrimerPartition(PrimerPartitionProblem {
+                    primer: s(),
+                    reason: s(),
+                }),
+                "primer_partition",
+            ),
+            (
+                DomainError::AnnealingOverlapBelowBound(AnnealingOverlapBelowBoundProblem {
+                    primer: s(),
+                    overlap: 1,
+                    bound: 2,
+                }),
+                "annealing_overlap_below_bound",
+            ),
+            (
+                DomainError::PrimerPairCoverage(PrimerPairCoverageProblem {
+                    pair: s(),
+                    changed: s(),
+                    uncovered: s(),
+                }),
+                "primer_pair_coverage",
+            ),
+            (
+                DomainError::PrimerOrientationConflict(PrimerOrientationConflictProblem {
+                    forward: s(),
+                    reverse: s(),
+                }),
+                "primer_orientation_conflict",
+            ),
+            (
+                DomainError::UnsupportedPrimerPlacement(UnsupportedPrimerPlacementProblem {
+                    placement: s(),
+                    reason: s(),
+                }),
+                "unsupported_primer_placement",
+            ),
+            (
+                DomainError::InvalidPrimerDesignRequest(InvalidPrimerDesignRequestProblem {
+                    field: s(),
+                    reason: s(),
+                }),
+                "invalid_primer_design_request",
+            ),
+            (
+                DomainError::UnsupportedPrimerDesignScope(UnsupportedPrimerDesignScopeProblem {
+                    policy: s(),
+                    reason: s(),
+                }),
+                "unsupported_primer_design_scope",
+            ),
+            (
+                DomainError::NoPrimerDesignPossible(NoPrimerDesignPossibleProblem {
+                    template: s(),
+                    template_length: 10,
+                    smallest_pair: 20,
+                }),
+                "no_primer_design_possible",
+            ),
+            (
+                DomainError::NoPrimerDesignFits(NoPrimerDesignFitsProblem {
+                    template: s(),
+                    edit_start: 0,
+                    edit_end: 1,
+                    obstacles: Vec::new(),
+                }),
+                "no_primer_design_fits",
+            ),
+            (
+                DomainError::InvalidBufferModel(InvalidBufferModelProblem {
+                    field: s(),
+                    reason: s(),
+                }),
+                "invalid_buffer_model",
+            ),
+            (
+                DomainError::TmParametersUnavailable(TmParametersUnavailableProblem {
+                    function: s(),
+                    aspect: s(),
+                    reason: s(),
+                }),
+                "tm_parameters_unavailable",
+            ),
+            (
+                DomainError::DegenerateExpansionTooLarge(DegenerateExpansionTooLargeProblem {
+                    replacement: s(),
+                }),
+                "degenerate_expansion_too_large",
+            ),
+        ];
+        assert_eq!(cases.len(), 47);
+        let mut seen = std::collections::BTreeSet::new();
+        for (error, code) in &cases {
+            assert_eq!(error.code(), *code, "{:?}", error);
+            assert!(seen.insert(error.code()), "duplicate code {}", error.code());
+            assert!(code
+                .chars()
+                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_'));
+        }
     }
 }
