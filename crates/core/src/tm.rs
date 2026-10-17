@@ -91,7 +91,11 @@ pub const INITIATION: (f64, f64) = (0.2, -5.7);
 /// Applied once for each duplex end closed by an A–T pair.
 pub const TERMINAL_AT: (f64, f64) = (2.2, 6.9);
 
-/// Applied only to a self-complementary duplex.
+/// Applied only to a symmetric duplex, that is one whose two strands are
+/// identical: the matched basis with a self-complementary primer. A mismatch-aware
+/// duplex is the primer against a template strand that differs from it at the
+/// mismatch, so it is not symmetric and takes no symmetry term even when the
+/// primer it was built from is self-complementary.
 pub const SYMMETRY: (f64, f64) = (0.0, -1.4);
 
 /// Doublets with one internal mismatch, Watson–Crick pair first.
@@ -480,10 +484,18 @@ pub fn melting_temperature(
         }
     }
 
-    let self_complementary: bool = primer
-        .iter()
-        .zip(primer.iter().rev())
-        .all(|(left, right)| complement(*left) == *right);
+    // The symmetry term belongs to a duplex whose two strands are identical.
+    // On the matched basis that duplex is the primer against its own reverse
+    // complement, so it is symmetric exactly when the primer is self-complementary.
+    // On the mismatch-aware basis the duplex is the primer against the wild-type
+    // template strand, which differs from the primer at the mismatch: the strands
+    // are not identical, so that duplex takes no symmetry term even when the
+    // primer on which it was built is self-complementary.
+    let self_complementary: bool = basis == TmBasis::MatchedComplement
+        && primer
+            .iter()
+            .zip(primer.iter().rev())
+            .all(|(left, right)| complement(*left) == *right);
     if self_complementary {
         enthalpy += SYMMETRY.0;
         entropy += SYMMETRY.1;
@@ -494,8 +506,10 @@ pub fn melting_temperature(
     // primer's own concentration is C_T. The source divides C_T by 4 for a
     // non-self-complementary duplex whose two strands are at equal
     // concentration; that case does not arise here, because the template
-    // strand is not at the primer's concentration. A self-complementary primer
-    // takes C_T undivided, plus the symmetry term applied above.
+    // strand is not at the primer's concentration. A symmetric duplex — the
+    // matched basis with a self-complementary primer — takes C_T undivided, and
+    // the symmetry term above is added only there: on the mismatch-aware basis
+    // C_T is still undivided, but no symmetry term applies.
     //
     // Checked against Biopython's independent implementation on both
     // self-complementary and non-self-complementary synthetics, and against

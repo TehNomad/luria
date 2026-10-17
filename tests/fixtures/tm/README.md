@@ -146,8 +146,12 @@ Two conventions had to be settled to get there, and both are recorded in
   this inverted and ran 3.4 °C low on self-complementary sequences; the
   cross-check found it.
 - **Self-complementarity.** luria detects it from the sequence and applies the
-  symmetry term. Biopython does not detect it — `selfcomp` is a caller flag
-  defaulting to false — so the flag must be passed to compare. Biopython's own
+  symmetry term, and only to a matched duplex: the term belongs to a duplex whose
+  two strands are identical, and on the mismatch-aware basis the template strand
+  differs from the primer at the mismatch, so that duplex is not symmetric even
+  when the primer itself is self-complementary. Biopython does not detect it — `selfcomp` is a caller flag
+  defaulting to false — so `crosscheck.py` passes the flag only for a matched duplex
+  (`selfcomp(primer) and primer == site`) to match. Biopython's own
   docstring notes that MELTING and Primer3Plus default to C_T/4, which puts
   their values about 1 °C below both of these. A Tm is only comparable
   alongside the convention that produced it, which is why every

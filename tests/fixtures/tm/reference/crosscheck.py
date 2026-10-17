@@ -28,13 +28,21 @@ def selfcomp(seq):
     rc = "".join(COMP[b] for b in reversed(seq))
     return seq == rc
 
+def selfcomp_passed(primer, site):
+    # Only the matched duplex can be symmetric: the mismatch-aware duplex pairs
+    # the primer with a template strand that differs from it at the mismatch, so
+    # its two strands are not identical and it takes no symmetry term. So the
+    # flag is a self-complementary primer AND primer == site. Biopython does not
+    # detect self-complementarity; `selfcomp` is a caller flag defaulting to
+    # false. This one function is what bio_tm passes and what is printed, so the
+    # two cannot disagree.
+    return selfcomp(primer) and primer == site
+
 def bio_tm(primer, site):
-    # Biopython does not detect self-complementarity; it is a caller flag,
-    # default False. luria detects it, so it must be passed here to compare.
     comp = "".join(COMP[b] for b in site)   # 3'->5' bottom strand
     return mt.Tm_NN(primer, c_seq=comp, nn_table=mt.DNA_NN4, imm_table=mt.DNA_IMM1,
                     saltcorr=6, Na=150, dnac1=500, dnac2=0,
-                    selfcomp=selfcomp(primer))
+                    selfcomp=selfcomp_passed(primer, site))
 
 MIXED = "ATGCATGCATGCATGCAT"
 one_mismatch_site = MIXED[:9] + "A" + MIXED[10:]     # primer has T at index 9
@@ -58,7 +66,7 @@ values = {}
 for label, primer, site in CASES:
     value = bio_tm(primer, site)
     values[label] = value
-    print(f"{label:32} {value:9.3f}   selfcomp={selfcomp(primer)}")
+    print(f"{label:32} {value:9.3f}   selfcomp={selfcomp_passed(primer, site)}")
 print(f"\n{'drop from two mismatches':32} {bio_tm(P23, P23) - bio_tm(P23, W23):9.3f} C")
 
 # ---- compare with the tracked Rust table (D039) -----------------------------
