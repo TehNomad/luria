@@ -258,6 +258,7 @@ fn variant_name(error: &DomainError) -> String {
         DomainError::TmParametersUnavailable(_) => "TmParametersUnavailable",
         DomainError::DegenerateExpansionTooLarge(_) => "DegenerateExpansionTooLarge",
         DomainError::MalformedFasta(_) => "MalformedFasta",
+        DomainError::UnusableGenBankLocation(_) => "UnusableGenBankLocation",
     }
     .to_string()
 }

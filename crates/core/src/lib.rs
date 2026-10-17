@@ -6,6 +6,7 @@ pub mod error;
 pub mod extraction;
 pub mod fasta;
 pub mod feature;
+pub mod genbank_location;
 pub mod genetic_code;
 pub mod identity;
 pub mod interval;

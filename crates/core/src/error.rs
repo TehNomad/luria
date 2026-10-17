@@ -580,6 +580,58 @@ impl FastaRule {
     }
 }
 
+/// Which rule refused a GenBank location. Stable: `code()` is part of the
+/// CLI's output contract (D041), and renaming one needs approval.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum GenBankLocationRule {
+    Syntax,
+    PositionZero,
+    RangeEndsBeforeStart,
+    PastSequenceEnd,
+    FuzzyEnd,
+    BetweenBases,
+    Order,
+    RemoteReference,
+    SinglePosition,
+    OriginJoinOnLinear,
+    UnsupportedJoin,
+}
+
+impl GenBankLocationRule {
+    /// The rule's stable code: its name in snake_case.
+    pub fn code(self) -> &'static str {
+        use GenBankLocationRule::*;
+        match self {
+            Syntax => "syntax",
+            PositionZero => "position_zero",
+            RangeEndsBeforeStart => "range_ends_before_start",
+            PastSequenceEnd => "past_sequence_end",
+            FuzzyEnd => "fuzzy_end",
+            BetweenBases => "between_bases",
+            Order => "order",
+            RemoteReference => "remote_reference",
+            SinglePosition => "single_position",
+            OriginJoinOnLinear => "origin_join_on_linear",
+            UnsupportedJoin => "unsupported_join",
+        }
+    }
+
+    /// The rule's failure class. `PastSequenceEnd` is `BiologicalValidation`
+    /// because a well-formed location contradicts the sequence it was read
+    /// against, as `CoordinateOutOfBounds` does; the rest of the rules
+    /// either cannot be represented at all or are outside this milestone's
+    /// scope (D009, D036).
+    pub fn category(self) -> ErrorCategory {
+        use GenBankLocationRule::*;
+        match self {
+            Syntax | PositionZero | RangeEndsBeforeStart => ErrorCategory::MalformedInput,
+            PastSequenceEnd => ErrorCategory::BiologicalValidation,
+            FuzzyEnd | BetweenBases | Order | RemoteReference | SinglePosition
+            | OriginJoinOnLinear | UnsupportedJoin => ErrorCategory::Unsupported,
+        }
+    }
+}
+
 /// Payload: a FASTA text that is not exactly one record. `line` counts text
 /// lines from 1, as an editor does; it is not a sequence coordinate. It is
 /// `None` for `NoRecord`, which has no line to point at.
@@ -588,6 +640,15 @@ pub struct MalformedFastaProblem {
     pub sequence: String,
     pub rule: FastaRule,
     pub line: Option<u64>,
+}
+
+/// Payload: a GenBank feature location luria cannot use. `location` is the
+/// text as given; `sequence_length` is the length it was read against.
+#[derive(Clone, Debug, PartialEq)]
+pub struct UnusableGenBankLocationProblem {
+    pub location: String,
+    pub rule: GenBankLocationRule,
+    pub sequence_length: u64,
 }
 
 /// A structured domain failure.
@@ -641,6 +702,7 @@ pub enum DomainError {
     TmParametersUnavailable(TmParametersUnavailableProblem),
     DegenerateExpansionTooLarge(DegenerateExpansionTooLargeProblem),
     MalformedFasta(MalformedFastaProblem),
+    UnusableGenBankLocation(UnusableGenBankLocationProblem),
 }
 
 impl ErrorCategory {
@@ -709,6 +771,11 @@ impl DomainError {
             | DomainError::NoPrimerDesignFits(_)
             | DomainError::TmParametersUnavailable(_)
             | DomainError::DegenerateExpansionTooLarge(_) => ErrorCategory::Unsupported,
+            // The one variant whose category comes from its payload: the
+            // rule that refused the location decides, so `PastSequenceEnd`
+            // is `BiologicalValidation` and the rest are `MalformedInput`
+            // or `Unsupported`.
+            DomainError::UnusableGenBankLocation(problem) => problem.rule.category(),
         }
     }
 
@@ -764,6 +831,7 @@ impl DomainError {
             DomainError::TmParametersUnavailable(_) => "tm_parameters_unavailable",
             DomainError::DegenerateExpansionTooLarge(_) => "degenerate_expansion_too_large",
             DomainError::MalformedFasta(_) => "malformed_fasta",
+            DomainError::UnusableGenBankLocation(_) => "unusable_genbank_location",
         }
     }
 
@@ -925,6 +993,34 @@ impl DomainError {
                         format!("FASTA text for '{}' starts a second record on line {}; only one record is read",
                             problem.sequence, line),
                 }
+            }
+            DomainError::UnusableGenBankLocation(problem) => {
+                let reason: String = match problem.rule {
+                    GenBankLocationRule::Syntax =>
+                        "is not a location luria can read".to_string(),
+                    GenBankLocationRule::PositionZero =>
+                        "uses position 0; GenBank positions count from 1".to_string(),
+                    GenBankLocationRule::RangeEndsBeforeStart =>
+                        "has a range that ends before it starts".to_string(),
+                    GenBankLocationRule::PastSequenceEnd =>
+                        format!("reaches past the end of the {}-base sequence",
+                            problem.sequence_length),
+                    GenBankLocationRule::FuzzyEnd =>
+                        "has a fuzzy end (< or >), which marks an incomplete feature".to_string(),
+                    GenBankLocationRule::BetweenBases =>
+                        "names a site between two bases (^), not a range of bases".to_string(),
+                    GenBankLocationRule::Order =>
+                        "uses order(), whose parts have no stated connection".to_string(),
+                    GenBankLocationRule::RemoteReference =>
+                        "refers to another record".to_string(),
+                    GenBankLocationRule::SinglePosition =>
+                        "is a single base, not a range".to_string(),
+                    GenBankLocationRule::OriginJoinOnLinear =>
+                        "joins across the origin, but the sequence is linear".to_string(),
+                    GenBankLocationRule::UnsupportedJoin =>
+                        "is a join luria does not represent: only a join that crosses the origin of a circular sequence is read".to_string(),
+                };
+                format!("GenBank location '{}' {}", problem.location, reason)
             }
         }
     }
@@ -1480,8 +1576,16 @@ mod tests {
                 }),
                 "malformed_fasta",
             ),
+            (
+                DomainError::UnusableGenBankLocation(UnusableGenBankLocationProblem {
+                    location: s(),
+                    rule: GenBankLocationRule::Syntax,
+                    sequence_length: 1,
+                }),
+                "unusable_genbank_location",
+            ),
         ];
-        assert_eq!(cases.len(), 48);
+        assert_eq!(cases.len(), 49);
         let mut seen = std::collections::BTreeSet::new();
         for (error, code) in &cases {
             assert_eq!(error.code(), *code, "{:?}", error);
@@ -1576,6 +1680,35 @@ mod tests {
         let mut seen = std::collections::BTreeSet::new();
         for (rule, code) in cases {
             assert_eq!(rule.code(), code, "{:?}", rule);
+            assert!(seen.insert(code), "duplicate code {}", code);
+        }
+    }
+
+    #[test]
+    fn every_genbank_location_rule_has_its_pinned_code_and_category() {
+        use ErrorCategory::*;
+        use GenBankLocationRule::*;
+        let cases: [(GenBankLocationRule, &str, ErrorCategory); 11] = [
+            (Syntax, "syntax", MalformedInput),
+            (PositionZero, "position_zero", MalformedInput),
+            (
+                RangeEndsBeforeStart,
+                "range_ends_before_start",
+                MalformedInput,
+            ),
+            (PastSequenceEnd, "past_sequence_end", BiologicalValidation),
+            (FuzzyEnd, "fuzzy_end", Unsupported),
+            (BetweenBases, "between_bases", Unsupported),
+            (Order, "order", Unsupported),
+            (RemoteReference, "remote_reference", Unsupported),
+            (SinglePosition, "single_position", Unsupported),
+            (OriginJoinOnLinear, "origin_join_on_linear", Unsupported),
+            (UnsupportedJoin, "unsupported_join", Unsupported),
+        ];
+        let mut seen = std::collections::BTreeSet::new();
+        for (rule, code, category) in cases {
+            assert_eq!(rule.code(), code, "{:?}", rule);
+            assert!(rule.category() == category, "{:?}", rule);
             assert!(seen.insert(code), "duplicate code {}", code);
         }
     }
