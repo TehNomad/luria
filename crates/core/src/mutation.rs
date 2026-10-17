@@ -727,7 +727,9 @@ impl MutationResult {
         self.edited().reference()
     }
 
-    /// Reference coordinates the mutation wrote or removed, ascending.
+    /// Reference coordinates the mutation wrote or removed, in D040's order:
+    /// ascending, except that a codon crossing the origin of a circular reference
+    /// lists the part that ends at the sequence length first.
     ///
     /// An insertion contributes none: it writes and removes no source
     /// coordinate, it puts bases into the gap between two of them.
@@ -933,6 +935,9 @@ impl ResidueMutation {
         self.policy.clone()
     }
 
+    /// The intervals the codon was recorded as, in D040's order: reference
+    /// order, with the part that ends at the sequence length listed first when
+    /// the codon crosses the origin of a circular reference.
     pub fn coordinates(&self) -> OrderedIntervals {
         self.coordinates.clone()
     }
@@ -1167,7 +1172,7 @@ pub fn apply_residue(
         original_codon: original_codon.clone(),
         selected_codon: selected.clone(),
         policy: intent.policy().clone(),
-        coordinates: intervals_for(written.clone(), edited.reference()),
+        coordinates: intervals_for(written.clone(), edited.reference(), edited.length()),
         state: MutationState::Calculated,
     }))
 }
@@ -2121,7 +2126,21 @@ fn reference_of(intervals: &[NucleotideInterval], biological: u64) -> Option<u64
 /// codon is read on the CDS strand, which is descending on a minus strand,
 /// so they are put into ascending order first: the record is a set of
 /// reference coordinates.
-fn intervals_for(positions: Vec<u64>, reference: SequenceReference) -> OrderedIntervals {
+///
+/// D040: the two runs of an origin-crossing codon are then listed the way
+/// D036 writes a feature, in reference order except that the part ending at
+/// the sequence length comes before the part starting at zero — a codon at
+/// bases 22, 23 and 0 of a 24-base sequence is recorded as `[22, 24)` then
+/// `[0, 1)`. The order is the record's, not the strand's reading order, so
+/// a minus-strand codon is listed in reference order as a minus-strand CDS's
+/// intervals are. A codon is three contiguous CDS positions and a CDS
+/// crosses the origin at most once (D036), so that one swap is the only
+/// reordering there is.
+fn intervals_for(
+    positions: Vec<u64>,
+    reference: SequenceReference,
+    length: u64,
+) -> OrderedIntervals {
     let positions: Vec<u64> = ascending(positions.clone());
     let mut out: OrderedIntervals = Vec::new();
     let mut index: usize = 0;
@@ -2137,6 +2156,12 @@ fn intervals_for(positions: Vec<u64>, reference: SequenceReference) -> OrderedIn
             create(&reference, start as i64, (positions[last] + 1) as i64).unwrap();
         out.push(interval);
         index = next;
+    }
+
+    // The two runs of a codon that wraps the origin: the run that ends at the
+    // last coordinate is listed first, whatever the strand was.
+    if out.len() == 2 && out[0].start() == 0 && out[1].end() == length {
+        return vec![out[1].clone(), out[0].clone()];
     }
     out
 }
@@ -3861,6 +3886,113 @@ mod tests {
             Numbering::FromCdsStart,
         )
         .unwrap()
+    }
+
+    /// The same annotation read on the minus strand: the intervals stay in
+    /// reference order, only the strand differs.
+    fn cds_c_minus() -> Cds {
+        let intervals: OrderedIntervals = vec![
+            create(&seq_c().reference(), 22, 24).unwrap(),
+            create(&seq_c().reference(), 0, 7).unwrap(),
+        ];
+        Cds::create(
+            &seq_c(),
+            cds_name(),
+            intervals,
+            Strand::Minus,
+            Completeness::Complete,
+            "standard".to_string(),
+            Numbering::FromCdsStart,
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn a_codon_across_the_origin_is_recorded_in_feature_order() {
+        // D040: the codon at bases 22, 23 and 0 of a 24-base circular sequence
+        // is recorded as `[22, 24)` then `[0, 1)`, the part ending at the
+        // sequence length first, the way D036 lists a wrapping feature — not
+        // as `[0, 1)` then `[22, 24)`, which is only ascending. Reading those
+        // intervals back gives the coordinates 22, 23 and 0. This is fixture
+        // row `res-c-origin-write`: residue 1 (`W`, `TGG`) to `F`, whose
+        // default codon is `TTT`, so coordinates 23 and 0 both change.
+        let intent: ResidueMutationIntent = ResidueMutationIntent::create(
+            residue(1),
+            "W".to_string(),
+            "F".to_string(),
+            CodonSelectionPolicy::Default,
+        )
+        .unwrap();
+        let calculated: MutationResult =
+            apply_residue(&seq_c().clone(), cds_c(), result_name(), intent).unwrap();
+
+        let record: ResidueMutation = residue_record(calculated.clone());
+        // The recorded intervals point at the edited artifact, which is what
+        // `intervals_for` was given, so the expectation is built against the
+        // same reference.
+        let edited: SequenceReference = calculated.edited().reference();
+        assert!(
+            record.coordinates()
+                == vec![
+                    create(&edited, 22, 24).unwrap(),
+                    create(&edited, 0, 1).unwrap(),
+                ],
+            "the part ending at the sequence length is listed first",
+        );
+        assert!(
+            calculated.target_coordinates() == vec![22, 23, 0],
+            "the coordinates follow the recorded intervals, not ascending order",
+        );
+
+        let verified: MutationResult =
+            verify(&seq_c().clone(), Some(cds_c().clone()), calculated.clone()).unwrap();
+        assert!(verified.state() == MutationState::Verified);
+    }
+
+    #[test]
+    fn a_minus_strand_codon_across_the_origin_is_listed_in_reference_order() {
+        // D040: a minus-strand codon is listed in reference order, as a minus
+        // strand CDS's intervals are; the order is not the strand's reading
+        // order. This is the same mut-c annotation [22, 24) + [0, 7) read on
+        // the minus strand, at residue 3.
+        //
+        // Coordinate derivation. Read in reference order the CDS holds mut-c
+        // [22,23] + mut-c [0,7) = "TG" + "GCTTGGA" = TGG CTT GGA, so its
+        // coordinate list, offset by offset, is 22, 23, 0, 1, 2, 3, 4, 5, 6.
+        // The minus strand reads that text back as its reverse complement, TCC
+        // AAG CCA, so residue 3 is the extracted codon at indices 6, 7 and 8.
+        // `codon_positions` turns those into biological offsets 9 - 1 - 6 = 2,
+        // 9 - 1 - 7 = 1 and 9 - 1 - 8 = 0, which name reference coordinates 0,
+        // 23 and 22: that is the 5′→3′ reading order on the minus strand.
+        //
+        // Expected original. The bases at those coordinates are mut-c[0] = G,
+        // mut-c[23] = G and mut-c[22] = T; complemented and read in strand
+        // order they give C C A, so residue 3 is `P` (Proline), the codon the
+        // extracted text holds there. The replacement `L` is written because
+        // none of L's codons (TTA TTG CTT CTA CTG CTC) can be CCA, so the
+        // default policy cannot choose the codon already at the residue.
+        let intent: ResidueMutationIntent = ResidueMutationIntent::create(
+            residue(3),
+            "P".to_string(),
+            "L".to_string(),
+            CodonSelectionPolicy::Default,
+        )
+        .unwrap();
+        let calculated: MutationResult =
+            apply_residue(&seq_c().clone(), cds_c_minus(), result_name(), intent).unwrap();
+
+        assert!(
+            calculated.target_coordinates() == vec![22, 23, 0],
+            "reference order, not the 0, 23, 22 the minus strand reads",
+        );
+
+        let verified: MutationResult = verify(
+            &seq_c().clone(),
+            Some(cds_c_minus().clone()),
+            calculated.clone(),
+        )
+        .unwrap();
+        assert!(verified.state() == MutationState::Verified);
     }
 
     #[test]

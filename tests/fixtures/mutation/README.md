@@ -59,7 +59,9 @@ the Milestone 1 fixture.
 - `expected` is `hash:<hex>`, `error:<VariantName>`, or a `+`-joined record:
   `edited:<text>`, `residues:<LETTERS>[*]`, `codon:<TXT>`, `coords:<n,n,n>`.
   A trailing `*` on `residues` means the CDS still ends with a stop codon.
-  `coords` are the reference coordinates the operation recorded, ascending.
+  `coords` are the reference coordinates the operation recorded, in the recorded
+  intervals' order: ascending, except that a codon crossing the origin lists the
+  part ending at the sequence length first (D040).
 - `category` is filled only for error cases.
 - `verify_with` is `none` (the result is left `Calculated`), `same` (verify
   against the CDS the request used, expecting `Verified`), or
@@ -153,7 +155,7 @@ showing:
   default `CTG` changes only 22 and 23 (coordinate 0 keeps its `G`), giving
   `GCTTGGAACGAACGAACGAACACT`; to `F` the default `TTT` changes 23 and 0,
   giving `TCTTGGAACGAACGAACGAACATT`, so a write on both sides of the origin is
-  still covered. Both record coordinates 0, 22, 23.
+  still covered. Both record coordinates 22, 23, 0.
 
 ### Error cases
 
