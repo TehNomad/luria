@@ -4,6 +4,8 @@
 
 pub mod args;
 pub mod exit;
+pub mod json;
+pub mod request;
 pub mod version;
 
 /// The request schema `luria q5 design` reads (plan §3.4).
