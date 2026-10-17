@@ -334,10 +334,52 @@ pub struct MutationVerificationFailureProblem {
     pub reason: String,
 }
 
+/// Which rule refused a primer or pair. Stable: `code()` is part of the
+/// CLI's output contract (D041), and renaming one needs approval.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum PrimerCandidateRule {
+    SpanOverlapsDeletion,
+    SpanStraddlesInsertionPoint,
+    SpanOverlapsReplacement,
+    TextLengthNotSpanWidth,
+    ForwardSpanDoesNotCoverReplacement,
+    EditTakesNoTail,
+    EmptyTail,
+    RoleDoesNotMatchSlot,
+    PrimersOnDifferentTemplates,
+    PairNotOnEditTemplate,
+    PairNotAbuttingEdit,
+    MinimumOverlapBelowOne,
+    TailsDoNotRebuild,
+}
+
+impl PrimerCandidateRule {
+    /// The rule's stable code: its name in snake_case.
+    pub fn code(self) -> &'static str {
+        use PrimerCandidateRule::*;
+        match self {
+            SpanOverlapsDeletion => "span_overlaps_deletion",
+            SpanStraddlesInsertionPoint => "span_straddles_insertion_point",
+            SpanOverlapsReplacement => "span_overlaps_replacement",
+            TextLengthNotSpanWidth => "text_length_not_span_width",
+            ForwardSpanDoesNotCoverReplacement => "forward_span_does_not_cover_replacement",
+            EditTakesNoTail => "edit_takes_no_tail",
+            EmptyTail => "empty_tail",
+            RoleDoesNotMatchSlot => "role_does_not_match_slot",
+            PrimersOnDifferentTemplates => "primers_on_different_templates",
+            PairNotOnEditTemplate => "pair_not_on_edit_template",
+            PairNotAbuttingEdit => "pair_not_abutting_edit",
+            MinimumOverlapBelowOne => "minimum_overlap_below_one",
+            TailsDoNotRebuild => "tails_do_not_rebuild",
+        }
+    }
+}
+
 /// Payload: a proposed primer cannot become a primer record at all.
 #[derive(Clone, Debug, PartialEq)]
 pub struct InvalidPrimerCandidateProblem {
     pub primer: String,
+    pub rule: PrimerCandidateRule,
     pub reason: String,
 }
 
@@ -1267,6 +1309,7 @@ mod tests {
             (
                 DomainError::InvalidPrimerCandidate(InvalidPrimerCandidateProblem {
                     primer: s(),
+                    rule: PrimerCandidateRule::EmptyTail,
                     reason: s(),
                 }),
                 "invalid_primer_candidate",
@@ -1419,6 +1462,42 @@ mod tests {
             (BaseNotDnaLetter, "base_not_dna_letter"),
             (EmptyVariantSet, "empty_variant_set"),
             (DuplicateVariantName, "duplicate_variant_name"),
+        ];
+        let mut seen = std::collections::BTreeSet::new();
+        for (rule, code) in cases {
+            assert_eq!(rule.code(), code, "{:?}", rule);
+            assert!(seen.insert(code), "duplicate code {}", code);
+        }
+    }
+
+    // The rule codes are the CLI's output contract (D041). This pins every
+    // one, and checks that no two rules share a code.
+    #[test]
+    fn every_primer_candidate_rule_has_its_pinned_code() {
+        use PrimerCandidateRule::*;
+        let cases: [(PrimerCandidateRule, &str); 13] = [
+            (SpanOverlapsDeletion, "span_overlaps_deletion"),
+            (
+                SpanStraddlesInsertionPoint,
+                "span_straddles_insertion_point",
+            ),
+            (SpanOverlapsReplacement, "span_overlaps_replacement"),
+            (TextLengthNotSpanWidth, "text_length_not_span_width"),
+            (
+                ForwardSpanDoesNotCoverReplacement,
+                "forward_span_does_not_cover_replacement",
+            ),
+            (EditTakesNoTail, "edit_takes_no_tail"),
+            (EmptyTail, "empty_tail"),
+            (RoleDoesNotMatchSlot, "role_does_not_match_slot"),
+            (
+                PrimersOnDifferentTemplates,
+                "primers_on_different_templates",
+            ),
+            (PairNotOnEditTemplate, "pair_not_on_edit_template"),
+            (PairNotAbuttingEdit, "pair_not_abutting_edit"),
+            (MinimumOverlapBelowOne, "minimum_overlap_below_one"),
+            (TailsDoNotRebuild, "tails_do_not_rebuild"),
         ];
         let mut seen = std::collections::BTreeSet::new();
         for (rule, code) in cases {

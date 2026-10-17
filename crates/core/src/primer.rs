@@ -70,6 +70,7 @@ use crate::error::InvalidPrimerCandidateProblem;
 use crate::error::InvalidSequenceCharactersProblem;
 use crate::error::MutationVerificationFailureProblem;
 use crate::error::PrimerAnnealingNotTemplateProblem;
+use crate::error::PrimerCandidateRule;
 use crate::error::PrimerOrientationConflictProblem;
 use crate::error::PrimerPairCoverageProblem;
 use crate::error::PrimerPartitionProblem;
@@ -633,6 +634,7 @@ pub fn construct_primer(
     if deletion && span.clone().start() < removed.1 && span.clone().end() > removed.0 {
         let problem = InvalidPrimerCandidateProblem {
             primer: label,
+            rule: PrimerCandidateRule::SpanOverlapsDeletion,
             reason: join(vec![
                 "the span ".to_string(),
                 describe(span.clone()),
@@ -655,6 +657,7 @@ pub fn construct_primer(
         if span.clone().start() < point && point < span.clone().end() {
             let problem = InvalidPrimerCandidateProblem {
                 primer: label,
+                rule: PrimerCandidateRule::SpanStraddlesInsertionPoint,
                 reason: join(vec![
                     "the span ".to_string(),
                     describe(span.clone()),
@@ -678,6 +681,7 @@ pub fn construct_primer(
         if span.clone().start() < region.1 && span.clone().end() > region.0 {
             let problem = InvalidPrimerCandidateProblem {
                 primer: label,
+                rule: PrimerCandidateRule::SpanOverlapsReplacement,
                 reason: join(vec![
                     "the span ".to_string(),
                     describe(span.clone()),
@@ -725,6 +729,7 @@ pub fn construct_primer(
     if text_width < 0 || total as u64 != text_width as u64 {
         let problem = InvalidPrimerCandidateProblem {
             primer: label,
+            rule: PrimerCandidateRule::TextLengthNotSpanWidth,
             reason: join(vec![
                 "the text is ".to_string(),
                 number(total as u64),
@@ -827,6 +832,7 @@ pub fn construct_primer(
         {
             let problem = InvalidPrimerCandidateProblem {
                 primer: label,
+                rule: PrimerCandidateRule::ForwardSpanDoesNotCoverReplacement,
                 reason: join(vec![
                     "a forward primer of a replacement reads the edited artifact over ".to_string(),
                     describe(span.clone()),
@@ -1041,6 +1047,7 @@ pub fn construct_tailed_primer(
     if !result.clone().is_insertion() && !result.clone().is_replacement() {
         let problem = InvalidPrimerCandidateProblem {
             primer: label,
+            rule: PrimerCandidateRule::EditTakesNoTail,
             reason: join(vec![
                 "a 5′ tail carries inserted bases into a gap, and the edit ".to_string(),
                 result.describe(),
@@ -1064,6 +1071,7 @@ pub fn construct_tailed_primer(
         if span.start() < region.1 && span.end() > region.0 {
             let problem = InvalidPrimerCandidateProblem {
                 primer: label,
+                rule: PrimerCandidateRule::SpanOverlapsReplacement,
                 reason: join(vec![
                     "the replacement is [".to_string(),
                     number(region.0),
@@ -1085,6 +1093,7 @@ pub fn construct_tailed_primer(
         if span.start() < point && span.end() > point {
             let problem = InvalidPrimerCandidateProblem {
                 primer: label,
+                rule: PrimerCandidateRule::SpanStraddlesInsertionPoint,
                 reason: join(vec![
                     "the insertion point is at ".to_string(),
                     number(point),
@@ -1104,6 +1113,7 @@ pub fn construct_tailed_primer(
     if tail.is_empty() {
         let problem = InvalidPrimerCandidateProblem {
             primer: label,
+            rule: PrimerCandidateRule::EmptyTail,
             reason: join(vec![
                 "there is no tail to place: a primer without a 5′ tail is built by ".to_string(),
                 "construct_primer, which is not defaulted here".to_string(),
@@ -1142,6 +1152,7 @@ pub fn construct_tailed_primer(
     if annealing_letters.len() as u64 != width {
         let problem = InvalidPrimerCandidateProblem {
             primer: label,
+            rule: PrimerCandidateRule::TextLengthNotSpanWidth,
             reason: join(vec![
                 "the text is ".to_string(),
                 number(annealing_letters.len() as u64),
@@ -1269,6 +1280,7 @@ pub fn assemble_pair(
     if !forward.clone().role().is_forward() {
         let problem = InvalidPrimerCandidateProblem {
             primer: forward.clone().sequence(),
+            rule: PrimerCandidateRule::RoleDoesNotMatchSlot,
             reason: "the forward slot needs a primer whose role is forward".to_string(),
         };
         return Err(DomainError::InvalidPrimerCandidate(problem));
@@ -1276,6 +1288,7 @@ pub fn assemble_pair(
     if !reverse.clone().role().is_reverse() {
         let problem = InvalidPrimerCandidateProblem {
             primer: reverse.clone().sequence(),
+            rule: PrimerCandidateRule::RoleDoesNotMatchSlot,
             reason: "the reverse slot needs a primer whose role is reverse".to_string(),
         };
         return Err(DomainError::InvalidPrimerCandidate(problem));
@@ -1284,6 +1297,7 @@ pub fn assemble_pair(
     if forward.clone().built_against() != reverse.clone().built_against() {
         let problem = InvalidPrimerCandidateProblem {
             primer: "pair".to_string(),
+            rule: PrimerCandidateRule::PrimersOnDifferentTemplates,
             reason: join(vec![
                 "the two primers were built against different templates: ".to_string(),
                 forward.built_against().describe(),
@@ -1296,6 +1310,7 @@ pub fn assemble_pair(
     if forward.clone().built_against() != result.clone().source() {
         let problem = InvalidPrimerCandidateProblem {
             primer: "pair".to_string(),
+            rule: PrimerCandidateRule::PairNotOnEditTemplate,
             reason: join(vec![
                 "the pair was built against ".to_string(),
                 forward.built_against().describe(),
@@ -1347,6 +1362,7 @@ pub fn assemble_pair(
         if reverse_end != removed.0 || forward_start != removed.1 {
             let problem = InvalidPrimerCandidateProblem {
                 primer: "pair".to_string(),
+                rule: PrimerCandidateRule::PairNotAbuttingEdit,
                 reason: join(vec![
                     "the deletion is [".to_string(),
                     number(removed.0),
@@ -1381,6 +1397,7 @@ pub fn assemble_pair(
         if forward_start != point || reverse_end != point {
             let problem = InvalidPrimerCandidateProblem {
                 primer: "pair".to_string(),
+                rule: PrimerCandidateRule::PairNotAbuttingEdit,
                 reason: join(vec![
                     "the insertion is at point ".to_string(),
                     number(point),
@@ -1423,6 +1440,7 @@ pub fn assemble_pair(
         if reverse_end != region.0 || forward_start != region.1 {
             let problem = InvalidPrimerCandidateProblem {
                 primer: "pair".to_string(),
+                rule: PrimerCandidateRule::PairNotAbuttingEdit,
                 reason: join(vec![
                     "the replacement is [".to_string(),
                     number(region.0),
@@ -1496,6 +1514,7 @@ pub fn require_design_constraints(
     if min_annealing_overlap < 1 {
         let problem = InvalidPrimerCandidateProblem {
             primer: "minAnnealingOverlap".to_string(),
+            rule: PrimerCandidateRule::MinimumOverlapBelowOne,
             reason: "§2.2 types it as an integer of at least 1; 0 is not a bound".to_string(),
         };
         return Err(DomainError::InvalidPrimerCandidate(problem));
@@ -1857,6 +1876,7 @@ fn require_tails_rebuild(
     }
     let problem = InvalidPrimerCandidateProblem {
         primer: "pair".to_string(),
+        rule: PrimerCandidateRule::TailsDoNotRebuild,
         reason: join(vec![
             "the reverse primer's tail reads ".to_string(),
             reverse_tail,
@@ -2333,6 +2353,13 @@ mod tests {
         assemble_pair(forward.clone(), reverse.clone(), edit().clone()).unwrap()
     }
 
+    fn primer_candidate_rule(error: DomainError) -> PrimerCandidateRule {
+        match error {
+            DomainError::InvalidPrimerCandidate(problem) => problem.rule,
+            other => panic!("expected InvalidPrimerCandidate, got {:?}", other),
+        }
+    }
+
     #[test]
     fn an_inline_forward_primer_reports_every_derived_quantity() {
         let primer: Primer = forward_primer(0, 20, "ATGGCTTGGATGCAGCAGCA".to_string());
@@ -2438,6 +2465,119 @@ mod tests {
             assemble_pair(first.clone(), second.clone(), edit().clone()).unwrap_err();
         assert!(matches!(error, DomainError::InvalidPrimerCandidate(_)));
         assert!(error.category() == ErrorCategory::MalformedInput);
+        assert_eq!(
+            primer_candidate_rule(error.clone()),
+            PrimerCandidateRule::RoleDoesNotMatchSlot
+        );
+    }
+
+    // 5a3: the two checks `assemble_pair` makes before any coordinate is read.
+    // One compares the templates the two primers were built against, and the
+    // one after it compares that template with the edit's source. Both
+    // scenarios below put the same nucleotide substitution at [15, 16) of seq-b
+    // -- seq-b's literal text is ATGGCTTGGAATCAGCAGCAGCAGCAGCAGCAG, so letters
+    // 12, 13, 14 are C A G and letter 15 is the C of the run after it -- and
+    // write a T there, the letter seq-b has at 15.
+    #[test]
+    fn primers_built_against_different_templates_are_refused() {
+        // The edit seq-b is built against: its letter 15, a C, becomes a T.
+        let on_seq_b: MutationResult = apply_nucleotide(
+            &seq_b().clone(),
+            None,
+            result_name(),
+            NucleotideMutationIntent::create(
+                seq_b().reference(),
+                create(&seq_b().reference(), 15, 16).unwrap(),
+                "C".to_string(),
+                "T".to_string(),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        // The reverse primer names seq-b, so its template is seq-b's. Its span
+        // [12, 30) covers the substitution at 15 and holds six CAG runs of
+        // seq-b's literal text, CAGCAGCAGCAGCAGCAG, in which the C at 15 has
+        // been written as a T: the edited artifact reads CAGTAGCAGCAGCAGCAG
+        // there. A reverse primer states that region 5'->3', so its letters are
+        // that run's reverse complement, read from its far end and pairing
+        // A<->T and G<->C: CTGCTGCTGCTGCTACTG.
+        let reverse: Primer = construct_primer(
+            &seq_b().clone(),
+            on_seq_b.clone(),
+            PrimerRole::Reverse,
+            PrimerPlacement::Inline,
+            "CTGCTGCTGCTGCTACTG".to_string(),
+            create(&seq_b().reference(), 12, 30).unwrap(),
+        )
+        .unwrap();
+        // The forward primer is seq-a's, exactly as in h1_rejects_a_bound_of_zero
+        // and an_abutting_pair_reports_where_its_five_prime_ends_meet: seq-a's
+        // template [12, 30) is the same six CAG runs, and edit() writes at 9,
+        // 10 and 11, so the edited artifact reads the run unchanged from 12 on
+        // and the primer's letters are CAGCAGCAGCAGCAGCAG.
+        let forward: Primer = forward_primer(12, 30, "CAGCAGCAGCAGCAGCAG".to_string());
+        let error: DomainError =
+            assemble_pair(forward.clone(), reverse.clone(), edit().clone()).unwrap_err();
+        assert!(matches!(error, DomainError::InvalidPrimerCandidate(_)));
+        assert!(error.category() == ErrorCategory::MalformedInput);
+        assert_eq!(
+            primer_candidate_rule(error.clone()),
+            PrimerCandidateRule::PrimersOnDifferentTemplates
+        );
+    }
+
+    // 5a3: the check after it. Both primers were built against seq-b, so the
+    // two primers agree on a template and the pair's template is compared with
+    // the source the edit was applied to, which here is seq-a.
+    #[test]
+    fn a_pair_built_against_another_template_than_the_edit_is_refused() {
+        // The same seq-b substitution as the test above: [15, 16), C -> T.
+        let on_seq_b: MutationResult = apply_nucleotide(
+            &seq_b().clone(),
+            None,
+            result_name(),
+            NucleotideMutationIntent::create(
+                seq_b().reference(),
+                create(&seq_b().reference(), 15, 16).unwrap(),
+                "C".to_string(),
+                "T".to_string(),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        // The forward primer's span [12, 19) carries the substitution at 15, so
+        // its text is the edited artifact there: seq-b's letters 12 to 18 are
+        // C A G C A G C, and the C at 15 is written as a T, giving CAGTAGC.
+        let forward: Primer = construct_primer(
+            &seq_b().clone(),
+            on_seq_b.clone(),
+            PrimerRole::Forward,
+            PrimerPlacement::Inline,
+            "CAGTAGC".to_string(),
+            create(&seq_b().reference(), 12, 19).unwrap(),
+        )
+        .unwrap();
+        // The reverse primer's span [2, 12) lies below the substitution, so it
+        // states seq-b's template letters 2-11, G G C T T G G A A T, 5'->3':
+        // reading them from the far end and pairing A<->T and G<->C gives
+        // ATTCCAAGCC.
+        let reverse: Primer = construct_primer(
+            &seq_b().clone(),
+            on_seq_b.clone(),
+            PrimerRole::Reverse,
+            PrimerPlacement::Inline,
+            "ATTCCAAGCC".to_string(),
+            create(&seq_b().reference(), 2, 12).unwrap(),
+        )
+        .unwrap();
+        let error: DomainError =
+            assemble_pair(forward.clone(), reverse.clone(), edit().clone()).unwrap_err();
+        assert!(matches!(error, DomainError::InvalidPrimerCandidate(_)));
+        assert!(error.category() == ErrorCategory::MalformedInput);
+        assert_eq!(
+            primer_candidate_rule(error.clone()),
+            PrimerCandidateRule::PairNotOnEditTemplate
+        );
     }
 
     #[test]
@@ -2469,6 +2609,10 @@ mod tests {
         let error: DomainError = require_design_constraints(pair.clone(), 0).unwrap_err();
         assert!(matches!(error, DomainError::InvalidPrimerCandidate(_)));
         assert!(error.category() == ErrorCategory::MalformedInput);
+        assert_eq!(
+            primer_candidate_rule(error.clone()),
+            PrimerCandidateRule::MinimumOverlapBelowOne
+        );
     }
 
     #[test]
@@ -2748,11 +2892,14 @@ mod tests {
         .unwrap_err();
         assert!(matches!(error, DomainError::InvalidPrimerCandidate(_)));
         assert!(error.category() == ErrorCategory::MalformedInput);
+        assert_eq!(
+            primer_candidate_rule(error.clone()),
+            PrimerCandidateRule::SpanOverlapsDeletion
+        );
         let reason: String = match error {
             DomainError::InvalidPrimerCandidate(problem) => problem.reason.clone(),
             _ => "".to_string(),
         };
-        assert!(reason.contains("deleted"));
         assert!(reason.contains("the deleted region [9, 12)"));
     }
 
@@ -2806,6 +2953,10 @@ mod tests {
             assemble_pair(forward.clone(), reverse.clone(), deletion().clone()).unwrap_err();
         assert!(matches!(error, DomainError::InvalidPrimerCandidate(_)));
         assert!(error.category() == ErrorCategory::MalformedInput);
+        assert_eq!(
+            primer_candidate_rule(error.clone()),
+            PrimerCandidateRule::PairNotAbuttingEdit
+        );
         let reason: String = match error {
             DomainError::InvalidPrimerCandidate(problem) => problem.reason.clone(),
             _ => "".to_string(),
@@ -2823,6 +2974,10 @@ mod tests {
             assemble_pair(forward.clone(), reverse.clone(), deletion().clone()).unwrap_err();
         assert!(matches!(error, DomainError::InvalidPrimerCandidate(_)));
         assert!(error.category() == ErrorCategory::MalformedInput);
+        assert_eq!(
+            primer_candidate_rule(error.clone()),
+            PrimerCandidateRule::PairNotAbuttingEdit
+        );
         let reason: String = match error {
             DomainError::InvalidPrimerCandidate(problem) => problem.reason.clone(),
             _ => "".to_string(),
@@ -2931,11 +3086,10 @@ mod tests {
         let error: DomainError = built.unwrap_err();
         assert!(matches!(error, DomainError::InvalidPrimerCandidate(_)));
         assert!(error.category() == ErrorCategory::MalformedInput);
-        let reason: String = match error {
-            DomainError::InvalidPrimerCandidate(problem) => problem.reason.clone(),
-            _ => "".to_string(),
-        };
-        assert!(reason.contains("insertion point"));
+        assert_eq!(
+            primer_candidate_rule(error.clone()),
+            PrimerCandidateRule::SpanStraddlesInsertionPoint
+        );
     }
 
     #[test]
@@ -2972,6 +3126,42 @@ mod tests {
             tailed_forward(result.clone(), "GGG", "CAGCAGCAG", 12, 22).unwrap_err();
         assert!(matches!(error, DomainError::InvalidPrimerCandidate(_)));
         assert!(error.category() == ErrorCategory::MalformedInput);
+        assert_eq!(
+            primer_candidate_rule(error.clone()),
+            PrimerCandidateRule::TextLengthNotSpanWidth
+        );
+    }
+
+    // 5a3: an untailed primer whose text is not its span's width. The text
+    // is 9 letters and [0, 20) selects 20.
+    #[test]
+    fn an_untailed_primer_whose_text_is_not_its_span_width_is_refused() {
+        let error: DomainError = construct_primer(
+            &seq_a().clone(),
+            edit().clone(),
+            PrimerRole::Forward,
+            PrimerPlacement::Inline,
+            "ATGGCTTGG".to_string(),
+            at(0, 20),
+        )
+        .unwrap_err();
+        assert!(error.category() == ErrorCategory::MalformedInput);
+        assert_eq!(
+            primer_candidate_rule(error),
+            PrimerCandidateRule::TextLengthNotSpanWidth
+        );
+    }
+
+    // 5a3: a tailed primer with nothing in its tail. The insertion and the
+    // annealing portion are the ones the accepted tailed tests use, so only
+    // the empty tail is wrong.
+    #[test]
+    fn a_tailed_primer_with_an_empty_tail_is_refused() {
+        let result: MutationResult = insertion(12, "T", "C", "GGG");
+        let error: DomainError =
+            tailed_forward(result.clone(), "", "CAGCAGCAGC", 12, 22).unwrap_err();
+        assert!(error.category() == ErrorCategory::MalformedInput);
+        assert_eq!(primer_candidate_rule(error), PrimerCandidateRule::EmptyTail);
     }
 
     #[test]
@@ -2979,11 +3169,10 @@ mod tests {
         let error: DomainError = tailed_forward(edit(), "GGG", "CAGCAGCAGC", 12, 22).unwrap_err();
         assert!(matches!(error, DomainError::InvalidPrimerCandidate(_)));
         assert!(error.category() == ErrorCategory::MalformedInput);
-        let reason: String = match error {
-            DomainError::InvalidPrimerCandidate(problem) => problem.reason.clone(),
-            _ => "".to_string(),
-        };
-        assert!(reason.contains("5′ tail"));
+        assert_eq!(
+            primer_candidate_rule(error.clone()),
+            PrimerCandidateRule::EditTakesNoTail
+        );
     }
 
     #[test]
@@ -3032,6 +3221,10 @@ mod tests {
             assemble_pair(forward.clone(), reverse.clone(), result.clone()).unwrap_err();
         assert!(matches!(error, DomainError::InvalidPrimerCandidate(_)));
         assert!(error.category() == ErrorCategory::MalformedInput);
+        assert_eq!(
+            primer_candidate_rule(error.clone()),
+            PrimerCandidateRule::TailsDoNotRebuild
+        );
         let reason: String = match error {
             DomainError::InvalidPrimerCandidate(problem) => problem.reason.clone(),
             _ => "".to_string(),
@@ -3051,6 +3244,10 @@ mod tests {
             assemble_pair(forward.clone(), reverse.clone(), result.clone()).unwrap_err();
         assert!(matches!(error, DomainError::InvalidPrimerCandidate(_)));
         assert!(error.category() == ErrorCategory::MalformedInput);
+        assert_eq!(
+            primer_candidate_rule(error.clone()),
+            PrimerCandidateRule::PairNotAbuttingEdit
+        );
     }
 
     // The forward primer is 13 nucleotides but anneals only 10, so a bound of
@@ -3162,11 +3359,14 @@ mod tests {
             replacement_reverse_primer(0, 10, "TCCAAGCCAT".to_string()).unwrap_err();
         assert!(matches!(error, DomainError::InvalidPrimerCandidate(_)));
         assert!(error.category() == ErrorCategory::MalformedInput);
+        assert_eq!(
+            primer_candidate_rule(error.clone()),
+            PrimerCandidateRule::SpanOverlapsReplacement
+        );
         let reason: String = match error {
             DomainError::InvalidPrimerCandidate(problem) => problem.reason.clone(),
             _ => "".to_string(),
         };
-        assert!(reason.contains("replaced"));
         assert!(reason.contains("the replaced region [9, 12)"));
     }
 
@@ -3209,6 +3409,10 @@ mod tests {
             assemble_pair(forward.clone(), reverse.clone(), result.clone()).unwrap_err();
         assert!(matches!(error, DomainError::InvalidPrimerCandidate(_)));
         assert!(error.category() == ErrorCategory::MalformedInput);
+        assert_eq!(
+            primer_candidate_rule(error.clone()),
+            PrimerCandidateRule::TailsDoNotRebuild
+        );
         let reason: String = match error {
             DomainError::InvalidPrimerCandidate(problem) => problem.reason.clone(),
             _ => "".to_string(),
@@ -3227,6 +3431,10 @@ mod tests {
             assemble_pair(forward.clone(), reverse.clone(), result.clone()).unwrap_err();
         assert!(matches!(error, DomainError::InvalidPrimerCandidate(_)));
         assert!(error.category() == ErrorCategory::MalformedInput);
+        assert_eq!(
+            primer_candidate_rule(error.clone()),
+            PrimerCandidateRule::PairNotAbuttingEdit
+        );
         let reason: String = match error {
             DomainError::InvalidPrimerCandidate(problem) => problem.reason.clone(),
             _ => "".to_string(),
@@ -3246,11 +3454,10 @@ mod tests {
             replacement_forward_primer(10, 20, "GCAGCAGCA".to_string()).unwrap_err();
         assert!(matches!(error, DomainError::InvalidPrimerCandidate(_)));
         assert!(error.category() == ErrorCategory::MalformedInput);
-        let reason: String = match error {
-            DomainError::InvalidPrimerCandidate(problem) => problem.reason.clone(),
-            _ => "".to_string(),
-        };
-        assert!(reason.contains("covers the replaced region"));
+        assert_eq!(
+            primer_candidate_rule(error.clone()),
+            PrimerCandidateRule::ForwardSpanDoesNotCoverReplacement
+        );
     }
 
     // Review B1: a tailed primer's annealing portion sits beside the edit, in a
@@ -3265,11 +3472,14 @@ mod tests {
             tailed_forward(result.clone(), "GGG", "GAATCAGCAG", 8, 18).unwrap_err();
         assert!(matches!(error, DomainError::InvalidPrimerCandidate(_)));
         assert!(error.category() == ErrorCategory::MalformedInput);
+        assert_eq!(
+            primer_candidate_rule(error.clone()),
+            PrimerCandidateRule::SpanOverlapsReplacement
+        );
         let reason: String = match error {
             DomainError::InvalidPrimerCandidate(problem) => problem.reason.clone(),
             _ => "".to_string(),
         };
-        assert!(reason.contains("replaced region"));
         assert!(reason.contains("the replacement is [9, 12)"));
     }
 
@@ -3283,11 +3493,10 @@ mod tests {
             tailed_forward(result.clone(), "GGG", "GAATCAGCAG", 8, 18).unwrap_err();
         assert!(matches!(error, DomainError::InvalidPrimerCandidate(_)));
         assert!(error.category() == ErrorCategory::MalformedInput);
-        let reason: String = match error {
-            DomainError::InvalidPrimerCandidate(problem) => problem.reason.clone(),
-            _ => "".to_string(),
-        };
-        assert!(reason.contains("straddle"));
+        assert_eq!(
+            primer_candidate_rule(error.clone()),
+            PrimerCandidateRule::SpanStraddlesInsertionPoint
+        );
     }
 
     // D033's tail branch is what decides such a pair, not where the forward span
@@ -3305,6 +3514,10 @@ mod tests {
             assemble_pair(forward.clone(), reverse.clone(), result.clone()).unwrap_err();
         assert!(matches!(error, DomainError::InvalidPrimerCandidate(_)));
         assert!(error.category() == ErrorCategory::MalformedInput);
+        assert_eq!(
+            primer_candidate_rule(error.clone()),
+            PrimerCandidateRule::PairNotAbuttingEdit
+        );
     }
 
     // On the tail path the reverse primer may have no tail at all: a
