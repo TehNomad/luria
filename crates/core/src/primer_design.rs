@@ -1328,10 +1328,16 @@ mod tests {
     use crate::tm::TmBasis;
 
     // Every expected span, length, Tm and failure below was produced by
-    // `tests/fixtures/q5-primer/reference/native-design.py`, which restates
-    // D030 in plain Python and computes Tm with Biopython; it shares no code
-    // with this crate. Tms are compared to the two decimals that script
-    // prints.
+    // `tests/fixtures/q5-primer/reference/unit-expectations.py`, which prints
+    // what `tests/fixtures/q5-primer/reference/native-design.py` designs for
+    // the templates these tests build; that script restates D030 in plain
+    // Python, computes Tm with Biopython and shares no code with this crate,
+    // and its `--synthetic` mode does not cover `TEMPLATE`. Run it from the
+    // repository root:
+    //
+    //   python -I tests/fixtures/q5-primer/reference/unit-expectations.py
+    //
+    // Tms are compared to the two decimals that script prints.
     //
     //   0         1         2         3         4         5
     //   0123456789012345678901234567890123456789012345678901234567890
@@ -2095,10 +2101,11 @@ mod tests {
     // whole-tail case is. The annealing portions are the starting 15 and 17, so
     // the spans are `[57, 72)` and `[33, 50)`.
     //
-    // Every figure below is `reference/native-replacement.py`'s `design()` run by
-    // the planner on 2026-10-15 (Biopython 1.88), not luria's output: the same
-    // geometry as fixture row rep-05, whose forward whole Tm differs only because
-    // that row's forward tail is 4 bases rather than this one base.
+    // Every figure below is `reference/native-replacement.py`'s `design()` as
+    // printed by `reference/unit-expectations.py` (Biopython 1.88), not luria's
+    // output: the case `pd repl50:57 T b15`, the same geometry as fixture row
+    // rep-05, whose forward whole Tm differs only because that row's forward
+    // tail is 4 bases rather than this one base.
     #[test]
     fn a_one_base_replacement_on_the_tail_path_has_no_reverse_tail() {
         let sequence: Sequence = linear(&balanced());
@@ -2133,8 +2140,8 @@ mod tests {
     // would report 71.71 on that basis rather than the 80.68 below. The basis
     // name and the absence of a `substituted_because` note are asserted
     // alongside the number. Every figure below is
-    // `reference/native-replacement.py`'s `design()` run by the planner on
-    // 2026-10-15 (Biopython 1.88), not luria's output.
+    // `reference/native-replacement.py`'s `design()` as printed by
+    // `reference/unit-expectations.py` (Biopython 1.88), not luria's output.
     #[test]
     fn an_unequal_inline_replacement_is_sized_on_the_matched_basis() {
         let sequence: Sequence =

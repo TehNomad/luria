@@ -34,11 +34,47 @@ Two kinds of case appear, and they are marked differently:
 | `reference/native-insertion.py` | The script that generates `native-insertion.tsv`. Same independence as the deletion script. |
 | `native-replacement.tsv` | 15 expected `luriaNative` replacement outcomes (D033): 11 designs and 4 failures. Generated, not transcribed. |
 | `reference/native-replacement.py` | The script that generates `native-replacement.tsv`. Same independence as the other two. |
+| `reference/unit-expectations.py` | Prints the expectations the unit tests in `crates/core/src/primer_design.rs` and `crates/core/src/q5_design.rs` hard-code for the templates they build there, which `native-design.py`'s `--synthetic` mode does not cover. Loads `native-design.py` and `native-replacement.py` from its own directory; writes nothing. |
 
 No sequence file is duplicated here. `sequence_file` is a path relative to
 this directory (`tests/fixtures/q5-primer/`), e.g.
 `../example-construct/input/sid-1_cDNA.fa`, so the biological input is the artifact another fixture
 already validated.
+
+## Rerunning the generators
+
+Every generator in `reference/` has a `--check` mode (D039): it builds its
+output text exactly as it does today, compares it byte for byte with the
+tracked file, prints `OK <name>` or `DIFFERS <name>` followed by the first
+differing line, exits 1 on a difference, and writes nothing. Without `--check`
+it rewrites its tracked file. Run them from the repository root with `python -I`;
+the four `native-*.py` scripts need **Biopython 1.88**, pinned in
+`tests/fixtures/requirements.txt`, and `neb-q5-sdm-reference.py` needs none, as
+it inlines the reference Tm model.
+
+```
+python -I tests/fixtures/q5-primer/reference/native-design.py                 # rewrite ../native.tsv
+python -I tests/fixtures/q5-primer/reference/native-design.py --check         # compare, write nothing
+python -I tests/fixtures/q5-primer/reference/native-deletion.py               # rewrite ../native-deletion.tsv
+python -I tests/fixtures/q5-primer/reference/native-deletion.py --check       # compare, write nothing
+python -I tests/fixtures/q5-primer/reference/native-insertion.py              # rewrite ../native-insertion.tsv
+python -I tests/fixtures/q5-primer/reference/native-insertion.py --check      # compare, write nothing
+python -I tests/fixtures/q5-primer/reference/native-replacement.py            # rewrite ../native-replacement.tsv
+python -I tests/fixtures/q5-primer/reference/native-replacement.py --check    # compare, write nothing
+python -I tests/fixtures/q5-primer/reference/neb-q5-sdm-reference.py          # rewrite reference/designs.json
+python -I tests/fixtures/q5-primer/reference/neb-q5-sdm-reference.py --check  # compare, write nothing
+python -I tests/fixtures/q5-primer/reference/unit-expectations.py             # print unit-test expectations, write nothing
+```
+
+`native-design.py`'s `--synthetic` mode is unchanged: it prints expectations for
+the synthetic templates in its `SYNTHETIC`, the ones `primer_design.rs`'s
+branch tests build. `unit-expectations.py` prints, and writes nothing, so it has
+no `--check`: it covers the other templates those two Rust modules build inside
+their tests — `primer_design.rs`'s 60-base `TEMPLATE` and `q5_design.rs`'s 90-base
+template, and the two `native-replacement.py` designs near `primer_design.rs`'s
+tail-path test — and it names each case, so a test comment can point at the case
+that produced its figures. None of this is part of the required cargo checks
+(D039, D026).
 
 ## Column meanings
 

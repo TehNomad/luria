@@ -9,8 +9,14 @@ code with crates/core; crates/core/tests/q5_primer_fixtures.rs reads native.tsv.
 Requires Biopython 1.88 (`Bio.SeqUtils.MeltingTemp`). Run from this directory:
 
     python3 native-design.py              rewrite ../native.tsv
+    python3 native-design.py --check      compare, write nothing
     python3 native-design.py --synthetic  print unit-test expectations for the
                                           synthetic templates in SYNTHETIC
+
+With --check the TSV text is built exactly as above, compared byte for byte
+with the tracked file, and `OK native.tsv` or `DIFFERS native.tsv` followed by
+the first differing line is printed; a difference exits 1 and nothing is
+written (D039).
 
 Prints no sequence from a fixture file. The --synthetic mode prints only the
 synthetic templates defined in this file.
@@ -234,6 +240,47 @@ def reference_forward_span(key):
     return f"{rec['forward']['span'][0]}:{rec['forward']['span'][1]}"
 
 
+def emit(path, text):
+    """Write `text` to `path`, or with --check compare it and write nothing (D039).
+
+    Without --check the tracked file is rewritten as before. With --check the
+    text is compared byte for byte with that file, `OK <name>` or `DIFFERS <name>`
+    followed by the first differing line is printed, a difference exits 1, and
+    nothing is written. The three indel scripts reuse this helper; the reference
+    tool's transcription has its own.
+    """
+    if "--check" not in sys.argv[1:]:
+        with open(path, "w") as f:
+            f.write(text)
+        print("wrote", os.path.abspath(path))
+        return
+    try:
+        with open(path, "rb") as f:
+            tracked = f.read()
+    except FileNotFoundError:
+        tracked = None
+    name = os.path.basename(path)
+    if tracked == text.encode():
+        print(f"OK {name}")
+        return
+    print(f"DIFFERS {name}")
+    old = tracked.decode().splitlines(True) if tracked is not None else []
+    new = text.splitlines(True)
+    for i in range(min(len(old), len(new))):
+        if old[i] != new[i]:
+            print(f"  line {i + 1}: tracked {old[i]!r} != generated {new[i]!r}")
+            break
+    else:
+        i = min(len(old), len(new))
+        if len(old) == len(new):
+            print("  line-level comparison found no difference")
+        else:
+            where = "tracked" if len(old) > len(new) else "generated"
+            extra = (old if len(old) > len(new) else new)[i]
+            print(f"  line {i + 1}: only in {where}: {extra!r}")
+    sys.exit(1)
+
+
 def main():
     rows = ["\t".join(HEADER)]
     for case_id, path, s, e, replacement, b, reference, note in CASES:
@@ -253,8 +300,7 @@ def main():
         rows.append("\t".join(row))
         shown = {k: v for k, v in out.items() if not k.startswith("_")}
         print(case_id, shown, sorted(trace))
-    with open(os.path.join(FIXTURES, "native.tsv"), "w") as f:
-        f.write("\n".join(rows) + "\n")
+    emit(os.path.join(FIXTURES, "native.tsv"), "\n".join(rows) + "\n")
 
 
 # ---------------------------------------------------------------------------

@@ -319,11 +319,18 @@ mod tests {
     // 30 is M at 87, 88, 89. No stop codon and no ambiguous codon.
     //
     // Every expected primer below was produced by
-    // `tests/fixtures/q5-primer/reference/native-design.py`, which restates
-    // D029 and D030 in plain Python and computes Tm with Biopython; it shares
-    // no code with this crate. The junction is 10 bases 5′ of the edit and
-    // both primers grow at their 3′ ends until their Tms reach 55 °C, prefer a
-    // G/C last base, and are balanced to within 5 °C.
+    // `tests/fixtures/q5-primer/reference/unit-expectations.py`, which prints
+    // what `tests/fixtures/q5-primer/reference/native-design.py` designs for
+    // this template; that script restates D029 and D030 in plain Python,
+    // computes Tm with Biopython and shares no code with this crate, and its
+    // `--synthetic` mode does not cover this template. Run it from the
+    // repository root:
+    //
+    //   python -I tests/fixtures/q5-primer/reference/unit-expectations.py
+    //
+    // The junction is 10 bases 5′ of the edit and both primers grow at their
+    // 3′ ends until their Tms reach 55 °C, prefer a G/C last base, and are
+    // balanced to within 5 °C.
     fn template_text() -> String {
         let mut text: String = String::new();
         let mut index: usize = 0;
