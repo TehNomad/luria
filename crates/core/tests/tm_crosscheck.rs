@@ -15,7 +15,8 @@
 //! This is a check of luria's arithmetic, not of its choice of parameters: two
 //! implementations reading the same tables should agree, and a sign error, a
 //! misread doublet, a wrong concentration convention or a missing correction
-//! shows up as a disagreement. The generating script is `.tmp/tm/crosscheck.py`.
+//! shows up as a disagreement. The generating script is
+//! `tests/fixtures/tm/reference/crosscheck.py`.
 //!
 //! Note on `selfcomp`: Biopython does not detect self-complementarity — it is a
 //! caller-supplied flag defaulting to false — whereas luria detects it from the

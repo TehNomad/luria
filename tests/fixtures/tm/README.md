@@ -52,7 +52,10 @@ the printed one. The printed values are rounded to 0.1, which propagates to
 about ±0.13 kcal/mol in ΔG°37, so that is the tolerance.
 
 **Result: all 48 single-mismatch motifs verified**, worst deviation 0.063
-kcal/mol, well inside the rounding tolerance. The Watson–Crick table was
+kcal/mol, well inside the rounding tolerance. (`reference/verify_imm.py` prints
+`disagree 2` for the two motifs at 0.063, `AA/TA` and `TA/AG`, because it
+flags anything above a stricter internal cutoff of 0.06; both are inside the
+±0.13 tolerance.) The Watson–Crick table was
 verified the same way against published ΔG°37 values, worst deviation 0.015
 kcal/mol. The 2004 review returned HTTP 403 on 2026-10-16 and could not be
 read, so the Watson–Crick ΔG°37 set comes from SantaLucia, J. Jr (1998),
@@ -64,11 +67,37 @@ initiation per duplex end: 0.98 for a terminal G·C and 1.03 for a terminal A·T
 The fixture's formulation splits that into one `initiation` term plus a
 `terminal_AT` term per A·T end, so the equivalent values are `initiation` = 2 ×
 0.98 = **1.96** and `terminal_AT` = 1.03 − 0.98 = **0.05**. The verification
-script is `.tmp/tm/verify_imm.py`, a working script that is **not tracked** in
-the repository; the `dG37_published` columns in both `nn-mismatch.tsv` and
-`nn-matched.tsv` let `tm_tables.rs` rerun both checks, the Watson–Crick one as
+scripts are tracked next to this fixture, in `reference/`: `reference/verify_imm.py`
+checks the mismatch ΔH°/ΔS° against the review's ΔG°37 and regenerates
+`nn-mismatch.tsv`, `reference/verify_matched.py` checks the Watson–Crick table
+and its three non-motif terms against Biopython's `DNA_NN4`, and
+`reference/crosscheck.py` produces the Biopython Tm values that
+`crates/core/tests/tm_crosscheck.rs` hard-codes in `EXPECTED`. The `dG37_published`
+columns in both `nn-mismatch.tsv` and `nn-matched.tsv` let `tm_tables.rs` rerun
+both checks, the Watson–Crick one as
 `every_watson_crick_parameter_still_reproduces_its_published_free_energy`
 (`docs/tasks/review-post-m4.md` C2).
+
+## Rerunning the verification scripts
+
+The three scripts live in `reference/` next to the fixture they serve (D039).
+They need **Biopython 1.88** and numpy 2.5.4, pinned in
+`tests/fixtures/requirements.txt`; the project's working copy of that pair lives
+in `.tmp/tm/venv`, which is not committed. Run them from the repository root with
+`python -I`:
+
+```
+python -I tests/fixtures/tm/reference/verify_imm.py            # rewrite nn-mismatch.tsv
+python -I tests/fixtures/tm/reference/verify_imm.py --check    # compare, write nothing
+python -I tests/fixtures/tm/reference/verify_matched.py        # check nn-matched.tsv
+python -I tests/fixtures/tm/reference/crosscheck.py            # print the Biopython Tm values
+python -I tests/fixtures/tm/reference/crosscheck.py --check    # compare with tm_crosscheck.rs
+```
+
+`--check` regenerates in memory, compares with the tracked file or table, prints
+`OK …` or `DIFFERS …` followed by the first difference, exits 1 on any difference
+and writes nothing. `verify_matched.py` writes nothing in either mode. None of
+this is part of the required cargo checks (D039, D026).
 
 ## Which Watson–Crick set, and why
 
