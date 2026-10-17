@@ -47,6 +47,7 @@
 //! invalid pairing unrepresentable; that is stated rather than assumed.
 
 use crate::error::DomainError;
+use crate::error::ExpectedNucleotideMismatchProblem;
 use crate::error::InvalidMutationRequestProblem;
 use crate::identity::Identifier;
 use crate::interval::NucleotideInterval;
@@ -56,6 +57,7 @@ use crate::q5::Q5MutationIntent;
 use crate::q5::Q5SdmRequest;
 use crate::q5::Q5Variant;
 use crate::q5::Q5VariantSetRequest;
+use crate::sequence::canonical_text;
 use crate::sequence::expand_degenerate;
 use crate::sequence::Sequence;
 
@@ -126,20 +128,31 @@ impl Q5Expansion {
 ///
 /// 1. an empty replacement text is refused before anything is expanded, as
 ///    `InvalidMutationRequest` (`MalformedInput`);
-/// 2. `sequence::expand_degenerate` gives the concrete sequences, in its own
+/// 2. the claim is checked against the template before anything is expanded,
+///    as an ordinary member's intent would: `NucleotideReplacementIntent::create`
+///    refuses a region that names another artifact, a letter outside `A`, `C`,
+///    `G`, `T` in the claimed text, and a claimed length that does not match
+///    the region, in that order, and `region.within(&template)` refuses a
+///    region past the artifact's end; the template's own text over the region
+///    must then equal the claim, or the refusal is `mutation.rs`'s
+///    `ExpectedNucleotideMismatch` naming the template's text — a claim that
+///    disagrees with the artifact is its own error, not a skip;
+/// 3. `sequence::expand_degenerate` gives the concrete sequences, in its own
 ///    order, and an invalid letter is its own `InvalidSequenceCharacters` and
 ///    a count that cannot be represented in a `usize` its own
 ///    `DegenerateExpansionTooLarge`, each propagated unchanged;
-/// 3. each sequence equal to `expected_original` is skipped with a
-///    `WildTypeSkipped` warning naming it; every other one becomes an
-///    ordinary `NucleotideReplacementIntent` over `region`, a
+/// 4. each sequence equal to the template's own text over the region — the
+///    wild-type member is the template's text, which step 2 has just
+///    established the claim to be, and not the caller's argument as given — is
+///    skipped with a `WildTypeSkipped` warning naming it; every other one
+///    becomes an ordinary `NucleotideReplacementIntent` over `region`, a
 ///    `Q5SdmRequest` carrying the caller's scope, and a `Q5Variant` named
 ///    `base_name-concrete`;
-/// 4. no member left is refused as the no-op it is, with the same
+/// 5. no member left is refused as the no-op it is, with the same
 ///    `InvalidMutationRequest`;
-/// 5. more members than `EXPANSION_WARNING_THRESHOLD` add a `ManyDesigns`
+/// 6. more members than `EXPANSION_WARNING_THRESHOLD` add a `ManyDesigns`
 ///    warning after any `WildTypeSkipped` ones, and every member is kept;
-/// 6. the members are composed as `SeparateVariants`, which is what
+/// 7. the members are composed as `SeparateVariants`, which is what
 ///    `Q5VariantSetRequest::create` then checks as it stands: one template
 ///    artifact across the set, agreeing CDS claims, distinct result names.
 ///
@@ -161,6 +174,48 @@ pub fn expand_replacement(
         return Err(DomainError::InvalidMutationRequest(problem));
     }
 
+    // B9: the claim is checked against the template before anything is
+    // expanded, so a claim that disagrees with the artifact is refused as its
+    // own error rather than hidden behind a wild-type skip. The claim goes
+    // through `NucleotideReplacementIntent::create` as an ordinary member's
+    // intent would be checked: a region naming another artifact, a letter
+    // outside `A`, `C`, `G`, `T` and a length that does not match the region
+    // are the owner's errors, in that order, and reach the caller as it
+    // stands. `create` needs a replacement text that is neither empty nor
+    // equal to the claim, so the claim is passed with one base appended;
+    // that text is never applied, only the claim the intent asserts is read
+    // back. A region past the artifact's end is the interval owner's error.
+    let placeholder: String = format!("{}A", expected_original);
+    let claimed_text: String = NucleotideReplacementIntent::create(
+        template.reference(),
+        region.clone(),
+        expected_original.clone(),
+        placeholder,
+    )?
+    .expected_original();
+    region.within(&template)?;
+
+    // The text the template holds over `[region.start(), region.end())`, in
+    // the same form `mutation::apply_replacement` builds its `actual` from:
+    // the region's letters, upper-case canonical bases.
+    let letters: Vec<char> = template.letters();
+    let mut selected: Vec<char> = Vec::new();
+    let mut index: u64 = region.start();
+    while index < region.end() {
+        selected.push(letters[index as usize]);
+        index += 1;
+    }
+    let template_text: String = canonical_text(selected.clone());
+    if template_text != claimed_text {
+        let problem = ExpectedNucleotideMismatchProblem {
+            sequence: template.display_name(),
+            position: region.start(),
+            expected: claimed_text.clone(),
+            actual: template_text.clone(),
+        };
+        return Err(DomainError::ExpectedNucleotideMismatch(problem));
+    }
+
     // The concrete sequences, in `expand_degenerate`'s order: each position's
     // bases in `A`, `C`, `G`, `T` order, leftmost position varying fastest. An
     // invalid letter is its `InvalidSequenceCharacters`, returned as it stands.
@@ -169,9 +224,10 @@ pub fn expand_replacement(
     let mut variants: Vec<Q5Variant> = Vec::new();
     let mut warnings: Vec<Q5ExpansionWarning> = Vec::new();
     for sequence in concrete.iter() {
-        if *sequence == expected_original {
-            // D033's wild-type member: writing back what is already there
-            // edits nothing, so it is left out and named.
+        if *sequence == claimed_text {
+            // D033's wild-type member: the template already holds these
+            // bases, so writing them back edits nothing and the member is
+            // left out and named.
             warnings.push(Q5ExpansionWarning::WildTypeSkipped {
                 sequence: sequence.clone(),
             });
@@ -664,5 +720,91 @@ mod tests {
                 assert!(problem.replacement == text);
             }
         }
+    }
+
+    // B9-1: a claim whose length does not match the region must be refused on
+    // its own, not hidden behind the wild-type skip. Read by hand: `[9, 12)`
+    // of `ATGGCTTGGAATCAGCAGCAGCAGCAGCAG` is `AAT`, three nucleotides; the
+    // claim is one letter, and `A` is the only sequence the expansion can
+    // write, so before the fix that single member was skipped as wild type and
+    // the caller got the no-op refusal instead of the length error.
+    #[test]
+    fn a_length_mismatch_is_reported_rather_than_hidden() {
+        let attempt: Result<Q5Expansion, DomainError> = expand_replacement(
+            template(),
+            None,
+            region(9, 12),
+            "A".to_string(),
+            "A".to_string(),
+            base_name(),
+        );
+        assert!(attempt.is_err());
+        let error: DomainError = attempt.unwrap_err();
+        assert!(matches!(error, DomainError::InvalidMutationRequest(_)));
+        assert!(error.category() == ErrorCategory::MalformedInput);
+        if let DomainError::InvalidMutationRequest(problem) = error {
+            assert!(problem.request == "replacement");
+            assert!(problem
+                .reason
+                .contains("the expected text is 1 letters; the region selects 3 nucleotides"));
+        }
+    }
+
+    // B9-2: a claim of the right shape the template does not hold. Read by hand:
+    // `[3, 6)` is `GCT`; the claim and the written text are both `GAA`, three
+    // alphabet letters, so the claim passes its own checks and only the
+    // template can say it is wrong. The refusal names the template's own text.
+    #[test]
+    fn an_expected_original_the_template_does_not_hold_is_refused() {
+        let attempt: Result<Q5Expansion, DomainError> = expand_replacement(
+            template(),
+            None,
+            region(3, 6),
+            "GAA".to_string(),
+            "GAA".to_string(),
+            base_name(),
+        );
+        assert!(attempt.is_err());
+        let error: DomainError = attempt.unwrap_err();
+        assert!(matches!(error, DomainError::ExpectedNucleotideMismatch(_)));
+        assert!(error.category() == ErrorCategory::BiologicalValidation);
+        if let DomainError::ExpectedNucleotideMismatch(problem) = error {
+            assert!(problem.sequence == "q5-a");
+            assert!(problem.position == 3);
+            assert!(problem.expected == "GAA");
+            assert!(problem.actual == "GCT");
+        }
+    }
+
+    // B9-3: the wild-type member is the template's own text, not the caller's
+    // claim. Read by hand: `[3, 4)` of the artifact is the single base `G`;
+    // `N` denotes `A`, `C`, `G`, `T` in that order, so exactly one member
+    // equals the template's base and the other three are kept.
+    #[test]
+    fn the_wild_type_member_skipped_is_the_template_text() {
+        let expansion: Q5Expansion = expand_replacement(
+            template(),
+            None,
+            region(3, 4),
+            "G".to_string(),
+            "N".to_string(),
+            base_name(),
+        )
+        .unwrap();
+        assert!(
+            member_names(expansion.set())
+                == vec![
+                    "mut-1-A".to_string(),
+                    "mut-1-C".to_string(),
+                    "mut-1-T".to_string(),
+                ]
+        );
+        let template_base: String = template().letter_at(3).unwrap().to_string();
+        assert!(
+            expansion.warnings()
+                == vec![Q5ExpansionWarning::WildTypeSkipped {
+                    sequence: template_base,
+                },]
+        );
     }
 }
