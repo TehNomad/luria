@@ -90,7 +90,7 @@ use crate::sequence::Sequence;
 pub const PRIMER_DESIGN_NAME: &str = "luria-core-primer";
 
 /// Version of this layer's code path (D021).
-pub const PRIMER_DESIGN_VERSION: &str = "0.1.0";
+pub const PRIMER_DESIGN_VERSION: &str = "0.2.0";
 
 /// Which of the two primers of a Q5 pair this is. §6 defines the roles by the
 /// construct's own orientation, not by a sequence operation: the forward

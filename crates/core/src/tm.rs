@@ -60,7 +60,7 @@ use crate::sequence::is_dna_base;
 pub const TM_FUNCTION_NAME: &str = "nn-santalucia-hicks-2004-owczarzy-2004-monovalent";
 
 /// Version of this Tm code path (D021).
-pub const TM_FUNCTION_VERSION: &str = "0.1.0";
+pub const TM_FUNCTION_VERSION: &str = "0.2.0";
 
 /// Gas constant, cal/(K mol), as the sources use it.
 const R: f64 = 1.987;

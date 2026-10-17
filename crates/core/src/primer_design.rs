@@ -118,7 +118,12 @@ pub const NATIVE_DESIGN_ALGORITHM_NAME: &str = "luria-core-primer-design-native"
 /// Version of this design code path (D021). 0.2.0 is D030's Tm-driven sizing;
 /// 0.3.0 adds D031's deletion design, 0.4.0 adds D032's insertion design and
 /// 0.5.0 adds D033's replacement design, each with the earlier output unchanged.
-pub const NATIVE_DESIGN_ALGORITHM_VERSION: &str = "0.5.0";
+/// 0.6.0 computes the smallest-pair sums with saturating arithmetic, so a
+/// `min_annealing_overlap` large enough to overflow `u64` gives
+/// `NoPrimerDesignPossible` rather than an overflow, and D038 accepts a
+/// `ConfineToTail` request for an insertion and for a replacement already on
+/// the tail path, where it designs exactly the pair the `Inline` request does.
+pub const NATIVE_DESIGN_ALGORITHM_VERSION: &str = "0.6.0";
 
 /// D030: the forward primer's 5′ flank, fixed, and the shortest 3′ flank.
 pub const MIN_FLANK: u64 = 10;
@@ -2441,7 +2446,7 @@ mod tests {
         assert!(design.request().buffer() == BufferModel::q5_reaction());
         assert!(design.forward_tm().buffer() == BufferModel::q5_reaction());
         assert!(design.algorithm_name() == NATIVE_DESIGN_ALGORITHM_NAME);
-        assert!(design.algorithm_version() == "0.5.0");
+        assert!(design.algorithm_version() == "0.6.0");
         let inputs: Vec<String> = design.unresolved().into_iter().map(|u| u.input).collect();
         assert!(inputs == vec!["minTm", "maxAnnealingOverlap"]);
     }

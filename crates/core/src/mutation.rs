@@ -72,7 +72,7 @@ use crate::translation::Translation;
 pub const MUTATION_ALGORITHM_NAME: &str = "luria-core-mutation";
 
 /// Version of the code path that produced a mutation result (D021).
-pub const MUTATION_ALGORITHM_VERSION: &str = "0.2.0";
+pub const MUTATION_ALGORITHM_VERSION: &str = "0.3.0";
 
 /// A codon of the standard genetic code.
 ///
