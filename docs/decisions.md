@@ -1266,3 +1266,42 @@ Reversibility:
 
 Changing the order changes recorded results and fixture expectations, and
 needs approval.
+
+## D041: The Milestone 5 CLI, its inputs and its output
+
+Status: approved by the owner, 2026-10-16 (`docs/tasks/milestone-5-cli.md`
+§4). Applies D003, D006, D007, D009, D021 and D034.
+
+Decision:
+
+* **Dependencies.** The new `luria-cli` crate may depend on `serde` and
+  `serde_json`, and on nothing else. It parses its arguments by hand.
+  `luria-core` stays dependency-free.
+* **Coordinates.** Every nucleotide coordinate in the request and result JSON
+  is zero-based half-open, written as a `[start, end]` pair. The request
+  declares this in a required field, `"coordinates":
+  "zero-based-half-open"`, and any other value is refused. Residue numbers
+  are 1-based, as in the library.
+* **Output.** The CLI writes one JSON document to stdout, for success,
+  clarification and failure alike. There is no human-readable text output in
+  this milestone.
+* **Sequence input.** Both FASTA and GenBank are read in this milestone,
+  one record per file. The readers live in `luria-core`. A FASTA template's
+  topology and CDSs are declared in the request.
+* **GenBank CDSs.** The request names the CDS features to import, by id.
+  Only those become annotations. If a named CDS can't be represented, the run
+  fails with that CDS's own error. Every other feature is listed in the
+  result as not used, and never fails the run.
+* **GenBank CDS identity.** A CDS's id is the first of `/locus_tag`, `/gene`
+  and `/label`. The result records which qualifier it came from. A name that
+  matches no CDS, or more than one, is refused.
+* **`/translation`.** When a named CDS has a `/translation` qualifier, it
+  must equal luria's translation without the terminal stop. A mismatch
+  refuses the CDS before any edit.
+* **GenBank topology.** It comes from the LOCUS line. A LOCUS line that
+  states neither `linear` nor `circular` is refused.
+
+Reversibility:
+
+Adding a dependency, a coordinate convention, a text output or another input
+format needs approval. So does relaxing any of the GenBank refusals.
