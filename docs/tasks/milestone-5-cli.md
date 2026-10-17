@@ -131,8 +131,12 @@ There are no other commands. A `sequence inspect` helper is optional
     - single-base locations;
     - references into other records (`ACC:1..10`).
 - **Qualifiers:**
-  - `/codon_start` other than 1, `/transl_table` other than 1, and `/pseudo`
-    are refused for a named CDS;
+  - `/codon_start` other than 1 and `/pseudo` are refused for a named CDS;
+  - `/transl_table`: absent or 1 is the standard code. 11 (bacterial) is
+    accepted only when the CDS's first codon is `ATG`, and the CDS is then
+    imported as the standard code with the table recorded in provenance
+    (owner answer G5). 11 with any other start codon, and every other
+    table, is refused;
   - `/translation`, when present, must equal luria's translation of the CDS
     without its terminal stop. A mismatch refuses the CDS before any edit
     (G3), and the error names the first differing residue. A CDS without
@@ -306,6 +310,8 @@ Rules:
 | G2 | GenBank CDS identity | The first of `/locus_tag`, `/gene`, `/label`, recorded in the result. |
 | G3 | `/translation` mismatch | An error: the CDS is refused before any edit. |
 | G4 | GenBank topology | From the LOCUS line. Missing is an error. |
+| G5 | `/transl_table=11` (2026-10-17) | Accepted only when codon 1 is `ATG`, where tables 1 and 11 give the same protein residue for residue; imported as standard, recorded in provenance. Refused with any other start codon. |
+| R1 | Public cross-check record (2026-10-17) | pBR322, J01749.1. pUC19 L09137.2 was the first choice but has no CDS features. |
 
 ## 5. Contracts, in order
 

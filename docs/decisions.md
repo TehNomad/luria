@@ -1300,6 +1300,13 @@ Decision:
   refuses the CDS before any edit.
 * **GenBank topology.** It comes from the LOCUS line. A LOCUS line that
   states neither `linear` nor `circular` is refused.
+* **`/transl_table`** (added 2026-10-17, owner answer G5). Absent or `1` is
+  the standard code. `11`, the bacterial code, assigns the same amino acid to
+  every codon as `1` and differs only in allowing alternative start codons,
+  so a named CDS with `/transl_table=11` is accepted only when its first
+  codon is `ATG`. It is then imported as the standard code, and the result
+  records that the record said 11. Table 11 with any other start codon, and
+  every other table, is refused.
 
 Reversibility:
 
