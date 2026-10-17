@@ -1244,3 +1244,25 @@ Decision:
 Reversibility:
 
 Adding the Python checks to the required checks needs approval.
+
+## D040: A codon's recorded coordinates follow the feature interval order
+
+Status: approved by the owner, 2026-10-16 (`docs/tasks/review-post-m4.md`
+B10). Applies D006, D009 and D036.
+
+Decision:
+
+* The intervals a residue result records for its codon are listed the way
+  D036 writes a feature: in reference order, except that a codon crossing the
+  origin of a circular sequence lists the part ending at the sequence length
+  first, then the part starting at zero. A codon at bases 22, 23 and 0 of a
+  24-base sequence is recorded as `[22, 24)` then `[0, 1)`, and
+  `target_coordinates()` gives `22, 23, 0`.
+* The order is not the strand's reading order. A minus-strand codon is
+  listed in reference order, as a minus-strand CDS's intervals are.
+* The mutation fixtures' `coords` field follows the same order.
+
+Reversibility:
+
+Changing the order changes recorded results and fixture expectations, and
+needs approval.
