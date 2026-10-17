@@ -46,7 +46,9 @@
 //! No divalent-cation branch (the Q5 condition is 0 mM, and the 2008 decision
 //! tree is a different model), no dangling ends, no terminal-mismatch table,
 //! no hairpin or dimer term, and no bulge or loop term. Each would need its own
-//! sourced parameters.
+//! sourced parameters. A terminal mismatch — a duplex end whose pair is not
+//! Watson–Crick — is therefore reported as `TmParametersUnavailable` with aspect
+//! `"terminal mismatch"`.
 
 use crate::error::DomainError;
 use crate::error::EmptySequenceProblem;
@@ -381,13 +383,28 @@ pub fn melting_temperature(
         };
         return Err(DomainError::EmptySequenceContent(problem));
     }
-    for (index, base) in primer.iter().chain(site.iter()).enumerate() {
+    // Each strand is indexed from 0 in itself, so a base outside A/C/G/T is
+    // reported against the strand it is on, not against the two concatenated.
+    for (index, base) in primer.iter().enumerate() {
         if !is_dna_base(*base) {
             return Err(unavailable(
                 "alphabet",
                 format!(
-                    "{} at position {} is not A, C, G or T, and has no nearest-neighbour parameters",
-                    base, index
+                    "{} at position {} of the primer is not A, C, G or T, and has no nearest-neighbour parameters",
+                    base,
+                    index,
+                ),
+            ));
+        }
+    }
+    for (index, base) in site.iter().enumerate() {
+        if !is_dna_base(*base) {
+            return Err(unavailable(
+                "alphabet",
+                format!(
+                    "{} at position {} of the template site is not A, C, G or T, and has no nearest-neighbour parameters",
+                    base,
+                    index,
                 ),
             ));
         }
@@ -395,6 +412,22 @@ pub fn melting_temperature(
 
     // The duplex: the primer over the complement of the template site.
     let bottom: Vec<char> = site.iter().map(|base| complement(*base)).collect();
+
+    // A duplex end whose pair is not Watson–Crick is a terminal mismatch, which
+    // has its own published parameters that this model does not carry: it is
+    // reported, not scored from the single-mismatch table for internal pairs.
+    let last: usize = primer.len() - 1;
+    for index in [0, last] {
+        if !is_watson_crick(primer[index], bottom[index]) {
+            return Err(unavailable(
+                "terminal mismatch",
+                format!(
+                    "position {} is mismatched at an end of the duplex; terminal mismatches have their own parameters, which this model does not carry",
+                    index,
+                ),
+            ));
+        }
+    }
 
     let mut enthalpy: f64 = INITIATION.0;
     let mut entropy: f64 = INITIATION.1;
@@ -440,7 +473,6 @@ pub fn melting_temperature(
     // One terminal A-T penalty per duplex end closed by an A-T pair. The
     // penalty is a property of the pair, so a mismatched end is not an A-T
     // pair and takes none.
-    let last: usize = primer.len() - 1;
     for (top, base) in [(primer[0], bottom[0]), (primer[last], bottom[last])] {
         if is_watson_crick(top, base) && (top == 'A' || top == 'T') {
             enthalpy += TERMINAL_AT.0;
@@ -503,8 +535,10 @@ pub fn melting_temperature(
 /// mismatch pattern the published parameters do not cover, which is what
 /// D030's "where published parameters cover the mismatch pattern" allows: a
 /// `TmParametersUnavailable` whose `aspect` is `"tandem mismatch"` (two
-/// adjacent positions are both mismatched) or `"motif"` (a doublet has no
-/// entry in the parameter table). Every other error is returned unchanged,
+/// adjacent positions are both mismatched), `"terminal mismatch"` (one end of
+/// the duplex is mismatched, whose parameters this model does not carry) or
+/// `"motif"` (a doublet has no entry in the parameter table). Every other error
+/// is returned unchanged,
 /// including `TmParametersUnavailable` whose `aspect` is `"length"` or
 /// `"alphabet"`: a primer and a site of different lengths, or a base outside
 /// A/C/G/T, is not a mismatch pattern, so there is no basis to substitute.
@@ -519,7 +553,9 @@ pub fn melting_temperature_or_matched(
     match melting_temperature(primer, site, buffer) {
         Ok(value) => Ok(value),
         Err(DomainError::TmParametersUnavailable(problem))
-            if problem.aspect == "tandem mismatch" || problem.aspect == "motif" =>
+            if problem.aspect == "tandem mismatch"
+                || problem.aspect == "terminal mismatch"
+                || problem.aspect == "motif" =>
         {
             let mut fallback: MeltingTemperature = melting_temperature(primer, primer, buffer)?;
             fallback.substituted_because = Some(format!(
@@ -682,6 +718,18 @@ mod tests {
         assert!((dry - wet - 3.0).abs() < 1e-9, "{} {}", dry, wet);
     }
 
+    // A mismatch one base in from an end is still an internal mismatch, so it
+    // is scored from the single-mismatch table rather than reported.
+    #[test]
+    fn a_mismatch_next_to_an_end_is_still_scored() {
+        let primer: Vec<char> = letters("ATGCATGCATGCATGCAT");
+        let mut site: Vec<char> = primer.clone();
+        site[1] = 'A'; // an internal position: 1 to len - 2
+        let value: MeltingTemperature =
+            melting_temperature(&primer, &site, &BufferModel::q5_reaction()).unwrap();
+        assert!(value.basis() == TmBasis::MismatchedWildTypeSite);
+    }
+
     // A mismatch destabilises, so the mismatch-aware Tm is below the matched
     // one for the same primer.
     #[test]
@@ -720,6 +768,66 @@ mod tests {
             }
             other => panic!("expected TmParametersUnavailable, got {:?}", other),
         }
+    }
+
+    // A mismatch at either end of the duplex has its own published parameters,
+    // which this model does not carry, so it is reported rather than scored
+    // from the internal table.
+    #[test]
+    fn a_mismatch_at_the_first_base_has_no_parameters() {
+        let primer: Vec<char> = letters("ATGCATGCATGCATGCAT");
+        let mut site: Vec<char> = primer.clone();
+        site[0] = 'T';
+        let error: DomainError =
+            melting_temperature(&primer, &site, &BufferModel::q5_reaction()).unwrap_err();
+        assert!(error.category() == ErrorCategory::Unsupported);
+        match error {
+            DomainError::TmParametersUnavailable(problem) => {
+                assert!(problem.aspect == "terminal mismatch", "{}", problem.aspect);
+                assert!(problem.reason.contains("position 0 "), "{}", problem.reason);
+            }
+            other => panic!("expected TmParametersUnavailable, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn a_mismatch_at_the_last_base_has_no_parameters() {
+        let primer: Vec<char> = letters("ATGCATGCATGCATGCAT"); // 18 bases
+        let mut site: Vec<char> = primer.clone();
+        site[17] = 'A';
+        let error: DomainError =
+            melting_temperature(&primer, &site, &BufferModel::q5_reaction()).unwrap_err();
+        match error {
+            DomainError::TmParametersUnavailable(problem) => {
+                assert!(problem.aspect == "terminal mismatch", "{}", problem.aspect);
+                assert!(
+                    problem.reason.contains("position 17 "),
+                    "{}",
+                    problem.reason
+                );
+            }
+            other => panic!("expected TmParametersUnavailable, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn the_hybrid_falls_back_on_a_terminal_mismatch() {
+        let primer: Vec<char> = letters("ATGCATGCATGCATGCAT");
+        let buffer: BufferModel = BufferModel::q5_reaction();
+        let mut site: Vec<char> = primer.clone();
+        site[0] = 'T';
+        let swapped: MeltingTemperature =
+            melting_temperature_or_matched(&primer, &site, &buffer).unwrap();
+        assert!(swapped.basis() == TmBasis::MatchedComplement);
+        let reason: String = swapped.substituted_because().unwrap();
+        assert!(reason.contains("terminal mismatch"), "{}", reason);
+        // The fallback is exactly the matched Tm, not an adjusted one.
+        assert!(
+            swapped.celsius()
+                == melting_temperature(&primer, &primer, &buffer)
+                    .unwrap()
+                    .celsius()
+        );
     }
 
     #[test]
@@ -784,6 +892,47 @@ mod tests {
         match error {
             DomainError::TmParametersUnavailable(problem) => {
                 assert!(problem.aspect == "alphabet", "{}", problem.aspect);
+            }
+            other => panic!("expected TmParametersUnavailable, got {:?}", other),
+        }
+    }
+
+    // Each strand is indexed from 0 in itself, so a bad base in the template
+    // site is reported at its site position, not at an offset past the primer.
+    #[test]
+    fn a_non_acgt_base_in_the_site_is_reported_at_its_site_position() {
+        let primer: Vec<char> = letters("ATGCATGCATGCATGCAT"); // 18 bases
+        let mut site: Vec<char> = primer.clone();
+        site[9] = 'N';
+        let error: DomainError =
+            melting_temperature(&primer, &site, &BufferModel::q5_reaction()).unwrap_err();
+        match error {
+            DomainError::TmParametersUnavailable(problem) => {
+                assert!(problem.aspect == "alphabet", "{}", problem.aspect);
+                assert!(
+                    problem.reason.contains("position 9 of the template site"),
+                    "{}",
+                    problem.reason
+                );
+            }
+            other => panic!("expected TmParametersUnavailable, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn a_non_acgt_base_in_the_primer_is_reported_at_its_primer_position() {
+        let mut primer: Vec<char> = letters("ATGCATGCATGCATGCAT");
+        primer[8] = 'N';
+        let error: DomainError =
+            melting_temperature(&primer, &primer, &BufferModel::q5_reaction()).unwrap_err();
+        match error {
+            DomainError::TmParametersUnavailable(problem) => {
+                assert!(problem.aspect == "alphabet", "{}", problem.aspect);
+                assert!(
+                    problem.reason.contains("position 8 of the primer"),
+                    "{}",
+                    problem.reason
+                );
             }
             other => panic!("expected TmParametersUnavailable, got {:?}", other),
         }
