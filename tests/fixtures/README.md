@@ -8,6 +8,32 @@
 | [`q5-primer/`](./q5-primer/) | The primer-design contract in `docs/q5-primer-design.md`: ten contract cases, reproducible reference designs for the substitution cases, and expected `luriaNative` outcomes for substitutions, deletions, insertions and replacements (`native*.tsv`). Drives `crates/core/tests/q5_primer_fixtures.rs`. |
 | [`tm/`](./tm/) | Published nearest-neighbour parameters for the Tm calculation (D030). Drives `crates/core/tests/tm_tables.rs`; `tm_crosscheck.rs` holds reference Tm values. |
 | [`primer-quality/`](./primer-quality/) | Sourced thresholds for the non-blocking primer-quality warnings. Drives `crates/core/tests/primer_quality_thresholds.rs`. |
+| [`codon-usage/`](./codon-usage/) | The Kazusa Codon Usage Database page for *Escherichia coli* W3110 (species 316407) as captured, parsed to `counts.tsv` by `reference/parse_kazusa.py`. Checked against `crates/core/src/codon_usage.rs` by `crates/core/tests/codon_usage_fixture.rs`. |
+
+## Rerunning fixture verification
+
+Every fixture expectation is reproducible from tracked files (D039), and each
+script that wrote or verified one has a `--check` mode that regenerates the
+tracked text in memory, compares it byte for byte, prints `OK <name>` or
+`DIFFERS <name>` with the first differing line, exits 1 on a difference, and
+writes nothing. One command runs all of them from the repository root:
+
+```
+python -m venv .venv
+.venv/bin/activate
+pip install -r tests/fixtures/requirements.txt   # biopython 1.88, numpy 2.5.4
+python -I tests/fixtures/verify.py
+```
+
+`verify.py` runs each check as `sys.executable -I <script> --check` and prints
+`PASS` or `FAIL` and the name of each, exiting 1 if any fails: the three Tm
+verifiers (`verify_imm.py`, `verify_matched.py`, `crosscheck.py`), the five
+q5-primer generators, and the codon-usage parser.
+
+These Python checks are **not** part of the required cargo checks (D039, D026):
+the Rust tests never call Python, and `cargo test --workspace` does not run
+these scripts. They are run separately, when a fixture or one of its sources
+changes.
 
 ---
 

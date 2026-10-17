@@ -122,9 +122,16 @@ The previous rule, first codon in standard table order, gave `TTA` for `L`.
 
 These expectations were checked with a Python script that parses the Kazusa
 page and uses a codon table written out per amino acid, sharing no code with
-`crates/core`; it agreed with every success case. That script is not tracked
-in the repository, so this check cannot currently be rerun from tracked files
-(`docs/tasks/review-post-m4.md` A7).
+`crates/core`; it agreed with every success case. That script was lost and is
+not tracked, so that check of the choices in the table above cannot be rerun
+from tracked files. The page it parsed was captured on 2026-10-16 as
+`tests/fixtures/codon-usage/raw/kazusa-316407-standard.html` and parsed by
+`tests/fixtures/codon-usage/reference/parse_kazusa.py` into
+`tests/fixtures/codon-usage/counts.tsv`.
+`crates/core/tests/codon_usage_fixture.rs` checks the embedded table against
+that file codon by codon and count by count, so the counts in the table above
+can be read off `counts.tsv`. `tests/fixtures/verify.py` reruns the parse
+(`docs/tasks/review-a7c-codon-usage.md`, D039).
 
 ### Edits
 
