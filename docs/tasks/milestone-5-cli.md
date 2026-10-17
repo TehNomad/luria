@@ -181,7 +181,8 @@ Example (illustrative; contract 5g pins the real one against the fixtures):
     ]
   },
   "design": { "policy": "luriaNative", "style": "q5_polymerase",
-              "minAnnealingOverlap": 15, "placement": "inline" }
+              "minAnnealingOverlap": 15, "placement": "inline",
+              "buffer": "q5_reaction" }
 }
 ```
 
@@ -311,6 +312,7 @@ Rules:
 | G3 | `/translation` mismatch | An error: the CDS is refused before any edit. |
 | G4 | GenBank topology | From the LOCUS line. Missing is an error. |
 | G5 | `/transl_table=11` (2026-10-17) | Accepted only when codon 1 is `ATG`, where tables 1 and 11 give the same protein residue for residue; imported as standard, recorded in provenance. Refused with any other start codon. |
+| G6 | Buffer in the request (2026-10-17) | Required. Either the three numbers (`monovalentMillimolar`, `primerNanomolar`, `dmsoPercent`) or the named preset `"q5_reaction"` (150 mM, 500 nM, 0 % DMSO, `BufferModel::q5_reaction`). The result echoes the numbers, and the preset name when one was used. |
 | R1 | Public cross-check record (2026-10-17) | pBR322, J01749.1. pUC19 L09137.2 was the first choice but has no CDS features. |
 
 ## 5. Contracts, in order

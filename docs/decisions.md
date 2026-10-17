@@ -1307,6 +1307,12 @@ Decision:
   codon is `ATG`. It is then imported as the standard code, and the result
   records that the record said 11. Table 11 with any other start codon, and
   every other table, is refused.
+* **Buffer** (added 2026-10-17, owner answer G6). A request states its
+  primer-design buffer, which is never defaulted (D028): either the three
+  numbers, monovalent salt in mM, primer in nM and DMSO in percent, or the
+  named preset `q5_reaction` (150 mM, 500 nM, 0 %), which is core's
+  `BufferModel::q5_reaction`. The result echoes the numbers, and the preset's
+  name when one was used.
 
 Reversibility:
 
