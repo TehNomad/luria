@@ -42,6 +42,7 @@ CHECKS = [
     "q5-primer/reference/native-replacement.py",
     "q5-primer/reference/neb-q5-sdm-reference.py",
     "codon-usage/reference/parse_kazusa.py",
+    "fasta/reference/digests.py",
 ]
 
 

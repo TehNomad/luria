@@ -4,6 +4,7 @@ pub mod cds;
 pub mod codon_usage;
 pub mod error;
 pub mod extraction;
+pub mod fasta;
 pub mod feature;
 pub mod genetic_code;
 pub mod identity;

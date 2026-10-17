@@ -559,6 +559,37 @@ pub struct DegenerateExpansionTooLargeProblem {
     pub replacement: String,
 }
 
+/// Which rule refused a FASTA text. Stable: `code()` is part of the CLI's
+/// output contract (D041), and renaming one needs approval.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum FastaRule {
+    NoRecord,
+    TextBeforeHeader,
+    SecondRecord,
+}
+
+impl FastaRule {
+    /// The rule's stable code: its name in snake_case.
+    pub fn code(self) -> &'static str {
+        use FastaRule::*;
+        match self {
+            NoRecord => "no_record",
+            TextBeforeHeader => "text_before_header",
+            SecondRecord => "second_record",
+        }
+    }
+}
+
+/// Payload: a FASTA text that is not exactly one record. `line` counts text
+/// lines from 1, as an editor does; it is not a sequence coordinate. It is
+/// `None` for `NoRecord`, which has no line to point at.
+#[derive(Clone, Debug, PartialEq)]
+pub struct MalformedFastaProblem {
+    pub sequence: String,
+    pub rule: FastaRule,
+    pub line: Option<u64>,
+}
+
 /// A structured domain failure.
 #[derive(Clone, Debug, PartialEq)]
 pub enum DomainError {
@@ -609,6 +640,7 @@ pub enum DomainError {
     InvalidBufferModel(InvalidBufferModelProblem),
     TmParametersUnavailable(TmParametersUnavailableProblem),
     DegenerateExpansionTooLarge(DegenerateExpansionTooLargeProblem),
+    MalformedFasta(MalformedFastaProblem),
 }
 
 impl ErrorCategory {
@@ -645,7 +677,8 @@ impl DomainError {
             | DomainError::UnspecifiedCodonPolicy(_) => ErrorCategory::MalformedInput,
             DomainError::InvalidPrimerCandidate(_)
             | DomainError::InvalidPrimerDesignRequest(_)
-            | DomainError::InvalidBufferModel(_) => ErrorCategory::MalformedInput,
+            | DomainError::InvalidBufferModel(_)
+            | DomainError::MalformedFasta(_) => ErrorCategory::MalformedInput,
             DomainError::CoordinateOutOfBounds(_)
             | DomainError::SequenceReferenceMismatch(_)
             | DomainError::CdsLengthNotDivisibleByThree(_)
@@ -730,6 +763,7 @@ impl DomainError {
             DomainError::InvalidBufferModel(_) => "invalid_buffer_model",
             DomainError::TmParametersUnavailable(_) => "tm_parameters_unavailable",
             DomainError::DegenerateExpansionTooLarge(_) => "degenerate_expansion_too_large",
+            DomainError::MalformedFasta(_) => "malformed_fasta",
         }
     }
 
@@ -875,6 +909,23 @@ impl DomainError {
             DomainError::DegenerateExpansionTooLarge(problem) =>
                 format!("'{}' denotes more concrete sequences than can be counted",
                     problem.replacement),
+            DomainError::MalformedFasta(problem) => {
+                let line: String = match problem.line {
+                    Some(number) => number.to_string(),
+                    None => "?".to_string(),
+                };
+                match problem.rule {
+                    FastaRule::NoRecord =>
+                        format!("FASTA text for '{}' holds no record: it has no '>' header line",
+                            problem.sequence),
+                    FastaRule::TextBeforeHeader =>
+                        format!("FASTA text for '{}' has text on line {} before its '>' header line",
+                            problem.sequence, line),
+                    FastaRule::SecondRecord =>
+                        format!("FASTA text for '{}' starts a second record on line {}; only one record is read",
+                            problem.sequence, line),
+                }
+            }
         }
     }
 }
@@ -1421,8 +1472,16 @@ mod tests {
                 }),
                 "degenerate_expansion_too_large",
             ),
+            (
+                DomainError::MalformedFasta(MalformedFastaProblem {
+                    sequence: s(),
+                    rule: FastaRule::NoRecord,
+                    line: None,
+                }),
+                "malformed_fasta",
+            ),
         ];
-        assert_eq!(cases.len(), 47);
+        assert_eq!(cases.len(), 48);
         let mut seen = std::collections::BTreeSet::new();
         for (error, code) in &cases {
             assert_eq!(error.code(), *code, "{:?}", error);
@@ -1498,6 +1557,21 @@ mod tests {
             (PairNotAbuttingEdit, "pair_not_abutting_edit"),
             (MinimumOverlapBelowOne, "minimum_overlap_below_one"),
             (TailsDoNotRebuild, "tails_do_not_rebuild"),
+        ];
+        let mut seen = std::collections::BTreeSet::new();
+        for (rule, code) in cases {
+            assert_eq!(rule.code(), code, "{:?}", rule);
+            assert!(seen.insert(code), "duplicate code {}", code);
+        }
+    }
+
+    #[test]
+    fn every_fasta_rule_has_its_pinned_code() {
+        use FastaRule::*;
+        let cases: [(FastaRule, &str); 3] = [
+            (NoRecord, "no_record"),
+            (TextBeforeHeader, "text_before_header"),
+            (SecondRecord, "second_record"),
         ];
         let mut seen = std::collections::BTreeSet::new();
         for (rule, code) in cases {
