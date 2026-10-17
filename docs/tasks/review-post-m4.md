@@ -78,8 +78,30 @@ the worker.
 
 **Fixed 2026-10-16** (one commit each, contracts in `docs/tasks/review-b*.md`):
 B1 (`efd83d3`), B2 (`c38eec9`), B3 (`82a867f`), B15 (`5c3668f`), B4 (`c6a2b8f`),
-B5 (`a20b9ba`), B6 (`260e494`), B11 (with E4). Still open: B7–B10, B12–B14,
-B16.
+B5 (`a20b9ba`), B6 (`260e494`), B11 (with E4). Then:
+- B7 and B16 (`41ee2d2`): a terminal mismatch is reported as
+  `TmParametersUnavailable` instead of being scored as an internal one, and
+  the alphabet error names its strand;
+- B8 (`2ece3eb`): the symmetry term applies on the matched basis only. One
+  `tm_crosscheck.rs` value changed, to Biopython's corrected figure;
+- B9 (`89487a4`);
+- B10 (`0887eec`), following the owner's decision D040: an
+  origin-crossing codon is recorded in feature order;
+- B13 (`9f9026d`);
+- B12 (`00b9ce0`): four versions bumped.
+
+**B14 closed, not a defect.** The inline primer anneals across the edit
+region, so §18.2's "template under the centered pair" includes it. The
+deletion and tail-path primers stop at its edges. In either case, the region
+can't hold an ambiguity code, because the mutation layer refuses one in an
+asserted original.
+
+**For Milestone 5:**
+- `MUTATION_ALGORITHM_VERSION` and `PRIMER_DESIGN_VERSION` are never
+  recorded on a result, which D021 requires.
+- Some primer messages print a span with no brackets at all, e.g. "the span
+  11, 21 overlaps". The machine-readable output should settle one interval
+  format.
 
 ### High
 
