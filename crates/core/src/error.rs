@@ -632,6 +632,49 @@ impl GenBankLocationRule {
     }
 }
 
+/// Which rule refused a GenBank text. Stable: `code()` is part of the CLI's
+/// output contract (D041), and renaming one needs approval.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum GenBankRule {
+    NoLocus,
+    LocusLength,
+    TopologyMissing,
+    TopologyConflict,
+    RepeatedSection,
+    LineLayout,
+    QualifierSyntax,
+    NoOrigin,
+    OriginLine,
+    OriginNumbering,
+    LengthMismatch,
+    MissingEnd,
+    SecondRecord,
+    TextAfterEnd,
+}
+
+impl GenBankRule {
+    /// The rule's stable code: its name in snake_case.
+    pub fn code(self) -> &'static str {
+        use GenBankRule::*;
+        match self {
+            NoLocus => "no_locus",
+            LocusLength => "locus_length",
+            TopologyMissing => "topology_missing",
+            TopologyConflict => "topology_conflict",
+            RepeatedSection => "repeated_section",
+            LineLayout => "line_layout",
+            QualifierSyntax => "qualifier_syntax",
+            NoOrigin => "no_origin",
+            OriginLine => "origin_line",
+            OriginNumbering => "origin_numbering",
+            LengthMismatch => "length_mismatch",
+            MissingEnd => "missing_end",
+            SecondRecord => "second_record",
+            TextAfterEnd => "text_after_end",
+        }
+    }
+}
+
 /// Payload: a FASTA text that is not exactly one record. `line` counts text
 /// lines from 1, as an editor does; it is not a sequence coordinate. It is
 /// `None` for `NoRecord`, which has no line to point at.
@@ -649,6 +692,16 @@ pub struct UnusableGenBankLocationProblem {
     pub location: String,
     pub rule: GenBankLocationRule,
     pub sequence_length: u64,
+}
+
+/// Payload: a GenBank text that is not one readable record. `line` counts
+/// text lines from 1; it is not a sequence coordinate. It is `None` when
+/// there is no line to point at (an empty text, or a text that ends early).
+#[derive(Clone, Debug, PartialEq)]
+pub struct MalformedGenBankProblem {
+    pub sequence: String,
+    pub rule: GenBankRule,
+    pub line: Option<u64>,
 }
 
 /// A structured domain failure.
@@ -703,6 +756,7 @@ pub enum DomainError {
     DegenerateExpansionTooLarge(DegenerateExpansionTooLargeProblem),
     MalformedFasta(MalformedFastaProblem),
     UnusableGenBankLocation(UnusableGenBankLocationProblem),
+    MalformedGenBank(MalformedGenBankProblem),
 }
 
 impl ErrorCategory {
@@ -740,7 +794,8 @@ impl DomainError {
             DomainError::InvalidPrimerCandidate(_)
             | DomainError::InvalidPrimerDesignRequest(_)
             | DomainError::InvalidBufferModel(_)
-            | DomainError::MalformedFasta(_) => ErrorCategory::MalformedInput,
+            | DomainError::MalformedFasta(_)
+            | DomainError::MalformedGenBank(_) => ErrorCategory::MalformedInput,
             DomainError::CoordinateOutOfBounds(_)
             | DomainError::SequenceReferenceMismatch(_)
             | DomainError::CdsLengthNotDivisibleByThree(_)
@@ -832,6 +887,7 @@ impl DomainError {
             DomainError::DegenerateExpansionTooLarge(_) => "degenerate_expansion_too_large",
             DomainError::MalformedFasta(_) => "malformed_fasta",
             DomainError::UnusableGenBankLocation(_) => "unusable_genbank_location",
+            DomainError::MalformedGenBank(_) => "malformed_genbank",
         }
     }
 
@@ -1021,6 +1077,43 @@ impl DomainError {
                         "is a join luria does not represent: only a join that crosses the origin of a circular sequence is read".to_string(),
                 };
                 format!("GenBank location '{}' {}", problem.location, reason)
+            }
+            DomainError::MalformedGenBank(problem) => {
+                let reason: String = match problem.rule {
+                    GenBankRule::NoLocus =>
+                        "it does not start with a LOCUS line".to_string(),
+                    GenBankRule::LocusLength =>
+                        "the LOCUS line does not give a length in bp".to_string(),
+                    GenBankRule::TopologyMissing =>
+                        "the LOCUS line states neither linear nor circular".to_string(),
+                    GenBankRule::TopologyConflict =>
+                        "the LOCUS line states more than one topology".to_string(),
+                    GenBankRule::RepeatedSection =>
+                        "a section that appears once per record appears again".to_string(),
+                    GenBankRule::LineLayout =>
+                        "a line fits no part of the record layout".to_string(),
+                    GenBankRule::QualifierSyntax =>
+                        "a qualifier is not /name or /name=value, or its quoted value is not closed".to_string(),
+                    GenBankRule::NoOrigin =>
+                        "the record has no ORIGIN sequence".to_string(),
+                    GenBankRule::OriginLine =>
+                        "a line in ORIGIN is not a position number followed by bases".to_string(),
+                    GenBankRule::OriginNumbering =>
+                        "a line in ORIGIN is numbered other than one past the bases before it".to_string(),
+                    GenBankRule::LengthMismatch =>
+                        "the LOCUS line's length differs from the ORIGIN sequence's".to_string(),
+                    GenBankRule::MissingEnd =>
+                        "the record does not end with a // line".to_string(),
+                    GenBankRule::SecondRecord =>
+                        "a second record starts after //; only one record is read".to_string(),
+                    GenBankRule::TextAfterEnd =>
+                        "text follows the record's // line".to_string(),
+                };
+                let located: String = match problem.line {
+                    Some(number) => format!(" (line {})", number),
+                    None => "".to_string(),
+                };
+                format!("GenBank text for '{}': {}{}", problem.sequence, reason, located)
             }
         }
     }
@@ -1584,8 +1677,16 @@ mod tests {
                 }),
                 "unusable_genbank_location",
             ),
+            (
+                DomainError::MalformedGenBank(MalformedGenBankProblem {
+                    sequence: s(),
+                    rule: GenBankRule::NoLocus,
+                    line: None,
+                }),
+                "malformed_genbank",
+            ),
         ];
-        assert_eq!(cases.len(), 49);
+        assert_eq!(cases.len(), 50);
         let mut seen = std::collections::BTreeSet::new();
         for (error, code) in &cases {
             assert_eq!(error.code(), *code, "{:?}", error);
@@ -1709,6 +1810,32 @@ mod tests {
         for (rule, code, category) in cases {
             assert_eq!(rule.code(), code, "{:?}", rule);
             assert!(rule.category() == category, "{:?}", rule);
+            assert!(seen.insert(code), "duplicate code {}", code);
+        }
+    }
+
+    #[test]
+    fn every_genbank_rule_has_its_pinned_code() {
+        use GenBankRule::*;
+        let cases: [(GenBankRule, &str); 14] = [
+            (NoLocus, "no_locus"),
+            (LocusLength, "locus_length"),
+            (TopologyMissing, "topology_missing"),
+            (TopologyConflict, "topology_conflict"),
+            (RepeatedSection, "repeated_section"),
+            (LineLayout, "line_layout"),
+            (QualifierSyntax, "qualifier_syntax"),
+            (NoOrigin, "no_origin"),
+            (OriginLine, "origin_line"),
+            (OriginNumbering, "origin_numbering"),
+            (LengthMismatch, "length_mismatch"),
+            (MissingEnd, "missing_end"),
+            (SecondRecord, "second_record"),
+            (TextAfterEnd, "text_after_end"),
+        ];
+        let mut seen = std::collections::BTreeSet::new();
+        for (rule, code) in cases {
+            assert_eq!(rule.code(), code, "{:?}", rule);
             assert!(seen.insert(code), "duplicate code {}", code);
         }
     }

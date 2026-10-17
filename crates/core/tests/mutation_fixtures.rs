@@ -231,6 +231,7 @@ fn variant_name(error: &DomainError) -> String {
         DomainError::DegenerateExpansionTooLarge(_) => "DegenerateExpansionTooLarge",
         DomainError::MalformedFasta(_) => "MalformedFasta",
         DomainError::UnusableGenBankLocation(_) => "UnusableGenBankLocation",
+        DomainError::MalformedGenBank(_) => "MalformedGenBank",
     }
     .to_string()
 }
