@@ -1,0 +1,18 @@
+[package]
+name = "luria-cli"
+description = "The luria command-line interface: typed requests in, structured JSON results out."
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "luria_cli"
+path = "src/lib.rs"
+
+[[bin]]
+name = "luria"
+path = "src/main.rs"
+
+[dependencies]
+luria-core = { path = "../core" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
