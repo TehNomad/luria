@@ -4,8 +4,36 @@
 | --- | --- |
 | [`core-foundation/`](./core-foundation/) | Synthetic sequences, features, and CDSs: canonical text, content hashing, coordinates, circular features, CDS extraction, translation. Drives the integration tests in `crates/core/tests/core_foundation.rs`. |
 | [`mutation/`](./mutation/) | Synthetic sequences and CDSs under mutation: nucleotide and residue substitution, expected-original checks, codon-selection policy, strand-aware coordinates, provenance, verification. Drives the integration tests in `crates/core/tests/mutation_fixtures.rs`. |
-| [`example-construct/`](./example-construct/) | The real *C. elegans* SID-1 construct and captured NEBaseChanger output. |
-| [`q5-primer/`](./q5-primer/) | The primer-design contract in `docs/q5-primer-design.md`: ten cases that pin the contract's invariants before any design algorithm exists, plus reproducible reference designs for the substitution cases. |
+| [`example-construct/`](./example-construct/) | The real *C. elegans* SID-1 construct and captured NEBaseChanger output. Its sequence is read by the `q5-primer/` cases; `crates/core/tests/q5_primer_fixtures.rs` now reads the NEBaseChanger output files (see below). |
+| [`q5-primer/`](./q5-primer/) | The primer-design contract in `docs/q5-primer-design.md`: ten contract cases, reproducible reference designs for the substitution cases, and expected `luriaNative` outcomes for substitutions, deletions, insertions and replacements (`native*.tsv`). Drives `crates/core/tests/q5_primer_fixtures.rs`. |
+| [`tm/`](./tm/) | Published nearest-neighbour parameters for the Tm calculation (D030). Drives `crates/core/tests/tm_tables.rs`; `tm_crosscheck.rs` holds reference Tm values. |
+| [`primer-quality/`](./primer-quality/) | Sourced thresholds for the non-blocking primer-quality warnings. Drives `crates/core/tests/primer_quality_thresholds.rs`. |
+| [`codon-usage/`](./codon-usage/) | The Kazusa Codon Usage Database page for *Escherichia coli* W3110 (species 316407) as captured, parsed to `counts.tsv` by `reference/parse_kazusa.py`. Checked against `crates/core/src/codon_usage.rs` by `crates/core/tests/codon_usage_fixture.rs`. |
+
+## Rerunning fixture verification
+
+Every fixture expectation is reproducible from tracked files (D039), and each
+script that wrote or verified one has a `--check` mode that regenerates the
+tracked text in memory, compares it byte for byte, prints `OK <name>` or
+`DIFFERS <name>` with the first differing line, exits 1 on a difference, and
+writes nothing. One command runs all of them from the repository root:
+
+```
+python -m venv .venv
+.venv/bin/activate
+pip install -r tests/fixtures/requirements.txt   # biopython 1.88, numpy 2.5.4
+python -I tests/fixtures/verify.py
+```
+
+`verify.py` runs each check as `sys.executable -I <script> --check` and prints
+`PASS` or `FAIL` and the name of each, exiting 1 if any fails: the three Tm
+verifiers (`verify_imm.py`, `verify_matched.py`, `crosscheck.py`), the five
+q5-primer generators, and the codon-usage parser.
+
+These Python checks are **not** part of the required cargo checks (D039, D026):
+the Rust tests never call Python, and `cargo test --workspace` does not run
+these scripts. They are run separately, when a fixture or one of its sources
+changes.
 
 ---
 
@@ -54,8 +82,11 @@ Conversion: 1-indexed inclusive `[1210, 1212]` → zero-based half-open
 `[1209, 1212)`.
 
 Do not read the description's `1209-1213` as the bounds of the edit: that
-would give `[1208, 1213)`, one base too wide on each side. The test asserts
-the parsed interval is `[1209, 1212)` and not `[1208, 1213)`.
+would give `[1208, 1213)`, one base too wide on each side. The planned
+importer test (`tests/test_nebasechanger.py`, not yet runnable) asserts the
+parsed interval is `[1209, 1212)` and not `[1208, 1213)`. `q5_primer_fixtures.rs`
+checks the same `[1209, 1212)` reading against the final FASTA header, in
+`luria_reproduces_the_nebasechanger_final_construct`.
 
 For reference, neither number is a primer span: the forward primer targets
 1-based 1200–1222 and the reverse primer targets 1-based 1177–1199 (its

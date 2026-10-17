@@ -8,7 +8,8 @@ crates/core/tests/q5_primer_fixtures.rs.
 
 Requires Biopython 1.88. Run from this directory:
 
-    python3 native-replacement.py
+    python3 native-replacement.py            rewrite ../native-replacement.tsv
+    python3 native-replacement.py --check    compare, write nothing
 
 D033, for a target region [s, e) of width w replaced by m bases, bound b, on a
 linear template of length n, with t = max(w, m):
@@ -294,8 +295,7 @@ def main():
         rows.append("\t".join(row))
         shown = {k: v for k, v in out.items() if k not in ("forward", "reverse")}
         print(case_id, shown, sorted(trace))
-    with open(os.path.join(FIXTURES, "native-replacement.tsv"), "w") as handle:
-        handle.write("\n".join(rows) + "\n")
+    nd.emit(os.path.join(FIXTURES, "native-replacement.tsv"), "\n".join(rows) + "\n")
 
 
 if __name__ == "__main__":

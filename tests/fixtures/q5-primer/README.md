@@ -34,10 +34,47 @@ Two kinds of case appear, and they are marked differently:
 | `reference/native-insertion.py` | The script that generates `native-insertion.tsv`. Same independence as the deletion script. |
 | `native-replacement.tsv` | 15 expected `luriaNative` replacement outcomes (D033): 11 designs and 4 failures. Generated, not transcribed. |
 | `reference/native-replacement.py` | The script that generates `native-replacement.tsv`. Same independence as the other two. |
+| `reference/unit-expectations.py` | Prints the expectations the unit tests in `crates/core/src/primer_design.rs` and `crates/core/src/q5_design.rs` hard-code for the templates they build there, which `native-design.py`'s `--synthetic` mode does not cover. Loads `native-design.py` and `native-replacement.py` from its own directory; writes nothing. |
 
 No sequence file is duplicated here. `sequence_file` is a path relative to
-`tests/fixtures/`, so the biological input is the artifact another fixture
+this directory (`tests/fixtures/q5-primer/`), e.g.
+`../example-construct/input/sid-1_cDNA.fa`, so the biological input is the artifact another fixture
 already validated.
+
+## Rerunning the generators
+
+Every generator in `reference/` has a `--check` mode (D039): it builds its
+output text exactly as it does today, compares it byte for byte with the
+tracked file, prints `OK <name>` or `DIFFERS <name>` followed by the first
+differing line, exits 1 on a difference, and writes nothing. Without `--check`
+it rewrites its tracked file. Run them from the repository root with `python -I`;
+the four `native-*.py` scripts need **Biopython 1.88**, pinned in
+`tests/fixtures/requirements.txt`, and `neb-q5-sdm-reference.py` needs none, as
+it inlines the reference Tm model.
+
+```
+python -I tests/fixtures/q5-primer/reference/native-design.py                 # rewrite ../native.tsv
+python -I tests/fixtures/q5-primer/reference/native-design.py --check         # compare, write nothing
+python -I tests/fixtures/q5-primer/reference/native-deletion.py               # rewrite ../native-deletion.tsv
+python -I tests/fixtures/q5-primer/reference/native-deletion.py --check       # compare, write nothing
+python -I tests/fixtures/q5-primer/reference/native-insertion.py              # rewrite ../native-insertion.tsv
+python -I tests/fixtures/q5-primer/reference/native-insertion.py --check      # compare, write nothing
+python -I tests/fixtures/q5-primer/reference/native-replacement.py            # rewrite ../native-replacement.tsv
+python -I tests/fixtures/q5-primer/reference/native-replacement.py --check    # compare, write nothing
+python -I tests/fixtures/q5-primer/reference/neb-q5-sdm-reference.py          # rewrite reference/designs.json
+python -I tests/fixtures/q5-primer/reference/neb-q5-sdm-reference.py --check  # compare, write nothing
+python -I tests/fixtures/q5-primer/reference/unit-expectations.py             # print unit-test expectations, write nothing
+```
+
+`native-design.py`'s `--synthetic` mode is unchanged: it prints expectations for
+the synthetic templates in its `SYNTHETIC`, the ones `primer_design.rs`'s
+branch tests build. `unit-expectations.py` prints, and writes nothing, so it has
+no `--check`: it covers the other templates those two Rust modules build inside
+their tests — `primer_design.rs`'s 60-base `TEMPLATE` and `q5_design.rs`'s 90-base
+template, and the two `native-replacement.py` designs near `primer_design.rs`'s
+tail-path test — and it names each case, so a test comment can point at the case
+that produced its figures. None of this is part of the required cargo checks
+(D039, D026).
 
 ## Column meanings
 
@@ -64,7 +101,8 @@ already validated.
 - `target_tm` is a number or `absent`; `absent` means the caller did not supply
   it, which is not the same as supplying a value.
 - `strand` is the strand the edit's *semantics* are stated on. It does not
-  change the DNA edit; it changes which primer is `forward` (§6).
+  change the DNA edit, and it does not change which primer is `forward`:
+  that is a property of the construct's orientation (§6).
 - `expected` is `design`, `design-per-variant`, `contract-only`, or
   `no-design`. `no-design` is the failure contract: the case has no design
   that satisfies the hard requirements, and a layer must say so (§10).
@@ -92,18 +130,19 @@ already validated.
 | `q5p-05-insertion` | The degenerate changed region. The inserted text occupies nothing in the template, so all overlap must come from context. |
 | `q5p-06-deletion` | The empty replacement. No primer position can carry a deletion; the pair is defined by the context it preserves. |
 | `q5p-07-separate-variants` | One pristine template, two independent pairs (D020). The reference spans 1176–1222 and 1469–1516 are disjoint; nothing is merged. |
-| `q5p-08-reverse-strand` | Which primer is `forward` when the edit's semantics are on the minus strand. The DNA edit at 9–12 is the same either way (§6). `mut-a.txt` is the artifact the mutation fixture's `res-a-minus-7` case uses, **not** the same edit: that case acts on residue 7 (`ATT → L`), which writes DNA `AAT → TAA` at 9–12 and the codon `ATT → TTA` at reference coordinates 9,10,11, while this case declares DNA `AAT → AAC` at 9–12. |
+| `q5p-08-reverse-strand` | Which primer is `forward` when the edit's semantics are on the minus strand. The DNA edit at 9–12 is the same either way (§6). `mut-a.txt` is the artifact the mutation fixture's `res-a-minus-7` case uses, **not** the same edit: that case acts on residue 7 (`ATT → L`), which writes DNA `AAT → CAG` at 9–12 and the codon `ATT → CTG` at reference coordinates 9,10,11, while this case declares DNA `AAT → AAC` at 9–12. (The `note` column of `cases.tsv` still gives the pre-2026-10-14 `TAA`/`TTA`.) |
 | `q5p-09-bound-exceeds-template` | A bound no design can meet: 31 required overlap against a 30-base template. Unsatisfiable under every geometry, so the failure is not a property of one search. |
 | `q5p-10-no-tm-target` | An unsupplied constraint. `target_tm = absent` must appear as absent in the output, never as a substituted default (§10). |
 
 ## Scope and known limitations
 
-- **Insertions and deletions are not representable in `crates/core` today.**
-  The mutation layer implements nucleotide and residue *substitution* only
-  (`apply_nucleotide`, `apply_residue`); there is no insert or delete
-  operation. `q5p-05` and `q5p-06` therefore state their edit directly rather
-  than taking it from a `MutationResult`, and are contract-level cases, not
-  validated mutation outputs.
+- **`q5p-05` and `q5p-06` predate indel support.** When they were written the
+  mutation layer had substitution only, so they state their edit directly
+  rather than taking it from a `MutationResult`, and they remain
+  contract-level cases. Insertions, deletions and replacements are now
+  implemented (`apply_insertion`, `apply_deletion`, `apply_replacement`,
+  D031–D033), and their expected designs are in `native-insertion.tsv`,
+  `native-deletion.tsv` and `native-replacement.tsv`.
 - **The reference designs cover the reference tool's `replace` path only.**
   Its insert and delete paths take a different shape — they design a whole
   fragment pair rather than a local pair — which is an observation about the
@@ -131,19 +170,39 @@ already validated.
   `AAT → TAA` and `TTA`). This case declares the DNA edit `AAT → AAC` at 9–12. At
   30 bases it is too short for any reference design, so the case is
   contract-only.
-- No case here asserts a Tm value for `luria`. The Tm values in
-  `designs.json` are labelled with the reference function that produced them;
-  the project's own Tm function is not yet defined (§11, §13.3).
-- No `Ta` rule is asserted. The reference tool prints one and nothing in this
-  workspace defines it (§13.1 item 8, §15 question 7).
+- `cases.tsv` and `designs.json` assert no Tm value for `luria`; the Tm
+  values in `designs.json` are labelled with the reference function that
+  produced them. luria's own Tm (`tm.rs`, D030) and annealing temperature are
+  asserted by the `native*.tsv` files (`forward_tm`, `reverse_tm`,
+  `annealing_temp`), not by these cases.
+- Test coverage of `cases.tsv` is no longer partial: `q5_primer_fixtures.rs`
+  reads every column except `strand`, `cds` and `note`, which are descriptive
+  and checked by no test. Every row is checked, including the contract-only
+  rows q5p-05, -06, -08, -09 and -10. Which check reads which column:
+
+| Column | Checked by |
+| --- | --- |
+| `case_id` | every test that names a row; `every_reference_design_case_has_a_record_and_no_record_lacks_a_case` against the `designs.json` keys |
+| `kind` | `every_case_kind_agrees_with_its_edits` |
+| `sequence_file` | `template_of` for every row, and `every_case_names_the_digest_of_its_sequence_file` |
+| `sequence_digest_16` | `every_case_names_the_digest_of_its_sequence_file` (all 10 rows), and `each_reference_design_is_built_against_the_template_its_case_names` against `builtAgainst` |
+| `edits` | `every_case_edit_asserts_the_bases_its_template_holds` against the template, `every_case_kind_agrees_with_its_edits`, and `every_reference_case_agrees_with_its_design_record` against the record's edit |
+| `min_overlap` | `every_reference_case_agrees_with_its_design_record` against `request.minOverlapSupplied`, and the bound `the_no_design_case_gets_no_design_from_luria` and `the_no_tm_target_case_reports_the_tm_input_as_unresolved` build their requests from |
+| `target_tm` | `every_reference_case_agrees_with_its_design_record` against `request.targetTm` (`55` against `55.0`), and `the_no_tm_target_case_reports_the_tm_input_as_unresolved` for the `absent` row |
+| `reference_design` | `every_reference_design_case_has_a_record_and_no_record_lacks_a_case`, and which rows `every_reference_case_agrees_with_its_design_record` and `every_reference_check_matches_its_record` cover |
+| `expected` | `the_no_design_case_gets_no_design_from_luria` (`no-design`) |
+| `invariants` | `every_case_names_only_defined_invariants` |
+| `reference_check` | `every_reference_check_matches_its_record` |
 
 ## Provenance of the reference designs
 
 `reference/designs.json` is generated by `reference/neb-q5-sdm-reference.py`,
 which transcribes the Q5 SDM `replace` path from the saved NEBaseChanger
 material. Running it reproduces the SID-1 D404N pair that
-`tests/fixtures/example-construct/raw/sdmsummary.txt` records, which is why
-the reference values here are reproducible rather than copied. The script is
+`tests/fixtures/example-construct/raw/sdmsummary.txt` records;
+`the_reference_script_reproduces_the_nebasechanger_pair` in
+`crates/core/tests/q5_primer_fixtures.rs` is the test that compares them, which
+is why the reference values here are reproducible rather than copied. The script is
 not called by anything in `crates/core`.
 
 ### Reported by the raw artifact, versus derived by the script

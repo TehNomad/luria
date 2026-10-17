@@ -10,8 +10,14 @@
 //!
 //! # The policy
 //!
-//! For a contiguous replacement region `[s, e)`, `L = e − s`, `1 ≤ L ≤ 3`, on a
-//! linear template of length `n`, with `b = minAnnealingOverlap`:
+//! The scope: a substitution over a contiguous changed region of 1–3 bases
+//! (`MAX_REPLACEMENT_REGION`, D029/D030); a replacement of a region `[s, e)`
+//! by `m` bases, inline while `t = max(w, m) ≤ 6` (`MAX_INLINE_REPLACEMENT`,
+//! D033) and on the tails path above it; deletions (D031) and insertions
+//! (D032), all on linear templates (D035).
+//!
+//! For a contiguous region `[s, e)` of width `L = e − s` on a linear template
+//! of length `n`, with `b = minAnnealingOverlap`:
 //!
 //! ```text
 //! B  = s − 10            the junction; the forward primer's 5′ flank is 10, fixed
@@ -51,6 +57,13 @@
 //! region's two edges: the forward primer anneals at `[e, e + f)` and the reverse
 //! at `[s − r, s)`.
 //!
+//! D038: a `ConfineToTail` placement is accepted where it changes nothing —
+//! an insertion (D032) and a replacement above `MAX_INLINE_REPLACEMENT` (D033)
+//! already write every base into the two 5′ tails, so both are designed exactly
+//! as the same `Inline` request designs them, and the design records the
+//! placement the caller asked for. Every other edit (a substitution, an inline
+//! replacement and a deletion) still refuses it.
+//!
 //! # Failure, by cause (D029, D030)
 //!
 //! * `NoPrimerDesignPossible` (`BiologicalValidation`): `L + 10 + v0 + r0 > n`,
@@ -62,7 +75,8 @@
 //! * refused before the search: `InvalidPrimerDesignRequest`
 //!   (`MalformedInput`) for a bound below 1 or an unverified result;
 //!   `UnsupportedPrimerDesignScope` or `UnsupportedPrimerPlacement`
-//!   (`Unsupported`) for a request outside the policy.
+//!   (`Unsupported`) for a request outside the policy, except D038's
+//!   `ConfineToTail` on the tails path.
 
 use crate::error::DesignObstacle;
 use crate::error::DomainError;
@@ -79,6 +93,8 @@ use crate::mutation::MutationResult;
 use crate::primer::assemble_pair;
 use crate::primer::construct_primer;
 use crate::primer::construct_tailed_primer;
+use crate::primer::insertion_claim;
+use crate::primer::replacement_claim;
 use crate::primer::require_design_constraints;
 use crate::primer::Primer;
 use crate::primer::PrimerPair;
@@ -102,7 +118,12 @@ pub const NATIVE_DESIGN_ALGORITHM_NAME: &str = "luria-core-primer-design-native"
 /// Version of this design code path (D021). 0.2.0 is D030's Tm-driven sizing;
 /// 0.3.0 adds D031's deletion design, 0.4.0 adds D032's insertion design and
 /// 0.5.0 adds D033's replacement design, each with the earlier output unchanged.
-pub const NATIVE_DESIGN_ALGORITHM_VERSION: &str = "0.5.0";
+/// 0.6.0 computes the smallest-pair sums with saturating arithmetic, so a
+/// `min_annealing_overlap` large enough to overflow `u64` gives
+/// `NoPrimerDesignPossible` rather than an overflow, and D038 accepts a
+/// `ConfineToTail` request for an insertion and for a replacement already on
+/// the tail path, where it designs exactly the pair the `Inline` request does.
+pub const NATIVE_DESIGN_ALGORITHM_VERSION: &str = "0.6.0";
 
 /// D030: the forward primer's 5′ flank, fixed, and the shortest 3′ flank.
 pub const MIN_FLANK: u64 = 10;
@@ -288,27 +309,29 @@ impl PrimerDesign {
         self.edited.clone()
     }
 
-    /// The edited region `[s, e)` on the template: the replacement region for
-    /// a substitution, the removed region for a deletion (D031), and the point
-    /// twice, `(p, p)`, for an insertion (D032), which occupies no template
-    /// base of its own.
+    /// The edited region `[s, e)` on the template: the changed region for a
+    /// substitution, the removed region for a deletion (D031), the replaced
+    /// region for a replacement on either path (D033), and the point twice,
+    /// `(p, p)`, for an insertion (D032), which occupies no template base of
+    /// its own.
     pub fn edit_span(&self) -> (u64, u64) {
         (self.edit_start, self.edit_end)
     }
 
-    /// The forward primer's unchanged bases 5′ of the edit. `MIN_FLANK` for a
-    /// substitution (D030); 0 for a deletion (D031), whose forward primer's 5′
-    /// end sits at the far edge of the removed region, and 0 for an insertion
-    /// (D032), whose forward primer's 5′ end is its tail.
+    /// The forward primer's unchanged bases 5′ of the region. `MIN_FLANK` for a
+    /// substitution and for an inline replacement (D030, D033); 0 for a
+    /// deletion (D031), whose forward primer's 5′ end sits at the far edge of
+    /// the removed region, and 0 for an insertion and a tail-path replacement
+    /// (D032, D033), whose forward primer's 5′ end is its tail.
     pub fn five_prime_flank(&self) -> u64 {
         self.five_prime_flank
     }
 
-    /// For a substitution, the forward primer's unchanged bases 3′ of the
-    /// replacement region. For a deletion, the forward primer's whole length:
-    /// it has no 5′ flank, so its length is its annealing total. For an
-    /// insertion (D032), the forward primer's **annealing** length: its 5′
-    /// tail carries inserted bases and anneals nowhere, so it is not counted.
+    /// The forward primer's growth 3′ of the region: unchanged bases beyond it
+    /// for a substitution and an inline replacement (D030, D033); the whole
+    /// annealing length for a deletion (D031), which has no 5′ flank; and the
+    /// **annealing** length for an insertion and a tail-path replacement
+    /// (D032, D033), whose 5′ tail carries written bases and anneals nowhere.
     pub fn three_prime_flank(&self) -> u64 {
         self.three_prime_flank
     }
@@ -318,10 +341,12 @@ impl PrimerDesign {
         self.five_prime_flank + self.three_prime_flank
     }
 
-    /// The reverse primer's length, which for a substitution and a deletion is
-    /// also its whole length. For an insertion (D032) it is the reverse
-    /// primer's **annealing** length: a 5′ tail, when the insertion was split,
-    /// is not counted here.
+    /// The reverse primer's **annealing** length. For a substitution, a
+    /// deletion and an inline replacement it is also the whole length, since
+    /// those primers carry no tail; for an insertion and a tail-path
+    /// replacement (D032, D033) a 5′ tail is not counted here, and the reverse
+    /// primer has none at all when the written text stays whole on the forward
+    /// primer or is a single base.
     pub fn reverse_length(&self) -> u64 {
         self.reverse_length
     }
@@ -330,17 +355,21 @@ impl PrimerDesign {
         self.pair.clone()
     }
 
-    /// The number of template positions the pair removes between its two 5′
-    /// ends (D031). 0 for a substitution.
+    /// The number of template positions between the pair's two annealing
+    /// portions: the deleted region for a deletion, the replaced region for a
+    /// tail-path replacement, and 0 otherwise (D031, D033).
     pub fn deleted_width(&self) -> u64 {
         self.pair.clone().deleted_width()
     }
 
-    /// The forward primer's Tm, with the basis it was computed on: mismatch-
-    /// aware against the wild-type site for a substitution (D030), matched for
-    /// a deletion and for an insertion, whose annealing portion is wild-type
-    /// template (D031, D032). It is always the annealing portion's Tm, never
-    /// the whole primer's.
+    /// The forward primer's Tm, always of its annealing portion and never of
+    /// the whole primer. The basis follows the geometry: D030's hybrid —
+    /// mismatch-aware against the wild-type site, falling back to matched for
+    /// a tandem or motif gap (B6) — for a substitution and for an inline
+    /// replacement with `m = w`; matched for an inline replacement with `m ≠ w`,
+    /// where primer and site differ in length, and for a deletion and the tail
+    /// path (D031, D032, D033), whose annealing portions are wild-type
+    /// template.
     pub fn forward_tm(&self) -> MeltingTemperature {
         self.forward_tm.clone()
     }
@@ -350,13 +379,13 @@ impl PrimerDesign {
         self.reverse_tm.clone()
     }
 
-    /// D032: the forward primer's whole-primer Tm, tail included, on the
-    /// matched basis. It is reported because it is what a user's own calculator
-    /// shows for the text they were given; it is never used for sizing, for
-    /// balance or for the annealing temperature, which stay on the annealing
-    /// portions. `None` for a substitution and a deletion, whose primers carry
-    /// no tail and whose whole text is therefore the annealing portion already
-    /// reported by `forward_tm`.
+    /// The forward primer's whole-primer Tm, tail included, on the matched
+    /// basis (D032, D033). It is `Some` only on the tails path — an insertion
+    /// or a tail-path replacement — and `None` otherwise, where the primer has
+    /// no tail and its whole text is the annealing portion `forward_tm` already
+    /// reports. It is reported because it is what a user's own calculator shows
+    /// for the text they were given; it is never used for sizing, for balance
+    /// or for the annealing temperature, which stay on the annealing portions.
     pub fn forward_whole_tm(&self) -> Option<MeltingTemperature> {
         self.forward_whole_tm.clone()
     }
@@ -372,8 +401,9 @@ impl PrimerDesign {
         self.annealing_temperature
     }
 
-    /// Whether the two Tms are within `TM_BALANCE`. False only when the
-    /// template ran out before the colder primer could be grown enough.
+    /// Whether the two annealing Tms differ by at most `TM_BALANCE`. False
+    /// when the colder primer could not be grown to within that of the other
+    /// before running out of template (D030).
     pub fn tm_balance_met(&self) -> bool {
         self.tm_balance_met
     }
@@ -417,6 +447,13 @@ impl PrimerDesign {
 
 /// Design a primer pair for a verified mutation result under the request's
 /// policy. A failure emits no pair (D010).
+///
+/// D038: an unsupported placement is refused here, except where it changes
+/// nothing — an insertion (D032) and a replacement whose `max(w, m)` is above
+/// `MAX_INLINE_REPLACEMENT` (D033) already put every written base in the two
+/// 5′ tails, so a `ConfineToTail` request designs exactly the pair the `Inline`
+/// request does, and the design records the placement the caller asked for.
+/// Every other edit refuses it with `UnsupportedPrimerPlacement`.
 pub fn design_primers(
     template: &Sequence,
     result: MutationResult,
@@ -437,7 +474,24 @@ pub fn design_primers(
         return Err(DomainError::InvalidPrimerDesignRequest(problem));
     }
 
-    if !request.placement().is_supported() {
+    // D038: `ConfineToTail` is refused only where it would change the design.
+    // An insertion (D032) and a replacement above `MAX_INLINE_REPLACEMENT`
+    // (D033) already write every base into the two 5′ tails, so that placement
+    // asks for the design the `Inline` request gives; a substitution, an inline
+    // replacement and a deletion would need a geometry no source defines.
+    let tail_claim: Option<(u64, u64, String)> = replacement_claim(result.clone());
+    let tails_already: bool = if result.is_insertion() {
+        true
+    } else if tail_claim.is_none() {
+        false
+    } else {
+        let (region_start, region_end, text): (u64, u64, String) = tail_claim.clone().unwrap();
+        let width: u64 = region_end - region_start;
+        let written: u64 = text.chars().count() as u64;
+        width.max(written) > MAX_INLINE_REPLACEMENT
+    };
+
+    if !request.placement().is_supported() && !tails_already {
         let problem = UnsupportedPrimerPlacementProblem {
             placement: request.placement().name(),
             reason: "D029's native scope is inline placement".to_string(),
@@ -469,28 +523,20 @@ pub fn design_primers(
     // read as a replacement region: D029's `MAX_REPLACEMENT_REGION` bounds the
     // substitution scope, not D033's, whose path is decided by `t = max(w, m)`.
     if result.is_replacement() {
-        let (region_start, region_end, text): (u64, u64, String) = match &result {
-            MutationResult::Replacement(record) => (
-                record.region().start(),
-                record.region().end(),
-                record.replacement(),
-            ),
-            MutationResult::Nucleotide(_)
-            | MutationResult::Residue(_)
-            | MutationResult::Deletion(_)
-            | MutationResult::Insertion(_) => {
-                return Err(out_of_scope(
-                    &policy,
-                    "the result is not a replacement: design_primers read it as one",
-                ))
-            }
-        };
+        let claim: Option<(u64, u64, String)> = replacement_claim(result.clone());
+        if claim.is_none() {
+            return Err(out_of_scope(
+                &policy,
+                "the result is not a replacement: design_primers read it as one",
+            ));
+        }
+        let (region_start, region_end, text): (u64, u64, String) = claim.clone().unwrap();
         let width: u64 = region_end - region_start;
         let written: u64 = text.chars().count() as u64;
         if width.max(written) <= MAX_INLINE_REPLACEMENT {
             return design_inline(template, result, request, region_start, region_end, written);
         }
-        return design_tailed(
+        return design_edge_pair(
             template,
             result,
             request,
@@ -526,15 +572,13 @@ fn design_inline(
     let first_flank: u64 = bound.saturating_sub(MIN_FLANK).max(MIN_FLANK);
     let first_reverse: u64 = bound.max(MIN_REVERSE);
 
-    let smallest_pair: u64 = region + MIN_FLANK + first_flank + first_reverse;
-    if smallest_pair > length {
-        let problem = NoPrimerDesignPossibleProblem {
-            template: template.display_name(),
-            template_length: length,
-            smallest_pair,
-        };
-        return Err(DomainError::NoPrimerDesignPossible(problem));
-    }
+    // Saturating: a bound no template can hold saturates the sum to `u64::MAX`
+    // rather than wrapping it to a value the check below would accept.
+    let smallest_pair: u64 = region
+        .saturating_add(MIN_FLANK)
+        .saturating_add(first_flank)
+        .saturating_add(first_reverse);
+    require_possible(template, smallest_pair)?;
 
     let fits = |obstacles: Vec<DesignObstacle>| -> DomainError {
         DomainError::NoPrimerDesignFits(NoPrimerDesignFitsProblem {
@@ -545,19 +589,8 @@ fn design_inline(
         })
     };
 
-    let mut obstacles: Vec<DesignObstacle> = Vec::new();
-    if start < MIN_FLANK + first_reverse {
-        obstacles.push(DesignObstacle::FivePrimeAvailability {
-            available: start,
-            needed: MIN_FLANK + first_reverse,
-        });
-    }
-    if length - end < first_flank {
-        obstacles.push(DesignObstacle::ThreePrimeAvailability {
-            available: length - end,
-            needed: first_flank,
-        });
-    }
+    let obstacles: Vec<DesignObstacle> =
+        availability_obstacles(start, end, length, MIN_FLANK + first_reverse, first_flank);
     if !obstacles.is_empty() {
         return Err(fits(obstacles));
     }
@@ -567,31 +600,14 @@ fn design_inline(
 
     // H6: no degenerate symbol in a primer. Checked over the starting pair;
     // beyond it an ambiguity code only ends availability on that side.
-    for position in boundary - first_reverse..end + first_flank {
-        let base: char = wild_type[position as usize];
-        if !is_dna_base(base) {
-            obstacles.push(DesignObstacle::AmbiguousTemplateBase {
-                position,
-                base: base.to_string(),
-            });
-        }
-    }
+    let obstacles: Vec<DesignObstacle> =
+        ambiguity_obstacles(&wild_type, &[(boundary - first_reverse, end + first_flank)]);
     if !obstacles.is_empty() {
         return Err(fits(obstacles));
     }
 
-    let mut three_prime_available: u64 = 0;
-    while end + three_prime_available < length
-        && is_dna_base(wild_type[(end + three_prime_available) as usize])
-    {
-        three_prime_available += 1;
-    }
-    let mut five_prime_available: u64 = 0;
-    while five_prime_available < boundary
-        && is_dna_base(wild_type[(boundary - five_prime_available - 1) as usize])
-    {
-        five_prime_available += 1;
-    }
+    let three_prime_available: u64 = run_after(&wild_type, end);
+    let five_prime_available: u64 = run_before(&wild_type, boundary);
 
     let sizer: Sizer = Sizer {
         wild_type: wild_type.clone(),
@@ -622,9 +638,8 @@ fn design_inline(
 
     let forward_tm: MeltingTemperature = sizer.forward_tm(flank)?;
     let reverse_tm: MeltingTemperature = sizer.reverse_tm(reverse)?;
-    let tm_balance_met: bool = (forward_tm.celsius() - reverse_tm.celsius()).abs() <= TM_BALANCE;
-    let annealing_temperature: f64 =
-        (forward_tm.celsius().min(reverse_tm.celsius()) + TA_OFFSET).min(TA_CAP);
+    let (tm_balance_met, annealing_temperature): (bool, f64) =
+        pair_summary(&forward_tm, &reverse_tm);
 
     let forward_span: NucleotideInterval = span(template, boundary, end + flank)?;
     let reverse_span: NucleotideInterval = span(template, boundary - reverse, boundary)?;
@@ -672,7 +687,9 @@ fn design_inline(
 /// D031: the pair a deletion needs. Both primers are pure template, so both
 /// Tms are on the matched basis, and the sizing is D030's with the whole
 /// forward length in place of the forward 3′ flank: the forward primer starts
-/// at `e`, the reverse at `s`, and neither has a 5′ flank.
+/// at `e`, the reverse at `s`, and neither has a 5′ flank. That is the edge
+/// pair's geometry with nothing written in place of the removed region, so this
+/// reads the removed coordinates and hands them to `design_edge_pair`.
 fn design_deletion(
     template: &Sequence,
     result: MutationResult,
@@ -688,154 +705,7 @@ fn design_deletion(
     }
     let start: u64 = coordinates[0];
     let end: u64 = coordinates[coordinates.len() - 1] + 1;
-    let length: u64 = template.length();
-    let bound: u64 = request.min_annealing_overlap();
-    let first: u64 = bound.max(MIN_REVERSE);
-    let width: u64 = end - start;
-
-    let smallest_pair: u64 = width + 2 * first;
-    if smallest_pair > length {
-        let problem = NoPrimerDesignPossibleProblem {
-            template: template.display_name(),
-            template_length: length,
-            smallest_pair,
-        };
-        return Err(DomainError::NoPrimerDesignPossible(problem));
-    }
-
-    let fits = |obstacles: Vec<DesignObstacle>| -> DomainError {
-        DomainError::NoPrimerDesignFits(NoPrimerDesignFitsProblem {
-            template: template.display_name(),
-            edit_start: start,
-            edit_end: end,
-            obstacles,
-        })
-    };
-
-    let mut obstacles: Vec<DesignObstacle> = Vec::new();
-    if start < first {
-        obstacles.push(DesignObstacle::FivePrimeAvailability {
-            available: start,
-            needed: first,
-        });
-    }
-    if length - end < first {
-        obstacles.push(DesignObstacle::ThreePrimeAvailability {
-            available: length - end,
-            needed: first,
-        });
-    }
-    if !obstacles.is_empty() {
-        return Err(fits(obstacles));
-    }
-
-    let wild_type: Vec<char> = template.letters();
-
-    // H6: no degenerate symbol under the starting pair, the reverse primer's
-    // span first and then the forward's, each ascending.
-    for position in start - first..start {
-        let base: char = wild_type[position as usize];
-        if !is_dna_base(base) {
-            obstacles.push(DesignObstacle::AmbiguousTemplateBase {
-                position,
-                base: base.to_string(),
-            });
-        }
-    }
-    for position in end..end + first {
-        let base: char = wild_type[position as usize];
-        if !is_dna_base(base) {
-            obstacles.push(DesignObstacle::AmbiguousTemplateBase {
-                position,
-                base: base.to_string(),
-            });
-        }
-    }
-    if !obstacles.is_empty() {
-        return Err(fits(obstacles));
-    }
-
-    // Availability: the ACGT bases each side can still take, counted from the
-    // edit outward and stopped by an ambiguity code or the template's end.
-    let mut forward_available: u64 = 0;
-    while end + forward_available < length
-        && is_dna_base(wild_type[(end + forward_available) as usize])
-    {
-        forward_available += 1;
-    }
-    let mut reverse_available: u64 = 0;
-    while reverse_available < start
-        && is_dna_base(wild_type[(start - reverse_available - 1) as usize])
-    {
-        reverse_available += 1;
-    }
-
-    let sizer: Sizer = Sizer {
-        wild_type: wild_type.clone(),
-        forward_letters: wild_type,
-        forward_start: end,
-        forward_anchor: end,
-        reverse_end: start,
-        forward_mismatched: false,
-        buffer: request.buffer(),
-    };
-
-    let (forward, reverse): (u64, u64) = size_pair(
-        &sizer,
-        first,
-        first,
-        forward_available,
-        reverse_available,
-        &fits,
-    )?;
-
-    let forward_tm: MeltingTemperature = sizer.forward_tm(forward)?;
-    let reverse_tm: MeltingTemperature = sizer.reverse_tm(reverse)?;
-    let tm_balance_met: bool = (forward_tm.celsius() - reverse_tm.celsius()).abs() <= TM_BALANCE;
-    let annealing_temperature: f64 =
-        (forward_tm.celsius().min(reverse_tm.celsius()) + TA_OFFSET).min(TA_CAP);
-
-    let forward_span: NucleotideInterval = span(template, end, end + forward)?;
-    let reverse_span: NucleotideInterval = span(template, start - reverse, start)?;
-    let forward_primer: Primer = construct_primer(
-        template,
-        result.clone(),
-        PrimerRole::Forward,
-        request.placement(),
-        canonical_text(sizer.forward(forward)),
-        forward_span,
-    )?;
-    let reverse_primer: Primer = construct_primer(
-        template,
-        result.clone(),
-        PrimerRole::Reverse,
-        request.placement(),
-        canonical_text(sizer.reverse(reverse)?),
-        reverse_span,
-    )?;
-    let pair: PrimerPair = assemble_pair(forward_primer, reverse_primer, result.clone())?;
-    require_design_constraints(pair.clone(), bound)?;
-
-    Ok(PrimerDesign {
-        request,
-        built_against: template.reference(),
-        edited: result.reference(),
-        edit_start: start,
-        edit_end: end,
-        five_prime_flank: 0,
-        three_prime_flank: forward,
-        reverse_length: reverse,
-        pair,
-        forward_tm,
-        reverse_tm,
-        forward_whole_tm: None,
-        reverse_whole_tm: None,
-        annealing_temperature,
-        tm_balance_met,
-        forward_warnings: inspect(&sizer.forward(forward)),
-        reverse_warnings: inspect(&sizer.reverse(reverse)?),
-        unresolved: native_unresolved(),
-    })
+    design_edge_pair(template, result, request, start, end, String::new(), false)
 }
 
 /// D032: the pair an insertion needs. An insertion writes no template position,
@@ -853,24 +723,20 @@ fn design_insertion(
     // D032: the point and the inserted text, read from the result itself.
     // Its `target_coordinates()` are empty, which is what makes an insertion
     // unreadable as a replacement region.
-    let (point, inserted): (u64, String) = match &result {
-        MutationResult::Insertion(record) => (record.point().position(), record.inserted()),
-        MutationResult::Nucleotide(_)
-        | MutationResult::Residue(_)
-        | MutationResult::Deletion(_)
-        | MutationResult::Replacement(_) => {
-            return Err(out_of_scope(
-                &policy,
-                "the result is not an insertion: design_insertion is the insertion path",
-            ))
-        }
-    };
+    let claim: Option<(u64, String)> = insertion_claim(result.clone());
+    if claim.is_none() {
+        return Err(out_of_scope(
+            &policy,
+            "the result is not an insertion: design_insertion is the insertion path",
+        ));
+    }
+    let (point, inserted): (u64, String) = claim.clone().unwrap();
 
     // An insertion writes no template position, so both edges of its region are
     // the point and it adds nothing to the pair's footprint; D033's replacement
     // reaches the same tails geometry with `s` and `e` apart.
     let width: u64 = inserted.chars().count() as u64;
-    design_tailed(
+    design_edge_pair(
         template,
         result,
         request,
@@ -881,17 +747,23 @@ fn design_insertion(
     )
 }
 
-/// D032's tails path, which D033 reuses for a replacement too wide to sit inline:
-/// the insertion's point splits into the two edges `[s, e)` of the edited region,
-/// so the forward primer anneals to `[e, e + f)` and the reverse to the reverse
-/// complement of `[s − r, s)`. The written bases go into the two 5′ tails rather
-/// than into either annealing portion: whole on the forward primer when `split`
-/// is false, otherwise `text[m/2..]` forward and the reverse complement of
-/// `text[..m/2]` in reverse, so a single written base leaves the reverse primer
-/// untailed. Sizing runs on the annealing portions alone, both Tms matched, and
-/// the whole primer's Tm is reported but never used. With `start == end == point`
-/// this is D032's insertion, whose region is empty.
-fn design_tailed(
+/// D032's tails path, which D033 reuses for a replacement too wide to sit inline
+/// and D031 for a deletion: the written region's two edges `[s, e)` are the
+/// junction, so the forward primer anneals to `[e, e + f)` and the reverse to the
+/// reverse complement of `[s − r, s)`. The written bases go into the two 5′ tails
+/// rather than into either annealing portion: whole on the forward primer when
+/// `split` is false, otherwise `text[m/2..]` forward and the reverse complement
+/// of `text[..m/2]` in reverse, so a single written base leaves the reverse
+/// primer untailed. Sizing runs on the annealing portions alone, both Tms
+/// matched, and the whole primer's Tm is reported but never used. With
+/// `start == end == point` this is D032's insertion, whose region is empty; with
+/// an empty `text` it is D031's deletion, which writes nothing and whose primers
+/// are both untailed. D038: the untailed primers built here are inline by shape,
+/// so they are always constructed as `PrimerPlacement::Inline`; for today's
+/// inputs the request's placement is `Inline` there anyway, and `construct_primer`
+/// refuses a caller's `ConfineToTail`, while the tailed primers take no
+/// placement at all.
+fn design_edge_pair(
     template: &Sequence,
     result: MutationResult,
     request: PrimerDesignRequest,
@@ -907,17 +779,12 @@ fn design_tailed(
     let width: u64 = text_letters.len() as u64;
 
     // The written bases stand in place of the region `[start, end)`, which is
-    // empty for an insertion, so the smallest pair is the region plus its two
-    // annealing portions.
-    let smallest_pair: u64 = (end - start) + 2 * first;
-    if smallest_pair > length {
-        let problem = NoPrimerDesignPossibleProblem {
-            template: template.display_name(),
-            template_length: length,
-            smallest_pair,
-        };
-        return Err(DomainError::NoPrimerDesignPossible(problem));
-    }
+    // empty for an insertion and removed with nothing written for a deletion, so
+    // the smallest pair is the region plus its two annealing portions.
+    // Saturating: a bound no template can hold saturates the sum to `u64::MAX`
+    // rather than wrapping it to a value the check below would accept.
+    let smallest_pair: u64 = (end - start).saturating_add(first.saturating_mul(2));
+    require_possible(template, smallest_pair)?;
 
     let fits = |obstacles: Vec<DesignObstacle>| -> DomainError {
         DomainError::NoPrimerDesignFits(NoPrimerDesignFitsProblem {
@@ -930,19 +797,7 @@ fn design_tailed(
 
     // Availability, counted outward from the two edges: the reverse primer needs
     // `first` bases before `s` and the forward `first` after `e`.
-    let mut obstacles: Vec<DesignObstacle> = Vec::new();
-    if start < first {
-        obstacles.push(DesignObstacle::FivePrimeAvailability {
-            available: start,
-            needed: first,
-        });
-    }
-    if length - end < first {
-        obstacles.push(DesignObstacle::ThreePrimeAvailability {
-            available: length - end,
-            needed: first,
-        });
-    }
+    let obstacles: Vec<DesignObstacle> = availability_obstacles(start, end, length, first, first);
     if !obstacles.is_empty() {
         return Err(fits(obstacles));
     }
@@ -951,44 +806,18 @@ fn design_tailed(
 
     // H6: no degenerate symbol under the starting pair, the reverse primer's
     // annealing portion first and then the forward's, each ascending.
-    for position in start - first..start {
-        let base: char = wild_type[position as usize];
-        if !is_dna_base(base) {
-            obstacles.push(DesignObstacle::AmbiguousTemplateBase {
-                position,
-                base: base.to_string(),
-            });
-        }
-    }
-    for position in end..end + first {
-        let base: char = wild_type[position as usize];
-        if !is_dna_base(base) {
-            obstacles.push(DesignObstacle::AmbiguousTemplateBase {
-                position,
-                base: base.to_string(),
-            });
-        }
-    }
+    let obstacles: Vec<DesignObstacle> =
+        ambiguity_obstacles(&wild_type, &[(start - first, start), (end, end + first)]);
     if !obstacles.is_empty() {
         return Err(fits(obstacles));
     }
 
     // Availability: the ACGT bases each side can still take, counted outward
     // from the two edges and stopped by an ambiguity code or the template's end.
-    let mut forward_available: u64 = 0;
-    while end + forward_available < length
-        && is_dna_base(wild_type[(end + forward_available) as usize])
-    {
-        forward_available += 1;
-    }
-    let mut reverse_available: u64 = 0;
-    while reverse_available < start
-        && is_dna_base(wild_type[(start - reverse_available - 1) as usize])
-    {
-        reverse_available += 1;
-    }
+    let forward_available: u64 = run_after(&wild_type, end);
+    let reverse_available: u64 = run_before(&wild_type, start);
 
-    // D030's sizing, shared with the deletion path (D031): both primers read
+    // D030's sizing, shared with the inline paths (D029, D033): both primers read
     // wild-type template, so both Tms are matched, and the junction sits at the
     // two edges of the region.
     let sizer: Sizer = Sizer {
@@ -1012,15 +841,16 @@ fn design_tailed(
 
     let forward_tm: MeltingTemperature = sizer.forward_tm(forward)?;
     let reverse_tm: MeltingTemperature = sizer.reverse_tm(reverse)?;
-    let tm_balance_met: bool = (forward_tm.celsius() - reverse_tm.celsius()).abs() <= TM_BALANCE;
-    let annealing_temperature: f64 =
-        (forward_tm.celsius().min(reverse_tm.celsius()) + TA_OFFSET).min(TA_CAP);
+    let (tm_balance_met, annealing_temperature): (bool, f64) =
+        pair_summary(&forward_tm, &reverse_tm);
 
     // D032/D033's tails: at or below `MAX_WHOLE_TAIL` the whole written text is
     // the forward primer's tail and the reverse primer gets none; above it — and
     // always for D033's replacement — the text is split, the forward tail taking
     // the last `m − m/2` bases and the reverse tail the reverse complement of the
     // first `m/2`, so a single written base leaves the reverse primer untailed.
+    // A deletion writes nothing, so both tails stay empty and neither primer is
+    // tailed.
     let half: u64 = width / 2;
     let forward_tail: Vec<char> = if !split {
         text_letters.clone()
@@ -1036,26 +866,42 @@ fn design_tailed(
     let forward_span: NucleotideInterval = span(template, end, end + forward)?;
     let reverse_span: NucleotideInterval = span(template, start - reverse, start)?;
 
-    // The written text has at least one base, so the forward tail never is empty.
-    let forward_primer: Primer = construct_tailed_primer(
-        template,
-        result.clone(),
-        PrimerRole::Forward,
-        canonical_text(forward_tail),
-        canonical_text(sizer.forward(forward)),
-        forward_span,
-    )?;
+    // The written text has at least one base, so the forward tail never is empty;
+    // a deletion writes nothing and both its primers are untailed. An untailed
+    // primer is inline by shape, so it is constructed as `Inline` whatever the
+    // request asked for (D038); `construct_primer` would refuse `ConfineToTail`.
+    let forward_primer: Primer = if text_letters.is_empty() {
+        construct_primer(
+            template,
+            result.clone(),
+            PrimerRole::Forward,
+            PrimerPlacement::Inline,
+            canonical_text(sizer.forward(forward)),
+            forward_span,
+        )
+    } else {
+        construct_tailed_primer(
+            template,
+            result.clone(),
+            PrimerRole::Forward,
+            canonical_text(forward_tail),
+            canonical_text(sizer.forward(forward)),
+            forward_span,
+        )
+    }?;
 
     // A reverse primer with no tail is an untailed primer of the edit, which
     // `construct_tailed_primer` refuses rather than defaulting: an insertion of
-    // at most `MAX_WHOLE_TAIL` bases, and D033's replacement of a single base.
+    // at most `MAX_WHOLE_TAIL` bases, D033's replacement of a single base, and
+    // D031's deletion, which writes nothing. It is inline by shape, so it is
+    // constructed as `Inline` whatever the request asked for (D038).
     let reverse_text: String = canonical_text(sizer.reverse(reverse)?);
     let reverse_primer: Primer = if reverse_tail.is_empty() {
         construct_primer(
             template,
             result.clone(),
             PrimerRole::Reverse,
-            request.placement(),
+            PrimerPlacement::Inline,
             reverse_text,
             reverse_span,
         )
@@ -1076,13 +922,41 @@ fn design_tailed(
     // D032: the whole primer's Tm, tail included. Reported because it is what
     // a user's own calculator shows for the text they were given; it is never
     // used, because sizing, balance and the annealing temperature stay on the
-    // annealing portions alone.
-    let forward_whole: Vec<char> = pair.clone().forward().sequence().chars().collect();
-    let reverse_whole: Vec<char> = pair.clone().reverse().sequence().chars().collect();
-    let forward_whole_tm: MeltingTemperature =
-        melting_temperature(&forward_whole, &forward_whole, &request.buffer())?;
-    let reverse_whole_tm: MeltingTemperature =
-        melting_temperature(&reverse_whole, &reverse_whole, &request.buffer())?;
+    // annealing portions alone. The guidelines are about the oligo as ordered,
+    // so they are inspected on the whole primer, tail included. A deletion
+    // writes nothing, so it has no tail: both whole Tms are `None` and the
+    // guidelines are inspected on the annealing portions, which are the whole
+    // primers.
+    let (forward_whole_tm, reverse_whole_tm, forward_warnings, reverse_warnings): (
+        Option<MeltingTemperature>,
+        Option<MeltingTemperature>,
+        Vec<PrimerWarning>,
+        Vec<PrimerWarning>,
+    ) = if text_letters.is_empty() {
+        (
+            None,
+            None,
+            inspect(&sizer.forward(forward)),
+            inspect(&sizer.reverse(reverse)?),
+        )
+    } else {
+        let forward_whole: Vec<char> = pair.clone().forward().sequence().chars().collect();
+        let reverse_whole: Vec<char> = pair.clone().reverse().sequence().chars().collect();
+        (
+            Some(melting_temperature(
+                &forward_whole,
+                &forward_whole,
+                &request.buffer(),
+            )?),
+            Some(melting_temperature(
+                &reverse_whole,
+                &reverse_whole,
+                &request.buffer(),
+            )?),
+            inspect(&forward_whole),
+            inspect(&reverse_whole),
+        )
+    };
 
     Ok(PrimerDesign {
         request,
@@ -1096,24 +970,24 @@ fn design_tailed(
         pair,
         forward_tm,
         reverse_tm,
-        forward_whole_tm: Some(forward_whole_tm),
-        reverse_whole_tm: Some(reverse_whole_tm),
+        forward_whole_tm,
+        reverse_whole_tm,
         annealing_temperature,
         tm_balance_met,
-        // The guidelines are about the oligo as ordered, so they are inspected
-        // on the whole primer, tail included.
-        forward_warnings: inspect(&forward_whole),
-        reverse_warnings: inspect(&reverse_whole),
+        forward_warnings,
+        reverse_warnings,
         unresolved: native_unresolved(),
     })
 }
 
-/// D030's sizing, unchanged: the forward primer reaches the floor, then grows
-/// toward a G/C last base below the ceiling; the reverse primer does the same;
-/// then the colder one grows toward a 5 °C balance. `forward_available` and
-/// `reverse_available` are the ACGT bases each side can still take. The pair
-/// returned is (forward length argument, reverse length): a 3′ flank for a
-/// substitution, the whole forward primer for a deletion.
+/// D030's sizing, shared by every path: the forward primer reaches the floor,
+/// then grows toward a G/C last base below the ceiling; the reverse primer
+/// does the same; then the colder one grows toward a `TM_BALANCE` difference.
+/// `forward_available` and `reverse_available` are the ACGT bases each side
+/// can still take. The pair returned is (forward length argument, reverse
+/// length): a 3′ flank past the region for a substitution and an inline
+/// replacement, and the whole annealing primer for a deletion and the tail
+/// path, which have no 5′ flank.
 fn size_pair(
     sizer: &Sizer,
     first_forward: u64,
@@ -1229,11 +1103,13 @@ fn size_pair(
 }
 
 /// The primer texts and Tms at a candidate length, around a fixed junction.
-/// The forward letters are the edited artifact's for a substitution, which is
-/// why its Tm is mismatch-aware, and the wild type's for a deletion, whose Tm
-/// is matched. `forward(n)` counts from `forward_anchor`, so the length
-/// argument is a 3′ flank for a substitution and the whole forward primer for
-/// a deletion.
+/// `forward_letters` are the edited artifact's for a substitution and an
+/// inline replacement, and the wild type's for a deletion and the tail path;
+/// `forward_mismatched` is set only when the primer and the wild-type site
+/// have equal length, which is D030's hybrid basis and matched otherwise.
+/// `forward(n)` counts from `forward_anchor`, so the length argument is a 3′
+/// flank past the region for a substitution and an inline replacement, and
+/// the whole annealing primer for a deletion and the tail path.
 struct Sizer {
     wild_type: Vec<char>,
     forward_letters: Vec<char>,
@@ -1285,6 +1161,88 @@ impl Sizer {
 
 fn ends_gc(primer: &[char]) -> bool {
     matches!(primer.last(), Some('G') | Some('C'))
+}
+
+/// D029/D030: no abutting pair of the starting size fits the template at all.
+fn require_possible(template: &Sequence, smallest_pair: u64) -> Result<(), DomainError> {
+    let length: u64 = template.length();
+    if smallest_pair > length {
+        let problem = NoPrimerDesignPossibleProblem {
+            template: template.display_name(),
+            template_length: length,
+            smallest_pair,
+        };
+        return Err(DomainError::NoPrimerDesignPossible(problem));
+    }
+    Ok(())
+}
+
+/// H6: no degenerate symbol in a primer, over the ranges in the order given.
+fn ambiguity_obstacles(wild_type: &[char], ranges: &[(u64, u64)]) -> Vec<DesignObstacle> {
+    let mut obstacles: Vec<DesignObstacle> = Vec::new();
+    for range in ranges {
+        for position in range.0..range.1 {
+            let base: char = wild_type[position as usize];
+            if !is_dna_base(base) {
+                obstacles.push(DesignObstacle::AmbiguousTemplateBase {
+                    position,
+                    base: base.to_string(),
+                });
+            }
+        }
+    }
+    obstacles
+}
+
+/// D030: each side of the edit holds fewer bases than the starting pair needs.
+fn availability_obstacles(
+    start: u64,
+    end: u64,
+    length: u64,
+    five_needed: u64,
+    three_needed: u64,
+) -> Vec<DesignObstacle> {
+    let mut obstacles: Vec<DesignObstacle> = Vec::new();
+    if start < five_needed {
+        obstacles.push(DesignObstacle::FivePrimeAvailability {
+            available: start,
+            needed: five_needed,
+        });
+    }
+    if length - end < three_needed {
+        obstacles.push(DesignObstacle::ThreePrimeAvailability {
+            available: length - end,
+            needed: three_needed,
+        });
+    }
+    obstacles
+}
+
+/// D030: the ACGT bases the 3′ side can still take, counted out from `from`.
+fn run_after(wild_type: &[char], from: u64) -> u64 {
+    let length: u64 = wild_type.len() as u64;
+    let mut run: u64 = 0;
+    while from + run < length && is_dna_base(wild_type[(from + run) as usize]) {
+        run += 1;
+    }
+    run
+}
+
+/// D030: the ACGT bases the 5′ side can still take, counted down from `to`.
+fn run_before(wild_type: &[char], to: u64) -> u64 {
+    let mut run: u64 = 0;
+    while run < to && is_dna_base(wild_type[(to - run - 1) as usize]) {
+        run += 1;
+    }
+    run
+}
+
+/// D030: the pair's Tm balance within `TM_BALANCE` and its annealing temperature.
+fn pair_summary(forward_tm: &MeltingTemperature, reverse_tm: &MeltingTemperature) -> (bool, f64) {
+    let tm_balance_met: bool = (forward_tm.celsius() - reverse_tm.celsius()).abs() <= TM_BALANCE;
+    let annealing_temperature: f64 =
+        (forward_tm.celsius().min(reverse_tm.celsius()) + TA_OFFSET).min(TA_CAP);
+    (tm_balance_met, annealing_temperature)
 }
 
 /// The replacement region a result claims, which the native policy requires to
@@ -1375,10 +1333,16 @@ mod tests {
     use crate::tm::TmBasis;
 
     // Every expected span, length, Tm and failure below was produced by
-    // `tests/fixtures/q5-primer/reference/native-design.py`, which restates
-    // D030 in plain Python and computes Tm with Biopython; it shares no code
-    // with this crate. Tms are compared to the two decimals that script
-    // prints.
+    // `tests/fixtures/q5-primer/reference/unit-expectations.py`, which prints
+    // what `tests/fixtures/q5-primer/reference/native-design.py` designs for
+    // the templates these tests build; that script restates D030 in plain
+    // Python, computes Tm with Biopython and shares no code with this crate,
+    // and its `--synthetic` mode does not cover `TEMPLATE`. Run it from the
+    // repository root:
+    //
+    //   python -I tests/fixtures/q5-primer/reference/unit-expectations.py
+    //
+    // Tms are compared to the two decimals that script prints.
     //
     //   0         1         2         3         4         5
     //   0123456789012345678901234567890123456789012345678901234567890
@@ -1661,6 +1625,62 @@ mod tests {
         assert_tms(&design, 64.51, 62.79, 65.79);
     }
 
+    // §6: "a residue edit whose semantics are on a reverse CDS is the same DNA
+    // edit and produces the same pair". `[30, 33)` of the template is `GGG`, so
+    // a minus-strand CDS reads it as `CCC` (P) and writes the W codon `TGG` back
+    // as `rc(TGG) = CCA`; a plus-strand CDS reads `GGG` (G) and writes the
+    // supplied codon `CCA` as it stands; the DNA replacement of `[30, 33)` writes
+    // the same three bases. Three requests, one DNA edit, one design. The bases
+    // were read off the template text by hand (contract §3), and the Tm figures
+    // are compared with the module's own two-decimal tolerance.
+    #[test]
+    fn a_minus_strand_residue_edit_designs_the_same_pair_as_its_dna_edit() {
+        let minus: MutationResult = codon_edit(&template(), 30, Strand::Minus, "P", "W", "TGG");
+        let plus: MutationResult = codon_edit(&template(), 30, Strand::Plus, "G", "P", "CCA");
+        let dna: MutationResult = replacement(&template(), 30, 33, "CCA");
+
+        let minus_design: PrimerDesign = design_primers(&template(), minus, request(15)).unwrap();
+        let plus_design: PrimerDesign = design_primers(&template(), plus, request(15)).unwrap();
+        let dna_design: PrimerDesign = design_primers(&template(), dna, request(15)).unwrap();
+
+        assert!(texts(&minus_design) == texts(&plus_design));
+        assert!(texts(&minus_design) == texts(&dna_design));
+
+        assert!(spans(&minus_design) == spans(&plus_design));
+        assert!(spans(&minus_design) == spans(&dna_design));
+
+        assert!(minus_design.edit_span() == plus_design.edit_span());
+        assert!(minus_design.edit_span() == dna_design.edit_span());
+
+        assert!(minus_design.forward_tm().basis() == plus_design.forward_tm().basis());
+        assert!(minus_design.forward_tm().basis() == dna_design.forward_tm().basis());
+
+        assert!(close(
+            minus_design.forward_tm().celsius(),
+            plus_design.forward_tm().celsius(),
+        ));
+        assert!(close(
+            minus_design.forward_tm().celsius(),
+            dna_design.forward_tm().celsius(),
+        ));
+        assert!(close(
+            minus_design.reverse_tm().celsius(),
+            plus_design.reverse_tm().celsius(),
+        ));
+        assert!(close(
+            minus_design.reverse_tm().celsius(),
+            dna_design.reverse_tm().celsius(),
+        ));
+        assert!(close(
+            minus_design.annealing_temperature(),
+            plus_design.annealing_temperature(),
+        ));
+        assert!(close(
+            minus_design.annealing_temperature(),
+            dna_design.annealing_temperature(),
+        ));
+    }
+
     // At 24 the starting pair does not fit 5′ of the edit; at 25 it fits, but
     // 15 bases upstream cannot make a reverse primer reach 55 °C.
     #[test]
@@ -1719,6 +1739,99 @@ mod tests {
                     template: "pd-a".to_string(),
                     template_length: 35,
                     smallest_pair: 36,
+                })
+        );
+    }
+
+    // B2: a bound so large that the smallest-pair sum overflows `u64` must
+    // saturate to `u64::MAX`, which is above every template length, so the
+    // failure stays `NoPrimerDesignPossible` (BiologicalValidation) rather
+    // than wrapping to a small sum that passes the check and reports
+    // `NoPrimerDesignFits` (Unsupported). `balanced()` is 100 bases.
+    //
+    // With `bound = i64::MAX` the inline sum is `2 * bound + region`, so a
+    // 3-base codon substitution overflows (`2 * i64::MAX` is `u64::MAX - 1`)
+    // and saturates to `u64::MAX`.
+    #[test]
+    fn an_overflowing_bound_on_a_substitution_is_no_design_possible() {
+        let sequence: Sequence = linear(&balanced());
+        let error: DomainError = design_primers(
+            &sequence,
+            codon_edit(&sequence, 37, Strand::Plus, "R", "K", "AAA"),
+            request(i64::MAX),
+        )
+        .unwrap_err();
+        assert!(error.category() == ErrorCategory::BiologicalValidation);
+        assert!(
+            error
+                == DomainError::NoPrimerDesignPossible(NoPrimerDesignPossibleProblem {
+                    template: "pd-a".to_string(),
+                    template_length: 100,
+                    smallest_pair: u64::MAX,
+                })
+        );
+    }
+
+    #[test]
+    fn an_overflowing_bound_on_a_deletion_is_no_design_possible() {
+        let sequence: Sequence = linear(&balanced());
+        let error: DomainError =
+            design_primers(&sequence, deletion(&sequence, 50, 53), request(i64::MAX)).unwrap_err();
+        assert!(error.category() == ErrorCategory::BiologicalValidation);
+        assert!(
+            error
+                == DomainError::NoPrimerDesignPossible(NoPrimerDesignPossibleProblem {
+                    template: "pd-a".to_string(),
+                    template_length: 100,
+                    smallest_pair: u64::MAX,
+                })
+        );
+    }
+
+    // An insertion writes no template position, so its region is empty and the
+    // sum is `2 * bound` exactly: `2 * i64::MAX` is `u64::MAX - 1`, which fits
+    // `u64`, so this bound does not overflow the tails sum and the reported
+    // `smallest_pair` is `u64::MAX - 1`, not `u64::MAX`. The failure is still
+    // `NoPrimerDesignPossible` (BiologicalValidation), as the fix leaves any
+    // sum that fits unchanged.
+    #[test]
+    fn an_overflowing_bound_on_an_insertion_is_no_design_possible() {
+        let sequence: Sequence = linear(&balanced());
+        let error: DomainError = design_primers(
+            &sequence,
+            insertion(&sequence, 50, "GAT"),
+            request(i64::MAX),
+        )
+        .unwrap_err();
+        assert!(error.category() == ErrorCategory::BiologicalValidation);
+        assert!(
+            error
+                == DomainError::NoPrimerDesignPossible(NoPrimerDesignPossibleProblem {
+                    template: "pd-a".to_string(),
+                    template_length: 100,
+                    smallest_pair: u64::MAX - 1,
+                })
+        );
+    }
+
+    // A replacement of a 7-base region by one base has t = max(7, 1) = 7,
+    // above `MAX_INLINE_REPLACEMENT`, so it takes the tails path.
+    #[test]
+    fn an_overflowing_bound_on_a_tailed_replacement_is_no_design_possible() {
+        let sequence: Sequence = linear(&balanced());
+        let error: DomainError = design_primers(
+            &sequence,
+            replacement(&sequence, 50, 57, "T"),
+            request(i64::MAX),
+        )
+        .unwrap_err();
+        assert!(error.category() == ErrorCategory::BiologicalValidation);
+        assert!(
+            error
+                == DomainError::NoPrimerDesignPossible(NoPrimerDesignPossibleProblem {
+                    template: "pd-a".to_string(),
+                    template_length: 100,
+                    smallest_pair: u64::MAX,
                 })
         );
     }
@@ -1993,10 +2106,11 @@ mod tests {
     // whole-tail case is. The annealing portions are the starting 15 and 17, so
     // the spans are `[57, 72)` and `[33, 50)`.
     //
-    // Every figure below is `reference/native-replacement.py`'s `design()` run by
-    // the planner on 2026-10-15 (Biopython 1.88), not luria's output: the same
-    // geometry as fixture row rep-05, whose forward whole Tm differs only because
-    // that row's forward tail is 4 bases rather than this one base.
+    // Every figure below is `reference/native-replacement.py`'s `design()` as
+    // printed by `reference/unit-expectations.py` (Biopython 1.88), not luria's
+    // output: the case `pd repl50:57 T b15`, the same geometry as fixture row
+    // rep-05, whose forward whole Tm differs only because that row's forward
+    // tail is 4 bases rather than this one base.
     #[test]
     fn a_one_base_replacement_on_the_tail_path_has_no_reverse_tail() {
         let sequence: Sequence = linear(&balanced());
@@ -2031,8 +2145,8 @@ mod tests {
     // would report 71.71 on that basis rather than the 80.68 below. The basis
     // name and the absence of a `substituted_because` note are asserted
     // alongside the number. Every figure below is
-    // `reference/native-replacement.py`'s `design()` run by the planner on
-    // 2026-10-15 (Biopython 1.88), not luria's output.
+    // `reference/native-replacement.py`'s `design()` as printed by
+    // `reference/unit-expectations.py` (Biopython 1.88), not luria's output.
     #[test]
     fn an_unequal_inline_replacement_is_sized_on_the_matched_basis() {
         let sequence: Sequence =
@@ -2146,6 +2260,174 @@ mod tests {
         assert!(matches!(error, DomainError::UnsupportedPrimerPlacement(_)));
     }
 
+    // D038: `ConfineToTail` is accepted where it changes nothing. An insertion
+    // (D032) and a replacement above `MAX_INLINE_REPLACEMENT` (D033) already
+    // write every base into the two 5′ tails, so their design is the one the
+    // `Inline` request gives and the design records the placement asked for.
+    // Each case below is the edit an earlier test already designs, so its
+    // figures are pinned there; these tests compare the two placements.
+    fn confine_request(bound: i64) -> PrimerDesignRequest {
+        PrimerDesignRequest::create(
+            DesignStyle::Q5Polymerase,
+            DesignPolicy::LuriaNative,
+            bound,
+            PrimerPlacement::ConfineToTail,
+            BufferModel::q5_reaction(),
+        )
+        .unwrap()
+    }
+
+    /// The two designs agree on everything but the request they record: the
+    /// pair, the edit, every Tm, the balance and both warning lists.
+    fn assert_designs_agree(left: &PrimerDesign, right: &PrimerDesign) {
+        assert!(
+            left.pair() == right.pair(),
+            "pairs differ: {:?} / {:?}",
+            left.pair(),
+            right.pair()
+        );
+        assert!(
+            left.edit_span() == right.edit_span(),
+            "edit spans differ: {:?} / {:?}",
+            left.edit_span(),
+            right.edit_span(),
+        );
+        assert!(
+            left.forward_tm() == right.forward_tm(),
+            "forward Tms differ: {:?} / {:?}",
+            left.forward_tm(),
+            right.forward_tm(),
+        );
+        assert!(
+            left.reverse_tm() == right.reverse_tm(),
+            "reverse Tms differ: {:?} / {:?}",
+            left.reverse_tm(),
+            right.reverse_tm(),
+        );
+        assert!(
+            left.forward_whole_tm() == right.forward_whole_tm(),
+            "forward whole Tms differ: {:?} / {:?}",
+            left.forward_whole_tm(),
+            right.forward_whole_tm(),
+        );
+        assert!(
+            left.reverse_whole_tm() == right.reverse_whole_tm(),
+            "reverse whole Tms differ: {:?} / {:?}",
+            left.reverse_whole_tm(),
+            right.reverse_whole_tm(),
+        );
+        assert!(
+            left.annealing_temperature() == right.annealing_temperature(),
+            "annealing temperatures differ: {:.3} / {:.3}",
+            left.annealing_temperature(),
+            right.annealing_temperature(),
+        );
+        assert!(
+            left.tm_balance_met() == right.tm_balance_met(),
+            "tm_balance_met differs: {} / {}",
+            left.tm_balance_met(),
+            right.tm_balance_met(),
+        );
+        assert!(
+            left.forward_warnings() == right.forward_warnings(),
+            "forward warnings differ: {:?} / {:?}",
+            left.forward_warnings(),
+            right.forward_warnings(),
+        );
+        assert!(
+            left.reverse_warnings() == right.reverse_warnings(),
+            "reverse warnings differ: {:?} / {:?}",
+            left.reverse_warnings(),
+            right.reverse_warnings(),
+        );
+    }
+
+    // D038 (ins-01's edit): a 3-base insertion, at or below `MAX_WHOLE_TAIL`,
+    // sits whole on the forward primer's 5′ tail and the reverse primer has no
+    // tail, so `ConfineToTail` writes nothing the `Inline` request does not.
+    #[test]
+    fn confine_to_tail_designs_a_short_insertion_as_inline() {
+        let sequence: Sequence = linear(&balanced());
+        let inline: PrimerDesign =
+            design_primers(&sequence, insertion(&sequence, 50, "GAT"), request(15)).unwrap();
+        let confined: PrimerDesign = design_primers(
+            &sequence,
+            insertion(&sequence, 50, "GAT"),
+            confine_request(15),
+        )
+        .unwrap();
+        assert_designs_agree(&inline, &confined);
+        assert!(confined.request().placement() == PrimerPlacement::ConfineToTail);
+        assert!(confined.pair().forward().tail().unwrap().sequence() == "GAT");
+        assert!(confined.pair().reverse().tail().is_none());
+    }
+
+    // D038 (ins-04's edit): a 7-base insertion is above `MAX_WHOLE_TAIL`, so its
+    // tail is split between the two primers; both written halves are still tails.
+    #[test]
+    fn confine_to_tail_designs_a_long_insertion_as_inline() {
+        let sequence: Sequence = linear(&balanced());
+        let inline: PrimerDesign =
+            design_primers(&sequence, insertion(&sequence, 50, "GATTACA"), request(15)).unwrap();
+        let confined: PrimerDesign = design_primers(
+            &sequence,
+            insertion(&sequence, 50, "GATTACA"),
+            confine_request(15),
+        )
+        .unwrap();
+        assert_designs_agree(&inline, &confined);
+        assert!(confined.request().placement() == PrimerPlacement::ConfineToTail);
+        assert!(confined.pair().forward().tail().unwrap().sequence() == "TACA");
+        assert!(confined.pair().reverse().tail().unwrap().sequence() == "ATC");
+    }
+
+    // D038 (rep-05's edit): a replacement of a 7-base region by one base has
+    // `max(w, m) = 7`, above `MAX_INLINE_REPLACEMENT`, so it already takes the
+    // tails path and every written base is a tail.
+    #[test]
+    fn confine_to_tail_designs_a_tail_path_replacement_as_inline() {
+        let sequence: Sequence = linear(&balanced());
+        let inline: PrimerDesign =
+            design_primers(&sequence, replacement(&sequence, 50, 57, "T"), request(15)).unwrap();
+        let confined: PrimerDesign = design_primers(
+            &sequence,
+            replacement(&sequence, 50, 57, "T"),
+            confine_request(15),
+        )
+        .unwrap();
+        assert_designs_agree(&inline, &confined);
+        assert!(confined.request().placement() == PrimerPlacement::ConfineToTail);
+        assert!(confined.edit_span() == (50, 57));
+    }
+
+    // D038: the refusals stay. A replacement of a 2-base region by one base has
+    // `max(w, m) = 2`, at or below `MAX_INLINE_REPLACEMENT`, so it is written
+    // inline and `ConfineToTail` would need a geometry no source defines.
+    #[test]
+    fn confine_to_tail_is_refused_for_an_inline_replacement() {
+        let sequence: Sequence = linear(&balanced());
+        let error: DomainError = design_primers(
+            &sequence,
+            replacement(&sequence, 50, 52, "C"),
+            confine_request(15),
+        )
+        .unwrap_err();
+        assert!(matches!(error, DomainError::UnsupportedPrimerPlacement(_)));
+        assert!(error.category() == ErrorCategory::Unsupported);
+    }
+
+    // D038: a deletion removes bases and writes none, so nothing is written into
+    // a tail and the placement is refused as every other edit is.
+    #[test]
+    fn confine_to_tail_is_refused_for_a_deletion() {
+        let sequence: Sequence = linear(&balanced());
+        let error: DomainError =
+            design_primers(&sequence, deletion(&sequence, 50, 53), confine_request(15))
+                .unwrap_err();
+        assert!(matches!(error, DomainError::UnsupportedPrimerPlacement(_)));
+        assert!(error.category() == ErrorCategory::Unsupported);
+    }
+
     #[test]
     fn a_result_from_another_template_is_refused() {
         let other: Sequence = linear(&TEMPLATE.replace("ATGGC", "ATGGG"));
@@ -2164,7 +2446,7 @@ mod tests {
         assert!(design.request().buffer() == BufferModel::q5_reaction());
         assert!(design.forward_tm().buffer() == BufferModel::q5_reaction());
         assert!(design.algorithm_name() == NATIVE_DESIGN_ALGORITHM_NAME);
-        assert!(design.algorithm_version() == "0.5.0");
+        assert!(design.algorithm_version() == "0.6.0");
         let inputs: Vec<String> = design.unresolved().into_iter().map(|u| u.input).collect();
         assert!(inputs == vec!["minTm", "maxAnnealingOverlap"]);
     }

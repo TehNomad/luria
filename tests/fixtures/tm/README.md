@@ -52,11 +52,52 @@ the printed one. The printed values are rounded to 0.1, which propagates to
 about ±0.13 kcal/mol in ΔG°37, so that is the tolerance.
 
 **Result: all 48 single-mismatch motifs verified**, worst deviation 0.063
-kcal/mol, well inside the rounding tolerance. The Watson–Crick table verifies
-the same way against the review's own ΔG°37 column, worst deviation 0.015
-kcal/mol. The verification script is `.tmp/tm/verify_imm.py`; it is a working
-script, not part of the fixture, and the `dG37_published` column in
-`nn-mismatch.tsv` carries the verifier so the check can be rerun.
+kcal/mol, well inside the rounding tolerance. (`reference/verify_imm.py` prints
+`disagree 2` for the two motifs at 0.063, `AA/TA` and `TA/AG`, because it
+flags anything above a stricter internal cutoff of 0.06; both are inside the
+±0.13 tolerance.) The Watson–Crick table was
+verified the same way against published ΔG°37 values, worst deviation 0.015
+kcal/mol. The 2004 review returned HTTP 403 on 2026-10-16 and could not be
+read, so the Watson–Crick ΔG°37 set comes from SantaLucia, J. Jr (1998),
+"A unified view of polymer, dumbbell, and oligonucleotide DNA nearest-neighbor
+thermodynamics", *PNAS* **95**:1460–1465 (PMC19045): Table 1, column "Unified
+(ref. 22)", plus the symmetry value +0.43 from the text — "ΔG°(sym) equals
++0.43 kcal/mol … if the duplex is self-complementary". The 1998 paper states
+initiation per duplex end: 0.98 for a terminal G·C and 1.03 for a terminal A·T.
+The fixture's formulation splits that into one `initiation` term plus a
+`terminal_AT` term per A·T end, so the equivalent values are `initiation` = 2 ×
+0.98 = **1.96** and `terminal_AT` = 1.03 − 0.98 = **0.05**. The verification
+scripts are tracked next to this fixture, in `reference/`: `reference/verify_imm.py`
+checks the mismatch ΔH°/ΔS° against the review's ΔG°37 and regenerates
+`nn-mismatch.tsv`, `reference/verify_matched.py` checks the Watson–Crick table
+and its three non-motif terms against Biopython's `DNA_NN4`, and
+`reference/crosscheck.py` produces the Biopython Tm values that
+`crates/core/tests/tm_crosscheck.rs` hard-codes in `EXPECTED`. The `dG37_published`
+columns in both `nn-mismatch.tsv` and `nn-matched.tsv` let `tm_tables.rs` rerun
+both checks, the Watson–Crick one as
+`every_watson_crick_parameter_still_reproduces_its_published_free_energy`
+(`docs/tasks/review-post-m4.md` C2).
+
+## Rerunning the verification scripts
+
+The three scripts live in `reference/` next to the fixture they serve (D039).
+They need **Biopython 1.88** and numpy 2.5.4, pinned in
+`tests/fixtures/requirements.txt`; the project's working copy of that pair lives
+in `.tmp/tm/venv`, which is not committed. Run them from the repository root with
+`python -I`:
+
+```
+python -I tests/fixtures/tm/reference/verify_imm.py            # rewrite nn-mismatch.tsv
+python -I tests/fixtures/tm/reference/verify_imm.py --check    # compare, write nothing
+python -I tests/fixtures/tm/reference/verify_matched.py        # check nn-matched.tsv
+python -I tests/fixtures/tm/reference/crosscheck.py            # print the Biopython Tm values
+python -I tests/fixtures/tm/reference/crosscheck.py --check    # compare with tm_crosscheck.rs
+```
+
+`--check` regenerates in memory, compares with the tracked file or table, prints
+`OK …` or `DIFFERS …` followed by the first difference, exits 1 on any difference
+and writes nothing. `verify_matched.py` writes nothing in either mode. None of
+this is part of the required cargo checks (D039, D026).
 
 ## Which Watson–Crick set, and why
 
@@ -105,8 +146,12 @@ Two conventions had to be settled to get there, and both are recorded in
   this inverted and ran 3.4 °C low on self-complementary sequences; the
   cross-check found it.
 - **Self-complementarity.** luria detects it from the sequence and applies the
-  symmetry term. Biopython does not detect it — `selfcomp` is a caller flag
-  defaulting to false — so the flag must be passed to compare. Biopython's own
+  symmetry term, and only to a matched duplex: the term belongs to a duplex whose
+  two strands are identical, and on the mismatch-aware basis the template strand
+  differs from the primer at the mismatch, so that duplex is not symmetric even
+  when the primer itself is self-complementary. Biopython does not detect it — `selfcomp` is a caller flag
+  defaulting to false — so `crosscheck.py` passes the flag only for a matched duplex
+  (`selfcomp(primer) and primer == site`) to match. Biopython's own
   docstring notes that MELTING and Primer3Plus default to C_T/4, which puts
   their values about 1 °C below both of these. A Tm is only comparable
   alongside the convention that produced it, which is why every
@@ -114,7 +159,9 @@ Two conventions had to be settled to get there, and both are recorded in
 
 **Against the reference tool's recorded values.**
 `crates/core/tests/q5_primer_fixtures.rs` compares all twelve primers of the
-six reference designs. On the **matched** basis luria agrees to within
+six reference designs. They are not twelve distinct primers: q5p-01, -04 and
+-07a are the same design, and q5p-02 and -03 share a reverse primer, so about
+five distinct primers are compared. On the **matched** basis luria agrees to within
 **0.25 °C**, the worst case being 0.17 °C. That validates the whole path at
 once: parameters, doublet walk, terminal and symmetry terms, concentration
 term and salt correction.

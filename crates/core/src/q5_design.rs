@@ -1,43 +1,41 @@
 //! Where the Q5 workflow meets the primer-design layer.
 //!
-//! `q5.rs` resolves a target annotation, applies an edit, and verifies it.
+//! `q5.rs` resolves a target annotation, applies an edit and verifies it;
 //! `primer_design.rs` turns a verified `MutationResult` into a primer pair
-//! under `luriaNative` (D029). Neither knows about the other, and this module
-//! is the composition: it holds no biological rule of its own, re-derives
-//! nothing, and decides nothing that either contract leaves open.
+//! under `luriaNative` (D029–D033). Neither knows the other, and this module
+//! composes them: it adds no biological rule of its own and re-derives nothing.
 //!
-//! What that means in practice:
+//! What that fixes here:
 //!
 //! * the template handed to the design layer is the one the run's own request
-//!   names, so a design is necessarily built against the artifact the edit was
-//!   applied to (I-6, D007). No template is accepted from the caller here;
-//! * the `MutationResult` is passed through exactly as the run produced it.
-//!   This layer does not re-verify — `design_primers` refuses an unverified
-//!   result, and that refusal is the guard (D013);
-//! * a run that needs clarification designs nothing, and that is not a
-//!   failure: the clarification is the answer, carried through intact (D005,
-//!   "No sequence calculation performed"). No field of the design request is
-//!   read on that path;
-//! * every `DomainError` the design layer raises is returned as it stands,
-//!   with its own variant and category. This module adds no error variant, no
-//!   message, and no category.
+//!   names, so a design is built against the artifact the edit was applied to
+//!   (I-6, D007); no template comes from the caller;
+//! * the `MutationResult` is passed through as the run produced it. This layer
+//!   does not re-verify: `design_primers` refuses a result that is not `Verified`,
+//!   and that refusal is the guard (D013);
+//! * a run that needs clarification designs nothing, and that is an `Ok` outcome
+//!   rather than a failure: the clarification is the answer, carried through
+//!   intact (D005, "No sequence calculation performed"), and no field of the
+//!   design request is read on that path;
+//! * every `DomainError` the design layer raises is returned as it stands, with
+//!   its own variant and category. This module adds no variant, no message and
+//!   no category.
 //!
 //! A variant set is designed under one request, so every member shares the
-//! bound, style, policy, placement and buffer. Each member reports its own
-//! outcome: a `PrimerDesign`, or the `DomainError` that stopped it. A member
-//! that cannot be designed therefore no longer discards the designs of the
-//! others (owner, 2026-10-14, reversing the atomic rule of
-//! `docs/tasks/milestone-3c-q5-design-wiring.md` §3; D030's Tm floor makes a
-//! design failure ordinary rather than exceptional). A failure of the *edits*
-//! still fails the whole set, which is `execute_set`'s own rule.
+//! bound, style, policy, placement and buffer, and each member reports its own
+//! outcome: a `PrimerDesign`, or the `DomainError` that stopped it. One member's
+//! design failure does not discard the others' designs (owner, 2026-10-14,
+//! `docs/q5-sdm.md` §12; D030's 55 °C floor makes such a failure ordinary on an
+//! AT-rich site). A failure of the *edits* still fails the whole set, which is
+//! `q5::execute_set`'s rule: it runs every member before any design happens.
 //!
-//! As in `q5.rs`, these records are public structs with private fields and no
-//! public constructor, so nothing outside this module can build one, valid or
-//! invalid, and the functions below are the only producers. The types do not
-//! make an invalid pairing unrepresentable; that is stated rather than
-//! assumed. `designs()` holds one entry per member because `execute_set`
-//! produces one result per member in request order, which is a `q5.rs`
-//! invariant this module relies on and a test pins.
+//! These records are public structs with private fields and no public
+//! constructor, so nothing outside this module can build one, valid or invalid,
+//! and `design_run` and `design_set` are the only producers. The types do not
+//! make an invalid pairing unrepresentable; that is stated rather than assumed.
+//! `designs()` holds one entry per member because `q5::execute_set` produces
+//! one result per member in request order, an invariant of that module this one
+//! relies on and a test pins.
 
 use crate::error::DomainError;
 use crate::identity::Identifier;
@@ -239,9 +237,11 @@ pub fn design_run(
 ///
 /// Members are designed in request order, and each carries its own outcome: a
 /// member that cannot be designed records its error and the rest are designed
-/// anyway. The returned `Result` is `Err` only if the set itself cannot be
-/// read, which the type system already prevents; a member's design failure is
-/// not an error of the set.
+/// anyway (owner, 2026-10-14, `docs/q5-sdm.md` §12). The result is always
+/// `Ok`: reading the set's members and results cannot fail, and a member's
+/// design failure is carried per member rather than returned as the set's.
+/// A failure of the *edits* is not this function's to report: it fails the
+/// whole set in `q5::execute_set` before any design is attempted.
 pub fn design_set(
     run: Q5VariantSetExecution,
     request: PrimerDesignRequest,
@@ -319,11 +319,18 @@ mod tests {
     // 30 is M at 87, 88, 89. No stop codon and no ambiguous codon.
     //
     // Every expected primer below was produced by
-    // `tests/fixtures/q5-primer/reference/native-design.py`, which restates
-    // D029 and D030 in plain Python and computes Tm with Biopython; it shares
-    // no code with this crate. The junction is 10 bases 5′ of the edit and
-    // both primers grow at their 3′ ends until their Tms reach 55 °C, prefer a
-    // G/C last base, and are balanced to within 5 °C.
+    // `tests/fixtures/q5-primer/reference/unit-expectations.py`, which prints
+    // what `tests/fixtures/q5-primer/reference/native-design.py` designs for
+    // this template; that script restates D029 and D030 in plain Python,
+    // computes Tm with Biopython and shares no code with this crate, and its
+    // `--synthetic` mode does not cover this template. Run it from the
+    // repository root:
+    //
+    //   python -I tests/fixtures/q5-primer/reference/unit-expectations.py
+    //
+    // The junction is 10 bases 5′ of the edit and both primers grow at their
+    // 3′ ends until their Tms reach 55 °C, prefer a G/C last base, and are
+    // balanced to within 5 °C.
     fn template_text() -> String {
         let mut text: String = String::new();
         let mut index: usize = 0;

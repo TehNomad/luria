@@ -59,7 +59,9 @@ the Milestone 1 fixture.
 - `expected` is `hash:<hex>`, `error:<VariantName>`, or a `+`-joined record:
   `edited:<text>`, `residues:<LETTERS>[*]`, `codon:<TXT>`, `coords:<n,n,n>`.
   A trailing `*` on `residues` means the CDS still ends with a stop codon.
-  `coords` are the reference coordinates the operation recorded, ascending.
+  `coords` are the reference coordinates the operation recorded, in the recorded
+  intervals' order: ascending, except that a codon crossing the origin lists the
+  part ending at the sequence length first (D040).
 - `category` is filled only for error cases.
 - `verify_with` is `none` (the result is left `Calculated`), `same` (verify
   against the CDS the request used, expecting `Verified`), or
@@ -97,7 +99,7 @@ with codon index `16 * place(first) + 4 * place(second) + place(third)`,
 
 | Case | CDS text (codons) | Residues |
 | --- | --- | --- |
-| `mut-a` over `[0,30)+` | `ATG GCT TGG AAT CAG CAG CAG CAG CAG CAG CAG` | `M A W N Q Q Q Q Q Q` |
+| `mut-a` over `[0,30)+` | `ATG GCT TGG AAT CAG CAG CAG CAG CAG CAG` | `M A W N Q Q Q Q Q Q` |
 | `mut-a` over `[0,30)-` | `CTG CTG CTG CTG CTG CTG ATT CCA AGC CAT` | `L L L L L L I P S H` |
 | `mut-c` over `[22,24)+[0,7)+` | `TGG CTT GGA` | `W L G` |
 | `mut-d` over `[0,18)+` | `ATG GCT TGG AAT TTT TAA` | `M A W N F`, final `TAA` is a stop, not a residue |
@@ -122,7 +124,16 @@ The previous rule, first codon in standard table order, gave `TTA` for `L`.
 
 These expectations were checked with a Python script that parses the Kazusa
 page and uses a codon table written out per amino acid, sharing no code with
-`crates/core`; it agreed with every success case.
+`crates/core`; it agreed with every success case. That script was lost and is
+not tracked, so that check of the choices in the table above cannot be rerun
+from tracked files. The page it parsed was captured on 2026-10-16 as
+`tests/fixtures/codon-usage/raw/kazusa-316407-standard.html` and parsed by
+`tests/fixtures/codon-usage/reference/parse_kazusa.py` into
+`tests/fixtures/codon-usage/counts.tsv`.
+`crates/core/tests/codon_usage_fixture.rs` checks the embedded table against
+that file codon by codon and count by count, so the counts in the table above
+can be read off `counts.tsv`. `tests/fixtures/verify.py` reruns the parse
+(`docs/tasks/review-a7c-codon-usage.md`, D039).
 
 ### Edits
 
@@ -144,7 +155,7 @@ showing:
   default `CTG` changes only 22 and 23 (coordinate 0 keeps its `G`), giving
   `GCTTGGAACGAACGAACGAACACT`; to `F` the default `TTT` changes 23 and 0,
   giving `TCTTGGAACGAACGAACGAACATT`, so a write on both sides of the origin is
-  still covered. Both record coordinates 0, 22, 23.
+  still covered. Both record coordinates 22, 23, 0.
 
 ### Error cases
 
@@ -190,8 +201,10 @@ re-writes the letter already there is refused earlier, at intent construction.
 
 ## Scope and known limitations
 
-- Substitutions only. Insertions, deletions, and length-changing edits are not
-  modelled, so every success case preserves length.
+- Substitutions only. Every success case here preserves length. Insertions,
+  deletions and replacements are implemented (D031–D033) but are tested by
+  unit tests in `crates/core/src/mutation.rs` and by the `native-*.tsv`
+  design fixtures in `q5-primer/`, not by this set.
 - One intent per case. Composing mutations is a workflow concern, not a
   mutation-domain concern.
 - `verify` is computational only: no case here claims experimental success

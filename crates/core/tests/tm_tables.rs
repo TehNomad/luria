@@ -150,6 +150,36 @@ fn every_mismatch_parameter_still_reproduces_its_published_free_energy() {
     assert!(worst < 0.13, "worst difference {:.3}", worst);
 }
 
+/// The fixture's own verification, rerun for the Watson-Crick table: ΔH − TΔS
+/// must reproduce the ΔG°37 that SantaLucia 1998 prints, including the values
+/// derived from its per-end initiation terms. ΔH and ΔS are rounded to 0.1 in
+/// the source, which propagates to about ±0.13 kcal/mol here.
+#[test]
+fn every_watson_crick_parameter_still_reproduces_its_published_free_energy() {
+    let fixture: Vec<Row> = rows("nn-matched.tsv");
+    let mut checked: usize = 0;
+    let mut worst: f64 = 0.0;
+    for row in fixture.iter() {
+        let published: f64 = row
+            .free_energy
+            .unwrap_or_else(|| panic!("{} carries no published dG37 to check against", row.motif));
+        let derived: f64 = row.enthalpy - REFERENCE_KELVIN * row.entropy / 1000.0;
+        let difference: f64 = (derived - published).abs();
+        assert!(
+            difference < 0.13,
+            "{}: dH/dS imply dG37 {:.3}, the source prints {:.2}, difference {:.3}",
+            row.motif,
+            derived,
+            published,
+            difference
+        );
+        worst = worst.max(difference);
+        checked += 1;
+    }
+    assert!(checked == 13, "checked {} rows, expected 13", checked);
+    assert!(worst < 0.13, "worst difference {:.3}", worst);
+}
+
 /// The 48 motifs are every single-mismatch doublet: four Watson-Crick pairs,
 /// each with the twelve mismatched pairs that are not Watson-Crick.
 #[test]

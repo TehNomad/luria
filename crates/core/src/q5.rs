@@ -1,97 +1,56 @@
 //! Q5 site-directed mutagenesis: the accepted input scope of the workflow.
 //!
-//! This is the first element of the Q5 workflow boundary in
-//! `docs/product-brief.md`: the workflow must identify its *accepted input
-//! scope* before anything is designed. Nothing here designs a primer,
-//! generates a candidate, or calculates a thermodynamic value, and nothing
-//! here should: the other entries on that boundary list (primer-generation
-//! method, sequence constraints, thermodynamic calculation method,
-//! candidate rejection criteria) are design rules this repository has not
-//! written down, and inventing them is out of scope.
+//! This module owns the typed Q5 requests (`Q5SdmRequest`, `Q5MutationIntent`,
+//! `ResidueIntentWithoutCds`, `Q5VariantSetRequest`, `Q5Variant`), the
+//! target-resolution gate (`validate_input_scope`), the run results
+//! (`Q5WorkflowResult`, `Q5WorkflowExecution`, `Q5VariantResult`,
+//! `Q5VariantSetExecution`) and the edit warnings (`Q5EditWarning`).
 //!
-//! What this module establishes is the typed invocation of D014 and D016: a
-//! Q5 SDM request names the DNA template artifact, the mutation intent, and
-//! optionally the CDS the caller means. Validating that request answers one
-//! question and nothing else: *which supported CDS does this request target?*
+//! `execute` runs one request through D015's deterministic vertical slice —
+//! gate, edit, independent verification, structured result — and `execute_set`
+//! runs the members of a `SeparateVariants` set (D011, D016).
+//! `Q5VariantSetRequest::create` refuses a `CombinedConstruct` with
+//! `UnsupportedComposition`: composing mutations into one construct needs
+//! overlap rules no source states, and D014 requires every design rule to
+//! name a documented source. Primer design is composed in `q5_design.rs`,
+//! which pairs this module with `primer_design.rs` (Tm in `tm.rs`, D029–D033);
+//! nothing here designs a primer, generates a candidate or calculates Tm.
 //!
-//! The distinction that matters is between a failure and a clarification
-//! (D020, D005):
+//! A failure and a clarification are different (D020, D005). A `DomainError`
+//! is something wrong with the request or the artifact — no CDS annotation at
+//! all, an annotation of another artifact, two different CDS claims at once —
+//! and no choice by the caller makes those representable. `NeedsClarification`
+//! is ambiguity the caller can resolve by naming a CDS: D005 forbids picking
+//! one and D020 gives ambiguity its own lifecycle state, so it is a result.
+//! It resolves no CDS, performs no edit and reads no sequence content, so the
+//! brief's "No sequence calculation performed" holds structurally. `Validated`
+//! means the inputs are present, explicit, mutually consistent, and identify
+//! exactly one CDS on exactly one artifact; it claims nothing about the
+//! mutation.
 //!
-//! * A `DomainError` is something wrong with the request or the artifact:
-//!   the artifact carries no CDS annotation at all, an annotation points at
-//!   a different artifact, or the request names two different CDSs at once.
-//!   No choice by the caller makes any of those representable.
-//! * `NeedsClarification` is ambiguity the caller *can* resolve by choosing:
-//!   the record carries several CDSs and the request did not say which one
-//!   is meant. D005 forbids picking one, and D020 gives ambiguity its own
-//!   lifecycle state rather than an error, so a clarification is a result.
+//! Rules this module decides, with their sources (the owner settled §10
+//! items 1–6 on 2026-10-14):
 //!
-//! A clarification result performs no sequence calculation. It resolves no
-//! CDS, and the gate never reads sequence content at all: it works on
-//! artifact identity and annotation metadata, so the product brief's
-//! "No sequence calculation performed" holds structurally rather than by
-//! convention.
+//! * A DNA edit is checked only against the scope the request stated; an
+//!   unscoped DNA edit outside the resolved CDS proceeds (§4, §10 item 1).
+//! * Candidates are every annotation on the artifact, not narrowed by whether
+//!   one could hold a requested residue (§3, §5, §10 item 2); a named CDS
+//!   matching no annotation is a clarification (§6, §10 item 3); one
+//!   annotation is the target when the caller names none (§5, §10 item 4);
+//!   two members sharing a result identifier are refused at construction with
+//!   `InvalidMutationRequest`, compared exactly (§11, §10 item 6).
+//! * A residue request whose expected original equals its replacement is legal
+//!   when the codon changes (§10 item 5).
+//! * A frameshift edit is kept and warned: deletion D031, insertion D032,
+//!   replacement D033's addenda — owner decisions of 2026-10-15. A CDS here
+//!   has no intron: `interval::validate_structure` refuses gaps between
+//!   intervals.
 //!
-//! `Validated` means the required inputs are present, explicit, mutually
-//! consistent, and identify exactly one CDS on exactly one artifact. It
-//! makes no claim about the mutation: the expected-residue check, the DNA
-//! edit, and independent verification are Milestone 2's, and the numbering
-//! and genetic-code rules are Milestone 1's, enforced where a CDS is built
-//! and where it is translated. This module declares the workflow's scope;
-//! it does not re-implement either rule.
-//!
-//! `execute` runs the deterministic vertical slice of D015 against a request
-//! whose scope resolved: gate, edit, independent verification, structured
-//! result. It composes rather than adds. The gate is `validate_input_scope`
-//! reused as it stands, and the edit and the verification are Milestone 2's
-//! `apply_nucleotide`, `apply_residue`, and `verify` called as they stand.
-//! The one biological question this layer answers is which annotation the
-//! mutation applies to, and it answers it by taking the gate's answer.
-//! Nothing here designs a primer, generates a candidate, or calculates a
-//! thermodynamic value, and nothing here would know how to: the
-//! primer-generation method, sequence constraints, thermodynamic calculation
-//! method, and candidate rejection criteria on the workflow boundary are
-//! rules this repository has not written down, and D014 requires each design
-//! rule to name a documented source.
-//!
-//! `execute_set` is the second entry point this task adds: one typed request
-//! that carries N ordered members, each a Q5 request plus the caller's name
-//! for its result, and an explicit composition mode (D011's distinction
-//! between separate variants and a combined construct, which the typed model
-//! must preserve). The mode is a field of the request, never inferred from
-//! how many members it carries, so a one-member set still names a mode. A
-//! `SeparateVariants` set resolves the target once and runs each member
-//! through the same slice `execute` runs, each against the pristine template
-//! and with its own result name, so no variant is applied to another's
-//! edited artifact. A `CombinedConstruct` set is refused at construction with
-//! `DomainError::UnsupportedComposition` (`Unsupported`) before any member is
-//! resolved or edited: composing mutations into one construct needs overlap
-//! rules no milestone has defined, and running one as separate variants would
-//! answer a different question than the caller asked. A set whose members
-//! disagree — a different template artifact, or different explicit CDS claims
-//! — is refused at construction with Milestone 1's identity rule and Milestone
-//! 2's `ResiduePositionWrongCds`. A member that names no CDS takes the target
-//! the set's agreed claim established. Failure is atomic: a member that fails
-//! returns that original `DomainError`, and no earlier member's result is
-//! reported.
-//!
-//! `docs/q5-sdm.md` is the specification this module implements. Six of its
-//! §10 entries are recorded rather than settled, and this module keeps all
-//! six that way rather than choosing. Three would change a rule implemented
-//! here: whether a DNA edit the request left unscoped has to lie inside the
-//! CDS the gate resolved (§4, §10 item 1), whether target resolution narrows
-//! candidates by asking which CDSs could hold a requested residue (§3, §5,
-//! §10 item 2), and whether a residue request whose expected original equals
-//! its replacement is a legal mutation at all (§10 item 5, reached here
-//! unchanged from Milestone 2). The other three are choices this module makes
-//! today rather than rules it invented: target-not-found is reported as a
-//! clarification rather than a structured error (§6, §10 item 3), a
-//! single annotation identifies the target without the caller naming it
-//! (§5, §10 item 4), and a variant set checks no member's result identifier
-//! against another's (§11, §10 item 6). None is a rule the written contracts
-//! state, so none is implemented as though it were settled: the request's own
-//! scope is carried through, the candidate set is every annotation on the
-//! artifact, and neither residue form adds a no-op rule of its own.
+//! Other modules own the rest: the expected-original check, the DNA edit and
+//! independent verification are `mutation::apply_*` and `mutation::verify`;
+//! numbering and genetic-code rules are enforced where a CDS is built and
+//! where it is translated; primer geometry and Tm are `primer_design.rs` and
+//! `tm.rs` (D029–D033).
 
 use crate::cds::Cds;
 use crate::cds::ResiduePosition;
@@ -103,7 +62,12 @@ use crate::error::UnsupportedCompositionProblem;
 use crate::genetic_code::Residue;
 use crate::identity::Identifier;
 use crate::identity::SequenceReference;
+use crate::interval::create;
+use crate::interval::holds_point;
+use crate::interval::holds_position;
+use crate::interval::holds_region;
 use crate::interval::require_sequence;
+use crate::interval::NucleotideInterval;
 use crate::interval::OrderedIntervals;
 use crate::mutation::apply_deletion;
 use crate::mutation::apply_insertion;
@@ -121,37 +85,35 @@ use crate::mutation::NucleotideMutationIntent;
 use crate::mutation::NucleotideReplacementIntent;
 use crate::mutation::ResidueMutationIntent;
 use crate::sequence::Sequence;
+use crate::translation::translate;
 
 /// Identity of this workflow's code path (D021).
 pub const Q5_WORKFLOW_NAME: &str = "luria-core-q5-sdm";
 
 /// Version of this workflow's code path (D021).
-pub const Q5_WORKFLOW_VERSION: &str = "0.4.0";
+pub const Q5_WORKFLOW_VERSION: &str = "0.5.0";
 
 /// A mutation intent as the Q5 workflow carries it (D011, D016).
 ///
-/// Every branch is Milestone 2's intent type, unchanged: the workflow names
-/// which operation it is asking for, it does not redefine any one of them,
-/// and it does not add a mutation kind — a codon change is a
-/// `ResidueMutationIntent` whose policy is `Supplied`, as Milestone 2
-/// established. There are now four DNA-level branches, a substitution, a
-/// deletion (Milestone 4a's `NucleotideDeletionIntent`), an insertion
-/// (Milestone 4d-1's `NucleotideInsertionIntent`) and a replacement
-/// (Milestone 4e-2's `NucleotideReplacementIntent`), and each addresses the
-/// reference sequence by coordinate rather than a CDS by residue: an
-/// insertion addresses it as the gap between two bases, so it asserts the
-/// base on each side of that gap rather than the bases it replaces, and a
-/// replacement asserts the whole text it overwrites and writes a text of
-/// any length in its place.
+/// Every branch is the mutation domain's intent type unchanged: the workflow
+/// names which operation it is asking for, it does not redefine any one of
+/// them, and it adds no mutation kind — a codon change is a
+/// `ResidueMutationIntent` whose policy is `Supplied`. Four branches address
+/// the reference sequence by coordinate rather than a CDS by residue: a
+/// substitution, a deletion, an insertion and a replacement. An insertion
+/// addresses the gap between two bases, so it asserts the base on each side
+/// of that gap rather than the bases it replaces (D032); a replacement
+/// asserts the whole text it overwrites and writes a text of any length in
+/// its place (D033).
 ///
-/// `ResidueWithoutCds` is not a separate operation. It is the same residue
+/// `ResidueWithoutCds` is not a separate operation. It is the residue
 /// substitution the product brief's fail-closed example needs ("mutate
 /// residue 42 to glycine"), missing exactly one field: the CDS the residue
 /// number counts over. D006 requires a residue *position* to identify its
-/// CDS, so Milestone 1's `ResiduePosition` stays total and the "no CDS yet"
-/// state exists only here, in the workflow's intent carrier. Which CDS a
-/// residue request is about is therefore target resolution's question, not
-/// a claim the intent makes (see `named_cds`).
+/// CDS, so `ResiduePosition` stays total and the "no CDS yet" state exists
+/// only here, in the workflow's intent carrier. Which CDS a residue request
+/// is about is target resolution's question, not a claim the intent makes
+/// (see `named_cds`).
 #[derive(Clone, Debug, PartialEq)]
 pub enum Q5MutationIntent {
     Nucleotide(NucleotideMutationIntent),
@@ -165,16 +127,14 @@ pub enum Q5MutationIntent {
 impl Q5MutationIntent {
     /// The CDS this intent names, when it names one.
     ///
-    /// A named residue intent names its CDS through its `ResiduePosition`,
-    /// which carries the CDS identifier as part of the position. The other
-    /// two intents name none: a nucleotide intent addresses the reference
-    /// sequence, so for it the scope of the request is what says which
-    /// annotation the edit must fall inside, and an unbound residue intent
-    /// is a residue number the caller has not tied to any CDS at all. For
-    /// both, the request's `scope` is the only half that can identify a
-    /// target, and an absent one states no preference — which is what makes
-    /// the brief's ambiguous residue request a clarification rather than an
-    /// unrepresentable request.
+    /// Only a named residue intent names one, through the CDS identifier its
+    /// `ResiduePosition` carries as part of the position. The other five
+    /// variants name none: the four DNA-level intents address the reference
+    /// sequence by coordinate, and `ResidueWithoutCds` is a residue number
+    /// the caller has not tied to any CDS. For those, the request's `scope`
+    /// is the only half that can identify a target, and an absent one states
+    /// no preference — which is what makes the brief's ambiguous residue
+    /// request a clarification rather than an unrepresentable request.
     pub fn named_cds(&self) -> Option<Identifier> {
         match self {
             Q5MutationIntent::Nucleotide(_intent) => None,
@@ -214,25 +174,25 @@ impl Q5MutationIntent {
 /// expected original residue, the replacement residue, and the codon
 /// policy — and deliberately carries no CDS: the caller did not supply
 /// one, and inventing one is D005's to refuse. It is a proposal, not an
-/// operation: Milestone 2's `ResidueMutationIntent` is what an operation
-/// needs, and it cannot be built until a CDS identifier exists.
+/// operation: `ResidueMutationIntent` is what an operation needs, and it
+/// cannot be built until a CDS identifier exists.
 ///
-/// The residue letters are validated at construction, through Milestone
-/// 2's own `parse_residue`, so no residue rule is restated here. The
-/// residue *number* is not: Milestone 1's `ResiduePosition::create` is
-/// the rule that rejects a number below 1, and its payload names the CDS
-/// the position belongs to, which does not exist until `bind` resolves
-/// one. A bad number is therefore refused at bind time, before any edit,
-/// with Milestone 1's `InvalidResiduePosition` naming the CDS the
-/// request was resolved against.
+/// The residue letters are validated at construction, through
+/// `mutation::parse_residue`, so no residue rule is restated here. The
+/// residue *number* is not: `ResiduePosition::create` is the rule that
+/// rejects a number below 1, and its payload names the CDS the position
+/// belongs to, which does not exist until `bind` resolves one. A bad
+/// number is therefore refused at bind time, before any edit, with
+/// `InvalidResiduePosition` naming the CDS the request was resolved
+/// against.
 ///
 /// Neither this carrier nor `bind` rejects a request whose expected
-/// original equals its replacement. That is Milestone 2's behavior, kept
-/// rather than restated: the run proceeds when the codon the policy
-/// selects differs from the codon already at that residue, so a verified
-/// residue result can leave the residue sequence unchanged. Whether such
-/// a request is legal is an open product decision (`docs/q5-sdm.md` §10),
-/// and no no-op rule is added here.
+/// original equals its replacement: such a request is legal when the codon
+/// the policy selects differs from the codon already at that residue, which
+/// is how a silent mutation is made (`docs/q5-sdm.md` §10 item 5, owner
+/// 2026-10-14). A DNA-level no-op — the selected codon equal to the codon
+/// already there — is refused by `mutation::apply_residue` with
+/// `InvalidMutationRequest`.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ResidueIntentWithoutCds {
     number: i64,
@@ -303,43 +263,38 @@ impl ResidueIntentWithoutCds {
 
 /// A Q5 SDM request: the typed capability invocation of D014 and D016.
 ///
-/// The product brief lists four required inputs for this workflow: the DNA
-/// template, an identified target CDS, a numbering convention, and an
-/// explicit mutation intent. Two of those are fields of this record: the DNA
-/// template and the mutation intent. The numbering convention is not a field
-/// of the request and is not invented here: it belongs to the annotation,
-/// which carries it as `Cds::numbering`, Milestone 1's `Numbering`. The
-/// identified target CDS is not a field of its own either. `scope` and the
-/// intent are two halves that each can identify it, and `target_cds_name`
-/// prefers the intent's claim and falls back to `scope`:
+/// The product brief lists four required inputs: the DNA template, an
+/// identified target CDS, a numbering convention, and an explicit mutation
+/// intent. The DNA template and the intent are fields of this record; the
+/// numbering convention belongs to the annotation, which carries it as
+/// `Cds::numbering` (D006, Milestone 1's `Numbering`). The identified
+/// target CDS is not a field of its own: `scope` and the intent are two
+/// halves that each can identify it, and `target_cds_name` prefers the
+/// intent's claim and falls back to `scope`.
 ///
-/// * A residue intent that names a CDS names one. Its `ResiduePosition`
-///   carries a CDS identifier as part of the position, so a residue target
-///   is identified whether or not `scope` is present; `scope` only has to
-///   agree with the position, and `create` refuses a disagreement.
-/// * A residue intent that names no CDS names none. It is
-///   `ResidueWithoutCds`: the caller gave a residue number and no annotation
-///   to count it over, so `scope` is the only half that can identify a
-///   target, and an absent `scope` states no preference at all.
-/// * A nucleotide intent names none. It addresses the reference sequence, so
-///   `scope` is the only half that can say which annotation the DNA edit
-///   belongs to, and an absent `scope` states no preference at all. That is
-///   why the field is optional: refusing to build a record without a named
-///   CDS would leave the ambiguity case unrepresentable rather than
-///   clarifiable.
+/// * A named residue intent names its CDS through the identifier its
+///   `ResiduePosition` carries, so its target is identified with or
+///   without `scope`; `scope` only has to agree, and `create` refuses a
+///   disagreement.
+/// * `ResidueWithoutCds` names none: the caller gave a residue number and
+///   no annotation to count it over, so `scope` is the only half that can
+///   identify a target, and an absent one states no preference.
+/// * A DNA-level intent names none: it addresses the reference sequence,
+///   so `scope` is the only half that can say which annotation the edit
+///   belongs to, and an absent one states no preference. `scope` is
+///   optional so the ambiguous case stays clarifiable rather than
+///   unrepresentable, and an unscoped DNA edit gains no containment rule
+///   from the gate's resolution (`docs/q5-sdm.md` §4, §10 item 1, owner
+///   2026-10-14).
 ///
-/// The ambiguity this record can express is therefore only what those two
-/// halves leave undecided: a nucleotide request that names no CDS while the
-/// artifact carries several annotations, a residue request that names no CDS
-/// while the artifact carries several annotations — the product brief's
-/// fail-closed exchange, "mutate residue 42 to glycine" refused because
-/// several supported CDSs could contain residue 42 — or a named identifier
-/// that matches no annotation, or matches several. What is *not* modelled is
-/// a residue position with no CDS: D006 requires a residue position to
-/// identify its CDS and numbering origin, so Milestone 1's `ResiduePosition`
-/// stays total and the unidentified residue target lives in the intent
-/// carrier instead, where resolution can bind it (see
-/// `ResidueIntentWithoutCds::bind`).
+/// The ambiguity this record can express is what those two halves leave
+/// undecided: no claim while the artifact carries several annotations — the
+/// product brief's fail-closed exchange, "mutate residue 42 to glycine" —
+/// or a named identifier that matches no annotation, or matches several. A
+/// residue position with no CDS is not modelled: D006 requires a residue
+/// position to identify its CDS and numbering origin, so `ResiduePosition`
+/// stays total and the unidentified residue target lives in
+/// `ResidueIntentWithoutCds`, which `bind` ties to the resolved annotation.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Q5SdmRequest {
     template: Sequence,
@@ -353,18 +308,13 @@ impl Q5SdmRequest {
     /// Two contradictions are possible, and neither is reconciled:
     ///
     /// * the intent addresses a different artifact than the template. A
-    ///   nucleotide intent carries its own `SequenceReference`, and
-    ///   `NucleotideMutationIntent::create` only guarantees that reference
-    ///   agrees with the intent's *own* interval, not that it agrees with the
-    ///   request. Pairing such an intent with this template would otherwise
-    ///   resolve a CDS and report `Validated` for an edit that belongs to
-    ///   another artifact, so D007's "two artifacts are not interchangeable
-    ///   because they share a display name" is enforced here by
-    ///   `interval::require_sequence`, Milestone 1's rule and its
-    ///   `SequenceReferenceMismatch`. A residue intent names no artifact
+    ///   DNA-level intent carries its own `SequenceReference`, which its own
+    ///   constructor checked only against the intent's own interval, so
+    ///   D007's "two artifacts are not interchangeable because they share a
+    ///   display name" is enforced here by `interval::require_sequence` and
+    ///   its `SequenceReferenceMismatch`. A residue intent names no artifact
     ///   (see `source_reference`), so it has no claim to check.
-    /// * a residue intent names one CDS and the scope names another, which is
-    ///   the same contradiction Milestone 2 reports as
+    /// * a residue intent names one CDS and the scope names another:
     ///   `ResiduePositionWrongCds`.
     pub fn create(
         template: Sequence,
@@ -429,10 +379,10 @@ impl Q5SdmRequest {
 /// reach.
 ///
 /// The other states belong elsewhere and are not invented here: `proposed`
-/// is a natural-language interpretation, which is Milestone 5; `calculated`
-/// and `verified` are mutation-domain states, whose distinction D020 makes
-/// is enforced by `mutation::MutationState`; `failed` is carried by a
-/// `DomainError` rather than by a result.
+/// is a natural-language interpretation, a later milestone (D034's order);
+/// `calculated` and `verified` are mutation-domain states, whose
+/// distinction D020 makes is enforced by `mutation::MutationState`; `failed`
+/// is carried by a `DomainError` rather than by a result.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Q5WorkflowState {
     NeedsClarification,
@@ -537,6 +487,17 @@ impl Q5WorkflowResult {
 /// coding and whether any of them lay outside the CDS, how many bases an
 /// insertion put into one CDS's gap, or how many bases a replacement overwrote
 /// and how many it wrote in their place.
+///
+/// The `PrematureStop` variant is the fourth warning, and it is not a frame
+/// warning (D037, the owner decision of 2026-10-16). A DNA edit that lies wholly
+/// inside the resolved CDS and keeps its reading frame re-translates that CDS on
+/// the edited artifact, and a stop that is not that CDS's last codon is this
+/// warning: the edit is still applied, because a nonsense mutation is sometimes
+/// the intent, as a frameshift one is. A residue intent states its replacement
+/// residue explicitly and gets no such warning, and `verify` stays a DNA-level
+/// check, so the rule is applied at this layer. A frameshift warning and a
+/// `PrematureStop` cannot both fire for one edit: one needs a frame change and
+/// the other needs none.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Q5EditWarning {
     Frameshift {
@@ -553,6 +514,10 @@ pub enum Q5EditWarning {
         bases_replaced: u64,
         bases_written: u64,
         wholly_inside: bool,
+    },
+    PrematureStop {
+        cds: Identifier,
+        codon_number: u64,
     },
 }
 
@@ -603,90 +568,100 @@ impl Q5EditWarning {
                 }
                 text + "; the replacement also extends outside the CDS"
             }
+            Q5EditWarning::PrematureStop { cds, codon_number } => {
+                "the edit puts a stop codon at codon ".to_string()
+                    + &codon_number.to_string()
+                    + " of "
+                    + cds.value()
+                    + ", before its last codon"
+            }
         }
     }
 }
 
 /// The warnings one edit carries against the resolved CDS.
 ///
-/// Three owner decisions, each stated once here and nowhere else. For a
-/// deletion: count the deleted positions that lie inside any interval of the
-/// resolved CDS, so an intron position and a position outside the CDS do not
-/// count. A count of 0 means the deletion lies outside the CDS, which
-/// `docs/q5-sdm.md` §10 decision 1 says proceeds with nothing to warn about.
-/// A count that is a multiple of 3 keeps the reading frame and warns nothing.
-/// Any other count shifts the frame, and the warning says whether the
-/// deletion lay wholly inside the CDS. For an insertion (D032's related
-/// owner decision, 2026-10-15): an insertion of `k` bases inside a CDS, with
-/// `k` not a multiple of 3, shifts that CDS's reading frame and luria warns
-/// and still applies it. "Inside" is the interval test D032 states, `start
-/// < p < end` for some interval of the resolved CDS, so both bases beside the
-/// point are coding; an insertion exactly at a CDS edge leaves the frame
-/// alone and warns nothing. For a replacement (D033's addenda, the owner
-/// decision of 2026-10-15): `w` bases overwritten by `m` shift the frame when
-/// `m − w` is not a multiple of 3, and the edit is kept rather than refused.
-/// Any other result carries no warning.
-fn edit_warnings(mutation: &MutationResult, target: &Cds) -> Vec<Q5EditWarning> {
-    if mutation.is_insertion() {
-        return insertion_warnings(mutation.clone(), target);
-    }
-
-    if mutation.is_replacement() {
-        return replacement_warnings(mutation.clone(), target);
-    }
-
-    if !mutation.is_deletion() {
-        return Vec::new();
-    }
-
-    let removed: Vec<u64> = mutation.target_coordinates();
-    let intervals: OrderedIntervals = target.intervals();
-
-    let mut coding: u64 = 0;
-    for position in removed.iter() {
-        for interval in intervals.iter() {
-            if *position >= interval.start() && *position < interval.end() {
-                coding += 1;
-                break;
-            }
-        }
-    }
-
-    if coding == 0 || coding.is_multiple_of(3) {
-        return Vec::new();
-    }
-
-    let wholly_inside: bool = coding == removed.len() as u64;
-    vec![Q5EditWarning::Frameshift {
-        cds: target.id(),
-        coding_bases_removed: coding,
-        wholly_inside,
-    }]
-}
-
-/// The warning one insertion carries against the resolved CDS (D032's related
-/// owner decision, 2026-10-15).
+/// For a deletion (D031's related owner decision, 2026-10-15): count the
+/// deleted positions that lie inside some interval of the resolved CDS. A
+/// count of 0 means the edit lies outside the CDS: the run proceeds and
+/// warns nothing (`docs/q5-sdm.md` §10 item 1, owner 2026-10-14). A count
+/// that is a multiple of 3 keeps the reading frame; any other count shifts
+/// it, and the warning says whether the deletion lay wholly inside the CDS.
+/// The only position that does not count lies outside the CDS:
+/// `interval::validate_structure` refuses gaps between intervals, so a CDS
+/// here has no intron.
+///
+/// The warning one insertion carries against the resolved CDS (D032's
+/// related owner decision, 2026-10-15).
 ///
 /// `k` bases inserted into a gap inside the CDS shift its reading frame
 /// whenever `k` is not a multiple of 3, and the edit is kept rather than
 /// refused, so the warning is a result and not a `DomainError`. The gap at
-/// `p` is inside only when some interval of the CDS has `start < p < end`, so
-/// both bases beside the point are coding: an insertion at a CDS edge, or one
-/// wholly outside it, has no coding run of bases to shift and warns nothing.
-fn insertion_warnings(mutation: MutationResult, target: &Cds) -> Vec<Q5EditWarning> {
-    match mutation {
-        MutationResult::Insertion(record) => {
-            let position: u64 = record.point().position();
-            let bases: u64 = record.inserted().len() as u64;
+/// `p` is inside only when some interval of the CDS has `start < p < end`,
+/// so both bases beside the point are coding: an insertion at a CDS edge,
+/// or one wholly outside it, has no coding run of bases to shift and warns
+/// nothing. `mutation::require_point_within_feature` applies the same test
+/// when the edit itself was scoped to an annotation.
+///
+/// The warning one replacement carries against the resolved CDS (D033's
+/// addenda, the owner decision of 2026-10-15).
+///
+/// A replacement overwrites `w` bases and writes `m` in their place, so the
+/// text of the CDS changes length by `m − w` and its reading frame shifts
+/// whenever that difference is not a multiple of 3, in either direction; a
+/// difference of 0 edits nothing that matters for the frame. The edit is
+/// kept rather than refused, so the warning is a result and not a
+/// `DomainError`. Only the region positions that lie inside some interval of
+/// the resolved CDS are coding, so a replacement wholly outside it has no
+/// frame to shift and warns nothing, which is what `docs/q5-sdm.md` §10
+/// item 1 (owner 2026-10-14) lets an unscoped DNA edit do. The warning
+/// counts the whole region width and the text written, and `wholly_inside`
+/// says whether every overwritten base was coding.
+///
+/// A nucleotide and a residue substitution carry no warning.
+///
+/// The `PrematureStop` warning (D037, the owner decision of 2026-10-16) is
+/// computed by `premature_stop_warning`, which re-translates the resolved CDS
+/// on the edited artifact; this function returns a `DomainError` only for what
+/// that re-translation reports other than an internal stop, which cannot occur
+/// for an in-frame ACGT edit of a CDS that translated before the edit.
+fn edit_warnings(
+    template: &Sequence,
+    mutation: &MutationResult,
+    target: &Cds,
+) -> Result<Vec<Q5EditWarning>, DomainError> {
+    let premature: Option<Q5EditWarning> = premature_stop_warning(template, mutation, target)?;
 
-            let mut inside: bool = false;
-            for interval in target.intervals().iter() {
-                if position > interval.start() && position < interval.end() {
-                    inside = true;
-                    break;
+    let mut warnings: Vec<Q5EditWarning> = match mutation {
+        MutationResult::Deletion(_record) => {
+            let removed: Vec<u64> = mutation.target_coordinates();
+            let intervals: OrderedIntervals = target.intervals();
+
+            let mut coding: u64 = 0;
+            for position in removed.iter() {
+                if holds_position(intervals.as_slice(), *position) {
+                    coding += 1;
                 }
             }
 
+            if coding == 0 || coding.is_multiple_of(3) {
+                Vec::new()
+            } else {
+                let wholly_inside: bool = coding == removed.len() as u64;
+                vec![Q5EditWarning::Frameshift {
+                    cds: target.id(),
+                    coding_bases_removed: coding,
+                    wholly_inside,
+                }]
+            }
+        }
+
+        MutationResult::Insertion(record) => {
+            let position: u64 = record.point().position();
+            let bases: u64 = record.inserted().len() as u64;
+            let intervals: OrderedIntervals = target.intervals();
+
+            let inside: bool = holds_point(intervals.as_slice(), position);
             if inside && !bases.is_multiple_of(3) {
                 vec![Q5EditWarning::InsertionFrameshift {
                     cds: target.id(),
@@ -696,41 +671,18 @@ fn insertion_warnings(mutation: MutationResult, target: &Cds) -> Vec<Q5EditWarni
                 Vec::new()
             }
         }
-        MutationResult::Nucleotide(_record) => Vec::new(),
-        MutationResult::Residue(_record) => Vec::new(),
-        MutationResult::Deletion(_record) => Vec::new(),
-        MutationResult::Replacement(_record) => Vec::new(),
-    }
-}
 
-/// The warning one replacement carries against the resolved CDS (D033's addenda,
-/// the owner decision of 2026-10-15).
-///
-/// A replacement overwrites `w` bases and writes `m` in their place, so the text
-/// of the CDS changes length by `m − w` and its reading frame shifts whenever
-/// that difference is not a multiple of 3, in either direction; a difference of
-/// 0 edits nothing that matters for the frame. The edit is kept rather than
-/// refused, so the warning is a result and not a `DomainError`. Only the region
-/// positions that lie inside some interval of the resolved CDS are coding, so a
-/// replacement wholly outside it has no frame to shift and warns nothing, which
-/// is what `docs/q5-sdm.md` §10 decision 1 lets an unscoped DNA edit do. The
-/// warning counts the whole region width and the text written, and `wholly_inside`
-/// says whether every overwritten base was coding.
-fn replacement_warnings(mutation: MutationResult, target: &Cds) -> Vec<Q5EditWarning> {
-    let positions: Vec<u64> = mutation.target_coordinates();
-
-    match mutation {
         MutationResult::Replacement(record) => {
+            let positions: Vec<u64> = mutation.target_coordinates();
+            let intervals: OrderedIntervals = target.intervals();
+
             let replaced: u64 = positions.len() as u64;
             let written: u64 = record.replacement().len() as u64;
 
             let mut coding: u64 = 0;
             for position in positions.iter() {
-                for interval in target.intervals().iter() {
-                    if *position >= interval.start() && *position < interval.end() {
-                        coding += 1;
-                        break;
-                    }
+                if holds_position(intervals.as_slice(), *position) {
+                    coding += 1;
                 }
             }
 
@@ -746,10 +698,176 @@ fn replacement_warnings(mutation: MutationResult, target: &Cds) -> Vec<Q5EditWar
                 }]
             }
         }
+
         MutationResult::Nucleotide(_record) => Vec::new(),
         MutationResult::Residue(_record) => Vec::new(),
-        MutationResult::Deletion(_record) => Vec::new(),
-        MutationResult::Insertion(_record) => Vec::new(),
+    };
+
+    match premature {
+        None => (),
+        Some(warning) => warnings.push(warning),
+    }
+
+    Ok(warnings)
+}
+
+/// The `PrematureStop` warning one edit carries against the resolved CDS (D037, the
+/// owner decision of 2026-10-16).
+///
+/// The rule runs in this order:
+///
+/// * the edit's half-open span on the template and the length change `delta` it
+///   makes: a substitution writes `[p, p + 1)` and changes 0, a deletion removes
+///   `[s, e)` and changes `−w`, an insertion into the gap at `p` changes `+k` and
+///   spans the gap itself, a replacement overwrites `[s, e)` by `m` bases and
+///   changes `m − w`, and a residue intent states its replacement residue
+///   explicitly, so D037 gives it no warning;
+/// * the edit must lie wholly inside one interval of the CDS — `holds_position`,
+///   `holds_region` and `holds_point` from `interval.rs` — and `delta` must be a
+///   multiple of 3, or the rule does not apply: an edit only partly inside the
+///   CDS and a frameshift are both recorded as open in D037, and the frameshift
+///   warning of D031–D033 already names the second;
+/// * the CDS must have translated before the edit, or there is nothing to
+///   compare the edited CDS against;
+/// * the CDS's intervals are rebuilt on the edited artifact in the original
+///   order: the interval holding the edit keeps its start and grows its end by
+///   `delta`, an interval starting at or past the edit's end moves by `delta`,
+///   any other interval is unchanged, and an interval the edit removed whole —
+///   one that would come out empty — is simply dropped. If that leaves no
+///   interval at all, the edit removed the whole CDS: there is nothing left to
+///   re-translate, so the rule warns nothing and the edit still applies;
+/// * the rebuilt CDS is translated. An internal stop is this warning, naming the
+///   CDS and the codon number on the edited CDS; a translation that succeeds warns
+///   nothing, and any other failure is returned as it stands — it cannot occur for
+///   an in-frame ACGT edit of a CDS that translated.
+fn premature_stop_warning(
+    template: &Sequence,
+    mutation: &MutationResult,
+    target: &Cds,
+) -> Result<Option<Q5EditWarning>, DomainError> {
+    let intervals: OrderedIntervals = target.intervals();
+
+    let edit: Option<(u64, u64, i64)> = match mutation {
+        MutationResult::Nucleotide(record) => {
+            let position: u64 = record.position().start();
+            if holds_position(intervals.as_slice(), position) {
+                Some((position, position + 1, 0))
+            } else {
+                None
+            }
+        }
+
+        MutationResult::Deletion(record) => {
+            let region: NucleotideInterval = record.region();
+            let delta: i64 = -(region.length() as i64);
+            if holds_region(intervals.as_slice(), region.start(), region.end()) {
+                Some((region.start(), region.end(), delta))
+            } else {
+                None
+            }
+        }
+
+        MutationResult::Insertion(record) => {
+            let position: u64 = record.point().position();
+            let delta: i64 = record.inserted().len() as i64;
+            if holds_point(intervals.as_slice(), position) {
+                Some((position, position, delta))
+            } else {
+                None
+            }
+        }
+
+        MutationResult::Replacement(record) => {
+            let region: NucleotideInterval = record.region();
+            let delta: i64 = (record.replacement().len() as i64) - (region.length() as i64);
+            if holds_region(intervals.as_slice(), region.start(), region.end()) {
+                Some((region.start(), region.end(), delta))
+            } else {
+                None
+            }
+        }
+
+        MutationResult::Residue(_record) => None,
+    };
+
+    let span: (u64, u64, i64) = match edit {
+        None => {
+            // The edit is not a DNA edit wholly inside one interval of the
+            // resolved CDS: D037's rule does not apply.
+            return Ok(None);
+        }
+        Some(value) => value,
+    };
+    let edit_start: u64 = span.0;
+    let edit_end: u64 = span.1;
+    let delta: i64 = span.2;
+
+    if delta % 3 != 0 {
+        // The edit changes the CDS's length by a non-multiple of 3, so it shifts
+        // the reading frame: D037 re-translates only an edit that keeps it, and
+        // the frameshift warning already names this edit.
+        return Ok(None);
+    }
+
+    if translate(template, target).is_err() {
+        // The CDS did not translate before the edit, so the rule has nothing to
+        // compare against: D037 records that case as open.
+        return Ok(None);
+    }
+
+    let edited: Sequence = mutation.edited();
+    let mut shifted: OrderedIntervals = Vec::new();
+    for interval in intervals.iter() {
+        let from: i64 = interval.start() as i64;
+        let to: i64 = interval.end() as i64;
+        let (start, end): (i64, i64) =
+            if interval.start() <= edit_start && edit_end <= interval.end() {
+                // The interval that holds the edit: it keeps its start.
+                (from, to + delta)
+            } else if interval.start() >= edit_end {
+                // An interval at or past the edit's end moves with the edit.
+                (from + delta, to + delta)
+            } else {
+                // An interval that ends before the edit starts: unchanged.
+                (from, to)
+            };
+        if start == end {
+            // The edit removed this interval whole: no interval is left there,
+            // so the rebuilt CDS simply does not carry one.
+            continue;
+        }
+        let moved: NucleotideInterval = create(&edited.reference(), start, end)?;
+        shifted.push(moved);
+    }
+
+    if shifted.is_empty() {
+        // The edit removed the whole CDS: there is nothing left to re-translate,
+        // so the rule warns nothing and the edit still applies.
+        return Ok(None);
+    }
+
+    // The same arguments `mutation::rebuild_cds` uses, so the rebuilt CDS is that
+    // annotation carried over the edited artifact and nothing else about it
+    // changes.
+    let rebuilt: Cds = Cds::create(
+        &edited,
+        target.id(),
+        shifted,
+        target.strand(),
+        target.completeness(),
+        target.genetic_code().name(),
+        target.numbering(),
+    )?;
+
+    match translate(&edited, &rebuilt) {
+        Ok(_translation) => Ok(None),
+        Err(error) => match error {
+            DomainError::InternalStopCodon(problem) => Ok(Some(Q5EditWarning::PrematureStop {
+                cds: target.id(),
+                codon_number: problem.codon_number as u64,
+            })),
+            other => Err(other),
+        },
     }
 }
 
@@ -789,9 +907,9 @@ impl Q5WorkflowExecution {
         self.mutation.clone()
     }
 
-    /// The warnings this run carries (D031's frameshift rule). A run that
-    /// performed no edit carries none, and an edit that keeps the reading
-    /// frame carries none either.
+    /// The warnings this run carries (D031–D033). A run that performed no
+    /// edit carries none, and an edit that keeps the reading frame carries
+    /// none either.
     pub fn warnings(&self) -> Vec<Q5EditWarning> {
         self.warnings.clone()
     }
@@ -837,56 +955,43 @@ impl Q5WorkflowExecution {
 ///
 /// The slice is composed, not re-implemented: the gate is
 /// `validate_input_scope`, and the edit and the independent verification are
-/// Milestone 2's `apply_nucleotide`, `apply_residue`, and `verify`. Nothing
-/// here re-derives a residue, a codon, a coordinate, or a verification claim,
-/// and nothing here designs a primer, generates a candidate, or calculates a
-/// thermodynamic value: those rules are unwritten (D014), and this function
-/// would be inventing one if it did.
+/// the `mutation::apply_*` operation for the intent and `mutation::verify`,
+/// called as they stand. Nothing here re-derives a residue, a codon, a
+/// coordinate or a verification claim, and nothing here designs a primer or
+/// calculates Tm: those are `primer_design.rs` and `tm.rs` under D029–D033,
+/// composed in `q5_design.rs`.
 ///
 /// Three things are decided here, and nothing else is:
 ///
 /// * which annotation the mutation applies to. That is the gate's answer,
 ///   reused rather than re-derived. A clarification stops here, so D005's
-///   "No sequence calculation performed" holds by construction rather than
-///   by convention: no edit is attempted, so no base is read for an edit.
+///   "No sequence calculation performed" holds by construction: no edit is
+///   attempted, so no base is read for an edit.
 /// * what the edited artifact is called. `result` is the caller's, exactly
 ///   as Milestone 2's fixture table supplies a `result_id` per case: a
 ///   display name is the caller's to choose, and D007 keeps two artifacts
 ///   apart by name *and* digest rather than by name alone, so no naming rule
 ///   is needed here and none is invented.
 /// * whether a DNA edit is checked against the resolved annotation's
-///   intervals. Milestone 2 makes scoping a parameter of the operation and
-///   not a property of the edit ("the DNA edit is a DNA edit, and the scope
-///   says which annotation it must fall inside"), and it records that the
-///   same DNA request with no scope is a legal edit. This layer therefore
-///   carries the request's own scope through unchanged: a request that scoped
-///   one is checked against the annotation it named, and a request that
-///   scoped nothing gains no containment rule from the gate's resolution.
-///   Whether the workflow *ought* to scope an unstated DNA edit to the
-///   resolved annotation is not settled by the written contracts: the
-///   product brief lists an identified target CDS among the workflow's
-///   required inputs, but no contract says the gate's resolution becomes a
-///   containment rule for the DNA edit. The current behavior is the
-///   request's own claim, kept rather than chosen, and the alternative is a
-///   separate decision (`docs/q5-sdm.md` §4).
-///
-///   A residue mutation is different in kind, and has two forms. A named
-///   residue intent already names its CDS, so the resolved annotation is
-///   always its scope. An unbound residue intent names none, so the gate's
-///   answer is what supplies the CDS identifier, and `bind` turns the
-///   proposal into Milestone 2's intent against that annotation — which is
-///   also where Milestone 1 validates the residue number. Either way `verify`
-///   is handed that annotation, because a residue result's claims are checked
-///   against the annotation it was actually applied to.
+///   intervals. Scoping is a parameter of the operation, not a property of
+///   the edit, and an unscoped DNA request is a legal operation (Milestone
+///   2, fixture `nuc-a-unscoped`), so this layer carries the request's own
+///   scope through unchanged: a request that scoped an annotation is checked
+///   against it, and an unscoped DNA edit outside the resolved CDS proceeds
+///   (`docs/q5-sdm.md` §4, §10 item 1, owner 2026-10-14). A residue
+///   mutation is different in kind: a named residue intent already names its
+///   CDS, so the resolved annotation is always its scope, and an unbound one
+///   takes the gate's answer through `bind`, which is also where Milestone 1
+///   validates the residue number. Either way `verify` is handed that
+///   annotation, because a residue result's claims are checked against the
+///   annotation it was applied to.
 ///
 /// A `DomainError` from the edit or the verification pass is returned as it
-/// stands: the expected-original mismatch, the codon policy, the scope,
-/// the ambiguous codon, and a failed verification are Milestone 2's
-/// failures, with Milestone 2's variants and categories. A `Validated` gate
-/// result that carried no target is refused with `MissingCdsAttribute`
-/// rather than unwrapped: that pairing cannot be produced through the public
-/// API, and error.rs's contract is that every failure this model produces is
-/// a `DomainError`, so it is a structured failure and not a panic.
+/// stands, with its own variant and category. A `Validated` gate result that
+/// carried no target is refused with `MissingCdsAttribute` rather than
+/// unwrapped: that pairing cannot be produced through the public API, and
+/// error.rs's contract is that every failure this model produces is a
+/// `DomainError`, so it is a structured failure and not a panic.
 pub fn execute(
     request: Q5SdmRequest,
     annotations: Vec<Cds>,
@@ -920,9 +1025,10 @@ pub fn execute(
     }
     let target: Cds = resolved.unwrap();
 
+    let template: Sequence = request.template();
     let verified: MutationResult = run_resolved(request, target.clone(), result)?;
 
-    let warnings: Vec<Q5EditWarning> = edit_warnings(&verified, &target);
+    let warnings: Vec<Q5EditWarning> = edit_warnings(&template, &verified, &target)?;
 
     Ok(Q5WorkflowExecution {
         scope: gate,
@@ -933,16 +1039,16 @@ pub fn execute(
 
 /// Run the mutation slice for one request whose target the caller resolved.
 ///
-/// This is the part of `execute` after the gate, and it is the whole of what
-/// `execute_set` reuses per member: the edit and the independent verification
-/// are Milestone 2's `apply_nucleotide`, `apply_residue`, and `verify` called
-/// as they stand, and the only decision made here is which annotation the
-/// operation and the verification pass are handed. `execute` reaches it with
-/// the target its own gate resolved; `execute_set` reaches it once per member
-/// with the target the *set* resolved, so a set resolves a target once and
-/// every member is applied to that same annotation. Nothing here re-derives a
-/// residue, a codon, a coordinate, or a verification claim, and no biological
-/// rule is restated at this layer.
+/// This is the part of `execute` after the gate, and what `execute_set`
+/// reuses per member: the edit and the independent verification are the
+/// `mutation::apply_*` operation for the intent and `mutation::verify`,
+/// called as they stand, and the only decision made here is which
+/// annotation the operation and the verification pass are handed. `execute`
+/// reaches it with the target its own gate resolved; `execute_set` reaches
+/// it once per member with the target the *set* resolved, so a set resolves
+/// a target once and every member is applied to that same annotation.
+/// Nothing here re-derives a residue, a codon, a coordinate or a
+/// verification claim, and no biological rule is restated at this layer.
 fn run_resolved(
     request: Q5SdmRequest,
     target: Cds,
@@ -976,16 +1082,14 @@ fn run_resolved(
         }
     };
 
-    // A residue result names the CDS it was applied to, so its residue and
-    // codon claims are verified against that annotation: `verify` reads the
-    // scope only on the residue branch, where it checks that the annotation
-    // carries the identifier the result names and re-translates over it.
-    // A nucleotide result records only the coordinate it wrote, and `verify`
-    // never reads the scope parameter on the nucleotide branch, so passing
-    // `dna_scope` here changes no check. It is passed rather than `None` so
-    // the value stays the request's own claim instead of a decision made here;
-    // that inertness is a limitation, recorded in `docs/q5-sdm.md` §8, and
-    // verification behavior is unchanged.
+    // A residue result names the CDS it was applied to, so `verify` checks
+    // its residue and codon claims against that annotation: it reads the
+    // scope only on the residue branch. A DNA-level result records only the
+    // coordinate it wrote, and `verify` never reads the scope on those
+    // branches, so passing `dna_scope` changes no check; it is passed rather
+    // than `None` so the value stays the request's own claim. That inertness
+    // is a limitation recorded in `docs/q5-sdm.md` §8, and verification
+    // behavior is unchanged.
     let verify_scope: Option<Cds> = match request.intent() {
         Q5MutationIntent::Nucleotide(_intent) => dna_scope.clone(),
         Q5MutationIntent::Deletion(_intent) => dna_scope.clone(),
@@ -1000,15 +1104,13 @@ fn run_resolved(
 
 /// The scope a DNA edit is checked against, mirroring the request.
 ///
-/// Milestone 2 makes scoping a parameter of the operation rather than a
-/// property of the edit, and records that the same DNA request with no scope
-/// is a legal edit. This layer therefore passes the request's own scope
-/// through: a request that scoped one is checked against the annotation it
-/// named, and a request that scoped nothing gains no containment rule from
-/// the gate's resolution of the annotation the request is about. Whether the
-/// gate's resolution *should* become that containment rule is a workflow
-/// question the written contracts do not settle (see `execute`), so it is
-/// kept as the request's own claim rather than chosen here.
+/// Scoping is a parameter of the operation, not a property of the edit, and
+/// an unscoped DNA request is a legal operation (Milestone 2, fixture
+/// `nuc-a-unscoped`). This layer passes the request's own scope through: a
+/// request that scoped an annotation is checked against it, and a request
+/// that scoped nothing gains no containment rule from the gate's resolution,
+/// so an unscoped DNA edit outside the resolved CDS proceeds
+/// (`docs/q5-sdm.md` §4, §10 item 1, owner 2026-10-14).
 fn nucleotide_scope(scope: Option<Identifier>, resolved: Cds) -> Option<Cds> {
     if scope.is_some() {
         return Some(resolved.clone());
@@ -1079,22 +1181,20 @@ pub fn validate_input_scope(
 
     // Zero or several candidates. Both are ambiguity the caller resolves by
     // naming a CDS, so D005 refuses to choose and D020 makes this a result
-    // state rather than an error.
+    // state rather than an error: a named CDS matching no annotation is a
+    // clarification (§10 item 3, owner 2026-10-14), and candidates are not
+    // narrowed by whether they could hold a requested residue (§10 item 2,
+    // owner 2026-10-14).
     let display: String = template.display_name();
     let listed: String = join_names(names.clone());
     let mut clarifications: Vec<String> = Vec::new();
     if wanted.is_none() {
-        // A residue number the caller tied to no CDS is the brief's fail-closed
-        // exchange, so the clarification names the residue as well as the
-        // annotations on offer. The brief's stated reason — that several
-        // supported CDSs *could* contain residue 42 — is a property of the
-        // annotations, not of this rule: the gate reads no sequence content,
-        // so it clarifies the same way for annotations too short to hold the
-        // number (a 12-nucleotide annotation holds 4 residues) and for ones
-        // long enough to hold it (a 129-nucleotide annotation holds 43). The
-        // requirement the brief states is unchanged; which fixtures satisfy
-        // its premise is a separate question. Text only: classification is
-        // by state.
+        // A residue request that tied its number to no CDS names the residue
+        // in the clarification as well as the annotations on offer; every
+        // other request names only the CDS. The gate reads no sequence
+        // content, so candidates are not narrowed by whether an annotation
+        // could hold the number (§3, §5, §10 item 2, owner 2026-10-14).
+        // Text only: classification is by state.
         let missing: String = missing_claim(request.intent());
         clarifications.push(format!(
             "the request does not {}, and '{}' is annotated with {} of them: {}",
@@ -1175,7 +1275,7 @@ fn join_names(names: Vec<String>) -> String {
 /// still names a mode, and a set of one is not a hidden single-request call
 /// with its rules left undecided.
 ///
-/// Only `SeparateVariants` is executable today. `CombinedConstruct` is
+/// Only `SeparateVariants` is executable. `CombinedConstruct` is
 /// representable so a caller can ask for it and be refused rather than be
 /// quietly reinterpreted: composing mutations into one construct needs
 /// overlap rules no milestone has defined (D014 requires every design rule to
@@ -1222,7 +1322,7 @@ impl Q5Composition {
 /// still the caller's: D007 keeps artifacts apart by name *and* digest, so no
 /// naming rule is needed here and none is invented.
 ///
-/// The request is Milestone 3's `Q5SdmRequest` unchanged, so a member carries
+/// The request is this module's `Q5SdmRequest` unchanged, so a member carries
 /// its own template artifact, its own scope, and its own intent: the set
 /// layer adds no intent form and restates no rule of its own.
 #[derive(Clone, Debug, PartialEq)]
@@ -1426,8 +1526,8 @@ fn set_target_claim(variants: Vec<Q5Variant>) -> Option<Identifier> {
 /// phrase a clarification: an intent claims no CDS here, since a claim that
 /// the set carries comes from the set's members and `create` required them to
 /// agree. The members themselves are not rewritten, so a member's own scope
-/// stays its own and §4's open containment decision keeps the same meaning
-/// for a set member as for a single request.
+/// stays its own claim and §10 item 1's containment rule (owner 2026-10-14)
+/// reads the same for a set member as for a single request.
 pub fn set_gate_request(set: Q5VariantSetRequest) -> Result<Q5SdmRequest, DomainError> {
     let members: Vec<Q5Variant> = set.variants();
     let first: Q5Variant = members[0].clone();
@@ -1592,10 +1692,10 @@ impl Q5VariantSetExecution {
 ///
 /// The slice is composed, not re-implemented: the gate is
 /// `validate_input_scope` reused as it stands, and each member's edit and
-/// independent verification are the same `run_resolved` `execute` runs, which
-/// is Milestone 2's `apply_nucleotide`, `apply_residue`, and `verify` called
-/// as they stand. Nothing here re-derives a residue, a codon, a coordinate,
-/// or a verification claim, and no biological rule is added at this layer.
+/// independent verification are the `mutation::apply_*` operation for the
+/// intent and `mutation::verify`, called as they stand. Nothing here re-derives
+/// a residue, a codon, a coordinate or a verification claim, and no
+/// biological rule is added at this layer.
 ///
 /// What this function decides, and nothing else:
 ///
@@ -1605,8 +1705,8 @@ impl Q5VariantSetExecution {
 ///   named no CDS is applied to that annotation; a member that named one
 ///   named it, and `create` required the two to agree. The members' own
 ///   requests are not rewritten, so a member's own scope stays its own claim
-///   and §4's open containment decision reads the same here as for a single
-///   request.
+///   and §10 item 1's containment rule (owner 2026-10-14) reads the same
+///   here as for a single request.
 /// * **clarification stops the whole set.** D005 forbids choosing an
 ///   annotation and D020 gives that ambiguity its own state, so an
 ///   unresolved set returns no results and produces no edited artifact for
@@ -1663,10 +1763,11 @@ pub fn execute_set(
         // member's CDS, never what a previous member edited.
         let mutation: MutationResult =
             run_resolved(variant.request(), target.clone(), variant.result_name())?;
+        let template: Sequence = variant.request().template();
         results.push(Q5VariantResult {
             identifier: variant.result_name(),
             mutation: mutation.clone(),
-            warnings: edit_warnings(&mutation, &target),
+            warnings: edit_warnings(&template, &mutation, &target)?,
         });
     }
 
@@ -4467,5 +4568,539 @@ mod tests {
         let error: DomainError = built.unwrap_err();
         assert!(matches!(error, DomainError::SequenceReferenceMismatch(_)));
         assert!(error.category() == ErrorCategory::BiologicalValidation);
+    }
+
+    // The whole 30-base annotation on the minus strand: mut-a read backwards
+    // translates to L L L L L L I P S H (`tests/fixtures/mutation/README.md`), so
+    // it is a valid complete annotation. The frame rules below count positions
+    // inside the CDS's intervals and never read their strand, so these tests pin
+    // that rather than assume it.
+    fn minus_cds_of(name: &str, length: i64) -> Cds {
+        Cds::create(
+            &template(),
+            cds_name(name),
+            whole(length),
+            Strand::Minus,
+            Completeness::Complete,
+            "standard".to_string(),
+            Numbering::FromCdsStart,
+        )
+        .unwrap()
+    }
+
+    // mut-c of the Milestone 2 fixture: circular, 24 bases, with the fixture's
+    // `res-c-origin` annotation `cds-1` over [22, 24) then [0, 7), plus strand,
+    // complete, reading TGG CTT GGA (W L G) across the origin.
+    fn seq_c() -> Sequence {
+        normalize(
+            Identifier::create("seq-c".to_string()).unwrap(),
+            "GCTTGGAACGAACGAACGAACATG".to_string(),
+            SequenceTopology::Circular,
+        )
+        .unwrap()
+    }
+
+    fn cds_c() -> Cds {
+        let intervals: OrderedIntervals = vec![
+            create(&seq_c().reference(), 22, 24).unwrap(),
+            create(&seq_c().reference(), 0, 7).unwrap(),
+        ];
+        Cds::create(
+            &seq_c(),
+            cds_name("cds-1"),
+            intervals,
+            Strand::Plus,
+            Completeness::Complete,
+            "standard".to_string(),
+            Numbering::FromCdsStart,
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn a_frameshift_deletion_in_a_minus_strand_cds_warns() {
+        // The one-base deletion of `[9, 10)` (`A`), scoped to a reverse CDS over
+        // [0, 30): one coding position is removed, 1 is not a multiple of 3, and
+        // the region lies wholly inside the single interval, so the warning is the
+        // one the plus-strand case already pins.
+        let request: Q5SdmRequest = Q5SdmRequest::create(
+            template(),
+            Some(cds_name("cds-1")),
+            deletion_intent(9, 10, "A".to_string()),
+        )
+        .unwrap();
+        let run: Q5WorkflowExecution = execute(
+            request.clone(),
+            vec![minus_cds_of("cds-1", 30)],
+            edited_name(),
+        )
+        .unwrap();
+        assert!(run.is_verified());
+        let warnings: Vec<Q5EditWarning> = run.warnings();
+        assert!(warnings.len() == 1);
+        assert!(
+            warnings[0]
+                == Q5EditWarning::Frameshift {
+                    cds: cds_name("cds-1"),
+                    coding_bases_removed: 1,
+                    wholly_inside: true,
+                }
+        );
+    }
+
+    #[test]
+    fn an_in_frame_deletion_in_a_minus_strand_cds_does_not_warn() {
+        // The same deletion as `an_in_frame_deletion_carries_no_warning`, scoped to
+        // a reverse CDS: `[9, 12)` is `AAT`, three coding positions, so the reading
+        // frame is kept and the run warns nothing.
+        let request: Q5SdmRequest = Q5SdmRequest::create(
+            template(),
+            Some(cds_name("cds-1")),
+            deletion_intent(9, 12, "AAT".to_string()),
+        )
+        .unwrap();
+        let run: Q5WorkflowExecution = execute(
+            request.clone(),
+            vec![minus_cds_of("cds-1", 30)],
+            edited_name(),
+        )
+        .unwrap();
+        assert!(run.is_verified());
+        assert!(run.warnings().is_empty());
+    }
+
+    #[test]
+    fn a_frameshift_insertion_in_a_minus_strand_cds_warns() {
+        // One base inserted at the gap at 12, whose flanks are `T` and `C`: the gap
+        // sits strictly inside [0, 30), so it is inside the CDS whatever its strand,
+        // and 1 is not a multiple of 3.
+        let request: Q5SdmRequest = Q5SdmRequest::create(
+            template(),
+            Some(cds_name("cds-1")),
+            insertion_intent(12, "T".to_string(), "C".to_string(), "A".to_string()),
+        )
+        .unwrap();
+        let run: Q5WorkflowExecution = execute(
+            request.clone(),
+            vec![minus_cds_of("cds-1", 30)],
+            edited_name(),
+        )
+        .unwrap();
+        assert!(run.is_verified());
+        let warnings: Vec<Q5EditWarning> = run.warnings();
+        assert!(warnings.len() == 1);
+        assert!(
+            warnings[0]
+                == Q5EditWarning::InsertionFrameshift {
+                    cds: cds_name("cds-1"),
+                    bases_inserted: 1,
+                }
+        );
+    }
+
+    #[test]
+    fn a_frameshift_replacement_in_a_minus_strand_cds_warns() {
+        // Two coding positions of `[9, 11)` (`AA`) overwritten by one base: `m − w`
+        // is 1, so the frame shifts, and every overwritten position was coding.
+        let request: Q5SdmRequest = Q5SdmRequest::create(
+            template(),
+            Some(cds_name("cds-1")),
+            replacement_intent(9, 11, "AA".to_string(), "G".to_string()),
+        )
+        .unwrap();
+        let run: Q5WorkflowExecution = execute(
+            request.clone(),
+            vec![minus_cds_of("cds-1", 30)],
+            edited_name(),
+        )
+        .unwrap();
+        assert!(run.is_verified());
+        let warnings: Vec<Q5EditWarning> = run.warnings();
+        assert!(warnings.len() == 1);
+        assert!(
+            warnings[0]
+                == Q5EditWarning::ReplacementFrameshift {
+                    cds: cds_name("cds-1"),
+                    bases_replaced: 2,
+                    bases_written: 1,
+                    wholly_inside: true,
+                }
+        );
+    }
+
+    #[test]
+    fn a_frameshift_deletion_in_an_origin_wrapping_cds_warns() {
+        // mut-c with its `res-c-origin` annotation: the deletion of `[2, 3)` (`T`)
+        // lies in the post-origin interval [0, 7), so one coding position is
+        // removed and the warning is the one a single interval gives. The CDS's
+        // other interval, [22, 24), is not consulted for this region.
+        let request: Q5SdmRequest = Q5SdmRequest::create(
+            seq_c(),
+            Some(cds_name("cds-1")),
+            deletion_intent_on(seq_c(), 2, 3, "T".to_string()),
+        )
+        .unwrap();
+        let run: Q5WorkflowExecution =
+            execute(request.clone(), vec![cds_c()], edited_name()).unwrap();
+        assert!(run.is_verified());
+        let warnings: Vec<Q5EditWarning> = run.warnings();
+        assert!(warnings.len() == 1);
+        assert!(
+            warnings[0]
+                == Q5EditWarning::Frameshift {
+                    cds: cds_name("cds-1"),
+                    coding_bases_removed: 1,
+                    wholly_inside: true,
+                }
+        );
+    }
+
+    // D037: an in-frame DNA edit wholly inside the resolved CDS re-translates
+    // that CDS on the edited artifact, and a stop that is not that CDS's last
+    // codon is a warning the run carries while still applying the edit. The
+    // letters and codon numbers below were derived by hand over the template
+    // text `ATGGCTTGGAATCAGCAGCAGCAGCAGCAG` (planner, 2026-10-16): index 5 is
+    // `T`, 6–8 are `TGG`, 9–11 are `AAT`, and a whole 30-base plus-strand CDS
+    // reads M A W N Q Q Q Q Q Q with no terminal stop.
+    fn nucleotide_substitution_at(
+        position: u64,
+        expected: String,
+        replacement: String,
+    ) -> Q5MutationIntent {
+        let interval: OrderedIntervals = vec![create(
+            &template().reference(),
+            position as i64,
+            (position + 1) as i64,
+        )
+        .unwrap()];
+        Q5MutationIntent::Nucleotide(
+            NucleotideMutationIntent::create(
+                template().reference(),
+                interval[0].clone(),
+                expected,
+                replacement,
+            )
+            .unwrap(),
+        )
+    }
+
+    #[test]
+    fn a_substitution_that_writes_a_stop_warns() {
+        // Position 7 is the middle base of codon 3's `TGG`: writing `A` there
+        // gives `TAG`. The edit changes no length, so the frame is kept, and
+        // `[7, 8)` lies wholly inside [0, 30), so the CDS is re-translated:
+        // ATG GCT TAG AAT CAG CAG CAG CAG CAG CAG puts a stop at codon 3 of
+        // 10, before the last codon.
+        let request: Q5SdmRequest = Q5SdmRequest::create(
+            template(),
+            Some(cds_name("cds-1")),
+            nucleotide_substitution_at(7, "G".to_string(), "A".to_string()),
+        )
+        .unwrap();
+        let run: Q5WorkflowExecution =
+            execute(request.clone(), vec![cds_of("cds-1", 30)], edited_name()).unwrap();
+        assert!(run.is_verified());
+        assert!(run.edited().unwrap().canonical_text() == "ATGGCTTAGAATCAGCAGCAGCAGCAGCAG");
+        let warnings: Vec<Q5EditWarning> = run.warnings();
+        assert!(warnings.len() == 1);
+        assert!(
+            warnings[0]
+                == Q5EditWarning::PrematureStop {
+                    cds: cds_name("cds-1"),
+                    codon_number: 3,
+                }
+        );
+    }
+
+    #[test]
+    fn a_synonymous_substitution_does_not_warn() {
+        // Position 5 is the last base of codon 2's `GCT`: writing `C` gives
+        // `GCC`, still Thr. The edit is in-frame and wholly inside [0, 30), so
+        // the CDS is re-translated, and ATG GCT GCC TGG AAT CAG CAG CAG CAG CAG
+        // holds no stop at all: no warning.
+        let request: Q5SdmRequest = Q5SdmRequest::create(
+            template(),
+            Some(cds_name("cds-1")),
+            nucleotide_substitution_at(5, "T".to_string(), "C".to_string()),
+        )
+        .unwrap();
+        let run: Q5WorkflowExecution =
+            execute(request.clone(), vec![cds_of("cds-1", 30)], edited_name()).unwrap();
+        assert!(run.is_verified());
+        assert!(run.edited().unwrap().canonical_text() == "ATGGCCTGGAATCAGCAGCAGCAGCAGCAG");
+        assert!(run.warnings().is_empty());
+    }
+
+    #[test]
+    fn an_in_frame_insertion_of_a_stop_warns() {
+        // `TAA` inserted into the gap at 9, whose flanks are `G` (index 8) and
+        // `A` (index 9): 3 is a multiple of 3, so the frame is kept, and the
+        // gap lies inside [0, 30). The edited CDS reads ATG GCT TGG TAA AAT
+        // CAG CAG CAG CAG CAG CAG, so the stop sits at codon 4 of 11.
+        let request: Q5SdmRequest = Q5SdmRequest::create(
+            template(),
+            Some(cds_name("cds-1")),
+            insertion_intent(9, "G".to_string(), "A".to_string(), "TAA".to_string()),
+        )
+        .unwrap();
+        let run: Q5WorkflowExecution =
+            execute(request.clone(), vec![cds_of("cds-1", 30)], edited_name()).unwrap();
+        assert!(run.is_verified());
+        assert!(run.edited().unwrap().canonical_text() == "ATGGCTTGGTAAAATCAGCAGCAGCAGCAGCAG");
+        let warnings: Vec<Q5EditWarning> = run.warnings();
+        assert!(warnings.len() == 1);
+        assert!(
+            warnings[0]
+                == Q5EditWarning::PrematureStop {
+                    cds: cds_name("cds-1"),
+                    codon_number: 4,
+                }
+        );
+    }
+
+    #[test]
+    fn an_in_frame_insertion_without_a_stop_does_not_warn() {
+        // `GCT` inserted into the same gap: 3 is a multiple of 3, so the frame
+        // is kept and the CDS is re-translated, and ATG GCT TGG GCT AAT CAG
+        // CAG CAG CAG CAG CAG holds no stop: no warning.
+        let request: Q5SdmRequest = Q5SdmRequest::create(
+            template(),
+            Some(cds_name("cds-1")),
+            insertion_intent(9, "G".to_string(), "A".to_string(), "GCT".to_string()),
+        )
+        .unwrap();
+        let run: Q5WorkflowExecution =
+            execute(request.clone(), vec![cds_of("cds-1", 30)], edited_name()).unwrap();
+        assert!(run.is_verified());
+        assert!(run.edited().unwrap().canonical_text() == "ATGGCTTGGGCTAATCAGCAGCAGCAGCAGCAG");
+        assert!(run.warnings().is_empty());
+    }
+
+    #[test]
+    fn an_equal_length_replacement_that_writes_a_stop_warns() {
+        // `[9, 12)` is `AAT`, overwritten by `TGA`: `m − w` is 0, so the frame
+        // is kept, and the region lies wholly inside [0, 30). The edited CDS
+        // reads ATG GCT TGG TGA CAG CAG CAG CAG CAG CAG, so the stop is codon
+        // 4 of 10.
+        let request: Q5SdmRequest = Q5SdmRequest::create(
+            template(),
+            Some(cds_name("cds-1")),
+            replacement_intent(9, 12, "AAT".to_string(), "TGA".to_string()),
+        )
+        .unwrap();
+        let run: Q5WorkflowExecution =
+            execute(request.clone(), vec![cds_of("cds-1", 30)], edited_name()).unwrap();
+        assert!(run.is_verified());
+        assert!(run.edited().unwrap().canonical_text() == "ATGGCTTGGTGACAGCAGCAGCAGCAGCAG");
+        let warnings: Vec<Q5EditWarning> = run.warnings();
+        assert!(warnings.len() == 1);
+        assert!(
+            warnings[0]
+                == Q5EditWarning::PrematureStop {
+                    cds: cds_name("cds-1"),
+                    codon_number: 4,
+                }
+        );
+    }
+
+    #[test]
+    fn an_in_frame_unequal_replacement_that_writes_a_stop_warns() {
+        // `AAT` overwritten by six bases: `m − w` is 3, a multiple of 3, so the
+        // frame is kept and the CDS is re-translated. The edited text is
+        // ATGGCTTGGAATTAACAGCAGCAGCAGCAGCAG, which reads ATG GCT TGG AAT TAA
+        // CAG CAG CAG CAG CAG CAG: the stop is codon 5 of 11.
+        let request: Q5SdmRequest = Q5SdmRequest::create(
+            template(),
+            Some(cds_name("cds-1")),
+            replacement_intent(9, 12, "AAT".to_string(), "AATTAA".to_string()),
+        )
+        .unwrap();
+        let run: Q5WorkflowExecution =
+            execute(request.clone(), vec![cds_of("cds-1", 30)], edited_name()).unwrap();
+        assert!(run.is_verified());
+        assert!(run.edited().unwrap().canonical_text() == "ATGGCTTGGAATTAACAGCAGCAGCAGCAGCAG");
+        let warnings: Vec<Q5EditWarning> = run.warnings();
+        assert!(warnings.len() == 1);
+        assert!(
+            warnings[0]
+                == Q5EditWarning::PrematureStop {
+                    cds: cds_name("cds-1"),
+                    codon_number: 5,
+                }
+        );
+    }
+
+    #[test]
+    fn a_frameshift_does_not_also_warn_of_a_stop() {
+        // The one-base deletion of `[9, 10)` that `a_one_base_deletion_warns_of_a_frameshift`
+        // already pins: `delta` is −1, not a multiple of 3, so the reading frame
+        // shifts and D037 re-translates nothing. The run carries the frameshift
+        // warning and nothing else.
+        let request: Q5SdmRequest =
+            Q5SdmRequest::create(template(), None, deletion_intent(9, 10, "A".to_string()))
+                .unwrap();
+        let run: Q5WorkflowExecution =
+            execute(request.clone(), vec![cds_of("cds-1", 30)], edited_name()).unwrap();
+        assert!(run.is_verified());
+        let warnings: Vec<Q5EditWarning> = run.warnings();
+        assert!(warnings.len() == 1);
+        assert!(
+            warnings[0]
+                == Q5EditWarning::Frameshift {
+                    cds: cds_name("cds-1"),
+                    coding_bases_removed: 1,
+                    wholly_inside: true,
+                }
+        );
+    }
+
+    #[test]
+    fn a_stop_on_a_minus_strand_cds_warns() {
+        // The whole 30-base CDS on the minus strand reads L L L L L L I P S H,
+        // and codon 7 is the reverse complement of reference [9, 12), which is
+        // `AAT` → `ATT`. Overwriting that region with `TTA` changes no length
+        // and lies wholly inside [0, 30), so the CDS is re-translated: codon 7
+        // becomes revcomp(`TTA`) = `TAA`, a stop at codon 7 of 10.
+        let request: Q5SdmRequest = Q5SdmRequest::create(
+            template(),
+            Some(cds_name("cds-1")),
+            replacement_intent(9, 12, "AAT".to_string(), "TTA".to_string()),
+        )
+        .unwrap();
+        let run: Q5WorkflowExecution = execute(
+            request.clone(),
+            vec![minus_cds_of("cds-1", 30)],
+            edited_name(),
+        )
+        .unwrap();
+        assert!(run.is_verified());
+        assert!(run.edited().unwrap().canonical_text() == "ATGGCTTGGTTACAGCAGCAGCAGCAGCAG");
+        let warnings: Vec<Q5EditWarning> = run.warnings();
+        assert!(warnings.len() == 1);
+        assert!(
+            warnings[0]
+                == Q5EditWarning::PrematureStop {
+                    cds: cds_name("cds-1"),
+                    codon_number: 7,
+                }
+        );
+    }
+
+    #[test]
+    fn a_stop_in_an_origin_wrapping_cds_warns() {
+        // mut-c's `cds-1` at [22, 24)+[0, 7) reads TGG CTT GGA across the origin.
+        // `TAA` inserted into the gap at 1 — its flanks are `G` at index 0 and
+        // `C` at index 1 — is 3 bases, so the frame is kept, and the gap lies
+        // inside [0, 7). The edited artifact is 27 bases: the interval holding
+        // the gap grows to [0, 10) and the interval at or past the edit's end
+        // moves to [25, 27), so the CDS reads TGG TAA CTT GGA and the stop is
+        // codon 2 of 4.
+        let request: Q5SdmRequest = Q5SdmRequest::create(
+            seq_c(),
+            Some(cds_name("cds-1")),
+            insertion_intent_on(
+                seq_c(),
+                1,
+                "G".to_string(),
+                "C".to_string(),
+                "TAA".to_string(),
+            ),
+        )
+        .unwrap();
+        let run: Q5WorkflowExecution =
+            execute(request.clone(), vec![cds_c()], edited_name()).unwrap();
+        assert!(run.is_verified());
+        assert!(run.edited().unwrap().canonical_text() == "GTAACTTGGAACGAACGAACGAACATG");
+        let warnings: Vec<Q5EditWarning> = run.warnings();
+        assert!(warnings.len() == 1);
+        assert!(
+            warnings[0]
+                == Q5EditWarning::PrematureStop {
+                    cds: cds_name("cds-1"),
+                    codon_number: 2,
+                }
+        );
+    }
+
+    #[test]
+    fn an_edit_only_partly_inside_the_cds_does_not_warn_of_a_stop() {
+        // A plus-strand CDS over [0, 18) reads ATG GCT TGG AAT CAG CAG. The
+        // unscoped deletion of [15, 21) removes `CAGCAG`: three of those bases
+        // are coding, so the frame is kept and there is no frameshift, but the
+        // region is not wholly inside one interval, so D037's rule does not
+        // apply and the run warns nothing.
+        let request: Q5SdmRequest = Q5SdmRequest::create(
+            template(),
+            None,
+            deletion_intent(15, 21, "CAGCAG".to_string()),
+        )
+        .unwrap();
+        let run: Q5WorkflowExecution =
+            execute(request.clone(), vec![cds_of("cds-1", 18)], edited_name()).unwrap();
+        assert!(run.is_verified());
+        assert!(run.edited().unwrap().canonical_text() == "ATGGCTTGGAATCAGCAGCAGCAG");
+        assert!(run.warnings().is_empty());
+    }
+
+    // D037's rule must not turn a valid edit into a failure: an in-frame edit
+    // that removes a whole CDS leaves no CDS to re-translate, and the run still
+    // applies the edit. Values derived by hand (planner, 2026-10-16): mut-a's
+    // [0, 18) is `ATGGCTTGGAATCAGCAG` (ATG GCT TGG AAT CAG CAG, M A W N Q Q), so
+    // deleting it leaves the last four codons, `CAGCAGCAGCAG`; 18 removed bases
+    // are all coding and 18 is a multiple of 3, so there is no frameshift, and
+    // the rebuilt CDS has no interval left at all.
+    #[test]
+    fn deleting_a_whole_cds_does_not_warn_or_fail() {
+        let request: Q5SdmRequest = Q5SdmRequest::create(
+            template(),
+            Some(cds_name("cds-1")),
+            deletion_intent(0, 18, "ATGGCTTGGAATCAGCAG".to_string()),
+        )
+        .unwrap();
+        let run: Q5WorkflowExecution =
+            execute(request.clone(), vec![cds_of("cds-1", 18)], edited_name()).unwrap();
+        assert!(run.is_verified());
+        assert!(run.edited().unwrap().canonical_text() == "CAGCAGCAGCAG");
+        assert!(run.warnings().is_empty());
+    }
+
+    // The same rule against a wrapping CDS whose first interval is deleted whole
+    // and whose second is untouched: mut-c is `GCTTGGAACGAACGAACGAACATG` (24
+    // bases, circular), and [21, 24) is `ATG` while [0, 6) is `GCTTGG`, so the
+    // annotation [21, 24) + [0, 6) reads ATG GCT TGG (M A W). Deleting [21, 24)
+    // is 3 bases, all coding and a multiple of 3, so no frameshift; the holding
+    // interval becomes [21, 21) and is dropped, the interval at [0, 6) is
+    // unchanged, and the 21-base edit is `GCTTGGAACGAACGAACGAAC`, whose [0, 6)
+    // reads GCT TGG (A W): no stop, so no warning and no failure.
+    fn cds_c_at_21() -> Cds {
+        let intervals: OrderedIntervals = vec![
+            create(&seq_c().reference(), 21, 24).unwrap(),
+            create(&seq_c().reference(), 0, 6).unwrap(),
+        ];
+        Cds::create(
+            &seq_c(),
+            cds_name("cds-1"),
+            intervals,
+            Strand::Plus,
+            Completeness::Complete,
+            "standard".to_string(),
+            Numbering::FromCdsStart,
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn deleting_a_whole_interval_of_a_wrapping_cds_does_not_fail() {
+        let request: Q5SdmRequest = Q5SdmRequest::create(
+            seq_c(),
+            Some(cds_name("cds-1")),
+            deletion_intent_on(seq_c(), 21, 24, "ATG".to_string()),
+        )
+        .unwrap();
+        let run: Q5WorkflowExecution =
+            execute(request.clone(), vec![cds_c_at_21()], edited_name()).unwrap();
+        assert!(run.is_verified());
+        assert!(run.edited().unwrap().canonical_text() == "GCTTGGAACGAACGAACGAAC");
+        assert!(run.warnings().is_empty());
     }
 }

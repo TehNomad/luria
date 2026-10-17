@@ -31,13 +31,26 @@ The window the reference tool designs against is the whole construct rotated so
 that the forward primer starts at index 0; for a template with enough context on
 both sides that rotation is indistinguishable from taking the span directly,
 which is what this script does.
+
+Run from this directory:
+
+    python3 neb-q5-sdm-reference.py            rewrite reference/designs.json
+    python3 neb-q5-sdm-reference.py --check    compare, write nothing
+
+With --check the JSON text is built exactly as above, compared byte for byte with
+the tracked file, and `OK designs.json` or `DIFFERS designs.json` followed by the
+first differing line is printed; a difference exits 1 and nothing is written
+(D039).
 """
 
 import hashlib
 import json
 import math
+import os
+import sys
 
-FIXTURES = "/home/timw/Projects/luria/tests/fixtures"
+HERE = os.path.dirname(os.path.abspath(__file__))
+FIXTURES = os.path.dirname(os.path.dirname(HERE))
 
 # --- the reference Tm model, inlined -----------------------------------------
 # NEBaseChanger's "method 4" at salt 150 mM and ct 0.5, as read from the saved
@@ -457,6 +470,47 @@ def check(template: str, d: dict) -> None:
     assert d["h1"]["reverseAnnealingOverlap"] == d["reverse"]["annealingOverlap"], "h1 must use the recorded quantity"
 
 
+def emit(path, text):
+    """Write `text` to `path`, or with --check compare it and write nothing (D039).
+
+    This script is self-contained, so it has its own copy rather than reusing
+    `native-design.py`'s helper. Without --check the tracked file is rewritten
+    as before; with --check the text is compared byte for byte, `OK <name>` or
+    `DIFFERS <name>` followed by the first differing line is printed, a
+    difference exits 1, and nothing is written.
+    """
+    if "--check" not in sys.argv[1:]:
+        with open(path, "w") as f:
+            f.write(text)
+        print("wrote", os.path.abspath(path))
+        return
+    try:
+        with open(path, "rb") as f:
+            tracked = f.read()
+    except FileNotFoundError:
+        tracked = None
+    name = os.path.basename(path)
+    if tracked == text.encode():
+        print(f"OK {name}")
+        return
+    print(f"DIFFERS {name}")
+    old = tracked.decode().splitlines(True) if tracked is not None else []
+    new = text.splitlines(True)
+    for i in range(min(len(old), len(new))):
+        if old[i] != new[i]:
+            print(f"  line {i + 1}: tracked {old[i]!r} != generated {new[i]!r}")
+            break
+    else:
+        i = min(len(old), len(new))
+        if len(old) == len(new):
+            print("  line-level comparison found no difference")
+        else:
+            where = "tracked" if len(old) > len(new) else "generated"
+            extra = (old if len(old) > len(new) else new)[i]
+            print(f"  line {i + 1}: only in {where}: {extra!r}")
+    sys.exit(1)
+
+
 def main() -> None:
     sid = load_fa(f"{FIXTURES}/example-construct/input/sid-1_cDNA.fa")
     mut_a = load_fa(f"{FIXTURES}/mutation/mut-a.txt")
@@ -485,7 +539,7 @@ def main() -> None:
     # ID, Fwd Primer Seq, Length, Tm Fwd, Rev Primer ID, Rev Primer Seq, Length,
     # Tm Rev, Ta. It reports no span, no orientation, no overlap, no tail/annealing
     # split. Only the D404N row corresponds to a design in this file.
-    neb_row = f"{FIXTURES}/example-construct/raw/sdmsummary.txt (row D404N)"
+    neb_row = "example-construct/raw/sdmsummary.txt (row D404N)"
     reported = ["forward.sequence", "forward.length", "reverse.sequence",
                 "reverse.length", "ta"]
     derived = ["span", "oneBasedSpan", "editedSpan", "orientation", "parts",
@@ -518,8 +572,8 @@ def main() -> None:
                 d["builtAgainst"] = digest(sid)
                 check(sid, d)
 
-    with open(f"{FIXTURES}/q5-primer/reference/designs.json", "w") as fh:
-        fh.write(json.dumps(out, indent=2) + "\n")
+    path = f"{FIXTURES}/q5-primer/reference/designs.json"
+    emit(path, json.dumps(out, indent=2) + "\n")
 
     def show(tag, d):
         h = d["h1"]

@@ -372,11 +372,25 @@ fn read(relative: &str) -> String {
     std::fs::read_to_string(&path).unwrap_or_else(|error| panic!("cannot read {}: {}", path, error))
 }
 
+/// One row of `cases.tsv`, all 14 columns. The three descriptive columns are
+/// carried as `_strand`, `_cds` and `_note`: no test reads them, and the leading
+/// underscore is how the compiler records that (`docs/tasks/review-c4-fixture-columns.md`
+/// §2.1).
 struct CaseRow {
     case_id: String,
+    kind: String,
     sequence_file: String,
     sequence_digest_16: String,
+    edits: String,
+    min_overlap: String,
+    target_tm: String,
+    _strand: String,
+    _cds: String,
     reference_design: String,
+    expected: String,
+    invariants: String,
+    reference_check: String,
+    _note: String,
 }
 
 fn case_rows() -> Vec<CaseRow> {
@@ -387,18 +401,6 @@ fn case_rows() -> Vec<CaseRow> {
         .expect("cases.tsv has a header")
         .split('\t')
         .collect();
-    let column = |name: &str| -> usize {
-        header
-            .iter()
-            .position(|column| *column == name)
-            .unwrap_or_else(|| panic!("cases.tsv has no column {:?}", name))
-    };
-    let (id, file, digest, design) = (
-        column("case_id"),
-        column("sequence_file"),
-        column("sequence_digest_16"),
-        column("reference_design"),
-    );
     lines
         .map(|line| {
             let fields: Vec<&str> = line.split('\t').collect();
@@ -408,11 +410,28 @@ fn case_rows() -> Vec<CaseRow> {
                 fields.len(),
                 header.len()
             );
+            let field = |name: &str| -> String {
+                let index: usize = header
+                    .iter()
+                    .position(|column| *column == name)
+                    .unwrap_or_else(|| panic!("cases.tsv has no column {:?}", name));
+                fields[index].to_string()
+            };
             CaseRow {
-                case_id: fields[id].to_string(),
-                sequence_file: fields[file].to_string(),
-                sequence_digest_16: fields[digest].to_string(),
-                reference_design: fields[design].to_string(),
+                case_id: field("case_id"),
+                kind: field("kind"),
+                sequence_file: field("sequence_file"),
+                sequence_digest_16: field("sequence_digest_16"),
+                edits: field("edits"),
+                min_overlap: field("min_overlap"),
+                target_tm: field("target_tm"),
+                _strand: field("strand"),
+                _cds: field("cds"),
+                reference_design: field("reference_design"),
+                expected: field("expected"),
+                invariants: field("invariants"),
+                reference_check: field("reference_check"),
+                _note: field("note"),
             }
         })
         .collect()
@@ -2689,4 +2708,862 @@ fn every_native_design_meets_the_d030_invariants() {
         designs += 1;
     }
     assert!(designs == 4, "checked {} native designs", designs);
+}
+
+// ---------------------------------------------------------------------------
+// Every column of `cases.tsv`, and the NEBaseChanger files of
+// `tests/fixtures/example-construct/` (`docs/tasks/review-post-m4.md` C4, C6,
+// C9). Each check below compares two files that already exist, or luria
+// against external NEBaseChanger output; none copies luria's own output.
+// ---------------------------------------------------------------------------
+
+/// The number of rows in `cases.tsv`.
+const CASE_COUNT: usize = 10;
+
+/// One edit of a `cases.tsv` `edits` cell: `start:end:original:replacement`,
+/// zero-based half-open (D004). An empty `original` marks an insertion, an
+/// empty `replacement` a deletion.
+struct Edit {
+    start: i64,
+    end: i64,
+    original: String,
+    replacement: String,
+}
+
+/// A cell that must hold an integer, naming the case and column in the failure.
+fn integer_of(label: &str, name: &str, text: String) -> i64 {
+    text.parse::<i64>().unwrap_or_else(|_| {
+        panic!(
+            "{}: column {:?} is not an integer ({:?})",
+            label, name, text
+        )
+    })
+}
+
+/// A cell that must hold a number, such as a Tm or a `target_tm`.
+fn decimal_of(label: &str, name: &str, text: String) -> f64 {
+    text.parse::<f64>()
+        .unwrap_or_else(|_| panic!("{}: column {:?} is not a number ({:?})", label, name, text))
+}
+
+/// Two numbers that must be equal, compared without a float `==`.
+fn same_number(label: &str, name: &str, found: f64, wanted: f64) {
+    assert!(
+        (found - wanted).abs() < 1e-9,
+        "{}: {}: {} vs {}",
+        label,
+        name,
+        found,
+        wanted
+    );
+}
+
+/// A figure printed rounded to the nearest integer, against the unrounded
+/// value the record holds.
+fn rounded_number(label: &str, name: &str, printed: f64, recorded: f64) {
+    assert!(
+        (recorded.round() - printed).abs() < 1e-9,
+        "{}: {}: prints {}, {} rounds to {}",
+        label,
+        name,
+        printed,
+        recorded,
+        recorded.round()
+    );
+}
+
+/// The row's `edits` cell as edits: `;` separates the edits of a `replace-set`.
+fn case_edits(row: &CaseRow) -> Vec<Edit> {
+    row.edits
+        .split(';')
+        .map(|cell| {
+            let parts: Vec<String> = cell.split(':').map(|part| part.to_string()).collect();
+            assert!(
+                parts.len() == 4,
+                "{}: edit cell {:?} is not start:end:original:replacement",
+                row.case_id,
+                cell
+            );
+            Edit {
+                start: integer_of(&row.case_id, "edits start", parts[0].clone()),
+                end: integer_of(&row.case_id, "edits end", parts[1].clone()),
+                original: parts[2].clone(),
+                replacement: parts[3].clone(),
+            }
+        })
+        .collect()
+}
+
+/// The `designs.json` records a case names, in the order the file stores them:
+/// one for q5p-01..03 and q5p-04, and q5p-07's two variants as `variant-a`
+/// then `variant-b`.
+fn records_for(case_id: String) -> Vec<Json> {
+    reference_designs()
+        .into_iter()
+        .filter(|design| design.case_id == case_id)
+        .map(|design| design.record.clone())
+        .collect()
+}
+
+#[test]
+fn every_case_names_the_digest_of_its_sequence_file() {
+    let rows: Vec<CaseRow> = case_rows();
+    assert!(
+        rows.len() == CASE_COUNT,
+        "cases.tsv has {} rows, expected {}",
+        rows.len(),
+        CASE_COUNT
+    );
+    for row in rows.iter() {
+        let digest: String = template_of(row).content_hash().hex_digest()[..16].to_string();
+        assert!(
+            digest == row.sequence_digest_16,
+            "{}: template digest {} vs cases.tsv {}",
+            row.case_id,
+            digest,
+            row.sequence_digest_16
+        );
+    }
+}
+
+#[test]
+fn every_case_edit_asserts_the_bases_its_template_holds() {
+    for row in case_rows() {
+        let text: String = template_of(&row).canonical_text();
+        let edits: Vec<Edit> = case_edits(&row);
+        assert!(
+            !edits.is_empty(),
+            "{}: the edits column names no edit",
+            row.case_id
+        );
+        for edit in edits.iter() {
+            assert!(
+                edit.start >= 0 && edit.end >= edit.start,
+                "{}: edit {}..{} is not an ordered interval",
+                row.case_id,
+                edit.start,
+                edit.end
+            );
+            assert!(
+                edit.end <= text.len() as i64,
+                "{}: edit {}..{} lies past the {}-base template",
+                row.case_id,
+                edit.start,
+                edit.end,
+                text.len()
+            );
+            assert!(
+                edit.end - edit.start == edit.original.len() as i64,
+                "{}: edit {}..{} is {} wide, its original text is {} bases",
+                row.case_id,
+                edit.start,
+                edit.end,
+                edit.end - edit.start,
+                edit.original.len()
+            );
+            let window: &str = &text[edit.start as usize..edit.end as usize];
+            assert!(
+                window == edit.original,
+                "{}: the template at {}..{} differs from the edit's original text",
+                row.case_id,
+                edit.start,
+                edit.end
+            );
+        }
+    }
+}
+
+#[test]
+fn every_case_kind_agrees_with_its_edits() {
+    for row in case_rows() {
+        let edits: Vec<Edit> = case_edits(&row);
+        assert!(
+            !edits.is_empty(),
+            "{}: kind {:?} states an edit, the edits column names none",
+            row.case_id,
+            row.kind
+        );
+        let first: &Edit = edits.first().unwrap();
+        match row.kind.as_str() {
+            "replace" => {
+                assert!(
+                    edits.len() == 1,
+                    "{}: kind replace names {} edits",
+                    row.case_id,
+                    edits.len()
+                );
+                assert!(
+                    !first.original.is_empty() && !first.replacement.is_empty(),
+                    "{}: a replace edit has an empty side",
+                    row.case_id
+                );
+            }
+            "insert" => {
+                assert!(
+                    edits.len() == 1,
+                    "{}: kind insert names {} edits",
+                    row.case_id,
+                    edits.len()
+                );
+                assert!(
+                    first.original.is_empty(),
+                    "{}: an insert edit names original text",
+                    row.case_id
+                );
+                assert!(
+                    first.start == first.end,
+                    "{}: an insert edit spans {}..{}, not a point",
+                    row.case_id,
+                    first.start,
+                    first.end
+                );
+                assert!(
+                    !first.replacement.is_empty(),
+                    "{}: an insert edit writes nothing",
+                    row.case_id
+                );
+            }
+            "delete" => {
+                assert!(
+                    edits.len() == 1,
+                    "{}: kind delete names {} edits",
+                    row.case_id,
+                    edits.len()
+                );
+                assert!(
+                    first.replacement.is_empty(),
+                    "{}: a delete edit writes text",
+                    row.case_id
+                );
+                assert!(
+                    !first.original.is_empty(),
+                    "{}: a delete edit removes nothing",
+                    row.case_id
+                );
+            }
+            "replace-set" => assert!(
+                edits.len() >= 2,
+                "{}: a replace-set names {} edit(s)",
+                row.case_id,
+                edits.len()
+            ),
+            other => panic!("{}: unknown kind {:?}", row.case_id, other),
+        }
+    }
+}
+
+#[test]
+fn every_reference_case_agrees_with_its_design_record() {
+    for row in case_rows()
+        .into_iter()
+        .filter(|row| row.reference_design == "yes")
+    {
+        let edits: Vec<Edit> = case_edits(&row);
+        let records: Vec<Json> = records_for(short_id(&row.case_id));
+        assert!(
+            !records.is_empty(),
+            "{}: flagged reference_design, so designs.json must hold a record",
+            row.case_id
+        );
+        assert!(
+            edits.len() == records.len(),
+            "{}: cases.tsv names {} edits, designs.json holds {} records",
+            row.case_id,
+            edits.len(),
+            records.len()
+        );
+        // q5p-07 stores its two edits as one per variant, `variant-a` then
+        // `variant-b` in the order `designs.json` writes them; the row lists
+        // the same two edits in that order, so the comparison is exact.
+        for (edit, record) in edits.iter().zip(&records) {
+            let design: &Json = record.get("edit");
+            assert!(
+                edit.start == design.get("start").integer()
+                    && edit.end == design.get("end").integer(),
+                "{}: edit {}..{} vs the record's {}..{}",
+                row.case_id,
+                edit.start,
+                edit.end,
+                design.get("start").integer(),
+                design.get("end").integer()
+            );
+            assert!(
+                edit.original == design.get("original").text().to_uppercase(),
+                "{}: edit original differs from the record's",
+                row.case_id
+            );
+            assert!(
+                edit.replacement == design.get("replacement").text().to_uppercase(),
+                "{}: edit replacement differs from the record's",
+                row.case_id
+            );
+            let request: &Json = record.get("request");
+            let supplied: i64 = integer_of(&row.case_id, "min_overlap", row.min_overlap.clone());
+            let stated: i64 = request.get("minOverlapSupplied").integer();
+            assert!(
+                supplied == stated,
+                "{}: min_overlap {} vs request.minOverlapSupplied {}",
+                row.case_id,
+                supplied,
+                stated
+            );
+            same_number(
+                &row.case_id,
+                "target_tm vs request.targetTm",
+                decimal_of(&row.case_id, "target_tm", row.target_tm.clone()),
+                request.get("targetTm").decimal(),
+            );
+        }
+    }
+}
+
+#[test]
+fn every_case_names_only_defined_invariants() {
+    // §7 of `docs/q5-primer-design.md` numbers the hard requirements H1-H8;
+    // §14.1 numbers the invariants I-1 to I-13.
+    let hard: Vec<String> = (1..=8).map(|n| format!("H{}", n)).collect();
+    let soft: Vec<String> = (1..=13).map(|n| format!("I-{}", n)).collect();
+    for row in case_rows() {
+        let tokens: Vec<String> = row
+            .invariants
+            .split(',')
+            .map(|token| token.to_string())
+            .collect();
+        assert!(
+            !tokens.is_empty(),
+            "{}: the invariants column names nothing",
+            row.case_id
+        );
+        for token in tokens.iter() {
+            assert!(
+                hard.contains(token) || soft.contains(token),
+                "{}: invariant {:?} is not one of H1-H8 or I-1-I-13",
+                row.case_id,
+                token
+            );
+        }
+    }
+}
+
+#[test]
+fn every_reference_check_matches_its_record() {
+    for row in case_rows() {
+        if row.reference_design == "yes" {
+            let records: Vec<Json> = records_for(short_id(&row.case_id));
+            assert!(
+                !records.is_empty(),
+                "{}: flagged reference_design, so designs.json must hold a record",
+                row.case_id
+            );
+            // The same field `luria_reaches_the_same_h1_outcome_as_each_reference_design`
+            // reads: each record's `h1.satisfied`.
+            let satisfied: Vec<bool> = records
+                .iter()
+                .map(|record| record.get("h1").get("satisfied").flag())
+                .collect();
+            let all: bool = satisfied.iter().all(|outcome| *outcome);
+            assert!(
+                all == satisfied.iter().any(|outcome| *outcome),
+                "{}: its records disagree on H1: {:?}",
+                row.case_id,
+                satisfied
+            );
+            let claimed: &str = if all { "H1=pass" } else { "H1=VIOLATED" };
+            assert!(
+                row.reference_check.starts_with(claimed),
+                "{}: designs.json H1 {} vs reference_check {:?}",
+                row.case_id,
+                all,
+                row.reference_check
+            );
+        } else {
+            assert!(
+                row.reference_check.starts_with("unverified("),
+                "{}: reference_check {:?} for a case with no design record",
+                row.case_id,
+                row.reference_check
+            );
+        }
+    }
+}
+
+/// A `cases.tsv` row's single edit, applied through the mutation layer as
+/// `native_edit` does: a nucleotide substitution for one base, a residue
+/// substitution on a one-codon CDS for three. The result is verified, which is
+/// what a design consumes (§2.1).
+fn case_edit(row: &CaseRow, template: &Sequence) -> MutationResult {
+    let edits: Vec<Edit> = case_edits(row);
+    assert!(
+        edits.len() == 1,
+        "{}: the row names {} edits, one is expected",
+        row.case_id,
+        edits.len()
+    );
+    let edit: &Edit = edits.first().unwrap();
+    let edited: Identifier = Identifier::create("q5p-edited".to_string()).unwrap();
+    let (made, cds): (MutationResult, Option<Cds>) = match edit.end - edit.start {
+        1 => {
+            let intent: NucleotideMutationIntent = NucleotideMutationIntent::create(
+                template.reference(),
+                create(&template.reference(), edit.start, edit.end).unwrap(),
+                edit.original.clone(),
+                edit.replacement.clone(),
+            )
+            .unwrap();
+            let made: MutationResult = apply_nucleotide(template, None, edited, intent)
+                .unwrap_or_else(|error| panic!("{}: edit rejected: {:?}", row.case_id, error));
+            (made, None)
+        }
+        3 => {
+            let cds_id: Identifier = Identifier::create("edited-codon".to_string()).unwrap();
+            let cds: Cds = Cds::create(
+                template,
+                cds_id.clone(),
+                vec![create(&template.reference(), edit.start, edit.end).unwrap()],
+                Strand::Plus,
+                Completeness::Complete,
+                "standard".to_string(),
+                Numbering::FromCdsStart,
+            )
+            .unwrap_or_else(|error| panic!("{}: one-codon CDS rejected: {:?}", row.case_id, error));
+            let intent: ResidueMutationIntent = ResidueMutationIntent::create(
+                ResiduePosition::create(cds_id, 1).unwrap(),
+                residue_symbol(&row.case_id, "original", &edit.original),
+                residue_symbol(&row.case_id, "replacement", &edit.replacement),
+                CodonSelectionPolicy::Supplied(Codon::create(edit.replacement.clone()).unwrap()),
+            )
+            .unwrap();
+            let made: MutationResult = apply_residue(template, cds.clone(), edited, intent)
+                .unwrap_or_else(|error| panic!("{}: edit rejected: {:?}", row.case_id, error));
+            (made, Some(cds))
+        }
+        other => panic!("{}: a {}-base edit has no row form", row.case_id, other),
+    };
+    verify(template, cds, made)
+        .unwrap_or_else(|error| panic!("{}: edit does not verify: {:?}", row.case_id, error))
+}
+
+#[test]
+fn the_no_design_case_gets_no_design_from_luria() {
+    let row: CaseRow = case_row("q5p-09");
+    assert!(
+        row.expected == "no-design",
+        "q5p-09: expected {:?}, the case is the no-design case",
+        row.expected
+    );
+    let template: Sequence = template_of(&row);
+    let request: PrimerDesignRequest = PrimerDesignRequest::create(
+        DesignStyle::Q5Polymerase,
+        DesignPolicy::LuriaNative,
+        integer_of(&row.case_id, "min_overlap", row.min_overlap.clone()),
+        PrimerPlacement::Inline,
+        BufferModel::q5_reaction(),
+    )
+    .unwrap();
+    match design_primers(&template, case_edit(&row, &template), request) {
+        Err(DomainError::NoPrimerDesignPossible(problem)) => assert!(
+            problem.template_length == 30,
+            "q5p-09: I-9 names {} template bases, expected 30",
+            problem.template_length
+        ),
+        other => panic!(
+            "q5p-09: expected NoPrimerDesignPossible, got {:?}",
+            other.map(|_| "a design")
+        ),
+    }
+}
+
+#[test]
+fn the_no_tm_target_case_reports_the_tm_input_as_unresolved() {
+    let row: CaseRow = case_row("q5p-10");
+    assert!(
+        row.target_tm == "absent",
+        "q5p-10: target_tm {:?}, the case states it absent",
+        row.target_tm
+    );
+    let template: Sequence = template_of(&row);
+    let request: PrimerDesignRequest = PrimerDesignRequest::create(
+        DesignStyle::Q5Polymerase,
+        DesignPolicy::LuriaNative,
+        integer_of(&row.case_id, "min_overlap", row.min_overlap.clone()),
+        PrimerPlacement::Inline,
+        BufferModel::q5_reaction(),
+    )
+    .unwrap();
+    let design: PrimerDesign = design_primers(&template, case_edit(&row, &template), request)
+        .unwrap_or_else(|error| panic!("q5p-10: expected a design, got {:?}", error));
+    // I-10: an absent constraint appears as absent in the output, and
+    // `unresolved` is the accessor that reports it.
+    let inputs: Vec<String> = design
+        .unresolved()
+        .into_iter()
+        .map(|input| input.input)
+        .collect();
+    assert!(
+        inputs.iter().any(|input| input == "minTm"),
+        "q5p-10: unresolved inputs {:?}, expected one naming minTm",
+        inputs
+    );
+}
+
+// ---------------------------------------------------------------------------
+// The NEBaseChanger files of `tests/fixtures/example-construct/` (C6, C9).
+// ---------------------------------------------------------------------------
+
+/// `raw/sdmsummary.txt`: the header and its single data row paired by column.
+/// The header repeats `Length` for the two primers, so a lookup returns every
+/// column of that name.
+fn summary_fields() -> Vec<(String, String)> {
+    let text: String = read("../example-construct/raw/sdmsummary.txt");
+    let lines: Vec<String> = text
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .map(|line| line.to_string())
+        .collect();
+    assert!(
+        lines.len() == 2,
+        "sdmsummary.txt has {} lines, expected a header and one row",
+        lines.len()
+    );
+    let header: Vec<String> = lines[0].split('\t').map(|part| part.to_string()).collect();
+    let row: Vec<String> = lines[1].split('\t').map(|part| part.to_string()).collect();
+    assert!(
+        header.len() == row.len(),
+        "sdmsummary.txt row has {} fields, the header has {}",
+        row.len(),
+        header.len()
+    );
+    header
+        .iter()
+        .zip(&row)
+        .map(|(name, value)| (name.clone(), value.clone()))
+        .collect()
+}
+
+/// The one summary column of that name.
+fn summary_value(name: &str) -> String {
+    let found: Vec<String> = summary_fields()
+        .into_iter()
+        .filter(|(column, _)| column == name)
+        .map(|(_, value)| value)
+        .collect();
+    assert!(
+        found.len() == 1,
+        "sdmsummary.txt has {} columns named {:?}",
+        found.len(),
+        name
+    );
+    found.into_iter().next().unwrap()
+}
+
+/// Every summary column of that name: `Length` appears twice, once per primer.
+fn summary_values(name: &str) -> Vec<String> {
+    summary_fields()
+        .into_iter()
+        .filter(|(column, _)| column == name)
+        .map(|(_, value)| value)
+        .collect()
+}
+
+/// `raw/sdmprimer.txt`: one line per primer, tab-separated `id`, `sequence`,
+/// and `Tm=<n> Ta=<n>`.
+fn primer_lines() -> Vec<(String, String, f64, f64)> {
+    let text: String = read("../example-construct/raw/sdmprimer.txt");
+    text.lines()
+        .filter(|line| !line.trim().is_empty())
+        .map(|line| {
+            let fields: Vec<String> = line.split('\t').map(|part| part.to_string()).collect();
+            assert!(
+                fields.len() == 3,
+                "sdmprimer.txt line {:?} has {} fields, expected id, sequence, temperatures",
+                line,
+                fields.len()
+            );
+            let temperatures: Vec<String> =
+                fields[2].split(' ').map(|part| part.to_string()).collect();
+            assert!(
+                temperatures.len() == 2,
+                "sdmprimer.txt line {:?} has {} temperature fields, expected Tm and Ta",
+                line,
+                temperatures.len()
+            );
+            let value = |name: &str, cell: String| -> f64 {
+                let digits: String = if let Some(stripped) = cell.strip_prefix(name) {
+                    stripped.to_string()
+                } else {
+                    panic!("sdmprimer.txt: {:?} does not state {:?}", cell, name)
+                };
+                decimal_of("sdmprimer.txt", name, digits)
+            };
+            (
+                fields[0].clone(),
+                fields[1].clone(),
+                value("Tm=", temperatures[0].clone()),
+                value("Ta=", temperatures[1].clone()),
+            )
+        })
+        .collect()
+}
+
+#[test]
+fn the_reference_script_reproduces_the_nebasechanger_pair() {
+    let designs: Json = designs_json();
+    let record: &Json = designs.get("q5p-01");
+    assert!(
+        summary_value("Fwd Primer Seq").to_uppercase()
+            == record.get("forward").get("sequence").text(),
+        "q5p-01: sdmsummary.txt Fwd Primer Seq differs from forward.sequence"
+    );
+    assert!(
+        summary_value("Rev Primer Seq").to_uppercase()
+            == record.get("reverse").get("sequence").text(),
+        "q5p-01: sdmsummary.txt Rev Primer Seq differs from reverse.sequence"
+    );
+    let printed_lengths: Vec<String> = summary_values("Length");
+    assert!(
+        printed_lengths.len() == 2,
+        "sdmsummary.txt has {} Length columns, expected one per primer",
+        printed_lengths.len()
+    );
+    let lengths: Vec<(&str, f64, f64)> = vec![
+        (
+            "Length (forward)",
+            decimal_of("q5p-01", "Length", printed_lengths[0].clone()),
+            record.get("forward").get("length").decimal(),
+        ),
+        (
+            "Length (reverse)",
+            decimal_of("q5p-01", "Length", printed_lengths[1].clone()),
+            record.get("reverse").get("length").decimal(),
+        ),
+    ];
+    for (name, printed, recorded) in lengths {
+        same_number("q5p-01", name, printed, recorded);
+    }
+    // The summary prints a Tm rounded to the nearest integer; the record
+    // carries the unrounded value.
+    let temperatures: Vec<(&str, f64, f64)> = vec![
+        (
+            "Tm Fwd",
+            decimal_of("q5p-01", "Tm Fwd", summary_value("Tm Fwd").clone()),
+            record.get("forward").get("tm").decimal(),
+        ),
+        (
+            "Tm Rev",
+            decimal_of("q5p-01", "Tm Rev", summary_value("Tm Rev").clone()),
+            record.get("reverse").get("tm").decimal(),
+        ),
+    ];
+    for (name, printed, recorded) in temperatures {
+        rounded_number("q5p-01", name, printed, recorded);
+    }
+    // The record's `ta` is optional: q5p-01 records one, so the summary's
+    // `Ta` is compared against it rounded. A record without a `ta` states no
+    // recommendation, and this comparison is skipped for it.
+    if let Some(recommended) = record.opt("ta").map(Json::decimal) {
+        rounded_number(
+            "q5p-01",
+            "Ta",
+            decimal_of("q5p-01", "Ta", summary_value("Ta").clone()),
+            recommended,
+        );
+    }
+}
+
+#[test]
+fn the_primer_list_agrees_with_the_summary() {
+    let lines: Vec<(String, String, f64, f64)> = primer_lines();
+    assert!(
+        lines.len() == 2,
+        "sdmprimer.txt has {} primer lines, expected two",
+        lines.len()
+    );
+    let summary: Vec<(String, f64, f64)> = vec![
+        (
+            summary_value("Fwd Primer Seq"),
+            decimal_of("sdmsummary.txt", "Tm Fwd", summary_value("Tm Fwd").clone()),
+            decimal_of("sdmsummary.txt", "Ta", summary_value("Ta").clone()),
+        ),
+        (
+            summary_value("Rev Primer Seq"),
+            decimal_of("sdmsummary.txt", "Tm Rev", summary_value("Tm Rev").clone()),
+            decimal_of("sdmsummary.txt", "Ta", summary_value("Ta").clone()),
+        ),
+    ];
+    for ((id, sequence, printed_tm, printed_ta), (want, want_tm, want_ta)) in
+        lines.into_iter().zip(summary)
+    {
+        assert!(
+            sequence.to_uppercase() == want.to_uppercase(),
+            "sdmprimer.txt primer {:?} differs from the summary's primer",
+            id
+        );
+        same_number("sdmprimer.txt", &format!("{} Tm", id), printed_tm, want_tm);
+        same_number("sdmprimer.txt", &format!("{} Ta", id), printed_ta, want_ta);
+    }
+}
+
+#[test]
+fn the_normalized_record_transcribes_the_summary() {
+    let expected: Json = Reader::parse(&read(
+        "../example-construct/expected/expected_mutation.json",
+    ));
+    let forward: &Json = expected.get("forward_primer");
+    let reverse: &Json = expected.get("reverse_primer");
+    assert!(
+        expected.get("id").text() == summary_value("ID"),
+        "expected_mutation.json id differs from sdmsummary.txt ID"
+    );
+    assert!(
+        forward.get("id").text() == summary_value("Fwd Primer ID"),
+        "expected_mutation.json forward_primer.id differs from Fwd Primer ID"
+    );
+    assert!(
+        reverse.get("id").text() == summary_value("Rev Primer ID"),
+        "expected_mutation.json reverse_primer.id differs from Rev Primer ID"
+    );
+    // The sequences are transcribed exactly, case preserved: the lower-case
+    // run marks the replacement, and a transcription must keep it.
+    assert!(
+        forward.get("sequence").text() == summary_value("Fwd Primer Seq"),
+        "expected_mutation.json forward_primer.sequence differs from Fwd Primer Seq"
+    );
+    assert!(
+        reverse.get("sequence").text() == summary_value("Rev Primer Seq"),
+        "expected_mutation.json reverse_primer.sequence differs from Rev Primer Seq"
+    );
+    let printed_lengths: Vec<String> = summary_values("Length");
+    assert!(
+        printed_lengths.len() == 2,
+        "sdmsummary.txt has {} Length columns, expected one per primer",
+        printed_lengths.len()
+    );
+    let numbers: Vec<(&str, f64, f64)> = vec![
+        (
+            "forward_primer.length",
+            forward.get("length").decimal(),
+            decimal_of("sdmsummary.txt", "Length", printed_lengths[0].clone()),
+        ),
+        (
+            "reverse_primer.length",
+            reverse.get("length").decimal(),
+            decimal_of("sdmsummary.txt", "Length", printed_lengths[1].clone()),
+        ),
+        (
+            "forward_primer.tm",
+            forward.get("tm").decimal(),
+            decimal_of("sdmsummary.txt", "Tm Fwd", summary_value("Tm Fwd").clone()),
+        ),
+        (
+            "reverse_primer.tm",
+            reverse.get("tm").decimal(),
+            decimal_of("sdmsummary.txt", "Tm Rev", summary_value("Tm Rev").clone()),
+        ),
+        (
+            "ta_recommended",
+            expected.get("ta_recommended").decimal(),
+            decimal_of("sdmsummary.txt", "Ta", summary_value("Ta").clone()),
+        ),
+    ];
+    for (name, found, want) in numbers {
+        same_number("expected_mutation.json", name, found, want);
+    }
+    assert!(
+        expected.get("replacement_bases").text() == "AAC",
+        "expected_mutation.json replacement_bases differs from AAC"
+    );
+    let range: Vec<u64> = integers(expected.get("wild_type_range"));
+    assert!(
+        range == vec![1210, 1212],
+        "expected_mutation.json wild_type_range is {:?}, expected [1210, 1212]",
+        range
+    );
+}
+
+#[test]
+fn the_mutation_spec_is_case_q5p_01() {
+    let spec: Json = Reader::parse(&read("../example-construct/input/mutation_spec.json"));
+    let row: CaseRow = case_row("q5p-01");
+    let edits: Vec<Edit> = case_edits(&row);
+    assert!(
+        edits.len() == 1,
+        "q5p-01: {} edits, expected one",
+        edits.len()
+    );
+    let edit: &Edit = edits.first().unwrap();
+    // The spec states a one-based position; the case states a zero-based
+    // half-open interval (D004, D015).
+    assert!(
+        spec.get("target_position").integer() - 1 == edit.start,
+        "mutation_spec.json target_position {} is not the case's start {} plus one",
+        spec.get("target_position").integer(),
+        edit.start
+    );
+    assert!(
+        spec.get("original_sequence").text() == edit.original,
+        "mutation_spec.json original_sequence differs from q5p-01's edit original"
+    );
+    assert!(
+        spec.get("desired_sequence").text() == edit.replacement,
+        "mutation_spec.json desired_sequence differs from q5p-01's edit replacement"
+    );
+    let wanted: i64 = integer_of(&row.case_id, "min_overlap", row.min_overlap.clone());
+    let stated: i64 = spec.get("minimum_overlap_bp").integer();
+    assert!(
+        stated == wanted,
+        "mutation_spec.json minimum_overlap_bp {} vs q5p-01 min_overlap {}",
+        stated,
+        wanted
+    );
+}
+
+#[test]
+fn luria_reproduces_the_nebasechanger_final_construct() {
+    let row: CaseRow = case_row("q5p-01");
+    let template: Sequence = template_of(&row);
+    let design: Design = reference_designs()
+        .into_iter()
+        .find(|design| design.case_id == "q5p-01")
+        .unwrap_or_else(|| panic!("designs.json holds no q5p-01 record"));
+    let result: MutationResult = edit_of(&design, &template);
+    let raw: String = read("../example-construct/raw/sdmfinalseq.fa");
+    let lines: Vec<String> = raw.lines().map(|line| line.to_string()).collect();
+    assert!(
+        lines.len() >= 2,
+        "sdmfinalseq.fa has {} lines, expected a header and sequence text",
+        lines.len()
+    );
+    let header: String = lines[0].clone();
+    assert!(
+        header.starts_with(">"),
+        "sdmfinalseq.fa first line is not a FASTA header: {:?}",
+        header
+    );
+    let written: String = lines[1..].join("").to_uppercase();
+    assert!(
+        written == result.edited().canonical_text(),
+        "sdmfinalseq.fa differs from the edited artifact's canonical text"
+    );
+    // The header states the edit one-based inclusive; the fixture README
+    // records that `replaced 1210 to 1212` is the interval and that the
+    // description's `between bases 1209-1213` is not. One-based inclusive
+    // [1210, 1212] is the zero-based half-open [1209, 1212) the case states.
+    assert!(
+        header.contains("replaced 1210 to 1212"),
+        "sdmfinalseq.fa header {:?} does not state the replaced interval",
+        header
+    );
+    let edits: Vec<Edit> = case_edits(&row);
+    assert!(
+        edits.len() == 1,
+        "q5p-01: {} edits, expected one",
+        edits.len()
+    );
+    let edit: &Edit = edits.first().unwrap();
+    assert!(
+        edit.start == 1209 && edit.end == 1212,
+        "q5p-01: the edit is [{}, {}), expected [1209, 1212)",
+        edit.start,
+        edit.end
+    );
 }

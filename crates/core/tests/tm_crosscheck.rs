@@ -15,11 +15,16 @@
 //! This is a check of luria's arithmetic, not of its choice of parameters: two
 //! implementations reading the same tables should agree, and a sign error, a
 //! misread doublet, a wrong concentration convention or a missing correction
-//! shows up as a disagreement. The generating script is `.tmp/tm/crosscheck.py`.
+//! shows up as a disagreement. The generating script is
+//! `tests/fixtures/tm/reference/crosscheck.py`.
 //!
 //! Note on `selfcomp`: Biopython does not detect self-complementarity — it is a
 //! caller-supplied flag defaulting to false — whereas luria detects it from the
-//! sequence. The flag was passed to match. Note also that Biopython's docstring
+//! sequence. The flag was passed to match, but only for a matched duplex: a duplex
+//! is symmetric when its two strands are identical, and on the mismatch-aware basis
+//! the template strand differs from the primer at the mismatch. That duplex is not
+//! symmetric, so it takes no symmetry term even when the primer itself is
+//! self-complementary. Note also that Biopython's docstring
 //! records MELTING and Primer3Plus as using `C_T/4` by default, which would put
 //! their values about 1 °C below both of these; a Tm is only comparable
 //! alongside the convention that produced it, which is why
@@ -58,7 +63,7 @@ const EXPECTED: [(&str, &str, &str, f64); 6] = [
         "ATATATATATATATATAT",
         29.723,
     ),
-    ("one mismatch at index 9", MIXED, ONE_MISMATCH_SITE, 56.390),
+    ("one mismatch at index 9", MIXED, ONE_MISMATCH_SITE, 57.559),
     ("q5p-01 pattern, matched", PRIMER_23, PRIMER_23, 67.397),
     ("q5p-01 pattern, two mismatches", PRIMER_23, SITE_23, 56.750),
 ];

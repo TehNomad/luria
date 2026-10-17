@@ -301,6 +301,16 @@ it is a failure (§10).
 | H7 | `builtAgainst` matches the digest of the sequence the design was given | A design cannot be attributed to the wrong template. |
 | H8 | `tail`, `annealing` and the mutated positions partition `sequence` — under tail placement the mutation lies in `tail`, under inline placement it is a third part — and `overlap` counts only `annealing` positions | The bound in H1 is a bound on the annealing portion. Counting the whole primer would let a long tail, or the mutation itself, satisfy a bound that the context does not meet. |
 
+**H2 for edits that change no template position in place** (D031–D033,
+recorded 2026-10-16). A deletion, and an insertion or replacement placed in the
+5′ tails, has no changed region for a primer to anneal over. For these, H2
+means: (a) the pair invariant holds — reverse annealing end + `w` = forward
+annealing start, with `w = 0` for an insertion; (b) neither annealing portion
+overlaps the replaced or deleted region `[s, e)`; and (c) for a tailed edit,
+the reverse tail read in the template's direction followed by the forward tail
+equals the inserted or replacement text exactly. An inline replacement
+(`max(w, m) ≤ 6`) is covered by the original H2.
+
 **Rule (new):** H1–H8 are checked on the output, not assumed of the algorithm.
 An algorithm that satisfies them by construction still gets checked, and one
 that does not is caught.
@@ -922,8 +932,8 @@ flanks are fixed by `a_f`. Primer lengths are `a_f + L` and `a_r`.
 H1–H8 of §7, evaluated on the output, plus:
 
 - **availability:** `s − u − w ≥ 0` and `s + L + v ≤ template.length` (linear,
-  D005/D019). A circular template has no availability bound, only a length
-  bound.
+  D005/D019). Primer design is for linear templates only (D035): a circular
+  template is refused with `UnsupportedPrimerDesignScope`.
 - **alphabet:** H6, the project alphabet, no degenerate symbol in a primer.
   An ambiguity code in the **template** under the centered pair is reported as
   *no centered design fits* (§18.5 outcome 2, obstacle `AmbiguousTemplateBase`):

@@ -228,6 +228,7 @@ fn variant_name(error: &DomainError) -> String {
         DomainError::NoPrimerDesignFits(_) => "NoPrimerDesignFits",
         DomainError::InvalidBufferModel(_) => "InvalidBufferModel",
         DomainError::TmParametersUnavailable(_) => "TmParametersUnavailable",
+        DomainError::DegenerateExpansionTooLarge(_) => "DegenerateExpansionTooLarge",
     }
     .to_string()
 }
@@ -988,6 +989,12 @@ fn check_verification(
                 "{}: verification against a narrower CDS gave {} instead of MutationVerificationFailure",
                 case_id,
                 name,
+            );
+            assert!(
+                problem.category() == ErrorCategory::BiologicalValidation,
+                "{}: the fixture declares a narrower CDS as BiologicalValidation, category() gives {}",
+                case_id,
+                category_name(problem.category()),
             );
             return;
         }

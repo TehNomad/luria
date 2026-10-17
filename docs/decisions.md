@@ -931,8 +931,8 @@ number has no stated source.
 
 Related owner decision, 2026-10-15: a deletion inside a CDS whose width is not
 a multiple of 3 shifts the reading frame. luria **warns and still applies it**,
-because a frameshift is sometimes the intent, as in a knockout. Not yet
-implemented.
+because a frameshift is sometimes the intent, as in a knockout. Implemented
+2026-10-15 as `Q5EditWarning::Frameshift` (`crates/core/src/q5.rs`).
 
 Reversibility:
 
@@ -1091,3 +1091,178 @@ Addenda, 2026-10-15:
   expansion with no member left after skipping is refused as the no-op it is.
   The 64-design threshold counts the members actually emitted, after
   skipping (planner reading of "past 64 designs").
+
+## D034: Milestone order after Milestone 4
+
+Status: approved by the owner, 2026-10-16. Replaces the milestone list in
+`docs/product-brief.md` from Milestone 4 on.
+
+Decision:
+
+* **Milestone 4** is insertions, deletions, unequal replacements and
+  degenerate expansion (D031–D033), as implemented under
+  `docs/tasks/milestone-4-*.md`.
+* **Milestone 5** is the machine-readable and CLI workflow: a minimal CLI and
+  structured output, so complete scientific workflows can be exercised
+  without a TUI, web frontend, or LLM.
+* **Milestone 6** is natural-language interpretation: an LLM adapter that
+  turns user requests into typed operations and clarification requests.
+* **Milestone 7** is the review-oriented user interface (TUI).
+* **Milestone 8** is the web interface.
+
+Reason:
+
+Milestone 4 became indel support during implementation, and no scope decision
+recorded the change. This records it. The CLI comes before natural language,
+as the original order had it, so the LLM adapter targets a typed,
+machine-readable surface that already exists.
+
+Reversibility:
+
+Reordering again needs an explicit scope decision.
+
+## D035: Primer design is for linear templates only
+
+Status: approved by the owner, 2026-10-16. Amends `docs/q5-primer-design.md`
+§18.2. Corrected the same day: the first version said a circular template is
+designed as though it were linear, which is not what the code does.
+
+Decision:
+
+`luriaNative` primer design refuses a circular template. `design_primers`
+returns `UnsupportedPrimerDesignScope` for it before any geometry is computed,
+for every edit kind. The mutation layer's circular semantics (D009) are
+unchanged: circular sequences can still be edited and verified.
+
+Reason:
+
+The reference tool, NEBaseChanger, designs on linear templates only, and no
+source for origin-spanning primer geometry has been reviewed. The earlier
+§18.2 sentence, "A circular template has no availability bound, only a length
+bound", was never implemented. The code already refused circular templates
+(`a_circular_template_is_out_of_scope` and its deletion and insertion
+counterparts in `primer_design.rs`); this decision records that as policy.
+
+Reversibility:
+
+Supporting origin-spanning primers needs a sourced geometry and approval.
+
+## D036: A circular feature is split only at the origin
+
+Status: approved by the owner, 2026-10-16 (`docs/tasks/review-post-m4.md`
+A4). Narrows D009.
+
+Decision:
+
+A feature or CDS on a circular sequence is one interval, or exactly two
+intervals that cross the origin: `[a, n)` followed by `[0, b)`. Abutting
+intervals split anywhere else, such as `[0, 6)` followed by `[6, 24)`, are
+refused at construction with `UnsupportedFeatureStructure`. A linear feature
+stays a single interval.
+
+Reason:
+
+An arbitrary split adds no information, and it hid a join that the
+containment checks and frameshift warnings treat as an edge: an edit at the
+join got no frameshift warning, or was refused as outside the CDS. With one
+canonical form, every region that is coding lies wholly inside one interval,
+because no single region can cross the origin and an insertion at point 0 is
+already refused (D032).
+
+Reversibility:
+
+Accepting arbitrary splits again needs containment and warning checks that
+merge abutting intervals, and approval.
+
+## D037: An in-frame DNA edit that creates a premature stop is warned
+
+Status: approved by the owner, 2026-10-16 (`docs/tasks/review-post-m4.md`
+A5). Settles the open limitation in `docs/q5-sdm.md` §8.
+
+Decision:
+
+`verify` stays a DNA-level check for DNA-level edits: it confirms that the
+edit happened as recorded, and does not re-translate. D013's "the resulting
+translation where applicable" is met at the workflow layer instead. When a
+substitution, deletion, insertion or replacement lies wholly inside the
+resolved CDS and keeps its reading frame, the Q5 workflow re-translates that
+CDS on the edited artifact. If a stop codon now appears before the CDS's last
+codon, the run carries a non-blocking `PrematureStop` warning naming the CDS
+and the codon number on the edited CDS. The edit is still applied, as for a
+frameshift (D031–D033), because a nonsense mutation is sometimes the intent.
+
+Not covered, and recorded as open: edits only partly inside the CDS, a CDS
+that did not translate before the edit, an edit that removes the terminal
+stop (stop loss), and a stop written into the last codon of a CDS that had no
+terminal stop. A residue intent states its replacement residue explicitly and
+gets no such warning.
+
+Reversibility:
+
+The warning is policy; turning it into a refusal, or extending it, needs
+approval.
+
+## D038: `ConfineToTail` is accepted where it changes nothing
+
+Status: approved by the owner, 2026-10-16 (`docs/tasks/review-post-m4.md`
+A6). Implements D032's sentence "The 'confine to 5′ tails' option does not
+change an insertion" and extends it to D033's tail path.
+
+Decision:
+
+A `luriaNative` request with placement `ConfineToTail` is designed exactly as
+the same request with `Inline` when the edit is an insertion (D032), or a
+replacement with `max(w, m) > 6`, which already puts every written base in the
+5′ tails (D033). The design records the placement the caller asked for. For
+every other edit (substitutions, inline replacements and deletions) the
+placement is still refused with `UnsupportedPrimerPlacement`: there it would
+need a geometry no source defines.
+
+Reversibility:
+
+Supporting `ConfineToTail` for the other edits needs a sourced geometry and
+approval.
+
+## D039: Fixture verification is reproducible from tracked files
+
+Status: approved by the owner, 2026-10-16 (`docs/tasks/review-post-m4.md`
+A7). Applies D018 and the fixture rule in `AGENTS.md`.
+
+Decision:
+
+* Every script that produced or verified a fixture expectation is tracked
+  next to the fixture it serves, under that fixture's `reference/` directory.
+* The Python dependencies are pinned in `tests/fixtures/requirements.txt`.
+* Every generator has a `--check` mode. It regenerates in memory, compares
+  with the tracked file, and exits non-zero on any difference, without
+  writing anything.
+* One documented command runs every check: `tests/fixtures/verify.py`.
+* None of this is part of the required cargo checks (D026). The Rust tests
+  stay independent of Python. The Python checks are run when a fixture or its
+  source changes.
+
+Reversibility:
+
+Adding the Python checks to the required checks needs approval.
+
+## D040: A codon's recorded coordinates follow the feature interval order
+
+Status: approved by the owner, 2026-10-16 (`docs/tasks/review-post-m4.md`
+B10). Applies D006, D009 and D036.
+
+Decision:
+
+* The intervals a residue result records for its codon are listed the way
+  D036 writes a feature: in reference order, except that a codon crossing the
+  origin of a circular sequence lists the part ending at the sequence length
+  first, then the part starting at zero. A codon at bases 22, 23 and 0 of a
+  24-base sequence is recorded as `[22, 24)` then `[0, 1)`, and
+  `target_coordinates()` gives `22, 23, 0`.
+* The order is not the strand's reading order. A minus-strand codon is
+  listed in reference order, as a minus-strand CDS's intervals are.
+* The mutation fixtures' `coords` field follows the same order.
+
+Reversibility:
+
+Changing the order changes recorded results and fixture expectations, and
+needs approval.

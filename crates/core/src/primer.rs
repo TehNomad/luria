@@ -35,20 +35,22 @@
 //!   search to be meaningful, and §15 question 1 leaves the primer-length
 //!   question open. A layer that picked a span would be choosing a design rule
 //!   the contract has not written.
-//! * **No Tm, no `Ta`.** §11 states that the project's Tm function is not yet
-//!   defined and that no Tm range is established; §13.3 says reproducing the
-//!   reference routine is not evidence about `luria`. Nothing here computes a
-//!   thermodynamic value.
-//! * **No `confineToTail` placement.** §15 question 8 asks whether `luria`
-//!   supports it at all, and §10 would need a style default that no source
-//!   establishes. The placement is an explicit argument with no default, and
-//!   `ConfineToTail` is refused with `DomainError::UnsupportedPrimerPlacement`
-//!   naming the open question.
-//! * **No design for an insertion or a deletion.** Both are represented here —
-//!   a deletion pair by D031's invariant, and an insertion pair by D032's, whose
-//!   primer is the one shape that fills the `tail` field — but nothing proposes
-//!   a span, a length or a candidate for either, and §5 still states them as
-//!   separate degenerate cases rather than as one general rule.
+//! * **No Tm, no `Ta`.** Nothing here computes a thermodynamic value: `tm.rs`
+//!   defines the Tm and its bases, and `primer_design.rs` sizes primers by it
+//!   and reports the annealing temperature (D030).
+//! * **No `ConfineToTail` as a caller's choice.** `construct_primer` takes the
+//!   placement as an argument and refuses `ConfineToTail` with
+//!   `DomainError::UnsupportedPrimerPlacement`: §15 question 8 asks whether
+//!   `luria` supports the placement at all, and §10 would need a style default
+//!   that no source establishes. `construct_tailed_primer` fills the placement
+//!   itself, deriving `ConfineToTail` from the shape of the primer it built.
+//! * **Insertion and deletion design lives in `primer_design.rs`, not here.**
+//!   Both are represented here — a deletion pair by D031's invariant, and an
+//!   insertion pair by D032's — as is a tail-path replacement pair by D033's,
+//!   and those two are the pairs whose primers fill the `tail` field. Nothing
+//!   here proposes a span, a length or a candidate for any of them;
+//!   `primer_design.rs` does. §5 still states the insertion and the deletion
+//!   as separate degenerate cases rather than as one general rule.
 //! * **No combined-variant design.** §15 questions 5 and 6 leave the
 //!   representation of a composed request and the rule for overlapping spans
 //!   open. One pair per edit is all this module claims.
@@ -88,7 +90,7 @@ use crate::sequence::Sequence;
 pub const PRIMER_DESIGN_NAME: &str = "luria-core-primer";
 
 /// Version of this layer's code path (D021).
-pub const PRIMER_DESIGN_VERSION: &str = "0.1.0";
+pub const PRIMER_DESIGN_VERSION: &str = "0.2.0";
 
 /// Which of the two primers of a Q5 pair this is. §6 defines the roles by the
 /// construct's own orientation, not by a sequence operation: the forward
@@ -184,9 +186,10 @@ impl PrimerPlacement {
 
 /// A run of primer positions that does one thing: wild-type context that
 /// anneals, or positions carrying the mutation that do not (§5). A 5′ tail is
-/// the third kind, and `construct_tailed_primer` builds one for an insertion:
-/// its bases are inserted rather than read, so it covers no template
-/// coordinate and does not anneal. What this layer still refuses is the
+/// the third kind, and `construct_tailed_primer` builds one for an insertion
+/// (D032) and for a replacement too wide to sit inline (D033): its bases are
+/// written by the edit rather than read from the template, so it covers no
+/// template coordinate and does not anneal. What this layer still refuses is the
 /// caller's `ConfineToTail` **placement**, which is a design rule (§15
 /// question 8), not the part itself.
 #[derive(Clone, Debug, PartialEq)]
@@ -341,11 +344,12 @@ impl Primer {
         self.parts.clone()
     }
 
-    /// The 5′ portion carrying the mutation. Present only on an insertion primer
-    /// built by `construct_tailed_primer`, where the tail carries inserted bases
-    /// and anneals nowhere; every other primer this layer constructs has none,
-    /// because §5 places mutated positions inside the primer rather than at its
-    /// 5′ end.
+    /// The 5′ portion carrying the mutation. Present on the primers built by
+    /// `construct_tailed_primer`: an insertion primer, whose tail carries
+    /// inserted bases, and a tail-path replacement primer, whose tail carries
+    /// part of a replacement too wide to sit inline. Every other primer this
+    /// layer constructs has none, because §5 places mutated positions inside
+    /// the primer rather than at its 5′ end.
     pub fn tail(self) -> Option<PrimerPart> {
         self.tail.clone()
     }
@@ -400,15 +404,17 @@ impl Primer {
 ///
 /// The relationship between them is **derived from the two spans** rather than
 /// stored, which is what I-8 requires: there is no field that can disagree
-/// with the spans it describes. The one stored quantity is the width of the
-/// deletion the pair straddles, which D031 states as the pair invariant
-/// `reverse end + w = forward start`; the spans alone cannot say how many
-/// template positions the product drops between the two 5′ ends.
+/// with the spans it describes. The one stored width is that of the region the
+/// pair straddles: the deleted region for a deletion, the replaced region for a
+/// tail-path replacement, and 0 otherwise. D031 states the deletion case as the
+/// pair invariant `reverse end + w = forward start`; the spans alone cannot say
+/// how many template positions the edit sets aside between the two 5′ ends.
 #[derive(Clone, Debug, PartialEq)]
 pub struct PrimerPair {
     forward: Primer,
     reverse: Primer,
     deleted_width: u64,
+    replaced: bool,
 }
 
 impl PrimerPair {
@@ -420,10 +426,10 @@ impl PrimerPair {
         self.reverse.clone()
     }
 
-    /// The number of template positions the pair removes between its two 5′
-    /// ends, which D031 states as the pair invariant. Zero for a pair whose
-    /// edit writes rather than removes, and therefore for every substitution
-    /// pair this layer builds.
+    /// The number of template positions between the pair's two annealing
+    /// portions: the deleted region for a deletion, the replaced region for a
+    /// tail-path replacement, and 0 otherwise. D031 states the deletion case as
+    /// the pair invariant `reverse end + w = forward start`.
     pub fn deleted_width(self) -> u64 {
         self.deleted_width
     }
@@ -444,9 +450,13 @@ impl PrimerPair {
     /// Where the two 5′ ends meet, when they do. §15 question 3 asks whether a
     /// Q5 pair has to abut at all, so abutment is reported, never required.
     ///
-    /// Across a deletion the two ends do not share a template coordinate: they
-    /// meet in the **product**, at `s`, the start of the removed region. That
-    /// is the coordinate reported when the pair satisfies D031's invariant.
+    /// When `deleted_width` is greater than 0 — the deleted region of a
+    /// deletion, or the replaced region of a tail-path replacement — the two
+    /// spans are apart on the template, and the coordinate reported is the
+    /// reverse primer's end: the start of that region, where D031's invariant,
+    /// generalised by D033, puts it. For a deletion the two ends then meet in
+    /// the **product**; for a tail-path replacement the replacement text sits
+    /// between them, carried by the two tails.
     pub fn boundary(self) -> Option<u64> {
         let back: NucleotideInterval = self.reverse.clone().span();
         let front: NucleotideInterval = self.forward.clone().span();
@@ -463,9 +473,11 @@ impl PrimerPair {
     }
 
     /// D031's generalisation of abutment: the pair abuts when the gap between
-    /// the two spans equals the width of the deletion they straddle, so that
-    /// `reverse end + w = forward start` holds. The substitution case is `w = 0`,
-    /// which is template abutment as §15 question 3 states it.
+    /// the two spans equals `deleted_width`, the number of template positions
+    /// between the two annealing portions — the deleted region for a deletion,
+    /// the replaced region for a tail-path replacement, and 0 otherwise — so
+    /// that `reverse end + w = forward start` holds. The substitution case is
+    /// `w = 0`, template abutment as §15 question 3 states it.
     pub fn abuts(self) -> bool {
         let width: u64 = self.deleted_width;
         self.separation() == signed(width)
@@ -477,13 +489,22 @@ impl PrimerPair {
         let back: NucleotideInterval = self.reverse.clone().span();
         let front: NucleotideInterval = self.forward.clone().span();
         let width: u64 = self.deleted_width;
+        let replaced: bool = self.replaced;
         let gap: i64 = self.separation();
         let phrase: String = if width > 0 && gap == signed(width) {
-            join(vec![
-                "abutting across a deletion of ".to_string(),
-                number(width),
-                " template positions".to_string(),
-            ])
+            if replaced {
+                join(vec![
+                    "abutting across a replaced region of ".to_string(),
+                    number(width),
+                    " template positions".to_string(),
+                ])
+            } else {
+                join(vec![
+                    "abutting across a deletion of ".to_string(),
+                    number(width),
+                    " template positions".to_string(),
+                ])
+            }
         } else if gap > 0 {
             join(vec![
                 "apart by ".to_string(),
@@ -502,9 +523,9 @@ impl PrimerPair {
         join(vec![
             "reverse span [".to_string(),
             describe(back),
-            "] and forward span [".to_string(),
+            ") and forward span [".to_string(),
             describe(front),
-            "]: ".to_string(),
+            "): ".to_string(),
             phrase.clone(),
         ])
     }
@@ -619,7 +640,7 @@ pub fn construct_primer(
                 number(removed.0),
                 ", ".to_string(),
                 number(removed.1),
-                "]: a primer of a deletion covers template only, never a deleted base".to_string(),
+                "): a primer of a deletion covers template only, never a deleted base".to_string(),
             ]),
         };
         return Err(DomainError::InvalidPrimerCandidate(problem));
@@ -664,7 +685,7 @@ pub fn construct_primer(
                     number(region.0),
                     ", ".to_string(),
                     number(region.1),
-                    "]: a reverse primer of a replacement states the template, so it may "
+                    "): a reverse primer of a replacement states the template, so it may "
                         .to_string(),
                     "not cover a replaced base; the forward primer carries the replacement"
                         .to_string(),
@@ -878,6 +899,20 @@ pub fn construct_primer(
         )?
     };
     let under: Vec<char> = pick(template_region.clone(), annealing_indices.clone());
+    // Defensive check: the text-at-span check above already compared this
+    // primer's text with the slice it reads, and `changed` is exactly the
+    // result's claimed coordinates inside that slice, so every annealing
+    // index reads a coordinate the two artifacts agree on. For a deletion,
+    // an insertion and a replacement's reverse primer, `letters_of_span`
+    // is `before` itself, so `region` and `template_region` are the same
+    // slice and the two texts are equal by construction; for a
+    // substitution, the §2.1 containment check (`stray`, reported as
+    // MutationVerificationFailure) is what makes the edited artifact equal
+    // the template outside the claimed coordinates; and for a
+    // replacement's forward primer, `replacement_template` aligns the
+    // template to the splice `mutation::apply_replacement` built. A
+    // mismatch here would mean one of those checks was bypassed, so it is
+    // reported rather than assumed.
     if canonical_text(under.clone()) != annealing_text.clone() {
         let problem = PrimerAnnealingNotTemplateProblem {
             primer: label,
@@ -891,6 +926,19 @@ pub fn construct_primer(
     // H8 / I-13: the parts partition the primer text, and the mutation parts
     // are exactly the changed positions.
     let fault: String = partition_fault(parts.clone(), changed.clone(), width);
+    // Defensive check: `partition_fault` re-reads the parts `runs` and
+    // `replacement_runs` just built from the same `changed` and `width`, so
+    // contiguity, non-empty parts and full coverage hold by construction,
+    // and the mutation runs are the maximal runs of that same list. The
+    // last clause is the only one that could fail, and only for a `changed`
+    // that is not ascending and duplicate-free inside `[0, width)`; both
+    // producers keep it there. `changed_within` filters the result's
+    // `target_coordinates` — ascending and duplicate-free, since they come
+    // from `OrderedIntervals` — and `reversed` puts a reverse primer's
+    // inverted mapping back into ascending order, while `replacement_changed`
+    // returns one ascending range within the primer's own width. The fault
+    // is reported rather than assumed, so a change to either run builder is
+    // caught here.
     if !fault.is_empty() {
         let problem = PrimerPartitionProblem {
             primer: label,
@@ -948,21 +996,25 @@ pub fn construct_primer(
 
 /// Build a primer whose 5′ end is a non-annealing tail: the text is `tail`
 /// followed by `annealing`, and `span` covers the **annealing portion only**,
-/// because a tail sits in a gap of the template rather than over coordinates
-/// of it (D032). This is the only shape in which the `tail` field is filled:
-/// an insertion writes no template position, so the bases it adds have to sit
-/// somewhere, and where they sit is outside the annealing portion.
+/// because the tail's bases are written by the edit rather than read from the
+/// template (D032, D033). This is the only shape in which the `tail` field is
+/// filled, and both the edits that use it fill it: an insertion writes no
+/// template position, so the bases it adds have to sit somewhere, and a
+/// replacement too wide to sit inline carries its bases in the two tails
+/// instead of over the region (D033).
 ///
 /// `construct_primer` stays as it is for the other edits and for an untailed
-/// primer of an insertion; a caller that wants no tail uses it, and this
-/// constructor refuses an empty tail rather than defaulting one.
+/// primer of an insertion or of a replacement; a caller that wants no tail
+/// uses it, and this constructor refuses an empty tail rather than
+/// defaulting one.
 ///
-/// The requirements are the ones §2 states for an insertion pair, applied to
-/// one primer: the annealing portion is wild-type template at the span, the
-/// tail carries inserted bases and anneals nowhere, and nothing under this
-/// primer changed. Which bases the tail must carry is a **pair** rule — the
-/// two tails together rebuild the insertion — so it is checked in `assemble_pair`,
-/// not here.
+/// The requirements are the ones §2 states for an insertion pair and D033 for
+/// a tail-path replacement, applied to one primer: the annealing portion is
+/// wild-type template at the span, the tail carries the bases the edit writes
+/// — inserted bases, or part of a replacement — and anneals
+/// nowhere, and nothing under this primer changed. Which bases the tail must
+/// carry is a **pair** rule — the two tails together rebuild the insertion or
+/// the replacement — so it is checked in `assemble_pair`, not here.
 pub fn construct_tailed_primer(
     template: &Sequence,
     result: MutationResult,
@@ -997,6 +1049,56 @@ pub fn construct_tailed_primer(
             ]),
         };
         return Err(DomainError::InvalidPrimerCandidate(problem));
+    }
+
+    // Review B1 (H2, H3, H8): a tailed primer's annealing portion sits beside
+    // the edit, in a gap of the template, and its tail carries the bases the
+    // edit writes there. A span laid over the edit anneals over bases that are
+    // no longer the template's, and its tail then rebuilds nothing the pair
+    // needs, so the pair would not contain the edit. The span must therefore
+    // lie wholly on one side of the edit: outside the replaced region [s, e),
+    // and not straddling the insertion point p.
+    let replacement: Option<(u64, u64, String)> = replacement_claim(result.clone());
+    if replacement.is_some() {
+        let region: (u64, u64, String) = replacement.clone().unwrap();
+        if span.start() < region.1 && span.end() > region.0 {
+            let problem = InvalidPrimerCandidateProblem {
+                primer: label,
+                reason: join(vec![
+                    "the replacement is [".to_string(),
+                    number(region.0),
+                    ", ".to_string(),
+                    number(region.1),
+                    "), so a tailed primer's annealing portion lies outside the ".to_string(),
+                    "replaced region: the span ".to_string(),
+                    describe(span),
+                    " overlaps it and would anneal over bases the replacement overwrites"
+                        .to_string(),
+                ]),
+            };
+            return Err(DomainError::InvalidPrimerCandidate(problem));
+        }
+    }
+    let insertion: Option<(u64, String)> = insertion_claim(result.clone());
+    if insertion.is_some() {
+        let point: u64 = insertion.clone().unwrap().0;
+        if span.start() < point && span.end() > point {
+            let problem = InvalidPrimerCandidateProblem {
+                primer: label,
+                reason: join(vec![
+                    "the insertion point is at ".to_string(),
+                    number(point),
+                    ", so a tailed primer's annealing portion may not straddle it: the "
+                        .to_string(),
+                    "span ".to_string(),
+                    describe(span),
+                    " starts before ".to_string(),
+                    number(point),
+                    " and ends after it".to_string(),
+                ]),
+            };
+            return Err(DomainError::InvalidPrimerCandidate(problem));
+        }
     }
 
     if tail.is_empty() {
@@ -1096,6 +1198,14 @@ pub fn construct_tailed_primer(
     let annealing_indices: Vec<u64> = range_of(tail_length, tail_length + width);
     let annealing_text: String = canonical_text(annealing_letters.clone());
 
+    // D032 and D033: the tail carries what the primer's own span cannot, and
+    // which of the two it carries follows from the edit.
+    let tail_kind: String = if result.clone().is_replacement() {
+        "part of the replacement".to_string()
+    } else {
+        "the insertion".to_string()
+    };
+
     Ok(Primer {
         role: role.clone(),
         orientation: oriented_of(role.clone()),
@@ -1111,20 +1221,24 @@ pub fn construct_tailed_primer(
         ]),
         length: tail_length + width,
         span: span.clone(),
-        // Neither role has an edited interval: the edited artifact shifts its
-        // coordinates by the inserted width at the insertion point, so the
-        // forward primer's text spans the junction between inserted bases and
-        // template bases and is not one interval of the edited artifact.
+        // Neither role has an edited interval: this constructor states the
+        // primer against the template span its annealing portion covers, and
+        // the tail's bases are named by the tail part itself, not by an
+        // interval of either artifact.
         edited_span: None,
         parts: parts.clone(),
         tail: Some(tail_part.clone()),
         tail_reason: join(vec![
             "a 5′ tail of ".to_string(),
             number(tail_length),
-            " bases carries the insertion and does not anneal".to_string(),
+            " bases carries ".to_string(),
+            tail_kind,
+            " and does not anneal".to_string(),
         ]),
         // No template position under this primer changed: an insertion writes
-        // into a gap, not over a coordinate.
+        // into a gap, and a tail-path replacement's bases sit in the tails,
+        // with the checks here keeping this primer's span clear of the
+        // replaced region.
         changed_positions: Vec::new(),
         annealing_sequence: annealing_text.clone(),
         annealing_spans: vec![span.clone()],
@@ -1192,6 +1306,15 @@ pub fn assemble_pair(
         return Err(DomainError::InvalidPrimerCandidate(problem));
     }
 
+    // Defensive check: H4 cannot fail for a pair this module built. Both
+    // orientations come from `oriented_of(role)`, and the two role checks
+    // above refuse any primer whose role is not the slot it stands in, so
+    // the comparison always sees `Same` against `Opposite` — the one pair
+    // `opposite_of` accepts. A `Primer` whose role and orientation disagree
+    // is not an input this API accepts: the struct's fields are private,
+    // `construct_primer` and `construct_tailed_primer` are the only
+    // constructors, and neither offers an orientation argument. The check
+    // stays so H4 remains stated rather than assumed.
     if !forward
         .clone()
         .orientation()
@@ -1212,6 +1335,7 @@ pub fn assemble_pair(
     let insertion: Option<(u64, String)> = insertion_claim(result.clone());
     let replacement: Option<(u64, u64, String)> = replacement_claim(result.clone());
     let mut deleted_width: u64 = 0;
+    let mut replaced: bool = false;
     if deletion {
         // D031's pair invariant: reverse end + w = forward start. A deletion's
         // removed bases lie between the primers by design, so H2's coverage
@@ -1228,7 +1352,7 @@ pub fn assemble_pair(
                     number(removed.0),
                     ", ".to_string(),
                     number(removed.1),
-                    "], so D031 requires the reverse primer to end at ".to_string(),
+                    "), so D031 requires the reverse primer to end at ".to_string(),
                     number(removed.0),
                     " and the forward primer to start at ".to_string(),
                     number(removed.1),
@@ -1274,45 +1398,24 @@ pub fn assemble_pair(
             return Err(DomainError::InvalidPrimerCandidate(problem));
         }
 
-        // The two tails are the whole insertion, split between the primers: the
-        // reverse primer states its tail 5'->3' on the opposite strand, so its
-        // reverse complement is the first part of the inserted text in the
-        // template's own direction, and the forward tail follows it. A primer
-        // with no tail contributes an empty string, which is what a `k <= 6`
-        // insertion gives the reverse primer.
-        let forward_tail: String = tail_text_of(forward.clone());
-        let reverse_tail: String = tail_text_of(reverse.clone());
-        let reverse_head: String = tail_in_template_direction(reverse.clone())?;
-        let rebuilt: String = join(vec![reverse_head.clone(), forward_tail.clone()]);
-        if rebuilt != inserted {
-            let problem = InvalidPrimerCandidateProblem {
-                primer: "pair".to_string(),
-                reason: join(vec![
-                    "the reverse primer's tail reads ".to_string(),
-                    reverse_tail,
-                    ", which stands for ".to_string(),
-                    reverse_head,
-                    " in the template's direction, and the forward primer's tail reads "
-                        .to_string(),
-                    forward_tail,
-                    ": together they give ".to_string(),
-                    rebuilt,
-                    " and the insertion is ".to_string(),
-                    inserted,
-                    ", so the two tails do not rebuild the insertion".to_string(),
-                ]),
-            };
-            return Err(DomainError::InvalidPrimerCandidate(problem));
-        }
+        // D032: the two tails are the whole insertion, split between the primers:
+        // `require_tails_rebuild` states which half comes from which primer and
+        // what a mismatch reports. A primer with no tail contributes an empty
+        // string, which is what a `k <= 6` insertion gives the reverse primer.
+        require_tails_rebuild(&forward, &reverse, &inserted, "insertion")?;
     } else if replacement.is_some()
-        && forward.clone().span().start() >= replacement.clone().unwrap().1
+        && (forward.clone().tail().is_some() || reverse.clone().tail().is_some())
     {
         // D033: the tail path. A replacement too wide to sit inline puts its
         // bases in the two tails, and each primer's span then lies outside the
-        // region: the forward primer starts at the region's end `e`, which is
-        // what decides this branch. An inline pair has the forward primer
-        // covering the region, so it starts before `e` and falls through to the
-        // substitution branch below, where H2's coverage check applies and
+        // region. What decides this branch is that one of the primers carries a
+        // tail — the forward one always does, ceil(m / 2) >= 1, and the reverse
+        // one may not, floor(m / 2) = 0 when m = 1 — and not where the forward
+        // span happens to start: a forward primer annealed straight over the
+        // region would pass H2's coverage check below while its partner's tail
+        // rebuilds nothing, so the pair is refused at the edge check instead.
+        // An inline pair has no tail on either primer, so it falls through to
+        // the substitution branch below, where H2's coverage check applies and
         // `deleted_width` stays 0.
         let region: (u64, u64, String) = replacement.clone().unwrap();
         let reverse_end: u64 = reverse.clone().span().end();
@@ -1325,7 +1428,7 @@ pub fn assemble_pair(
                     number(region.0),
                     ", ".to_string(),
                     number(region.1),
-                    "], so the reverse primer's annealing portion must end at ".to_string(),
+                    "), so the reverse primer's annealing portion must end at ".to_string(),
                     number(region.0),
                     " and the forward primer's must start at ".to_string(),
                     number(region.1),
@@ -1338,38 +1441,15 @@ pub fn assemble_pair(
             return Err(DomainError::InvalidPrimerCandidate(problem));
         }
 
-        // D033: the two tails are the whole replacement, split between the
-        // primers: the reverse primer states its tail 5'->3' on the opposite
-        // strand, so its reverse complement is the first part of the replaced
-        // text in the template's own direction and the forward tail follows it.
-        let forward_tail: String = tail_text_of(forward.clone());
-        let reverse_tail: String = tail_text_of(reverse.clone());
-        let reverse_head: String = tail_in_template_direction(reverse.clone())?;
-        let rebuilt: String = join(vec![reverse_head.clone(), forward_tail.clone()]);
-        if rebuilt != region.2.clone() {
-            let problem = InvalidPrimerCandidateProblem {
-                primer: "pair".to_string(),
-                reason: join(vec![
-                    "the reverse primer's tail reads ".to_string(),
-                    reverse_tail,
-                    ", which stands for ".to_string(),
-                    reverse_head,
-                    " in the template's direction, and the forward primer's tail reads "
-                        .to_string(),
-                    forward_tail,
-                    ": together they give ".to_string(),
-                    rebuilt,
-                    " and the replacement is ".to_string(),
-                    region.2.clone(),
-                    ", so the two tails do not rebuild the replacement".to_string(),
-                ]),
-            };
-            return Err(DomainError::InvalidPrimerCandidate(problem));
-        }
+        // D033: the two tails are the whole replacement, split between the primers;
+        // `require_tails_rebuild` states which half comes from which primer and
+        // what a mismatch reports, in the same shape D032's insertion check uses.
+        require_tails_rebuild(&forward, &reverse, &region.2, "replacement")?;
         // D033: the annealing portions sit at the two edges of the replaced
         // region, so `abuts()` means what it means across a deletion: the gap
         // between the spans is the width of the region the edit overwrote.
         deleted_width = region.1 - region.0;
+        replaced = true;
     } else {
         let changed: Vec<u64> = claimed.clone();
         let mut uncovered: Vec<u64> = Vec::new();
@@ -1399,6 +1479,7 @@ pub fn assemble_pair(
         forward: forward.clone(),
         reverse: reverse.clone(),
         deleted_width,
+        replaced,
     })
 }
 
@@ -1473,7 +1554,7 @@ fn edited_span_of(role: PrimerRole, span: NucleotideInterval) -> Option<Nucleoti
 /// one past the last. A deletion always removes at least one base, since
 /// `interval::create` rejects an empty region; the guard keeps the helper total
 /// rather than panicking on a claim that cannot come from `mutation.rs`.
-fn deleted_region(claimed: Vec<u64>) -> (u64, u64) {
+pub(crate) fn deleted_region(claimed: Vec<u64>) -> (u64, u64) {
     if claimed.is_empty() {
         return (0, 0);
     }
@@ -1484,8 +1565,9 @@ fn deleted_region(claimed: Vec<u64>) -> (u64, u64) {
 /// `None` for every other edit. An insertion contributes no target coordinate
 /// — it writes into a gap — so this is how the primer layer reaches the two
 /// quantities its rules need. `MutationResult` gains no public accessor for
-/// the pair: the match stays inside this module.
-fn insertion_claim(result: MutationResult) -> Option<(u64, String)> {
+/// the pair: the match stays inside this module. `primer_design.rs` reads the
+/// same pair through this reader, so one match states it for both layers.
+pub(crate) fn insertion_claim(result: MutationResult) -> Option<(u64, String)> {
     match result {
         MutationResult::Insertion(record) => Some((record.point().position(), record.inserted())),
         MutationResult::Nucleotide(_) => None,
@@ -1499,8 +1581,9 @@ fn insertion_claim(result: MutationResult) -> Option<(u64, String)> {
 /// every other edit. D033: the primer layer needs the region's width and the
 /// replacement's width to know how far the edited artifact's coordinates have
 /// moved past the region's end. `MutationResult` gains no public accessor for
-/// the triple: the match stays inside this module.
-fn replacement_claim(result: MutationResult) -> Option<(u64, u64, String)> {
+/// the triple: the match stays inside this module. `primer_design.rs` reads the
+/// same triple through this reader, so one match states it for both layers.
+pub(crate) fn replacement_claim(result: MutationResult) -> Option<(u64, u64, String)> {
     match result {
         MutationResult::Replacement(record) => {
             let region: NucleotideInterval = record.region();
@@ -1747,6 +1830,51 @@ fn tail_in_template_direction(primer: Primer) -> Result<String, DomainError> {
     let letters: Vec<char> = text.chars().collect();
     let back: Vec<char> = reverse_complement(letters.clone())?;
     Ok(canonical_text(back.clone()))
+}
+
+/// D032 and D033, one check: the two 5′ tails together are the whole written
+/// run — the inserted text or the replacement — split between the primers. The
+/// reverse primer states its tail 5'->3' on the opposite strand, so its
+/// reverse complement is the first part of the run in the template's own
+/// direction and the forward tail follows it; a primer with no tail
+/// contributes an empty string. `kind` names the edit, `insertion` or
+/// `replacement`, and is the only difference between the two pair checks this
+/// helper serves: it appears twice in the reason, once naming the written run
+/// and once naming what the tails must rebuild, so the reason strings stay as
+/// each branch states them.
+fn require_tails_rebuild(
+    forward: &Primer,
+    reverse: &Primer,
+    written: &str,
+    kind: &str,
+) -> Result<(), DomainError> {
+    let forward_tail: String = tail_text_of(forward.clone());
+    let reverse_tail: String = tail_text_of(reverse.clone());
+    let reverse_head: String = tail_in_template_direction(reverse.clone())?;
+    let rebuilt: String = join(vec![reverse_head.clone(), forward_tail.clone()]);
+    if rebuilt == written {
+        return Ok(());
+    }
+    let problem = InvalidPrimerCandidateProblem {
+        primer: "pair".to_string(),
+        reason: join(vec![
+            "the reverse primer's tail reads ".to_string(),
+            reverse_tail,
+            ", which stands for ".to_string(),
+            reverse_head,
+            " in the template's direction, and the forward primer's tail reads ".to_string(),
+            forward_tail,
+            ": together they give ".to_string(),
+            rebuilt,
+            " and the ".to_string(),
+            kind.to_string(),
+            " is ".to_string(),
+            written.to_string(),
+            ", so the two tails do not rebuild the ".to_string(),
+            kind.to_string(),
+        ]),
+    };
+    Err(DomainError::InvalidPrimerCandidate(problem))
 }
 
 /// D031: the forward primer of a deletion reads the **edited** artifact, whose
@@ -2271,7 +2399,7 @@ mod tests {
         assert!(pair.clone().boundary() == Some(12));
         assert!(
             pair.clone().relationship()
-                == "reverse span [0, 12] and forward span [12, 30]: abutting"
+                == "reverse span [0, 12) and forward span [12, 30): abutting"
         );
         assert!(pair
             .clone()
@@ -2289,7 +2417,7 @@ mod tests {
         assert!(pair.clone().separation() == -8);
         assert!(!pair.clone().abuts());
         assert!(pair.clone().boundary().is_none());
-        assert!(pair.clone().relationship() == "reverse span [12, 30] and forward span [0, 20]: overlapping by 8 template positions", "actual=[{}]", pair.clone().relationship());
+        assert!(pair.clone().relationship() == "reverse span [12, 30) and forward span [0, 20): overlapping by 8 template positions", "actual=[{}]", pair.clone().relationship());
     }
 
     #[test]
@@ -2625,6 +2753,7 @@ mod tests {
             _ => "".to_string(),
         };
         assert!(reason.contains("deleted"));
+        assert!(reason.contains("the deleted region [9, 12)"));
     }
 
     // The last base of the template at [12, 22) is C, not A: a primer text that
@@ -2677,6 +2806,11 @@ mod tests {
             assemble_pair(forward.clone(), reverse.clone(), deletion().clone()).unwrap_err();
         assert!(matches!(error, DomainError::InvalidPrimerCandidate(_)));
         assert!(error.category() == ErrorCategory::MalformedInput);
+        let reason: String = match error {
+            DomainError::InvalidPrimerCandidate(problem) => problem.reason.clone(),
+            _ => "".to_string(),
+        };
+        assert!(reason.contains("the deletion is [9, 12)"));
     }
 
     // rc(ATGGCTTG) = CAAGCCAT: a well-formed reverse primer that stops one
@@ -2689,6 +2823,11 @@ mod tests {
             assemble_pair(forward.clone(), reverse.clone(), deletion().clone()).unwrap_err();
         assert!(matches!(error, DomainError::InvalidPrimerCandidate(_)));
         assert!(error.category() == ErrorCategory::MalformedInput);
+        let reason: String = match error {
+            DomainError::InvalidPrimerCandidate(problem) => problem.reason.clone(),
+            _ => "".to_string(),
+        };
+        assert!(reason.contains("the deletion is [9, 12)"));
     }
 
     // A substitution writes rather than removes, so its pair's width is 0 and
@@ -3028,6 +3167,7 @@ mod tests {
             _ => "".to_string(),
         };
         assert!(reason.contains("replaced"));
+        assert!(reason.contains("the replaced region [9, 12)"));
     }
 
     // D033's tail path: the replacement is 8 nucleotides, so the junction is
@@ -3087,6 +3227,11 @@ mod tests {
             assemble_pair(forward.clone(), reverse.clone(), result.clone()).unwrap_err();
         assert!(matches!(error, DomainError::InvalidPrimerCandidate(_)));
         assert!(error.category() == ErrorCategory::MalformedInput);
+        let reason: String = match error {
+            DomainError::InvalidPrimerCandidate(problem) => problem.reason.clone(),
+            _ => "".to_string(),
+        };
+        assert!(reason.contains("the replacement is [9, 12)"));
     }
 
     // D033: a forward primer of a replacement reads the edited artifact over its
@@ -3106,5 +3251,117 @@ mod tests {
             _ => "".to_string(),
         };
         assert!(reason.contains("covers the replaced region"));
+    }
+
+    // Review B1: a tailed primer's annealing portion sits beside the edit, in a
+    // gap of the template, so its span may not be laid over the edit and carry a
+    // 5' tail that rebuilds nothing. The §1 reproduction scaled to seq-a: the
+    // region is [9, 12) and the forward primer anneals over [8, 18), which holds
+    // it, with a tail of GGG that stands for none of the replacement's bases.
+    #[test]
+    fn a_tailed_replacement_primer_may_not_anneal_over_the_region() {
+        let result: MutationResult = replacement(9, 12, "AAT", "AAAA");
+        let error: DomainError =
+            tailed_forward(result.clone(), "GGG", "GAATCAGCAG", 8, 18).unwrap_err();
+        assert!(matches!(error, DomainError::InvalidPrimerCandidate(_)));
+        assert!(error.category() == ErrorCategory::MalformedInput);
+        let reason: String = match error {
+            DomainError::InvalidPrimerCandidate(problem) => problem.reason.clone(),
+            _ => "".to_string(),
+        };
+        assert!(reason.contains("replaced region"));
+        assert!(reason.contains("the replacement is [9, 12)"));
+    }
+
+    // The same rule on the insertion side: a tailed primer's annealing portion
+    // lies wholly on one side of the point, so a span that straddles it is
+    // refused even though its text is wild-type template throughout.
+    #[test]
+    fn a_tailed_insertion_primer_may_not_straddle_the_point() {
+        let result: MutationResult = insertion(12, "T", "C", "GGG");
+        let error: DomainError =
+            tailed_forward(result.clone(), "GGG", "GAATCAGCAG", 8, 18).unwrap_err();
+        assert!(matches!(error, DomainError::InvalidPrimerCandidate(_)));
+        assert!(error.category() == ErrorCategory::MalformedInput);
+        let reason: String = match error {
+            DomainError::InvalidPrimerCandidate(problem) => problem.reason.clone(),
+            _ => "".to_string(),
+        };
+        assert!(reason.contains("straddle"));
+    }
+
+    // D033's tail branch is what decides such a pair, not where the forward span
+    // happens to start: here the forward primer is inline and covers the region,
+    // so H2's coverage check would pass, and only the reverse primer carries a
+    // tail. Its span ends exactly at the region's start, which 3.1 allows, so the
+    // pair is refused at the edge check: the forward primer does not start at 12.
+    #[test]
+    fn an_inline_replacement_pair_with_a_tailed_reverse_primer_is_refused() {
+        let result: MutationResult = replacement(9, 12, "AAT", "GG");
+        let forward: Primer =
+            replacement_forward_primer(0, 20, "ATGGCTTGGGGCAGCAGCA".to_string()).unwrap();
+        let reverse: Primer = tailed_reverse(result.clone(), "TGC", "CCAAGCCAT", 0, 9).unwrap();
+        let error: DomainError =
+            assemble_pair(forward.clone(), reverse.clone(), result.clone()).unwrap_err();
+        assert!(matches!(error, DomainError::InvalidPrimerCandidate(_)));
+        assert!(error.category() == ErrorCategory::MalformedInput);
+    }
+
+    // On the tail path the reverse primer may have no tail at all: a
+    // replacement of one base gives floor(1 / 2) = 0 bases to the reverse tail
+    // and ceil(1 / 2) = 1 to the forward one. The pair is still a tail pair, so
+    // it is the primer's own tail that decides the branch, and it is accepted.
+    // The region is [2, 12), ten template bases replaced by G, so the annealing
+    // portions are template [12, 22) = CAGCAGCAGC and rc(template [0, 2)): the
+    // template there is AT, whose reverse complement is AT itself, written out
+    // here rather than read back from the code.
+    #[test]
+    fn a_tail_path_replacement_with_an_untailed_reverse_primer_is_accepted() {
+        let result: MutationResult = replacement(2, 12, "GGCTTGGAAT", "G");
+        let forward: Primer = tailed_forward(result.clone(), "G", "CAGCAGCAGC", 12, 22).unwrap();
+        let reverse: Primer = untailed_reverse(result.clone(), "AT", 0, 2).unwrap();
+        let pair: PrimerPair =
+            assemble_pair(forward.clone(), reverse.clone(), result.clone()).unwrap();
+        assert!(pair.clone().deleted_width() == 10);
+        assert!(pair.clone().abuts());
+        assert!(pair.clone().boundary() == Some(2));
+    }
+
+    // Review B5: the same pair, described in words. The region is [2, 12), so
+    // the two annealing portions are 10 template positions apart and the pair
+    // straddles a *replaced* region, not a deletion: nothing was removed, the
+    // ten bases were rewritten as G. The sentence is therefore the replaced
+    // region one, and it must not fall back to the deletion wording.
+    #[test]
+    fn a_tail_path_replacement_pair_states_a_replaced_region() {
+        let result: MutationResult = replacement(2, 12, "GGCTTGGAAT", "G");
+        let forward: Primer = tailed_forward(result.clone(), "G", "CAGCAGCAGC", 12, 22).unwrap();
+        let reverse: Primer = untailed_reverse(result.clone(), "AT", 0, 2).unwrap();
+        let pair: PrimerPair =
+            assemble_pair(forward.clone(), reverse.clone(), result.clone()).unwrap();
+        let statement: String = pair.clone().relationship();
+        assert!(statement.contains("abutting across a replaced region of 10 template positions"));
+        assert!(!statement.contains("deletion"));
+    }
+
+    // The tail of that forward primer carries one of the ten replacement bases,
+    // not an insertion: the insertion wording is wrong for it.
+    #[test]
+    fn a_tailed_replacement_primer_says_its_tail_carries_the_replacement() {
+        let result: MutationResult = replacement(2, 12, "GGCTTGGAAT", "G");
+        let primer: Primer = tailed_forward(result.clone(), "G", "CAGCAGCAGC", 12, 22).unwrap();
+        let reason: String = primer.clone().tail_reason();
+        assert!(reason.contains("part of the replacement"));
+        assert!(!reason.contains("insertion"));
+    }
+
+    // Regression on the insertion side: a tailed insertion primer keeps the
+    // wording it has always had, and no existing test asserted this phrase.
+    #[test]
+    fn a_tailed_insertion_primer_says_its_tail_carries_the_insertion() {
+        let result: MutationResult = insertion(12, "T", "C", "GGG");
+        let primer: Primer = tailed_forward(result.clone(), "GGG", "CAGCAGCAGC", 12, 22).unwrap();
+        let reason: String = primer.clone().tail_reason();
+        assert!(reason.contains("carries the insertion"));
     }
 }

@@ -233,6 +233,7 @@ fn variant_name(error: &DomainError) -> String {
         DomainError::NoPrimerDesignFits(_) => "NoPrimerDesignFits",
         DomainError::InvalidBufferModel(_) => "InvalidBufferModel",
         DomainError::TmParametersUnavailable(_) => "TmParametersUnavailable",
+        DomainError::DegenerateExpansionTooLarge(_) => "DegenerateExpansionTooLarge",
     }
     .to_string()
 }
@@ -1294,8 +1295,8 @@ fn an_origin_crossing_codon_is_recorded_as_two_intervals() {
         "TTA written at 22,23,0 turns the trailing G into T and the leading G into A",
     );
     assert!(
-        written_coordinates(&result) == vec![0, 22, 23],
-        "the recorded coordinates are ascending reference coordinates, in two runs",
+        written_coordinates(&result) == vec![22, 23, 0],
+        "coordinates are in D040's order, the part ending at the sequence length first",
     );
     assert!(
         diff_positions(&sequence, &result.edited()) == vec![0, 23],

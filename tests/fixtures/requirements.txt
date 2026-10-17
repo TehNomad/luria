@@ -1,0 +1,7 @@
+# Python dependencies for the fixture verification scripts (D039).
+# These are the versions every tracked generator under tests/fixtures/*/reference/
+# was actually run with; install them with
+#   pip install -r tests/fixtures/requirements.txt
+# into a venv and run the scripts with python -I.
+biopython==1.88
+numpy==2.5.4

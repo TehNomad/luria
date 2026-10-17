@@ -158,8 +158,9 @@ wrong before contiguity is even considered.
 - No primer, mutagenesis, or Q5 behaviour: that is the other fixture.
 - Residue positions (`ResiduePosition`) are exercised by the unit tests in
   `crates/core/src/cds.rs` and `crates/core/src/translation.rs`, not by
-  `cases.tsv`: this milestone has no operation that consumes a residue
-  position.
+  `cases.tsv`: Milestone 1 had no operation that consumes a residue
+  position. Residue mutations (`apply_residue`, Milestone 2) are covered by
+  the `mutation/` set.
 - No multi-sequence records, no FASTA parsing: these files are plain text with
   `;` comments.
 

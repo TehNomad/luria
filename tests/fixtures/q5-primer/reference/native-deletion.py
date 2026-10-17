@@ -8,7 +8,8 @@ crates/core/tests/q5_primer_fixtures.rs.
 
 Requires Biopython 1.88. Run from this directory:
 
-    python3 native-deletion.py
+    python3 native-deletion.py            rewrite ../native-deletion.tsv
+    python3 native-deletion.py --check    compare, write nothing
 
 D031, for a deletion [s, e), w = e - s, bound b, linear template length n:
     f0 = r0 = max(b, 15)            starting lengths, both primers
@@ -198,8 +199,7 @@ def main():
         row += [out["failure"], note]
         rows.append("\t".join(row))
         print(case_id, {k: v for k, v in out.items() if k not in ("forward", "reverse")}, sorted(trace))
-    with open(os.path.join(FIXTURES, "native-deletion.tsv"), "w") as handle:
-        handle.write("\n".join(rows) + "\n")
+    nd.emit(os.path.join(FIXTURES, "native-deletion.tsv"), "\n".join(rows) + "\n")
 
 
 if __name__ == "__main__":

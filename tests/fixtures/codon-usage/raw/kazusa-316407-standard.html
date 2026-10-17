@@ -1,0 +1,125 @@
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=iso-8859-1">
+<TITLE>Codon usage table</TITLE>
+</HEAD>
+
+<BODY BGCOLOR="#F0F0F0">
+<STRONG><i>Escherichia coli W3110 </i>[gbbct]: 4332 CDS's (1372057 codons)</STRONG>
+
+<HR ALIGN="LEFT" SIZE=1>
+
+fields: [triplet] [amino acid] [fraction] [frequency: <STRONG>per thousand</STRONG>] ([number])
+<HR ALIGN="LEFT" SIZE=1>
+<PRE>
+UUU F 0.57 22.2 ( 30462)  UCU S 0.15  8.4 ( 11512)  UAU Y 0.57 16.1 ( 22037)  UGU C 0.44  5.1 (  7016)
+UUC F 0.43 16.5 ( 22705)  UCC S 0.15  8.6 ( 11802)  UAC Y 0.43 12.2 ( 16795)  UGC C 0.56  6.4 (  8797)
+UUA L 0.13 13.8 ( 18894)  UCA S 0.12  7.0 (  9620)  UAA * 0.64  2.0 (  2765)  UGA * 0.29  0.9 (  1249)
+UUG L 0.13 13.6 ( 18664)  UCG S 0.15  8.9 ( 12210)  UAG * 0.07  0.2 (   321)  UGG W 1.00 15.2 ( 20889)
+
+CUU L 0.10 11.0 ( 15082)  CCU P 0.16  7.0 (  9540)  CAU H 0.57 13.0 ( 17791)  CGU R 0.38 21.0 ( 28866)
+CUC L 0.10 11.1 ( 15272)  CCC P 0.12  5.5 (  7490)  CAC H 0.43  9.8 ( 13399)  CGC R 0.40 22.3 ( 30530)
+CUA L 0.04  3.8 (  5266)  CCA P 0.19  8.4 ( 11569)  CAA Q 0.35 15.4 ( 21121)  CGA R 0.06  3.5 (  4810)
+CUG L 0.50 53.1 ( 72898)  CCG P 0.53 23.4 ( 32080)  CAG Q 0.65 29.0 ( 39835)  CGG R 0.10  5.4 (  7401)
+
+AUU I 0.51 30.4 ( 41644)  ACU T 0.16  8.8 ( 12119)  AAU N 0.45 17.6 ( 24106)  AGU S 0.15  8.7 ( 11924)
+AUC I 0.42 25.2 ( 34568)  ACC T 0.44 23.5 ( 32265)  AAC N 0.55 21.6 ( 29581)  AGC S 0.28 16.1 ( 22067)
+AUA I 0.07  4.2 (  5733)  ACA T 0.13  6.9 (  9452)  AAA K 0.76 33.6 ( 46116)  AGA R 0.04  2.0 (  2771)
+AUG M 1.00 27.8 ( 38167)  ACG T 0.27 14.4 ( 19820)  AAG K 0.24 10.3 ( 14174)  AGG R 0.02  1.1 (  1496)
+
+GUU V 0.26 18.2 ( 24991)  GCU A 0.16 15.2 ( 20813)  GAU D 0.63 32.2 ( 44217)  GGU G 0.34 24.7 ( 33875)
+GUC V 0.22 15.3 ( 21050)  GCC A 0.27 25.7 ( 35252)  GAC D 0.37 19.1 ( 26270)  GGC G 0.41 29.8 ( 40849)
+GUA V 0.15 10.9 ( 14901)  GCA A 0.21 20.1 ( 27567)  GAA E 0.69 39.7 ( 54431)  GGA G 0.11  7.9 ( 10774)
+GUG V 0.37 26.3 ( 36108)  GCG A 0.36 33.9 ( 46524)  GAG E 0.31 18.0 ( 24629)  GGG G 0.15 11.0 ( 15115)
+</PRE>
+<HR ALIGN="LEFT" SIZE=1>
+Coding GC 51.93%
+1st letter GC 59.06%
+2nd letter GC 40.67%
+3rd letter GC 56.05%<BR>
+<STRONG>Genetic code 1: Standard</STRONG>
+
+<HR ALIGN="LEFT" SIZE=1>
+
+<FORM ACTION="./showcodon.cgi" METHOD="GET">
+
+<STRONG>Format:</STRONG><BR>
+
+<!-- INPUT TYPE="HIDDEN" NAME="species" VALUE="Escherichia coli W3110 [gbbct]" -->
+<INPUT TYPE="HIDDEN" NAME="species" VALUE="316407">
+
+<SELECT NAME="aa">
+<OPTION SELECTED>SELECT A CODE
+<OPTION VALUE="1">1: Standard
+<OPTION VALUE="2">2: Vertebrate Mitochondrial
+<OPTION VALUE="3">3: Yeast Mitochondrial
+<OPTION VALUE="4">4: Mold, Protozoan, Coelenterate Mitochondrial
+<OPTION VALUE="4">(4:)	and Mycoplasma/Spiroplasma
+<OPTION VALUE="5">5: Invertebrate Mitochondrial
+<OPTION VALUE="6">6: Ciliate Macronuclear and Dasycladacean
+<OPTION VALUE="9">9: Echinoderm Mitochondrial
+<OPTION VALUE="10">10: Alternative Ciliate Macronuclear
+<OPTION VALUE="11">11: Eubacterial
+<OPTION VALUE="12">12: Alternative Yeast
+<OPTION VALUE="13">13: Ascidian Mitochondrial
+<OPTION VALUE="14">14: Flatworm Mitochondrial
+<OPTION VALUE="15">15: Blepharisma Nuclear Code
+</SELECT>
+
+<A HREF = "http://www3.ncbi.nlm.nih.gov/htbin-post/Taxonomy/wprintgc?mode=t">
+Genetic codes (NCBI)</A>
+
+<BR>
+
+<INPUT TYPE="radio" NAME="style" VALUE="N" CHECKED>
+<!-- INPUT TYPE="hidden" NAME="style" VALUE="N" -->
+Codon Usage Table with Amino Acids
+<BR>
+
+<INPUT TYPE="radio" NAME="style" VALUE="GCG">
+A style like CodonFrequency output in GCG <A HREF="http://www.gcg.com/products/software.html">Wisconsin Package<SUP>TM</SUP></A>
+
+<BR>
+
+<!-- INPUT TYPE="radio" NAME="style" VALUE="BT")Back translation (comming soon)
+(BR)
+(TEXTAREA NAME="aa_src" ROWS="2" COLS="60")(/TEXTAREA)
+(P -->
+<INPUT TYPE=SUBMIT VALUE="Submit">
+</FORM>
+
+<HR ALIGN="LEFT" SIZE=1>
+
+<FORM ACTION="srchcds.cgi" METHOD="POST">
+
+<STRONG>CDS Search:</STRONG><BR>
+
+<INPUT SIZE="40" TYPE="TEXT" NAME="key">
+<INPUT TYPE=SUBMIT VALUE="Submit">
+
+<INPUT TYPE="HIDDEN" NAME="abbrev" VALUE="316407">
+<INPUT TYPE="HIDDEN" NAME="entry" VALUE="bct">
+<INPUT TYPE="HIDDEN" NAME="sponly" VALUE="Escherichia coli W3110">
+
+<BR>
+
+Keyword example: ribosomal protein / MAP kinase
+
+</FORM>
+
+<!-- A HREF="ftp://ftp.kazusa.or.jp/pub/codon/current/species/316407.bct" -->
+<A HREF="http://www.kazusa.or.jp/codon/current/species/316407">
+List of codon usage for each CDS 
+</A>
+[CAUTION: The file is big (> 1000 entries).]
+ 
+<A HREF="http://www.kazusa.or.jp/codon/current/CODON_LABEL">
+(format)
+</A>
+
+<HR ALIGN="LEFT" SIZE=1>
+
+<I><A HREF= "/codon/">Homepage</A></I>
+
+</BODY>
+</HTML>

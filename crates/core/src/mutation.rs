@@ -1,32 +1,36 @@
 //! Mutation: deterministic edits to a sequence artifact.
 //!
-//! A mutation is a typed intent that is checked against the artifact before
-//! anything is written, and an edit that produces a *new* artifact rather
-//! than changing the old one. Nothing here is applied in place: the source
-//! artifact keeps its content and its digest, and the result names both.
+//! A mutation is a typed intent checked against the artifact before anything is
+//! written, and an edit that produces a *new* artifact: the source keeps its
+//! content and its digest, and the result names both.
 //!
-//! Three intents exist, and they are different types because they assert
-//! different things:
+//! Five intents exist, each asserting something different, each with a
+//! matching `MutationResult` variant and `apply_*` operation:
 //!
-//! * `NucleotideMutationIntent` asserts a base at a reference coordinate.
-//! * `NucleotideDeletionIntent` asserts the exact text of a contiguous region
-//!   of reference coordinates.
+//! * `NucleotideMutationIntent` asserts one base at a reference coordinate.
+//! * `NucleotideDeletionIntent` asserts the exact text of a region (D031).
+//! * `NucleotideInsertionIntent` asserts the flanking bases at a point (D032).
+//! * `NucleotideReplacementIntent` asserts that region's text and writes a text
+//!   of any length (D033).
 //! * `ResidueMutationIntent` asserts a residue of a CDS and leaves the DNA
-//!   edit to a `CodonSelectionPolicy`.
+//!   edit to a `CodonSelectionPolicy` (D011).
 //!
-//! All three carry the expected original state, and all three are checked before the
-//! edit. A mutation never applies to a different artifact, to a coordinate
-//! outside the sequence or outside its scope, or to a base or residue that
-//! disagrees with the request.
+//! Every intent carries the expected original state, and every one is checked
+//! before the edit: a mutation never applies to another artifact, to a
+//! coordinate outside the sequence or outside its scope, or to a base or
+//! residue that disagrees with the request. Strand is never a parameter of a
+//! mutation: it is read from the `Cds`, and residue numbering runs over the
+//! strand-applied CDS text.
 //!
-//! Strand is never a parameter of a mutation. It is read from the `Cds`, as
-//! extraction and translation already require, and residue numbering runs
-//! over the strand-applied CDS text.
-//!
-//! Verification is a separate responsibility (D013). `verify` re-derives the
-//! edit from the source artifact and the result's own claims; it does not
-//! re-run the edit. A result is `Calculated` until that pass accepts it, and
-//! a `Calculated` result is never equal to a `Verified` one.
+//! Verification is a separate responsibility (D013): `verify` re-derives the
+//! edit from the source and the result's claims rather than re-running it, and
+//! checks length per kind (owner decision 4.2 in
+//! `docs/tasks/milestone-4-indels.md` §4.2). A result stays `Calculated`
+//! until that pass accepts it (D020). Containment of a target inside its
+//! scope is checked here, by `require_within_feature` and
+//! `require_point_within_feature`; choosing that scope and the frameshift
+//! warnings is `q5.rs`'s. Numbering, genetic-code and CDS rules belong to
+//! `cds.rs` and `translation.rs`.
 
 use crate::cds::Cds;
 use crate::cds::ResiduePosition;
@@ -49,6 +53,8 @@ use crate::genetic_code::Residue;
 use crate::identity::Identifier;
 use crate::identity::SequenceReference;
 use crate::interval::create;
+use crate::interval::holds_point;
+use crate::interval::holds_region;
 use crate::interval::require_sequence;
 use crate::interval::InsertionPoint;
 use crate::interval::NucleotideInterval;
@@ -66,7 +72,7 @@ use crate::translation::Translation;
 pub const MUTATION_ALGORITHM_NAME: &str = "luria-core-mutation";
 
 /// Version of the code path that produced a mutation result (D021).
-pub const MUTATION_ALGORITHM_VERSION: &str = "0.2.0";
+pub const MUTATION_ALGORITHM_VERSION: &str = "0.3.0";
 
 /// A codon of the standard genetic code.
 ///
@@ -209,8 +215,8 @@ pub fn parse_residue(text: String) -> Result<Residue, DomainError> {
 
 /// A DNA-level substitution: one nucleotide at a reference coordinate.
 ///
-/// The target is a `NucleotideInterval` of length 1, which is the Milestone 1
-/// coordinate abstraction and which already names its reference sequence.
+/// The target is a `NucleotideInterval` of length 1: the `interval` module's
+/// coordinate abstraction, which already names its reference sequence.
 #[derive(Clone, Debug, PartialEq)]
 pub struct NucleotideMutationIntent {
     source: SequenceReference,
@@ -661,13 +667,16 @@ pub struct NucleotideReplacement {
     state: MutationState,
 }
 
-/// The record of a residue substitution: the residue assertion, the DNA edit
-/// that satisfied it, and where that edit landed on the reference.
+/// The record of a residue substitution: the residue assertion, the CDS
+/// annotation it was applied to, the DNA edit that satisfied it, and where
+/// that edit landed on the reference. `verify` is handed that annotation, not
+/// another CDS that happens to share its name.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ResidueMutation {
     source: SequenceReference,
     edited: Sequence,
     cds: Identifier,
+    annotation: Cds,
     position: ResiduePosition,
     expected_original: Residue,
     actual_original: Residue,
@@ -718,7 +727,9 @@ impl MutationResult {
         self.edited().reference()
     }
 
-    /// Reference coordinates the mutation wrote or removed, ascending.
+    /// Reference coordinates the mutation wrote or removed, in D040's order:
+    /// ascending, except that a codon crossing the origin of a circular reference
+    /// lists the part that ends at the sequence length first.
     ///
     /// An insertion contributes none: it writes and removes no source
     /// coordinate, it puts bases into the gap between two of them.
@@ -742,9 +753,10 @@ impl MutationResult {
         }
     }
 
-    /// True only for a single-nucleotide substitution: a deletion and an
-    /// insertion are DNA edits too, but each writes nothing at a source
-    /// coordinate and its length rule differs.
+    /// True only for a single-nucleotide substitution. A deletion, an insertion
+    /// and a replacement are DNA edits too, each with its own length rule, and a
+    /// residue substitution names a residue of a CDS rather than a position in
+    /// the sequence.
     pub fn is_nucleotide(&self) -> bool {
         match self {
             MutationResult::Nucleotide(_record) => true,
@@ -891,6 +903,10 @@ impl ResidueMutation {
         self.cds.clone()
     }
 
+    pub fn annotation(&self) -> Cds {
+        self.annotation.clone()
+    }
+
     pub fn position(&self) -> ResiduePosition {
         self.position.clone()
     }
@@ -919,6 +935,9 @@ impl ResidueMutation {
         self.policy.clone()
     }
 
+    /// The intervals the codon was recorded as, in D040's order: reference
+    /// order, with the part that ends at the sequence length listed first when
+    /// the codon crosses the origin of a circular reference.
     pub fn coordinates(&self) -> OrderedIntervals {
         self.coordinates.clone()
     }
@@ -928,22 +947,20 @@ impl ResidueMutation {
     }
 }
 
-/// Reject a target coordinate that lies outside the intervals of the feature
-/// or CDS it was scoped to.
-pub fn require_within_feature(
+/// Reject a target position that is not wholly inside one of the intervals of
+/// the feature or CDS it was scoped to.
+///
+/// A position is a half-open span of coordinates, so the whole span has to lie
+/// inside one interval rather than straddle the edge of two of them; for a
+/// single nucleotide that is the same as checking its start.
+fn require_within_feature(
     position: NucleotideInterval,
     feature: String,
     sequence: String,
     intervals: &[NucleotideInterval],
 ) -> Result<(), DomainError> {
-    let start: u64 = position.start();
-    let mut index: usize = 0;
-    while index < intervals.len() {
-        let interval: NucleotideInterval = intervals[index].clone();
-        if start >= interval.start() && start < interval.end() {
-            return Ok(());
-        }
-        index += 1;
+    if holds_region(intervals, position.start(), position.end()) {
+        return Ok(());
     }
     let problem = TargetOutsideFeatureProblem {
         feature,
@@ -954,41 +971,11 @@ pub fn require_within_feature(
     Err(DomainError::TargetOutsideFeature(problem))
 }
 
-/// Reject a region that is not wholly inside one of the intervals of the
-/// feature or CDS it was scoped to.
-///
-/// `require_within_feature` checks only the start of a position, which is
-/// enough for a single nucleotide; a deletion spans several coordinates, so
-/// the whole region has to lie inside one interval rather than straddle two
-/// of them.
-fn require_region_within_feature(
-    region: NucleotideInterval,
-    feature: String,
-    sequence: String,
-    intervals: &[NucleotideInterval],
-) -> Result<(), DomainError> {
-    let mut index: usize = 0;
-    while index < intervals.len() {
-        let interval: NucleotideInterval = intervals[index].clone();
-        if region.start() >= interval.start() && region.end() <= interval.end() {
-            return Ok(());
-        }
-        index += 1;
-    }
-    let problem = TargetOutsideFeatureProblem {
-        feature,
-        sequence,
-        start: region.start(),
-        end: region.end(),
-    };
-    Err(DomainError::TargetOutsideFeature(problem))
-}
-
 /// Reject a point that does not sit strictly inside one of the intervals of
 /// the feature or CDS it was scoped to.
 ///
-/// A point selects no nucleotide, so the rule differs from both `require_within_feature`, which
-/// accepts a coordinate inside an interval, and `require_region_within_feature`: an insertion
+/// A point selects no nucleotide, so the rule differs from `require_within_feature`, which
+/// requires every nucleotide a position selects to lie inside one interval: an insertion
 /// asserts and writes the bases on both sides of the point, so both of them have to lie inside
 /// the same interval. A point exactly at a CDS's edge is outside it.
 fn require_point_within_feature(
@@ -998,13 +985,8 @@ fn require_point_within_feature(
     intervals: &[NucleotideInterval],
 ) -> Result<(), DomainError> {
     let position: u64 = point.position();
-    let mut index: usize = 0;
-    while index < intervals.len() {
-        let interval: NucleotideInterval = intervals[index].clone();
-        if position > interval.start() && position < interval.end() {
-            return Ok(());
-        }
-        index += 1;
+    if holds_point(intervals, position) {
+        return Ok(());
     }
     let problem = TargetOutsideFeatureProblem {
         feature,
@@ -1013,6 +995,54 @@ fn require_point_within_feature(
         end: position,
     };
     Err(DomainError::TargetOutsideFeature(problem))
+}
+
+/// The scope check every `apply_*` operation runs before it reads the
+/// artifact: the scope must name this artifact, and the target must lie
+/// inside one of its intervals. No scope means nothing to check.
+///
+/// The scope's own reference check runs first, so a CDS of another artifact
+/// is refused as a sequence mismatch rather than as a coordinate outside a
+/// feature; the payload keeps the scope's label and this artifact's name.
+fn require_in_scope(
+    sequence: &Sequence,
+    scope: &Option<Cds>,
+    target: NucleotideInterval,
+) -> Result<(), DomainError> {
+    if let Some(cds) = scope {
+        require_sequence(cds.reference().clone(), sequence)?;
+        let label: String = cds.id().value().to_string();
+        require_within_feature(
+            target.clone(),
+            label,
+            sequence.display_name(),
+            cds.intervals().as_slice(),
+        )?;
+    }
+    Ok(())
+}
+
+/// The scope check of an insertion: the scope must name this artifact, and
+/// the point must sit strictly inside one of its intervals.
+///
+/// Same order as `require_in_scope`: the scope's own reference check first,
+/// then containment, with the scope's label and this artifact's name.
+fn require_point_in_scope(
+    sequence: &Sequence,
+    scope: &Option<Cds>,
+    point: InsertionPoint,
+) -> Result<(), DomainError> {
+    if let Some(cds) = scope {
+        require_sequence(cds.reference().clone(), sequence)?;
+        let label: String = cds.id().value().to_string();
+        require_point_within_feature(
+            point.clone(),
+            label,
+            sequence.display_name(),
+            cds.intervals().as_slice(),
+        )?;
+    }
+    Ok(())
 }
 
 /// Apply a nucleotide substitution.
@@ -1031,16 +1061,7 @@ pub fn apply_nucleotide(
     require_sequence(intent.position().reference().clone(), sequence)?;
     intent.position().within(sequence)?;
 
-    if let Some(cds) = scope.clone() {
-        require_sequence(cds.reference().clone(), sequence)?;
-        let label: String = cds.id().value().to_string();
-        require_within_feature(
-            intent.position().clone(),
-            label,
-            sequence.display_name(),
-            cds.intervals().as_slice(),
-        )?;
-    }
+    require_in_scope(sequence, &scope, intent.position().clone())?;
 
     let position: u64 = intent.position().start();
     let actual: char = sequence.letter_at(position)?;
@@ -1143,6 +1164,7 @@ pub fn apply_residue(
         source: sequence.reference(),
         edited: edited.clone(),
         cds: cds.id().clone(),
+        annotation: cds.clone(),
         position: intent.position().clone(),
         expected_original: intent.expected_original().clone(),
         actual_original: actual.clone(),
@@ -1150,7 +1172,7 @@ pub fn apply_residue(
         original_codon: original_codon.clone(),
         selected_codon: selected.clone(),
         policy: intent.policy().clone(),
-        coordinates: intervals_for(written.clone(), edited.reference()),
+        coordinates: intervals_for(written.clone(), edited.reference(), edited.length()),
         state: MutationState::Calculated,
     }))
 }
@@ -1181,16 +1203,7 @@ pub fn apply_deletion(
         return Err(DomainError::InvalidMutationRequest(problem));
     }
 
-    if let Some(cds) = scope.clone() {
-        require_sequence(cds.reference().clone(), sequence)?;
-        let label: String = cds.id().value().to_string();
-        require_region_within_feature(
-            intent.region().clone(),
-            label,
-            sequence.display_name(),
-            cds.intervals().as_slice(),
-        )?;
-    }
+    require_in_scope(sequence, &scope, intent.region().clone())?;
 
     let start: u64 = intent.region().start();
     let end: u64 = intent.region().end();
@@ -1270,16 +1283,7 @@ pub fn apply_insertion(
         return Err(DomainError::InvalidMutationRequest(problem));
     }
 
-    if let Some(cds) = scope.clone() {
-        require_sequence(cds.reference().clone(), sequence)?;
-        let label: String = cds.id().value().to_string();
-        require_point_within_feature(
-            intent.point().clone(),
-            label,
-            sequence.display_name(),
-            cds.intervals().as_slice(),
-        )?;
-    }
+    require_point_in_scope(sequence, &scope, intent.point().clone())?;
 
     let letters: Vec<char> = sequence.letters();
     let before: char = letters[position as usize - 1];
@@ -1342,12 +1346,11 @@ pub fn apply_insertion(
 /// The region is checked against the artifact and against its scope before
 /// anything is written, and the bases it overwrites are asserted exactly, so
 /// a request that disagrees with the artifact is refused rather than guessed.
-/// The text written need not have the width of the region, which is what makes
-/// the edit a replacement rather than a substitution, and a region that is the
-/// whole sequence would leave an artifact of no bases at all. Nothing is
-/// written until every check has passed, and the source artifact is never
-/// modified: the edited artifact is a new one, `w − m` bases shorter or longer,
-/// that keeps the source's topology.
+/// The text written need not have the width of the region (D033), which is
+/// what makes the edit a replacement rather than a substitution: the edited
+/// artifact is a new one of `n − w + m` bases that keeps the source's topology,
+/// and the source is never modified. A region that is the whole sequence is
+/// refused; no source records a reason for that rule.
 pub fn apply_replacement(
     sequence: &Sequence,
     scope: Option<Cds>,
@@ -1366,16 +1369,7 @@ pub fn apply_replacement(
         return Err(DomainError::InvalidMutationRequest(problem));
     }
 
-    if let Some(cds) = scope.clone() {
-        require_sequence(cds.reference().clone(), sequence)?;
-        let label: String = cds.id().value().to_string();
-        require_region_within_feature(
-            intent.region().clone(),
-            label,
-            sequence.display_name(),
-            cds.intervals().as_slice(),
-        )?;
-    }
+    require_in_scope(sequence, &scope, intent.region().clone())?;
 
     let start: u64 = intent.region().start();
     let end: u64 = intent.region().end();
@@ -1500,29 +1494,36 @@ pub fn default_codon(residue: Residue) -> Result<Codon, DomainError> {
     }
 }
 
-/// Independent verification of a mutation result (D013).
+/// Independent verification of a mutation result (D013): the edit is not
+/// re-run, and the result's claims are read back out of both artifacts. Every
+/// kind first checks that the source is the artifact the result claims, by
+/// name, digest and topology, and checks length for its kind (owner decision
+/// 4.2 in `docs/tasks/milestone-4-indels.md` §4.2). A deletion, an insertion
+/// and a replacement are re-derived by rebuilding the edited artifact from
+/// the record; a substitution and a residue result are compared position by
+/// position. What each kind then checks:
 ///
-/// The edit is not re-run. The checks are: that the source artifact is the
-/// one the result claims, by name, digest, and topology; that length is preserved, which
-/// is the substitution invariant; and that the positions where source and
-/// edited differ agree with the recorded target coordinates, exactly for a
-/// nucleotide result and as a non-empty subset for a residue result, because
-/// a replacement triplet may share letters with the triplet it replaces.
-/// The result's own claims are then read back out of the two artifacts: the
-/// nucleotide at a nucleotide target, and for a residue result the CDS the
-/// result names, the residue sequences re-translated through Milestone 1's
-/// extraction and translation, and the codon read at the requested residue.
-/// Verification therefore accepts a residue result whose recorded codon
-/// coordinates are a superset of the letters that actually changed, and it
-/// does not re-derive the residue-to-coordinate mapping: that mapping is the
-/// generator's responsibility, checked here by the residue and codon claims
-/// rather than by a second copy of the mapping. A deletion is handled in its
-/// own branch, before the length rule a substitution obeys, because its own
-/// length rule is stated per kind (owner decision 4.2): a deletion of `w`
-/// bases shortens the artifact by exactly `w`. An insertion is handled the
-/// same way: an insertion of `k` bases lengthens the artifact by exactly `k`.
-/// A replacement is handled the same way: a replacement of a region of `w`
-/// bases by a text of `m` bases leaves exactly `n − w + m`.
+/// * substitution: unchanged length; the differing positions are exactly the
+///   recorded coordinates; the nucleotide claims match both artifacts.
+/// * residue: unchanged length; the differing positions are non-empty and lie
+///   inside the recorded codon coordinates rather than filling them, since a
+///   replacement codon may share letters with the one it replaces; the
+///   annotation `verify` is handed equals the recorded one, compared as exact
+///   `Cds` equality; the source's residue and codon at the requested residue;
+///   the edited codon; and that no other residue changed.
+/// * deletion: `n − w` bases; the edited artifact is the source with the
+///   recorded region removed; the removed text matches the record.
+/// * insertion: `n + k` bases; the edited artifact is the source with the
+///   recorded bases at the recorded point; the source holds the recorded flanks.
+/// * replacement: `n − w + m` bases; the edited artifact is the source with the
+///   recorded region replaced by the recorded text; the source holds the
+///   recorded original text there.
+///
+/// Only residue results are re-translated (`docs/q5-sdm.md` §8, open owner
+/// question A5): a DNA-level edit inside a CDS is verified as a DNA edit, and
+/// its effect on the translation is not checked. Verification does not re-derive
+/// the residue-to-coordinate mapping: the generator owns it, and the residue
+/// and codon claims check it instead of a second copy of the mapping.
 pub fn verify(
     source: &Sequence,
     cds: Option<Cds>,
@@ -1532,55 +1533,33 @@ pub fn verify(
 
     let edited: Sequence = result.edited();
 
-    // A deletion changes the artifact's length, so it is re-derived here
-    // rather than under the substitution checks below. The `cds` argument is
-    // as irrelevant to it as it is to a nucleotide substitution.
+    // Every kind is re-derived in its own way, and every kind ends in
+    // `accepted`: a kind that has no arm here does not compile.
     match result.clone() {
+        // A deletion changes the artifact's length, so it is re-derived here
+        // rather than by `substitution_positions` below. The `cds` argument is
+        // as irrelevant to it as it is to a nucleotide substitution.
         MutationResult::Deletion(record) => {
             verify_deletion(source, &edited.clone(), record)?;
-            return Ok(accepted(result.clone()));
+            Ok(accepted(result.clone()))
         }
         // An insertion changes the artifact's length too, and it changes no
-        // source coordinate, so it is re-derived here rather than under the
-        // substitution checks below.
+        // source coordinate, so it is re-derived here rather than by
+        // `substitution_positions` below.
         MutationResult::Insertion(record) => {
             verify_insertion(source, &edited.clone(), record)?;
-            return Ok(accepted(result.clone()));
+            Ok(accepted(result.clone()))
         }
         // A replacement changes the artifact's length too, and it neither
         // removes a region nor writes into a gap, so it is re-derived here
-        // rather than under the substitution checks below.
+        // rather than by `substitution_positions` below.
         MutationResult::Replacement(record) => {
             verify_replacement(source, &edited.clone(), record)?;
-            return Ok(accepted(result.clone()));
+            Ok(accepted(result.clone()))
         }
-        MutationResult::Nucleotide(_record) => {}
-        MutationResult::Residue(_record) => {}
-    }
-
-    let source_letters: Vec<char> = source.letters();
-    let edited_letters: Vec<char> = edited.letters();
-
-    if source_letters.len() != edited_letters.len() {
-        let problem = MutationVerificationFailureProblem {
-            result: result.describe(),
-            reason: "a substitution preserves length".to_string(),
-        };
-        return Err(DomainError::MutationVerificationFailure(problem));
-    }
-
-    let want: Vec<u64> = result.target_coordinates();
-    let mut got: Vec<u64> = Vec::new();
-    let count: usize = source_letters.len();
-    let mut index: usize = 0;
-    while index < count {
-        if source_letters[index] != edited_letters[index] {
-            got.push(index as u64);
-        }
-        index += 1;
-    }
-    match result.clone() {
         MutationResult::Nucleotide(record) => {
+            let got: Vec<u64> = substitution_positions(source, &edited.clone())?;
+            let want: Vec<u64> = result.target_coordinates();
             if got != want {
                 let problem = MutationVerificationFailureProblem {
                     result: result.describe(),
@@ -1592,8 +1571,11 @@ pub fn verify(
                 return Err(DomainError::MutationVerificationFailure(problem));
             }
             verify_nucleotide_claims(source, &edited.clone(), record)?;
+            Ok(accepted(result.clone()))
         }
         MutationResult::Residue(record) => {
+            let got: Vec<u64> = substitution_positions(source, &edited.clone())?;
+            let want: Vec<u64> = result.target_coordinates();
             // A codon substitution may share letters with the codon it
             // replaces, so the edit has to lie inside the recorded codon
             // rather than fill it. It must not be empty: a result that
@@ -1616,19 +1598,39 @@ pub fn verify(
                 }
             }
             verify_residue_claims(source, cds, &edited.clone(), record)?;
-        }
-        MutationResult::Deletion(_record) => {
-            unreachable!("a deletion is verified in its own branch above")
-        }
-        MutationResult::Insertion(_record) => {
-            unreachable!("an insertion is verified in its own branch above")
-        }
-        MutationResult::Replacement(_record) => {
-            unreachable!("a replacement is verified in its own branch above")
+            Ok(accepted(result.clone()))
         }
     }
+}
 
-    Ok(accepted(result.clone()))
+/// The differing positions of a substitution, and the length rule that makes
+/// them comparable: a substitution and a residue substitution both keep the
+/// artifact's length (owner decision 4.2 in
+/// `docs/tasks/milestone-4-indels.md` §4.2), so a length change is a
+/// verification failure rather than a set of positions to compare. The name
+/// in the payload is the produced artifact's.
+fn substitution_positions(source: &Sequence, edited: &Sequence) -> Result<Vec<u64>, DomainError> {
+    let source_letters: Vec<char> = source.letters();
+    let edited_letters: Vec<char> = edited.letters();
+
+    if source_letters.len() != edited_letters.len() {
+        let problem = MutationVerificationFailureProblem {
+            result: edited.reference().describe(),
+            reason: "a substitution preserves length".to_string(),
+        };
+        return Err(DomainError::MutationVerificationFailure(problem));
+    }
+
+    let mut got: Vec<u64> = Vec::new();
+    let count: usize = source_letters.len();
+    let mut index: usize = 0;
+    while index < count {
+        if source_letters[index] != edited_letters[index] {
+            got.push(index as u64);
+        }
+        index += 1;
+    }
+    Ok(got)
 }
 
 /// The nucleotide claims of a result, checked against both artifacts.
@@ -1911,6 +1913,19 @@ fn verify_residue_claims(
         return Err(DomainError::MutationVerificationFailure(problem));
     }
 
+    // The result records the whole annotation it was applied to, so a
+    // different CDS that shares that name is refused too: its intervals, its
+    // strand and its genetic code are what the residue and codon claims are
+    // read over.
+    if annotation != record.annotation() {
+        let problem = MutationVerificationFailureProblem {
+            result: record.edited.reference().describe(),
+            reason: "the CDS verified against is not the annotation the result was applied to"
+                .to_string(),
+        };
+        return Err(DomainError::MutationVerificationFailure(problem));
+    }
+
     require_sequence(annotation.reference().clone(), source)?;
 
     let before: Translation = translate(source, &annotation.clone())?;
@@ -1938,6 +1953,26 @@ fn verify_residue_claims(
         };
         return Err(DomainError::MutationVerificationFailure(problem));
     }
+    if before_residues[offset] != record.actual_original() {
+        let problem = MutationVerificationFailureProblem {
+            result: record.edited.reference().describe(),
+            reason: "the source does not hold the recorded actual original residue".to_string(),
+        };
+        return Err(DomainError::MutationVerificationFailure(problem));
+    }
+
+    let label: String = annotation.id().value().to_string();
+    let source_cds_text: String = extract_cds(source, &annotation.clone())?;
+    let source_codon: String = codon_slice(source_cds_text.clone(), number, label.clone())?;
+    if source_codon != record.original_codon() {
+        let problem = MutationVerificationFailureProblem {
+            result: record.edited.reference().describe(),
+            reason: "the codon read from the source CDS is not the recorded original codon"
+                .to_string(),
+        };
+        return Err(DomainError::MutationVerificationFailure(problem));
+    }
+
     if after_residues[offset] != record.replacement() {
         let problem = MutationVerificationFailureProblem {
             result: record.edited.reference().describe(),
@@ -1959,7 +1994,6 @@ fn verify_residue_claims(
     }
 
     let edited_cds_text: String = extract_cds(&edited.clone(), &rebuilt.clone())?;
-    let label: String = annotation.id().value().to_string();
     let codon: String = codon_slice(edited_cds_text.clone(), number, label)?;
     if codon != record.selected_codon().text() {
         let problem = MutationVerificationFailureProblem {
@@ -2029,7 +2063,7 @@ pub fn rebuild_cds(edited: Sequence, annotation: Cds) -> Result<Cds, DomainError
 
 /// Reference coordinates of the codon at a residue, in the order the codon
 /// is read on the CDS strand.
-pub fn codon_positions(
+fn codon_positions(
     intervals: OrderedIntervals,
     strand: Strand,
     number: u64,
@@ -2039,9 +2073,26 @@ pub fn codon_positions(
     let mut offset: usize = 0;
     let plus: bool = strand.clone().is_plus();
     while offset < 3 {
-        let read: u64 = 3 * (number - 1) + offset as u64;
-        let biological: u64 = if plus { read } else { total_length - 1 - read };
-        let found: Option<u64> = reference_of(intervals.as_slice(), biological);
+        // Residues are numbered from 1, so `number - 1` underflows at residue 0 and
+        // the offset can overflow the coordinate space; a minus strand reads the
+        // codon back from the end of the CDS, so `total_length - 1 - read` underflows
+        // for a residue past that end. A residue whose coordinates do not fit is
+        // refused the same way as one outside the CDS.
+        let read: Option<u64> = number
+            .checked_sub(1)
+            .and_then(|index| index.checked_mul(3))
+            .and_then(|base| base.checked_add(offset as u64));
+        let biological: Option<u64> = if plus {
+            read
+        } else {
+            read.and_then(|read_offset| {
+                total_length
+                    .checked_sub(1)
+                    .and_then(|last| last.checked_sub(read_offset))
+            })
+        };
+        let found: Option<u64> =
+            biological.and_then(|value| reference_of(intervals.as_slice(), value));
         if found.is_none() {
             let problem = InvalidMutationRequestProblem {
                 request: "codon coordinates".to_string(),
@@ -2075,7 +2126,21 @@ fn reference_of(intervals: &[NucleotideInterval], biological: u64) -> Option<u64
 /// codon is read on the CDS strand, which is descending on a minus strand,
 /// so they are put into ascending order first: the record is a set of
 /// reference coordinates.
-fn intervals_for(positions: Vec<u64>, reference: SequenceReference) -> OrderedIntervals {
+///
+/// D040: the two runs of an origin-crossing codon are then listed the way
+/// D036 writes a feature, in reference order except that the part ending at
+/// the sequence length comes before the part starting at zero — a codon at
+/// bases 22, 23 and 0 of a 24-base sequence is recorded as `[22, 24)` then
+/// `[0, 1)`. The order is the record's, not the strand's reading order, so
+/// a minus-strand codon is listed in reference order as a minus-strand CDS's
+/// intervals are. A codon is three contiguous CDS positions and a CDS
+/// crosses the origin at most once (D036), so that one swap is the only
+/// reordering there is.
+fn intervals_for(
+    positions: Vec<u64>,
+    reference: SequenceReference,
+    length: u64,
+) -> OrderedIntervals {
     let positions: Vec<u64> = ascending(positions.clone());
     let mut out: OrderedIntervals = Vec::new();
     let mut index: usize = 0;
@@ -2091,6 +2156,12 @@ fn intervals_for(positions: Vec<u64>, reference: SequenceReference) -> OrderedIn
             create(&reference, start as i64, (positions[last] + 1) as i64).unwrap();
         out.push(interval);
         index = next;
+    }
+
+    // The two runs of a codon that wraps the origin: the run that ends at the
+    // last coordinate is listed first, whatever the strand was.
+    if out.len() == 2 && out[0].start() == 0 && out[1].end() == length {
+        return vec![out[1].clone(), out[0].clone()];
     }
     out
 }
@@ -2526,6 +2597,147 @@ mod tests {
         // Without the CDS the residue claims cannot be checked at all.
         let error: DomainError = verify(&seq_a().clone(), None, calculated.clone()).unwrap_err();
         assert!(matches!(error, DomainError::MutationVerificationFailure(_)));
+    }
+
+    fn residue_record(result: MutationResult) -> ResidueMutation {
+        match result.clone() {
+            MutationResult::Residue(record) => record,
+            MutationResult::Nucleotide(_record) => {
+                panic!("a residue request produced a nucleotide result")
+            }
+            MutationResult::Deletion(_record) => {
+                panic!("a residue request produced a deletion result")
+            }
+            MutationResult::Insertion(_record) => {
+                panic!("a residue request produced an insertion result")
+            }
+            MutationResult::Replacement(_record) => {
+                panic!("a residue request produced a replacement result")
+            }
+        }
+    }
+
+    fn tampered_original_codon(result: MutationResult, codon: String) -> MutationResult {
+        let mut copy: ResidueMutation = residue_record(result.clone());
+        copy.original_codon = codon.clone();
+        MutationResult::Residue(copy)
+    }
+
+    fn tampered_actual_original(result: MutationResult, residue: Residue) -> MutationResult {
+        let mut copy: ResidueMutation = residue_record(result.clone());
+        copy.actual_original = residue.clone();
+        MutationResult::Residue(copy)
+    }
+
+    #[test]
+    fn a_residue_result_is_not_verified_against_a_same_named_annotation_with_other_coordinates() {
+        // `cds_of(18)` selects ATG GCT TGG AAT, which translates to M A W N,
+        // and `cds_of(21)` selects the same codons plus CAG, which translates
+        // to M A W N Q: one identifier, two annotations, both translatable
+        // over `seq-a`. The result was applied to the 18-base annotation, so
+        // the 21-base one is not the annotation its claims are about.
+        let intent: ResidueMutationIntent = ResidueMutationIntent::create(
+            residue(2),
+            "A".to_string(),
+            "W".to_string(),
+            CodonSelectionPolicy::Default,
+        )
+        .unwrap();
+        let calculated: MutationResult =
+            apply_residue(&seq_a().clone(), cds_of(18), result_name(), intent).unwrap();
+
+        let error: DomainError =
+            verify(&seq_a().clone(), Some(cds_of(21)), calculated.clone()).unwrap_err();
+        assert!(matches!(error, DomainError::MutationVerificationFailure(_)));
+        match error {
+            DomainError::MutationVerificationFailure(problem) => {
+                assert!(
+                    problem.reason.contains("not the annotation"),
+                    "{}",
+                    problem.reason
+                );
+            }
+            other => panic!("expected MutationVerificationFailure, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn a_residue_result_with_a_tampered_original_codon_is_refused() {
+        // The source holds GCT at residue 2; a record claiming another codon
+        // there does not describe the artifact it was computed from.
+        let intent: ResidueMutationIntent = ResidueMutationIntent::create(
+            residue(2),
+            "A".to_string(),
+            "W".to_string(),
+            CodonSelectionPolicy::Default,
+        )
+        .unwrap();
+        let calculated: MutationResult =
+            apply_residue(&seq_a().clone(), cds_of(30), result_name(), intent).unwrap();
+
+        let tampered: MutationResult =
+            tampered_original_codon(calculated.clone(), "GCA".to_string());
+        let error: DomainError =
+            verify(&seq_a().clone(), Some(cds_of(30)), tampered.clone()).unwrap_err();
+        assert!(matches!(error, DomainError::MutationVerificationFailure(_)));
+        match error {
+            DomainError::MutationVerificationFailure(problem) => {
+                assert!(
+                    problem.reason.contains("the source CDS"),
+                    "{}",
+                    problem.reason
+                );
+            }
+            other => panic!("expected MutationVerificationFailure, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn a_residue_result_with_a_tampered_actual_original_is_refused() {
+        // The source holds A at residue 2; a record claiming another residue
+        // there does not describe the artifact it was computed from.
+        let intent: ResidueMutationIntent = ResidueMutationIntent::create(
+            residue(2),
+            "A".to_string(),
+            "W".to_string(),
+            CodonSelectionPolicy::Default,
+        )
+        .unwrap();
+        let calculated: MutationResult =
+            apply_residue(&seq_a().clone(), cds_of(30), result_name(), intent).unwrap();
+
+        let tampered: MutationResult = tampered_actual_original(calculated.clone(), Residue::M);
+        let error: DomainError =
+            verify(&seq_a().clone(), Some(cds_of(30)), tampered.clone()).unwrap_err();
+        assert!(matches!(error, DomainError::MutationVerificationFailure(_)));
+        match error {
+            DomainError::MutationVerificationFailure(problem) => {
+                assert!(
+                    problem.reason.contains("actual original residue"),
+                    "{}",
+                    problem.reason
+                );
+            }
+            other => panic!("expected MutationVerificationFailure, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn a_residue_result_records_the_annotation_it_was_applied_to() {
+        let annotation: Cds = cds_of(30);
+        let intent: ResidueMutationIntent = ResidueMutationIntent::create(
+            residue(2),
+            "A".to_string(),
+            "W".to_string(),
+            CodonSelectionPolicy::Default,
+        )
+        .unwrap();
+        let calculated: MutationResult =
+            apply_residue(&seq_a().clone(), annotation.clone(), result_name(), intent).unwrap();
+
+        let record: ResidueMutation = residue_record(calculated.clone());
+        assert!(record.annotation() == annotation);
+        assert!(record.cds() == annotation.id());
     }
 
     #[test]
@@ -3594,5 +3806,288 @@ mod tests {
             }
             other => panic!("expected MutationVerificationFailure, got {:?}", other),
         }
+    }
+
+    #[test]
+    fn a_residue_number_of_zero_selects_no_codon() {
+        // Residues are numbered from 1, so residue 0 selects no codon: `number - 1`
+        // would underflow.
+        let error: DomainError = codon_positions(whole(30), Strand::Plus, 0, 30).unwrap_err();
+        assert!(matches!(error, DomainError::InvalidMutationRequest(_)));
+    }
+
+    #[test]
+    fn a_minus_strand_codon_past_the_cds_end_selects_no_codon() {
+        // Residue 20 on a minus strand reads offsets 57, 58 and 59, so the
+        // biological offset `30 - 1 - 57` would be negative: a 30-base CDS
+        // holds 10 residues, and residue 20 lies past its end.
+        let error: DomainError = codon_positions(whole(30), Strand::Minus, 20, 30).unwrap_err();
+        assert!(matches!(error, DomainError::InvalidMutationRequest(_)));
+
+        // Residue u64::MAX / 2 starts at offset 3 * (number - 1), which does not
+        // fit in a u64.
+        let overflow: DomainError =
+            codon_positions(whole(30), Strand::Plus, u64::MAX / 2, 30).unwrap_err();
+        assert!(matches!(overflow, DomainError::InvalidMutationRequest(_)));
+    }
+
+    #[test]
+    fn a_multi_base_interval_starting_inside_a_feature_but_ending_outside_is_refused() {
+        let intervals: OrderedIntervals = whole(10);
+        let error: DomainError = require_within_feature(
+            at(8, 12),
+            "cds-1".to_string(),
+            "seq-a".to_string(),
+            intervals.as_slice(),
+        )
+        .unwrap_err();
+        assert!(matches!(error, DomainError::TargetOutsideFeature(_)));
+        match error {
+            DomainError::TargetOutsideFeature(problem) => {
+                assert!(problem.start == 8);
+                assert!(problem.end == 12);
+            }
+            other => panic!("expected TargetOutsideFeature, got {:?}", other),
+        }
+        // The same start, ending on the interval's edge, lies wholly inside it.
+        assert!(require_within_feature(
+            at(8, 10),
+            "cds-1".to_string(),
+            "seq-a".to_string(),
+            intervals.as_slice(),
+        )
+        .is_ok());
+    }
+
+    // mut-c of the Milestone 2 fixture: circular, 24 bases, and its `res-c-origin`
+    // annotation `cds-1` over [22, 24) then [0, 7), plus strand, complete, reading
+    // TGG CTT GGA (W L G) across the origin.
+    fn seq_c() -> Sequence {
+        normalize(
+            Identifier::create("seq-c".to_string()).unwrap(),
+            "GCTTGGAACGAACGAACGAACATG".to_string(),
+            SequenceTopology::Circular,
+        )
+        .unwrap()
+    }
+
+    fn cds_c() -> Cds {
+        let intervals: OrderedIntervals = vec![
+            create(&seq_c().reference(), 22, 24).unwrap(),
+            create(&seq_c().reference(), 0, 7).unwrap(),
+        ];
+        Cds::create(
+            &seq_c(),
+            cds_name(),
+            intervals,
+            Strand::Plus,
+            Completeness::Complete,
+            "standard".to_string(),
+            Numbering::FromCdsStart,
+        )
+        .unwrap()
+    }
+
+    /// The same annotation read on the minus strand: the intervals stay in
+    /// reference order, only the strand differs.
+    fn cds_c_minus() -> Cds {
+        let intervals: OrderedIntervals = vec![
+            create(&seq_c().reference(), 22, 24).unwrap(),
+            create(&seq_c().reference(), 0, 7).unwrap(),
+        ];
+        Cds::create(
+            &seq_c(),
+            cds_name(),
+            intervals,
+            Strand::Minus,
+            Completeness::Complete,
+            "standard".to_string(),
+            Numbering::FromCdsStart,
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn a_codon_across_the_origin_is_recorded_in_feature_order() {
+        // D040: the codon at bases 22, 23 and 0 of a 24-base circular sequence
+        // is recorded as `[22, 24)` then `[0, 1)`, the part ending at the
+        // sequence length first, the way D036 lists a wrapping feature — not
+        // as `[0, 1)` then `[22, 24)`, which is only ascending. Reading those
+        // intervals back gives the coordinates 22, 23 and 0. This is fixture
+        // row `res-c-origin-write`: residue 1 (`W`, `TGG`) to `F`, whose
+        // default codon is `TTT`, so coordinates 23 and 0 both change.
+        let intent: ResidueMutationIntent = ResidueMutationIntent::create(
+            residue(1),
+            "W".to_string(),
+            "F".to_string(),
+            CodonSelectionPolicy::Default,
+        )
+        .unwrap();
+        let calculated: MutationResult =
+            apply_residue(&seq_c().clone(), cds_c(), result_name(), intent).unwrap();
+
+        let record: ResidueMutation = residue_record(calculated.clone());
+        // The recorded intervals point at the edited artifact, which is what
+        // `intervals_for` was given, so the expectation is built against the
+        // same reference.
+        let edited: SequenceReference = calculated.edited().reference();
+        assert!(
+            record.coordinates()
+                == vec![
+                    create(&edited, 22, 24).unwrap(),
+                    create(&edited, 0, 1).unwrap(),
+                ],
+            "the part ending at the sequence length is listed first",
+        );
+        assert!(
+            calculated.target_coordinates() == vec![22, 23, 0],
+            "the coordinates follow the recorded intervals, not ascending order",
+        );
+
+        let verified: MutationResult =
+            verify(&seq_c().clone(), Some(cds_c().clone()), calculated.clone()).unwrap();
+        assert!(verified.state() == MutationState::Verified);
+    }
+
+    #[test]
+    fn a_minus_strand_codon_across_the_origin_is_listed_in_reference_order() {
+        // D040: a minus-strand codon is listed in reference order, as a minus
+        // strand CDS's intervals are; the order is not the strand's reading
+        // order. This is the same mut-c annotation [22, 24) + [0, 7) read on
+        // the minus strand, at residue 3.
+        //
+        // Coordinate derivation. Read in reference order the CDS holds mut-c
+        // [22,23] + mut-c [0,7) = "TG" + "GCTTGGA" = TGG CTT GGA, so its
+        // coordinate list, offset by offset, is 22, 23, 0, 1, 2, 3, 4, 5, 6.
+        // The minus strand reads that text back as its reverse complement, TCC
+        // AAG CCA, so residue 3 is the extracted codon at indices 6, 7 and 8.
+        // `codon_positions` turns those into biological offsets 9 - 1 - 6 = 2,
+        // 9 - 1 - 7 = 1 and 9 - 1 - 8 = 0, which name reference coordinates 0,
+        // 23 and 22: that is the 5′→3′ reading order on the minus strand.
+        //
+        // Expected original. The bases at those coordinates are mut-c[0] = G,
+        // mut-c[23] = G and mut-c[22] = T; complemented and read in strand
+        // order they give C C A, so residue 3 is `P` (Proline), the codon the
+        // extracted text holds there. The replacement `L` is written because
+        // none of L's codons (TTA TTG CTT CTA CTG CTC) can be CCA, so the
+        // default policy cannot choose the codon already at the residue.
+        let intent: ResidueMutationIntent = ResidueMutationIntent::create(
+            residue(3),
+            "P".to_string(),
+            "L".to_string(),
+            CodonSelectionPolicy::Default,
+        )
+        .unwrap();
+        let calculated: MutationResult =
+            apply_residue(&seq_c().clone(), cds_c_minus(), result_name(), intent).unwrap();
+
+        assert!(
+            calculated.target_coordinates() == vec![22, 23, 0],
+            "reference order, not the 0, 23, 22 the minus strand reads",
+        );
+
+        let verified: MutationResult = verify(
+            &seq_c().clone(),
+            Some(cds_c_minus().clone()),
+            calculated.clone(),
+        )
+        .unwrap();
+        assert!(verified.state() == MutationState::Verified);
+    }
+
+    #[test]
+    fn an_insertion_at_either_end_of_a_circular_sequence_is_refused() {
+        // D032: "the request states the bases at p − 1 and p … So 1 ≤ p ≤ n − 1:
+        // an insertion needs a base on both sides." That holds for every topology,
+        // so a circular artifact refuses the gap at its origin and the gap after
+        // its last base just as a linear one does. Both points fit the artifact —
+        // `InsertionPoint::within` accepts 0 and n — so the refusal below is D032's
+        // end rule, which `apply_insertion` reports as `InvalidMutationRequest`
+        // (`MalformedInput`), and not an out-of-range coordinate. The flanks named
+        // here are the bases a circular reading puts beside each gap, so the
+        // intents are well formed on their own.
+        let at_origin: NucleotideInsertionIntent = NucleotideInsertionIntent::create(
+            seq_c().reference(),
+            create_point(&seq_c().reference(), 0).unwrap(),
+            "G".to_string(),
+            "G".to_string(),
+            "A".to_string(),
+        )
+        .unwrap();
+        let error: DomainError =
+            apply_insertion(&seq_c().clone(), None, result_name(), at_origin).unwrap_err();
+        assert!(matches!(error, DomainError::InvalidMutationRequest(_)));
+        assert!(error.category() == ErrorCategory::MalformedInput);
+
+        let past_last: NucleotideInsertionIntent = NucleotideInsertionIntent::create(
+            seq_c().reference(),
+            create_point(&seq_c().reference(), 24).unwrap(),
+            "G".to_string(),
+            "G".to_string(),
+            "A".to_string(),
+        )
+        .unwrap();
+        let error: DomainError =
+            apply_insertion(&seq_c().clone(), None, result_name(), past_last).unwrap_err();
+        assert!(matches!(error, DomainError::InvalidMutationRequest(_)));
+        assert!(error.category() == ErrorCategory::MalformedInput);
+    }
+
+    #[test]
+    fn a_deletion_inside_the_post_origin_interval_of_a_wrapping_cds_is_applied() {
+        // [2, 5) is `TTG`, wholly inside the interval [0, 7) of the wrapping CDS, so
+        // the scoped containment rule accepts it. The edited artifact is mut-c with
+        // those three bases cut out, and it keeps the source's topology.
+        let intent: NucleotideDeletionIntent = NucleotideDeletionIntent::create(
+            seq_c().reference(),
+            create(&seq_c().reference(), 2, 5).unwrap(),
+            "TTG".to_string(),
+        )
+        .unwrap();
+        let made: MutationResult =
+            apply_deletion(&seq_c().clone(), Some(cds_c()), result_name(), intent).unwrap();
+        assert!(made.edited().canonical_text() == "GCGAACGAACGAACGAACATG");
+        assert!(made.edited().topology() == SequenceTopology::Circular);
+
+        let verified: MutationResult = verify(&seq_c().clone(), Some(cds_c()), made).unwrap();
+        assert!(verified.state() == MutationState::Verified);
+    }
+
+    #[test]
+    fn a_deletion_straddling_the_start_of_the_pre_origin_interval_is_refused() {
+        // [21, 23) is `AT`: 21 lies before [22, 24) and past [0, 7), so the region
+        // lies wholly in neither interval of the wrapping CDS and the containment
+        // rule refuses it before the bases are compared.
+        let intent: NucleotideDeletionIntent = NucleotideDeletionIntent::create(
+            seq_c().reference(),
+            create(&seq_c().reference(), 21, 23).unwrap(),
+            "AT".to_string(),
+        )
+        .unwrap();
+        let error: DomainError =
+            apply_deletion(&seq_c().clone(), Some(cds_c()), result_name(), intent).unwrap_err();
+        assert!(matches!(error, DomainError::TargetOutsideFeature(_)));
+        assert!(error.category() == ErrorCategory::BiologicalValidation);
+    }
+
+    #[test]
+    fn an_insertion_inside_the_pre_origin_interval_of_a_wrapping_cds_is_applied() {
+        // The gap at 23 sits strictly inside [22, 24), so both bases beside it are
+        // coding: `T` at 22 and `G` at 23. `A` is written into that gap, and the
+        // artifact keeps the source's topology.
+        let intent: NucleotideInsertionIntent = NucleotideInsertionIntent::create(
+            seq_c().reference(),
+            create_point(&seq_c().reference(), 23).unwrap(),
+            "T".to_string(),
+            "G".to_string(),
+            "A".to_string(),
+        )
+        .unwrap();
+        let made: MutationResult =
+            apply_insertion(&seq_c().clone(), Some(cds_c()), result_name(), intent).unwrap();
+        assert!(made.edited().canonical_text() == "GCTTGGAACGAACGAACGAACATAG");
+
+        let verified: MutationResult = verify(&seq_c().clone(), Some(cds_c()), made).unwrap();
+        assert!(verified.state() == MutationState::Verified);
     }
 }

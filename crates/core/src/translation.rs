@@ -364,6 +364,7 @@ mod tests {
         let zero = ResiduePosition::create(name.clone(), 0);
         assert!(zero.is_err());
         let error: DomainError = zero.unwrap_err();
+        assert!(matches!(error, DomainError::InvalidResiduePosition(_)));
         assert!(error.category() == ErrorCategory::MalformedInput);
     }
 

@@ -205,6 +205,36 @@ pub fn overlaps(first: &NucleotideInterval, second: &NucleotideInterval) -> bool
     first.start() < second.end() && second.start() < first.end()
 }
 
+/// True when some interval contains `position`, that is, `start <= position < end`.
+pub(crate) fn holds_position(intervals: &[NucleotideInterval], position: u64) -> bool {
+    for interval in intervals {
+        if position >= interval.start() && position < interval.end() {
+            return true;
+        }
+    }
+    false
+}
+
+/// True when one interval contains the whole half-open region `[start, end)`.
+pub(crate) fn holds_region(intervals: &[NucleotideInterval], start: u64, end: u64) -> bool {
+    for interval in intervals {
+        if start >= interval.start() && end <= interval.end() {
+            return true;
+        }
+    }
+    false
+}
+
+/// True when some interval has `start < position < end`: a base lies on each side.
+pub(crate) fn holds_point(intervals: &[NucleotideInterval], position: u64) -> bool {
+    for interval in intervals {
+        if position > interval.start() && position < interval.end() {
+            return true;
+        }
+    }
+    false
+}
+
 /// Reject a reference that does not denote `sequence`.
 ///
 /// Reference equality means the display identifier, the content digest, and
@@ -295,10 +325,11 @@ pub fn validate_against(
 
 /// Validate the *shape* of an interval list against the topology.
 ///
-/// A linear feature is a single interval. A circular feature may be a single
-/// interval, or several intervals that abut, with at most one crossing of the
-/// origin, written as an interval ending at the sequence length followed by an
-/// interval starting at zero.
+/// A linear feature is a single interval. A circular feature (D036) is one
+/// interval, or exactly two intervals that cross the origin: `[a, n)` followed
+/// by `[0, b)`. Intervals that abut anywhere else are refused at construction,
+/// so a feature never carries a join that the containment and warning checks
+/// would treat as an edge.
 pub fn validate_structure(
     feature: String,
     sequence: &Sequence,
@@ -346,6 +377,15 @@ pub fn validate_structure(
             };
             return Err(DomainError::UnsupportedFeatureStructure(problem));
         }
+        if abutting_split(intervals, length) {
+            let problem = UnsupportedFeatureStructureProblem {
+                feature,
+                sequence: sequence.display_name(),
+                interval_count: count,
+                reason: "a circular feature is split only where it crosses the origin".to_string(),
+            };
+            return Err(DomainError::UnsupportedFeatureStructure(problem));
+        }
     }
 
     Ok(())
@@ -365,6 +405,24 @@ fn origin_crossings(intervals: &[NucleotideInterval], length: u64) -> usize {
         index += 1;
     }
     crossings
+}
+
+/// True when some join between consecutive intervals abuts away from the
+/// origin: the split is legal only at the origin, where an interval ending at
+/// the sequence length is followed by one starting at zero (D036).
+fn abutting_split(intervals: &[NucleotideInterval], length: u64) -> bool {
+    let count: usize = intervals.len();
+    let mut index: usize = 1;
+    while index < count {
+        let previous: NucleotideInterval = intervals[index - 1].clone();
+        let current: NucleotideInterval = intervals[index].clone();
+        let crossing: bool = previous.end() == length && current.start() == 0;
+        if previous.end() == current.start() && !crossing {
+            return true;
+        }
+        index += 1;
+    }
+    false
 }
 
 /// Index of the first join that is not contiguous, or `intervals.len()` when
@@ -569,6 +627,60 @@ mod tests {
         );
     }
 
+    // D036: the only legal join is the origin. `[0,6)` then `[6,24)` abuts at
+    // 6, which hides a join the containment and warning checks treat as an edge.
+    #[test]
+    fn a_circular_feature_split_away_from_the_origin_is_refused() {
+        let name: SequenceReference = circular_c().reference();
+        let intervals: OrderedIntervals =
+            vec![create(&name, 0, 6).unwrap(), create(&name, 6, 24).unwrap()];
+        let error: DomainError =
+            validate_structure("feat-1".to_string(), &circular_c(), intervals.as_slice())
+                .unwrap_err();
+        assert!(error.category() == ErrorCategory::Unsupported);
+        match error {
+            DomainError::UnsupportedFeatureStructure(problem) => {
+                assert!(problem.feature == "feat-1");
+                assert!(problem.sequence == "seq-c");
+                assert!(problem.interval_count == 2);
+                assert!(
+                    problem.reason
+                        == "a circular feature is split only where it crosses the origin"
+                );
+            }
+            other => panic!("expected UnsupportedFeatureStructure, got {:?}", other),
+        }
+    }
+
+    // One origin crossing at the 24/0 join, but a second join at 3: still
+    // refused, and refused as a split away from the origin rather than as a
+    // second crossing or a gap.
+    #[test]
+    fn a_circular_feature_split_at_the_origin_and_elsewhere_is_refused() {
+        let name: SequenceReference = circular_c().reference();
+        let intervals: OrderedIntervals = vec![
+            create(&name, 20, 24).unwrap(),
+            create(&name, 0, 3).unwrap(),
+            create(&name, 3, 6).unwrap(),
+        ];
+        let error: DomainError =
+            validate_structure("feat-1".to_string(), &circular_c(), intervals.as_slice())
+                .unwrap_err();
+        assert!(error.category() == ErrorCategory::Unsupported);
+        match error {
+            DomainError::UnsupportedFeatureStructure(problem) => {
+                assert!(problem.feature == "feat-1");
+                assert!(problem.sequence == "seq-c");
+                assert!(problem.interval_count == 3);
+                assert!(
+                    problem.reason
+                        == "a circular feature is split only where it crosses the origin"
+                );
+            }
+            other => panic!("expected UnsupportedFeatureStructure, got {:?}", other),
+        }
+    }
+
     // No neighbouring pair overlaps, but [21,24) and [6,22) share position 21:
     // the feature would select 25 positions of a 24-base sequence.
     #[test]
@@ -669,5 +781,43 @@ mod tests {
             .unwrap_err();
         assert!(error.category() == ErrorCategory::Unsupported);
         assert!(matches!(error, DomainError::UnsupportedFeatureStructure(_)));
+    }
+
+    // ---- containment over a list of intervals ------------------------------
+
+    // A position is held from `start` up to `end − 1`, the bases an interval
+    // selects; `end` names the first base it does not select.
+    #[test]
+    fn a_position_is_held_at_the_start_and_the_last_base() {
+        let name: SequenceReference = seq_a().reference();
+        let intervals: OrderedIntervals = vec![create(&name, 10, 14).unwrap()];
+        assert!(holds_position(intervals.as_slice(), 10));
+        assert!(holds_position(intervals.as_slice(), 13));
+        assert!(!holds_position(intervals.as_slice(), 14));
+        assert!(!holds_position(intervals.as_slice(), 9));
+    }
+
+    // A region is held only when one interval covers all of it: an interval
+    // equal to the region is held, a region one wider on either side is not.
+    #[test]
+    fn a_region_is_held_only_when_one_interval_contains_it() {
+        let name: SequenceReference = seq_a().reference();
+        let intervals: OrderedIntervals = vec![create(&name, 10, 14).unwrap()];
+        assert!(holds_region(intervals.as_slice(), 10, 14));
+        assert!(holds_region(intervals.as_slice(), 11, 13));
+        assert!(!holds_region(intervals.as_slice(), 9, 14));
+        assert!(!holds_region(intervals.as_slice(), 10, 15));
+    }
+
+    // A point selects no nucleotide, so it is inside only with a base on each
+    // side of it: both `start` and `end` are outside, `start + 1` is inside.
+    #[test]
+    fn a_point_is_held_only_strictly_inside_an_interval() {
+        let name: SequenceReference = seq_a().reference();
+        let intervals: OrderedIntervals = vec![create(&name, 10, 14).unwrap()];
+        assert!(holds_point(intervals.as_slice(), 11));
+        assert!(holds_point(intervals.as_slice(), 13));
+        assert!(!holds_point(intervals.as_slice(), 10));
+        assert!(!holds_point(intervals.as_slice(), 14));
     }
 }

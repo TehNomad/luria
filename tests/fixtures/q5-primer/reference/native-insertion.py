@@ -8,7 +8,8 @@ crates/core/tests/q5_primer_fixtures.rs.
 
 Requires Biopython 1.88. Run from this directory:
 
-    python3 native-insertion.py
+    python3 native-insertion.py            rewrite ../native-insertion.tsv
+    python3 native-insertion.py --check    compare, write nothing
 
 D032, for an insertion of k bases at point p, bound b, linear template of
 length n:
@@ -243,8 +244,7 @@ def main():
         rows.append("\t".join(row))
         shown = {k: v for k, v in out.items() if k not in ("forward", "reverse")}
         print(case_id, shown, sorted(trace))
-    with open(os.path.join(FIXTURES, "native-insertion.tsv"), "w") as handle:
-        handle.write("\n".join(rows) + "\n")
+    nd.emit(os.path.join(FIXTURES, "native-insertion.tsv"), "\n".join(rows) + "\n")
 
 
 if __name__ == "__main__":
