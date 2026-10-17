@@ -49,6 +49,7 @@
 use crate::error::DomainError;
 use crate::error::ExpectedNucleotideMismatchProblem;
 use crate::error::InvalidMutationRequestProblem;
+use crate::error::MutationRequestRule;
 use crate::identity::Identifier;
 use crate::interval::NucleotideInterval;
 use crate::mutation::NucleotideReplacementIntent;
@@ -169,6 +170,7 @@ pub fn expand_replacement(
     if degenerate.is_empty() {
         let problem = InvalidMutationRequestProblem {
             request: "q5-degenerate-replacement".to_string(),
+            rule: MutationRequestRule::NothingWritten,
             reason: "a degenerate replacement must write at least one base".to_string(),
         };
         return Err(DomainError::InvalidMutationRequest(problem));
@@ -254,6 +256,7 @@ pub fn expand_replacement(
     if variants.is_empty() {
         let problem = InvalidMutationRequestProblem {
             request: "q5-degenerate-replacement".to_string(),
+            rule: MutationRequestRule::NoChange,
             reason: format!(
                 "every sequence the expansion could write is the text that is already there; the request would edit nothing: {}",
                 expected_original,
@@ -529,7 +532,7 @@ mod tests {
         assert!(error.category() == ErrorCategory::MalformedInput);
         if let DomainError::InvalidMutationRequest(problem) = error {
             assert!(problem.request == "q5-degenerate-replacement");
-            assert!(problem.reason.contains("already there"));
+            assert_eq!(problem.rule, MutationRequestRule::NoChange);
         }
     }
 
@@ -549,6 +552,9 @@ mod tests {
         let error: DomainError = attempt.unwrap_err();
         assert!(matches!(error, DomainError::InvalidMutationRequest(_)));
         assert!(error.category() == ErrorCategory::MalformedInput);
+        if let DomainError::InvalidMutationRequest(problem) = error {
+            assert_eq!(problem.rule, MutationRequestRule::BaseNotDnaLetter);
+        }
     }
 
     // X10: an empty text has nothing to expand, and `X` is outside the
@@ -570,7 +576,7 @@ mod tests {
         assert!(error.category() == ErrorCategory::MalformedInput);
         if let DomainError::InvalidMutationRequest(problem) = error {
             assert!(problem.request == "q5-degenerate-replacement");
-            assert!(problem.reason.contains("at least one"));
+            assert_eq!(problem.rule, MutationRequestRule::NothingWritten);
         }
 
         let invalid: Result<Q5Expansion, DomainError> = expand_replacement(
@@ -744,6 +750,10 @@ mod tests {
         assert!(error.category() == ErrorCategory::MalformedInput);
         if let DomainError::InvalidMutationRequest(problem) = error {
             assert!(problem.request == "replacement");
+            assert_eq!(
+                problem.rule,
+                MutationRequestRule::ExpectedTextLengthMismatch
+            );
             assert!(problem
                 .reason
                 .contains("the expected text is 1 letters; the region selects 3 nucleotides"));

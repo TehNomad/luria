@@ -213,10 +213,66 @@ pub struct InternalStopCodonProblem {
     pub codon: String,
 }
 
+/// Which rule refused a mutation request. Stable: `code()` is part of the
+/// CLI's output contract (D041), and renaming one needs approval.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum MutationRequestRule {
+    CodonIsStop,
+    CodonIsAmbiguous,
+    CodonNotThreeDnaLetters,
+    SuppliedCodonSyntax,
+    ResidueNotOneLetter,
+    ResidueNotInStandardCode,
+    TargetOnOtherSequence,
+    SubstitutionNotOneNucleotide,
+    ExpectedTextLengthMismatch,
+    NothingWritten,
+    NoChange,
+    WholeSequence,
+    InsertionAtSequenceEnd,
+    SuppliedCodonWrongResidue,
+    NoDefaultCodon,
+    CodonOutsideSequence,
+    BaseNotOneLetter,
+    BaseNotDnaLetter,
+    EmptyVariantSet,
+    DuplicateVariantName,
+}
+
+impl MutationRequestRule {
+    /// The rule's stable code: its name in snake_case.
+    pub fn code(self) -> &'static str {
+        use MutationRequestRule::*;
+        match self {
+            CodonIsStop => "codon_is_stop",
+            CodonIsAmbiguous => "codon_is_ambiguous",
+            CodonNotThreeDnaLetters => "codon_not_three_dna_letters",
+            SuppliedCodonSyntax => "supplied_codon_syntax",
+            ResidueNotOneLetter => "residue_not_one_letter",
+            ResidueNotInStandardCode => "residue_not_in_standard_code",
+            TargetOnOtherSequence => "target_on_other_sequence",
+            SubstitutionNotOneNucleotide => "substitution_not_one_nucleotide",
+            ExpectedTextLengthMismatch => "expected_text_length_mismatch",
+            NothingWritten => "nothing_written",
+            NoChange => "no_change",
+            WholeSequence => "whole_sequence",
+            InsertionAtSequenceEnd => "insertion_at_sequence_end",
+            SuppliedCodonWrongResidue => "supplied_codon_wrong_residue",
+            NoDefaultCodon => "no_default_codon",
+            CodonOutsideSequence => "codon_outside_sequence",
+            BaseNotOneLetter => "base_not_one_letter",
+            BaseNotDnaLetter => "base_not_dna_letter",
+            EmptyVariantSet => "empty_variant_set",
+            DuplicateVariantName => "duplicate_variant_name",
+        }
+    }
+}
+
 /// Payload: a mutation request that cannot be represented.
 #[derive(Clone, Debug, PartialEq)]
 pub struct InvalidMutationRequestProblem {
     pub request: String,
+    pub rule: MutationRequestRule,
     pub reason: String,
 }
 
@@ -959,6 +1015,7 @@ mod tests {
         // A bad replacement letter is malformed input, not a world disagreement.
         let bad_request = DomainError::InvalidMutationRequest(InvalidMutationRequestProblem {
             request: "nucleotide".to_string(),
+            rule: MutationRequestRule::BaseNotDnaLetter,
             reason: "the replacement is not a DNA letter".to_string(),
         });
         assert!(bad_request.category() == ErrorCategory::MalformedInput);
@@ -1150,6 +1207,7 @@ mod tests {
             (
                 DomainError::InvalidMutationRequest(InvalidMutationRequestProblem {
                     request: s(),
+                    rule: MutationRequestRule::NoChange,
                     reason: s(),
                 }),
                 "invalid_mutation_request",
@@ -1329,6 +1387,43 @@ mod tests {
             assert!(code
                 .chars()
                 .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_'));
+        }
+    }
+
+    // The rule codes are the CLI's output contract (D041). This pins every
+    // one, and checks that no two rules share a code.
+    #[test]
+    fn every_mutation_request_rule_has_its_pinned_code() {
+        use MutationRequestRule::*;
+        let cases: [(MutationRequestRule, &str); 20] = [
+            (CodonIsStop, "codon_is_stop"),
+            (CodonIsAmbiguous, "codon_is_ambiguous"),
+            (CodonNotThreeDnaLetters, "codon_not_three_dna_letters"),
+            (SuppliedCodonSyntax, "supplied_codon_syntax"),
+            (ResidueNotOneLetter, "residue_not_one_letter"),
+            (ResidueNotInStandardCode, "residue_not_in_standard_code"),
+            (TargetOnOtherSequence, "target_on_other_sequence"),
+            (
+                SubstitutionNotOneNucleotide,
+                "substitution_not_one_nucleotide",
+            ),
+            (ExpectedTextLengthMismatch, "expected_text_length_mismatch"),
+            (NothingWritten, "nothing_written"),
+            (NoChange, "no_change"),
+            (WholeSequence, "whole_sequence"),
+            (InsertionAtSequenceEnd, "insertion_at_sequence_end"),
+            (SuppliedCodonWrongResidue, "supplied_codon_wrong_residue"),
+            (NoDefaultCodon, "no_default_codon"),
+            (CodonOutsideSequence, "codon_outside_sequence"),
+            (BaseNotOneLetter, "base_not_one_letter"),
+            (BaseNotDnaLetter, "base_not_dna_letter"),
+            (EmptyVariantSet, "empty_variant_set"),
+            (DuplicateVariantName, "duplicate_variant_name"),
+        ];
+        let mut seen = std::collections::BTreeSet::new();
+        for (rule, code) in cases {
+            assert_eq!(rule.code(), code, "{:?}", rule);
+            assert!(seen.insert(code), "duplicate code {}", code);
         }
     }
 }

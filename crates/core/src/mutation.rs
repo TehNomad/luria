@@ -40,6 +40,7 @@ use crate::error::DomainError;
 use crate::error::ExpectedNucleotideMismatchProblem;
 use crate::error::ExpectedResidueMismatchProblem;
 use crate::error::InvalidMutationRequestProblem;
+use crate::error::MutationRequestRule;
 use crate::error::MutationVerificationFailureProblem;
 use crate::error::ResiduePositionRangeProblem;
 use crate::error::TargetOutsideFeatureProblem;
@@ -96,6 +97,7 @@ impl Codon {
             CodonOutcome::Stop => {
                 let problem = InvalidMutationRequestProblem {
                     request: text,
+                    rule: MutationRequestRule::CodonIsStop,
                     reason: "the codon is a stop codon, and a stop is not a residue".to_string(),
                 };
                 Err(DomainError::InvalidMutationRequest(problem))
@@ -103,6 +105,7 @@ impl Codon {
             CodonOutcome::Ambiguous => {
                 let problem = InvalidMutationRequestProblem {
                     request: text,
+                    rule: MutationRequestRule::CodonIsAmbiguous,
                     reason: "the codon stands for more than one residue".to_string(),
                 };
                 Err(DomainError::InvalidMutationRequest(problem))
@@ -110,6 +113,7 @@ impl Codon {
             CodonOutcome::Invalid => {
                 let problem = InvalidMutationRequestProblem {
                     request: text,
+                    rule: MutationRequestRule::CodonNotThreeDnaLetters,
                     reason: "the codon is not three DNA letters".to_string(),
                 };
                 Err(DomainError::InvalidMutationRequest(problem))
@@ -176,6 +180,7 @@ pub fn parse_codon_policy(text: String) -> Result<CodonSelectionPolicy, DomainEr
         if parts.len() != 2 {
             let problem = InvalidMutationRequestProblem {
                 request: text.clone(),
+                rule: MutationRequestRule::SuppliedCodonSyntax,
                 reason: "a supplied codon is written supplied:XXX, with one codon".to_string(),
             };
             return Err(DomainError::InvalidMutationRequest(problem));
@@ -198,6 +203,7 @@ pub fn parse_residue(text: String) -> Result<Residue, DomainError> {
     if letters.len() != 1 {
         let problem = InvalidMutationRequestProblem {
             request: text,
+            rule: MutationRequestRule::ResidueNotOneLetter,
             reason: "a residue is exactly one letter".to_string(),
         };
         return Err(DomainError::InvalidMutationRequest(problem));
@@ -206,6 +212,7 @@ pub fn parse_residue(text: String) -> Result<Residue, DomainError> {
     if found.is_none() {
         let problem = InvalidMutationRequestProblem {
             request: text,
+            rule: MutationRequestRule::ResidueNotInStandardCode,
             reason: "the letter is not a residue of the standard genetic code".to_string(),
         };
         return Err(DomainError::InvalidMutationRequest(problem));
@@ -244,6 +251,7 @@ impl NucleotideMutationIntent {
         if position.reference() != source {
             let problem = InvalidMutationRequestProblem {
                 request: "nucleotide".to_string(),
+                rule: MutationRequestRule::TargetOnOtherSequence,
                 reason: "the target coordinate names a sequence other than the source".to_string(),
             };
             return Err(DomainError::InvalidMutationRequest(problem));
@@ -251,6 +259,7 @@ impl NucleotideMutationIntent {
         if position.length() != 1 {
             let problem = InvalidMutationRequestProblem {
                 request: "nucleotide".to_string(),
+                rule: MutationRequestRule::SubstitutionNotOneNucleotide,
                 reason: "a nucleotide substitution selects exactly one nucleotide".to_string(),
             };
             return Err(DomainError::InvalidMutationRequest(problem));
@@ -259,6 +268,7 @@ impl NucleotideMutationIntent {
         if expected == desired {
             let problem = InvalidMutationRequestProblem {
                 request: "nucleotide".to_string(),
+                rule: MutationRequestRule::NoChange,
                 reason: "the replacement is the nucleotide that is already there".to_string(),
             };
             return Err(DomainError::InvalidMutationRequest(problem));
@@ -359,6 +369,7 @@ impl NucleotideDeletionIntent {
         if region.reference() != source {
             let problem = InvalidMutationRequestProblem {
                 request: "deletion".to_string(),
+                rule: MutationRequestRule::TargetOnOtherSequence,
                 reason: "the target coordinate names a sequence other than the source".to_string(),
             };
             return Err(DomainError::InvalidMutationRequest(problem));
@@ -372,6 +383,7 @@ impl NucleotideDeletionIntent {
         if asserted.len() as u64 != region.length() {
             let problem = InvalidMutationRequestProblem {
                 request: "deletion".to_string(),
+                rule: MutationRequestRule::ExpectedTextLengthMismatch,
                 reason: "the expected text is ".to_string()
                     + &asserted.len().to_string()
                     + " letters; the region selects "
@@ -434,6 +446,7 @@ impl NucleotideInsertionIntent {
         if point.reference() != source {
             let problem = InvalidMutationRequestProblem {
                 request: "insertion".to_string(),
+                rule: MutationRequestRule::TargetOnOtherSequence,
                 reason: "the target coordinate names a sequence other than the source".to_string(),
             };
             return Err(DomainError::InvalidMutationRequest(problem));
@@ -445,6 +458,7 @@ impl NucleotideInsertionIntent {
         if inserted.is_empty() {
             let problem = InvalidMutationRequestProblem {
                 request: "insertion".to_string(),
+                rule: MutationRequestRule::NothingWritten,
                 reason: "an insertion must insert at least one nucleotide".to_string(),
             };
             return Err(DomainError::InvalidMutationRequest(problem));
@@ -519,6 +533,7 @@ impl NucleotideReplacementIntent {
         if region.reference() != source {
             let problem = InvalidMutationRequestProblem {
                 request: "replacement".to_string(),
+                rule: MutationRequestRule::TargetOnOtherSequence,
                 reason: "the target coordinate names a sequence other than the source".to_string(),
             };
             return Err(DomainError::InvalidMutationRequest(problem));
@@ -538,6 +553,7 @@ impl NucleotideReplacementIntent {
         if asserted.len() as u64 != region.length() {
             let problem = InvalidMutationRequestProblem {
                 request: "replacement".to_string(),
+                rule: MutationRequestRule::ExpectedTextLengthMismatch,
                 reason: "the expected text is ".to_string()
                     + &asserted.len().to_string()
                     + " letters; the region selects "
@@ -550,6 +566,7 @@ impl NucleotideReplacementIntent {
         if written.is_empty() {
             let problem = InvalidMutationRequestProblem {
                 request: "replacement".to_string(),
+                rule: MutationRequestRule::NothingWritten,
                 reason: "a replacement must write at least one nucleotide".to_string(),
             };
             return Err(DomainError::InvalidMutationRequest(problem));
@@ -558,6 +575,7 @@ impl NucleotideReplacementIntent {
         if replacement == expected_original {
             let problem = InvalidMutationRequestProblem {
                 request: "replacement".to_string(),
+                rule: MutationRequestRule::NoChange,
                 reason: "the replacement is the text that is already there".to_string(),
             };
             return Err(DomainError::InvalidMutationRequest(problem));
@@ -1133,6 +1151,7 @@ pub fn apply_residue(
     if selected.text() == original_codon {
         let problem = InvalidMutationRequestProblem {
             request: selected.text(),
+            rule: MutationRequestRule::NoChange,
             reason: "the codon the policy chose is the codon already at that residue".to_string(),
         };
         return Err(DomainError::InvalidMutationRequest(problem));
@@ -1198,6 +1217,7 @@ pub fn apply_deletion(
     if intent.region().length() == sequence.length() {
         let problem = InvalidMutationRequestProblem {
             request: "deletion".to_string(),
+            rule: MutationRequestRule::WholeSequence,
             reason: "a deletion may not remove the whole sequence".to_string(),
         };
         return Err(DomainError::InvalidMutationRequest(problem));
@@ -1278,6 +1298,7 @@ pub fn apply_insertion(
     if position == 0 || position == sequence.length() {
         let problem = InvalidMutationRequestProblem {
             request: "insertion".to_string(),
+            rule: MutationRequestRule::InsertionAtSequenceEnd,
             reason: "an insertion needs a base on each side of the point, so the point may not sit at either end of the sequence".to_string(),
         };
         return Err(DomainError::InvalidMutationRequest(problem));
@@ -1364,6 +1385,7 @@ pub fn apply_replacement(
     if intent.region().length() == sequence.length() {
         let problem = InvalidMutationRequestProblem {
             request: "replacement".to_string(),
+            rule: MutationRequestRule::WholeSequence,
             reason: "a replacement may not replace the whole sequence".to_string(),
         };
         return Err(DomainError::InvalidMutationRequest(problem));
@@ -1444,6 +1466,7 @@ pub fn select_codon(
             if codon.residue() != replacement {
                 let problem = InvalidMutationRequestProblem {
                     request: codon.text().clone(),
+                    rule: MutationRequestRule::SuppliedCodonWrongResidue,
                     reason: "the supplied codon does not encode the replacement residue"
                         .to_string(),
                 };
@@ -1487,6 +1510,7 @@ pub fn default_codon(residue: Residue) -> Result<Codon, DomainError> {
             // request.
             let problem = InvalidMutationRequestProblem {
                 request: residue.symbol(),
+                rule: MutationRequestRule::NoDefaultCodon,
                 reason: "the residue has no codon in the codon usage table".to_string(),
             };
             Err(DomainError::InvalidMutationRequest(problem))
@@ -2096,6 +2120,7 @@ fn codon_positions(
         if found.is_none() {
             let problem = InvalidMutationRequestProblem {
                 request: "codon coordinates".to_string(),
+                rule: MutationRequestRule::CodonOutsideSequence,
                 reason: "the residue does not select nucleotides that exist".to_string(),
             };
             return Err(DomainError::InvalidMutationRequest(problem));
@@ -2254,6 +2279,7 @@ fn single_dna_base(field: String, text: String) -> Result<char, DomainError> {
     if letters.len() != 1 {
         let problem = InvalidMutationRequestProblem {
             request: text,
+            rule: MutationRequestRule::BaseNotOneLetter,
             reason: field.to_string() + " must be exactly one letter",
         };
         return Err(DomainError::InvalidMutationRequest(problem));
@@ -2261,6 +2287,7 @@ fn single_dna_base(field: String, text: String) -> Result<char, DomainError> {
     if !is_dna_base(letters[0]) {
         let problem = InvalidMutationRequestProblem {
             request: text,
+            rule: MutationRequestRule::BaseNotDnaLetter,
             reason: field.to_string() + " must be one of A, C, G, T",
         };
         return Err(DomainError::InvalidMutationRequest(problem));
@@ -2422,10 +2449,15 @@ mod tests {
                 "G".to_string(),
                 code.to_string(),
             );
+            let as_replacement_error: DomainError = as_replacement.unwrap_err();
             assert!(matches!(
-                as_replacement.unwrap_err(),
+                as_replacement_error,
                 DomainError::InvalidMutationRequest(_)
             ));
+            assert_eq!(
+                mutation_request_rule(as_replacement_error),
+                MutationRequestRule::BaseNotDnaLetter
+            );
             let as_original = NucleotideMutationIntent::create(
                 seq_a().reference(),
                 at(3, 4),
@@ -2435,6 +2467,10 @@ mod tests {
             let error: DomainError = as_original.unwrap_err();
             assert!(matches!(error, DomainError::InvalidMutationRequest(_)));
             assert!(error.category() == ErrorCategory::MalformedInput);
+            assert_eq!(
+                mutation_request_rule(error),
+                MutationRequestRule::BaseNotDnaLetter
+            );
         }
     }
 
@@ -2519,12 +2555,20 @@ mod tests {
             letter_error,
             DomainError::InvalidMutationRequest(_)
         ));
+        assert_eq!(
+            mutation_request_rule(letter_error),
+            MutationRequestRule::BaseNotDnaLetter
+        );
 
         // A stop is not a residue, so it cannot be a supplied codon.
         let stop: Result<Codon, DomainError> = Codon::create("TAA".to_string());
         assert!(stop.is_err());
         let stop_error: DomainError = stop.unwrap_err();
         assert!(matches!(stop_error, DomainError::InvalidMutationRequest(_)));
+        assert_eq!(
+            mutation_request_rule(stop_error),
+            MutationRequestRule::CodonIsStop
+        );
 
         // The request is well-formed but contradicts itself.
         let supplied: Codon = Codon::create("TGG".to_string()).unwrap();
@@ -2534,10 +2578,70 @@ mod tests {
             Residue::Q,
         );
         assert!(contradictory.is_err());
+        let contradictory_error: DomainError = contradictory.unwrap_err();
         assert!(matches!(
-            contradictory.unwrap_err(),
+            contradictory_error,
             DomainError::InvalidMutationRequest(_)
         ));
+        assert_eq!(
+            mutation_request_rule(contradictory_error),
+            MutationRequestRule::SuppliedCodonWrongResidue
+        );
+    }
+
+    fn mutation_request_rule(error: DomainError) -> MutationRequestRule {
+        match error {
+            DomainError::InvalidMutationRequest(problem) => problem.rule,
+            other => panic!("expected InvalidMutationRequest, got {:?}", other),
+        }
+    }
+
+    // 5a2: rules that no other test reaches. Each asserts the rule, not the
+    // message text. `NNN` is all ambiguity codes; `AC` is two letters.
+    #[test]
+    fn each_codon_and_letter_refusal_names_its_rule() {
+        assert_eq!(
+            mutation_request_rule(Codon::create("NNN".to_string()).unwrap_err()),
+            MutationRequestRule::CodonIsAmbiguous
+        );
+        assert_eq!(
+            mutation_request_rule(Codon::create("AC".to_string()).unwrap_err()),
+            MutationRequestRule::CodonNotThreeDnaLetters
+        );
+        assert_eq!(
+            mutation_request_rule(parse_codon_policy("supplied:GCT:GCC".to_string()).unwrap_err()),
+            MutationRequestRule::SuppliedCodonSyntax
+        );
+        assert_eq!(
+            mutation_request_rule(parse_residue("AG".to_string()).unwrap_err()),
+            MutationRequestRule::ResidueNotOneLetter
+        );
+    }
+
+    // `seq_a` holds `G` at [3, 4). A two-base target and a two-letter base
+    // are each refused by their own rule.
+    #[test]
+    fn each_substitution_shape_refusal_names_its_rule() {
+        let two_bases = NucleotideMutationIntent::create(
+            seq_a().reference(),
+            at(3, 5),
+            "G".to_string(),
+            "C".to_string(),
+        );
+        assert_eq!(
+            mutation_request_rule(two_bases.unwrap_err()),
+            MutationRequestRule::SubstitutionNotOneNucleotide
+        );
+        let two_letters = NucleotideMutationIntent::create(
+            seq_a().reference(),
+            at(3, 4),
+            "GG".to_string(),
+            "C".to_string(),
+        );
+        assert_eq!(
+            mutation_request_rule(two_letters.unwrap_err()),
+            MutationRequestRule::BaseNotOneLetter
+        );
     }
 
     #[test]
@@ -2791,10 +2895,12 @@ mod tests {
                 create(&other.reference(), 3, 6).unwrap(),
                 "GCT".to_string(),
             );
-        assert!(matches!(
-            refusal.unwrap_err(),
-            DomainError::InvalidMutationRequest(_)
-        ));
+        let error: DomainError = refusal.unwrap_err();
+        assert!(matches!(error, DomainError::InvalidMutationRequest(_)));
+        assert_eq!(
+            mutation_request_rule(error),
+            MutationRequestRule::TargetOnOtherSequence
+        );
     }
 
     #[test]
@@ -2806,6 +2912,10 @@ mod tests {
         assert!(matches!(mismatch, DomainError::InvalidMutationRequest(_)));
         match mismatch {
             DomainError::InvalidMutationRequest(problem) => {
+                assert_eq!(
+                    problem.rule,
+                    MutationRequestRule::ExpectedTextLengthMismatch
+                );
                 assert!(problem.reason.contains("2"), "{}", problem.reason);
                 assert!(problem.reason.contains("3"), "{}", problem.reason);
             }
@@ -2823,7 +2933,7 @@ mod tests {
         assert!(matches!(ambiguity, DomainError::InvalidMutationRequest(_)));
         match ambiguity {
             DomainError::InvalidMutationRequest(problem) => {
-                assert!(problem.reason.contains("A, C, G, T"), "{}", problem.reason);
+                assert_eq!(problem.rule, MutationRequestRule::BaseNotDnaLetter);
             }
             other => panic!("expected InvalidMutationRequest, got {:?}", other),
         }
@@ -2918,6 +3028,10 @@ mod tests {
         )
         .unwrap_err();
         assert!(matches!(error, DomainError::InvalidMutationRequest(_)));
+        assert_eq!(
+            mutation_request_rule(error),
+            MutationRequestRule::WholeSequence
+        );
     }
 
     #[test]
@@ -3095,10 +3209,12 @@ mod tests {
                 "A".to_string(),
                 "GGG".to_string(),
             );
-        assert!(matches!(
-            refusal.unwrap_err(),
-            DomainError::InvalidMutationRequest(_)
-        ));
+        let error: DomainError = refusal.unwrap_err();
+        assert!(matches!(error, DomainError::InvalidMutationRequest(_)));
+        assert_eq!(
+            mutation_request_rule(error),
+            MutationRequestRule::TargetOnOtherSequence
+        );
     }
 
     #[test]
@@ -3114,11 +3230,7 @@ mod tests {
         assert!(matches!(error, DomainError::InvalidMutationRequest(_)));
         match error {
             DomainError::InvalidMutationRequest(problem) => {
-                assert!(
-                    problem.reason.contains("at least one"),
-                    "{}",
-                    problem.reason
-                );
+                assert_eq!(problem.rule, MutationRequestRule::NothingWritten);
             }
             other => panic!("expected InvalidMutationRequest, got {:?}", other),
         }
@@ -3137,7 +3249,7 @@ mod tests {
         assert!(matches!(error, DomainError::InvalidMutationRequest(_)));
         match error {
             DomainError::InvalidMutationRequest(problem) => {
-                assert!(problem.reason.contains("A, C, G, T"), "{}", problem.reason);
+                assert_eq!(problem.rule, MutationRequestRule::BaseNotDnaLetter);
             }
             other => panic!("expected InvalidMutationRequest, got {:?}", other),
         }
@@ -3154,6 +3266,10 @@ mod tests {
         )
         .unwrap_err();
         assert!(matches!(error, DomainError::InvalidMutationRequest(_)));
+        assert_eq!(
+            mutation_request_rule(error),
+            MutationRequestRule::BaseNotDnaLetter
+        );
     }
 
     #[test]
@@ -3209,11 +3325,7 @@ mod tests {
             assert!(matches!(error, DomainError::InvalidMutationRequest(_)));
             match error {
                 DomainError::InvalidMutationRequest(problem) => {
-                    assert!(
-                        problem.reason.contains("a base on each side"),
-                        "{}",
-                        problem.reason,
-                    );
+                    assert_eq!(problem.rule, MutationRequestRule::InsertionAtSequenceEnd);
                 }
                 other => panic!("expected InvalidMutationRequest, got {:?}", other),
             }
@@ -3484,10 +3596,12 @@ mod tests {
                 "AAT".to_string(),
                 "GG".to_string(),
             );
-        assert!(matches!(
-            refusal.unwrap_err(),
-            DomainError::InvalidMutationRequest(_)
-        ));
+        let error: DomainError = refusal.unwrap_err();
+        assert!(matches!(error, DomainError::InvalidMutationRequest(_)));
+        assert_eq!(
+            mutation_request_rule(error),
+            MutationRequestRule::TargetOnOtherSequence
+        );
     }
 
     #[test]
@@ -3503,6 +3617,10 @@ mod tests {
         assert!(matches!(mismatch, DomainError::InvalidMutationRequest(_)));
         match mismatch {
             DomainError::InvalidMutationRequest(problem) => {
+                assert_eq!(
+                    problem.rule,
+                    MutationRequestRule::ExpectedTextLengthMismatch
+                );
                 assert!(problem.reason.contains("2"), "{}", problem.reason);
                 assert!(problem.reason.contains("3"), "{}", problem.reason);
             }
@@ -3524,7 +3642,7 @@ mod tests {
         assert!(matches!(error, DomainError::InvalidMutationRequest(_)));
         match error {
             DomainError::InvalidMutationRequest(problem) => {
-                assert!(problem.reason.contains("A, C, G, T"), "{}", problem.reason);
+                assert_eq!(problem.rule, MutationRequestRule::BaseNotDnaLetter);
             }
             other => panic!("expected InvalidMutationRequest, got {:?}", other),
         }
@@ -3542,11 +3660,7 @@ mod tests {
         assert!(matches!(error, DomainError::InvalidMutationRequest(_)));
         match error {
             DomainError::InvalidMutationRequest(problem) => {
-                assert!(
-                    problem.reason.contains("at least one"),
-                    "{}",
-                    problem.reason
-                );
+                assert_eq!(problem.rule, MutationRequestRule::NothingWritten);
             }
             other => panic!("expected InvalidMutationRequest, got {:?}", other),
         }
@@ -3564,11 +3678,7 @@ mod tests {
         assert!(matches!(error, DomainError::InvalidMutationRequest(_)));
         match error {
             DomainError::InvalidMutationRequest(problem) => {
-                assert!(
-                    problem.reason.contains("already there"),
-                    "{}",
-                    problem.reason
-                );
+                assert_eq!(problem.rule, MutationRequestRule::NoChange);
             }
             other => panic!("expected InvalidMutationRequest, got {:?}", other),
         }
@@ -3644,11 +3754,7 @@ mod tests {
         assert!(matches!(error, DomainError::InvalidMutationRequest(_)));
         match error {
             DomainError::InvalidMutationRequest(problem) => {
-                assert!(
-                    problem.reason.contains("the whole sequence"),
-                    "{}",
-                    problem.reason
-                );
+                assert_eq!(problem.rule, MutationRequestRule::WholeSequence);
             }
             other => panic!("expected InvalidMutationRequest, got {:?}", other),
         }
@@ -3814,6 +3920,10 @@ mod tests {
         // would underflow.
         let error: DomainError = codon_positions(whole(30), Strand::Plus, 0, 30).unwrap_err();
         assert!(matches!(error, DomainError::InvalidMutationRequest(_)));
+        assert_eq!(
+            mutation_request_rule(error),
+            MutationRequestRule::CodonOutsideSequence
+        );
     }
 
     #[test]
@@ -3823,12 +3933,20 @@ mod tests {
         // holds 10 residues, and residue 20 lies past its end.
         let error: DomainError = codon_positions(whole(30), Strand::Minus, 20, 30).unwrap_err();
         assert!(matches!(error, DomainError::InvalidMutationRequest(_)));
+        assert_eq!(
+            mutation_request_rule(error),
+            MutationRequestRule::CodonOutsideSequence
+        );
 
         // Residue u64::MAX / 2 starts at offset 3 * (number - 1), which does not
         // fit in a u64.
         let overflow: DomainError =
             codon_positions(whole(30), Strand::Plus, u64::MAX / 2, 30).unwrap_err();
         assert!(matches!(overflow, DomainError::InvalidMutationRequest(_)));
+        assert_eq!(
+            mutation_request_rule(overflow),
+            MutationRequestRule::CodonOutsideSequence
+        );
     }
 
     #[test]
@@ -4018,6 +4136,10 @@ mod tests {
             apply_insertion(&seq_c().clone(), None, result_name(), at_origin).unwrap_err();
         assert!(matches!(error, DomainError::InvalidMutationRequest(_)));
         assert!(error.category() == ErrorCategory::MalformedInput);
+        assert_eq!(
+            mutation_request_rule(error),
+            MutationRequestRule::InsertionAtSequenceEnd
+        );
 
         let past_last: NucleotideInsertionIntent = NucleotideInsertionIntent::create(
             seq_c().reference(),
@@ -4031,6 +4153,10 @@ mod tests {
             apply_insertion(&seq_c().clone(), None, result_name(), past_last).unwrap_err();
         assert!(matches!(error, DomainError::InvalidMutationRequest(_)));
         assert!(error.category() == ErrorCategory::MalformedInput);
+        assert_eq!(
+            mutation_request_rule(error),
+            MutationRequestRule::InsertionAtSequenceEnd
+        );
     }
 
     #[test]

@@ -58,6 +58,7 @@ use crate::error::CdsMismatchProblem;
 use crate::error::DomainError;
 use crate::error::InvalidMutationRequestProblem;
 use crate::error::MissingCdsAttributeProblem;
+use crate::error::MutationRequestRule;
 use crate::error::UnsupportedCompositionProblem;
 use crate::genetic_code::Residue;
 use crate::identity::Identifier;
@@ -1411,6 +1412,7 @@ impl Q5VariantSetRequest {
         if variants.is_empty() {
             let problem = InvalidMutationRequestProblem {
                 request: "q5-variant-set".to_string(),
+                rule: MutationRequestRule::EmptyVariantSet,
                 reason: "a variant set must carry at least one variant".to_string(),
             };
             return Err(DomainError::InvalidMutationRequest(problem));
@@ -1446,6 +1448,7 @@ impl Q5VariantSetRequest {
             if seen.contains(&name) {
                 let problem = InvalidMutationRequestProblem {
                     request: "q5-variant-set".to_string(),
+                    rule: MutationRequestRule::DuplicateVariantName,
                     reason: format!(
                         "two variants are both named '{}'; result names in a set must be distinct",
                         name.value()
@@ -2446,6 +2449,9 @@ mod tests {
         let stop_error: DomainError = stop.unwrap_err();
         assert!(matches!(stop_error, DomainError::InvalidMutationRequest(_)));
         assert!(stop_error.category() == ErrorCategory::MalformedInput);
+        if let DomainError::InvalidMutationRequest(problem) = stop_error {
+            assert_eq!(problem.rule, MutationRequestRule::ResidueNotInStandardCode);
+        }
 
         let lower: Result<ResidueIntentWithoutCds, DomainError> = ResidueIntentWithoutCds::create(
             2,
@@ -2454,10 +2460,14 @@ mod tests {
             CodonSelectionPolicy::Default,
         );
         assert!(lower.is_err());
+        let lower_error: DomainError = lower.unwrap_err();
         assert!(matches!(
-            lower.unwrap_err(),
+            lower_error,
             DomainError::InvalidMutationRequest(_)
         ));
+        if let DomainError::InvalidMutationRequest(problem) = lower_error {
+            assert_eq!(problem.rule, MutationRequestRule::ResidueNotInStandardCode);
+        }
     }
 
     #[test]
@@ -3251,6 +3261,7 @@ mod tests {
         assert!(error.category() == ErrorCategory::MalformedInput);
         if let DomainError::InvalidMutationRequest(problem) = error {
             assert!(problem.request == "q5-variant-set");
+            assert_eq!(problem.rule, MutationRequestRule::EmptyVariantSet);
         }
     }
 
@@ -3902,6 +3913,7 @@ mod tests {
         match error {
             DomainError::InvalidMutationRequest(problem) => {
                 assert!(problem.request == "q5-variant-set");
+                assert_eq!(problem.rule, MutationRequestRule::DuplicateVariantName);
                 assert!(problem.reason.contains("res-a42g"), "{}", problem.reason);
             }
             other => panic!("expected InvalidMutationRequest, got {:?}", other),
@@ -3997,6 +4009,7 @@ mod tests {
         assert!(error.category() == ErrorCategory::MalformedInput);
         if let DomainError::InvalidMutationRequest(problem) = error {
             assert!(problem.request == "nucleotide");
+            assert_eq!(problem.rule, MutationRequestRule::NoChange);
         }
     }
 
