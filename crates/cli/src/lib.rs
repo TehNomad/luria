@@ -5,6 +5,7 @@
 pub mod args;
 pub mod exit;
 pub mod json;
+pub mod prepare;
 pub mod request;
 pub mod version;
 
