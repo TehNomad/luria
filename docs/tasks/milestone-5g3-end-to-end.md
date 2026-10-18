@@ -1,7 +1,12 @@
 # Milestone 5g3: end-to-end tests
 
-Status: **Contract, 2026-10-17.** Not implemented. Needs 5g2 committed
-first.
+Status: **Implemented 2026-10-17** by the local worker, in two runs.
+The first run stopped on two planner errors. The G9 test expected a design
+on pBR322, which is circular and outside D029's linear scope. And one row
+tuple tripped `clippy::type_complexity`. Both were amended (G9 now compares
+the whole result) and all nine tests pass. Known limit: two simultaneous
+`cargo test` invocations of this file collide on its fixed scratch
+directories, as the other CLI test files do; one invocation is fine.
 Planner: Claude. Parent: `docs/tasks/milestone-5-cli.md` §6 and §5 (5g3).
 Follows 5g1 (the wiring) and 5g2 (`--write-edited`).
 
