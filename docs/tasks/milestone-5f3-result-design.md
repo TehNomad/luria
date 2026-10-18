@@ -2,8 +2,7 @@
 
 Status: **Implemented 2026-10-17** by the local worker; accepted on review.
 Review note: `primer_view` and `pair_view` are also `pub`, beyond the four
-named functions; harmless, left as is. Was: **Contract, 2026-10-17.** Not implemented. Needs 5f2 committed
-first.
+named functions; harmless, left as is.
 Planner: Claude. Parent: `docs/tasks/milestone-5-cli.md` §3.5 and §5 (5f).
 Follows 5f2 (members, targets, clarifications).
 
