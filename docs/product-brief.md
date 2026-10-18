@@ -321,6 +321,9 @@ Milestone 5: Machine-readable and CLI workflow
 Provide a minimal CLI and structured output so complete scientific workflows
 can be exercised without a TUI, web frontend, or LLM.
 
+Implemented: the luria executable, FASTA and GenBank import, the
+luria.q5-request/1 and luria.q5-result/1 schemas, and docs/cli.md.
+
 Milestone 6: Natural-language interpretation
 
 Add an LLM adapter that converts user requests into typed operations and
