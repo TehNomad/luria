@@ -809,7 +809,8 @@ allow primers below the reference tool's documented floor.
 
 Status: approved by the owner, 2026-10-14. Amends D029: D029's scope, its
 failure outcomes and its abutting pair stand; its fixed, centred lengths do
-not.
+not. Amended by the owner, 2026-10-18: the annealing temperature is the lower
+Tm rounded to a whole degree, plus 1 °C (was the lower Tm plus 3 °C).
 
 Decision:
 
@@ -840,8 +841,10 @@ replacement region `[s, e)` on a linear template of length `n`, with bound
   the matched Tm where they do not; the reverse primer, which carries no
   mismatch, uses the matched Tm. Each Tm records its basis.
 * **Buffer.** Named by the caller in the request, never defaulted.
-* **Annealing temperature.** Reported as the lower of the two Tms plus 3 °C,
-  capped at 72 °C, using the same Tms the sizing used.
+* **Annealing temperature.** Reported as the lower of the two Tms, rounded
+  half up to a whole degree, plus 1 °C, capped at 72 °C, using the same Tms
+  the sizing used. It is a whole number of degrees because a thermocycler
+  is set to that precision (owner, 2026-10-18).
 * **Ambiguity codes.** An ambiguity code in the template ends availability on
   that side: a primer cannot grow across it.
 
@@ -851,13 +854,23 @@ Sources:
   also the reference tool's documented minimum.
 * 5 °C balance: NEB, *Guidelines for PCR Optimization with Thermophilic DNA
   Polymerases*: "Primer pairs should have Tms within 5 °C of each other."
-* Annealing temperature: NEB, Q5 *PCR Optimization* (E0555): "a 10–30 second
-  annealing step at 3 °C above the Tm of the lower Tm primer"; Q5
-  Site-Directed Mutagenesis Kit FAQ: "For predesigned back-to-back primer sets,
-  a Tm+3 rule can be applied but optimization may be necessary." NEB computes
-  that Tm with its own calculator; luria applies the rule to its own Tm and
-  claims nothing about NEB's number. The 72 °C cap is the top of the Q5 SDM
-  protocol's 50–72 °C annealing range.
+* Annealing temperature: the NEB Tm calculator's changelog, v1.9.1, 27 July
+  2016, as quoted by the owner on 2026-10-18: "The calculations in the NEB Tm
+  calculator were modified to correct an error that was decreasing the
+  effective primer concentration to one quarter of its input value. This
+  correction raises Tm values by roughly 2°C for all polymerase reaction
+  buffers. The suggested value for annealing temperature using Q5 is now
+  Tm + 1 (was Tm + 3) to account for the revised Tm values." luria's Tm uses
+  the primer concentration undivided (`tm.rs`), which is the corrected form,
+  so the +1 offset is the one that matches it. NEBaseChanger computes the
+  same rule, `min(min(tmf, tmr) + 1, 72)`, and rounds it for display
+  (`docs/research/nebasechanger-client-investigation.md`). Two NEB pages
+  still give +3 — Q5 *PCR Optimization* (E0555), "3 °C above the Tm of the
+  lower Tm primer", and the Q5 Site-Directed Mutagenesis Kit FAQ, "a Tm+3
+  rule" — which D030 cited until 2026-10-18; the changelog indicates they
+  describe the pre-2016 Tm. The planner could not open the calculator's page
+  itself (HTTP 403), so the quotation rests on the owner's reading. The
+  72 °C cap is the top of the Q5 SDM protocol's 50–72 °C annealing range.
 * G/C 3′ end and the 63 °C ceiling on G/C extension: owner, 2026-10-14, as
   general PCR practice.
 * Tm model: `crates/core/src/tm.rs` and `tests/fixtures/tm/README.md`.
@@ -879,13 +892,14 @@ NEB's own design tool, whose forward primer keeps a fixed 10-base 5′ flank
 (`docs/research/nebasechanger-live-build-4330b0c7-2026-10-10.md` §6.1), and was
 chosen by the owner over centred growth on 2026-10-14.
 
-Not adopted from the reference tool: its 1 °C annealing offset (the Q5
-documentation says 3 °C), and its mismatch-aware Tm, which differs from the
-published model by several degrees (`tests/fixtures/tm/README.md`).
+Not adopted from the reference tool: its mismatch-aware Tm, which differs
+from the published model by several degrees (`tests/fixtures/tm/README.md`).
+Its 1 °C annealing offset, first not adopted, was adopted on 2026-10-18 with
+the NEB calculator changelog as the source.
 
 Reversibility:
 
-Each threshold — 55, 63, 5, the 10-base 5′ flank and the +3 annealing offset — is
+Each threshold — 55, 63, 5, the 10-base 5′ flank, and the +1 annealing offset with its whole-degree rounding — is
 a policy value and changing one needs approval. Centred growth was considered
 and rejected; adopting it later would change every design with a 3′ flank
 above 10.
@@ -908,8 +922,9 @@ For a deletion of `[s, e)`, width `w = e − s`, on a linear template of length
   case `w = 0` (owner, 2026-10-14, `docs/tasks/milestone-4-indels.md` 4.3).
 * **Starting lengths.** Both primers start at `max(b, 15)`.
 * **Everything else is D030.** The 55 °C floor, the G/C 3′ end below 63 °C,
-  forward first, the 5 °C balance, annealing temperature as the lower Tm plus
-  3 °C capped at 72 °C, ambiguity codes ending availability, the buffer named
+  forward first, the 5 °C balance, annealing temperature as the lower Tm
+  rounded to a whole degree plus 1 °C, capped at 72 °C, ambiguity codes
+  ending availability, the buffer named
   by the caller, and D030's two failure kinds. Both Tms are on the matched
   basis.
 * **Scope.** Linear templates only. No cap on `w`: both primers only have to
@@ -1024,7 +1039,7 @@ is reached through this path.
     target region, so the replaced bases are carried by the tails and
     annealed over by neither primer. Both start at `max(b, 15)`.
 * **Sizing** is D030's throughout: the 55 °C floor, the G/C end below 63 °C,
-  forward first, the 5 °C balance, and `Ta = min(72, lower Tm + 3)`. On the
+  forward first, the 5 °C balance, and `Ta = min(72, round(lower Tm) + 1)`. On the
   tail path sizing uses the annealing portions only, with the whole-primer Tm
   reported, as D032 does.
 * **Pair invariant**, generalising D031's: reverse end + `w` = forward start.

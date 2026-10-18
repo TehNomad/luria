@@ -122,7 +122,7 @@ fn the_sid1_d404n_run_is_verified_and_designed() {
     assert_eq!(two(view.forward.tm.celsius), "67.72");
     assert_eq!(view.forward.tm.basis, "mismatched_wild_type_site");
     assert_eq!(two(view.reverse.tm.celsius), "62.90");
-    assert_eq!(two(view.annealing_temperature), "65.90");
+    assert_eq!(two(view.annealing_temperature), "64.00");
     assert!(view.tm_balance_met);
 }
 
@@ -214,7 +214,7 @@ fn a_variant_set_gives_one_member_per_variant_in_request_order() {
         two(insertion.forward.whole_primer_tm.clone().unwrap().celsius),
         "67.15"
     );
-    assert_eq!(two(insertion.annealing_temperature), "65.38");
+    assert_eq!(two(insertion.annealing_temperature), "63.00");
 
     // native-01, as the single-edit test checks it, so a member of a set and
     // a single edit give the same design for the same edit.

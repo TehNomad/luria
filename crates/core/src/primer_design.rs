@@ -44,8 +44,8 @@
 //! parameters cover the mismatch pattern, and matched where two mismatches are
 //! adjacent (`tm::melting_temperature_or_matched`); the reverse primer carries
 //! no mismatch and uses the matched Tm. The annealing temperature is the lower
-//! Tm plus `TA_OFFSET`, capped at `TA_CAP`. D030 records the source of every
-//! threshold.
+//! Tm rounded to a whole degree, plus `TA_OFFSET`, capped at `TA_CAP`. D030
+//! records the source of every threshold.
 //!
 //! D033 designs a `MutationResult::Replacement` of `[s, e)` by `m` bases on one
 //! of these two geometries, by `t = max(w, m)` with `w = e − s`: at or below
@@ -123,7 +123,10 @@ pub const NATIVE_DESIGN_ALGORITHM_NAME: &str = "luria-core-primer-design-native"
 /// `NoPrimerDesignPossible` rather than an overflow, and D038 accepts a
 /// `ConfineToTail` request for an insertion and for a replacement already on
 /// the tail path, where it designs exactly the pair the `Inline` request does.
-pub const NATIVE_DESIGN_ALGORITHM_VERSION: &str = "0.6.0";
+/// 0.7.0 reports the annealing temperature as the lower Tm rounded to a whole
+/// degree, plus 1 °C, capped at 72 °C (D030 as amended 2026-10-18); every
+/// primer and Tm is unchanged.
+pub const NATIVE_DESIGN_ALGORITHM_VERSION: &str = "0.7.0";
 
 /// D030: the forward primer's 5′ flank, fixed, and the shortest 3′ flank.
 pub const MIN_FLANK: u64 = 10;
@@ -160,8 +163,9 @@ pub const GC_CEILING: f64 = 63.0;
 /// D030: the largest preferred difference between the two primers' Tms, °C.
 pub const TM_BALANCE: f64 = 5.0;
 
-/// D030: annealing temperature is the lower Tm plus this, °C (Q5 "Tm+3").
-pub const TA_OFFSET: f64 = 3.0;
+/// D030: annealing temperature is the lower Tm, rounded to a whole degree,
+/// plus this, °C (NEB Tm calculator v1.9.1: Q5 "Tm + 1"; amended 2026-10-18).
+pub const TA_OFFSET: f64 = 1.0;
 
 /// D030: the highest annealing temperature reported, °C (top of the Q5 SDM
 /// protocol's range).
@@ -1237,11 +1241,14 @@ fn run_before(wild_type: &[char], to: u64) -> u64 {
     run
 }
 
-/// D030: the pair's Tm balance within `TM_BALANCE` and its annealing temperature.
+/// D030: the pair's Tm balance within `TM_BALANCE` and its annealing temperature,
+/// the lower Tm rounded half up to a whole degree (`f64::round`, half away from
+/// zero, which for a positive Tm is half up), plus `TA_OFFSET`, capped at
+/// `TA_CAP`.
 fn pair_summary(forward_tm: &MeltingTemperature, reverse_tm: &MeltingTemperature) -> (bool, f64) {
     let tm_balance_met: bool = (forward_tm.celsius() - reverse_tm.celsius()).abs() <= TM_BALANCE;
     let annealing_temperature: f64 =
-        (forward_tm.celsius().min(reverse_tm.celsius()) + TA_OFFSET).min(TA_CAP);
+        (forward_tm.celsius().min(reverse_tm.celsius()).round() + TA_OFFSET).min(TA_CAP);
     (tm_balance_met, annealing_temperature)
 }
 
@@ -1549,7 +1556,7 @@ mod tests {
         assert!(design.three_prime_flank() == 10);
         // The reverse primer met the floor at 15 and grew one base to a G end.
         assert!(design.reverse_length() == 16);
-        assert_tms(&design, 56.96, 58.73, 59.96);
+        assert_tms(&design, 56.96, 58.73, 58.00);
         assert!(design.forward_tm().basis() == TmBasis::MismatchedWildTypeSite);
         assert!(design.reverse_tm().basis() == TmBasis::MatchedComplement);
         assert!(design.tm_balance_met());
@@ -1572,7 +1579,7 @@ mod tests {
                     "TAAACTGCTGCTGATTCCAAG".to_string()
                 )
         );
-        assert_tms(&design, 63.96, 62.53, 65.53);
+        assert_tms(&design, 63.96, 62.53, 64.00);
         assert!(design.pair().forward().annealing_overlap() >= 21);
         assert!(design.pair().reverse().annealing_overlap() >= 21);
     }
@@ -1601,7 +1608,7 @@ mod tests {
         assert!(design.three_prime_flank() == 11);
         assert!(design.pair().forward().changed_positions() == vec![10, 11, 12]);
         assert!(design.forward_tm().basis() == TmBasis::MismatchedWildTypeSite);
-        assert_tms(&design, 60.26, 58.73, 61.73);
+        assert_tms(&design, 60.26, 58.73, 60.00);
     }
 
     // On the minus strand [30, 33) reads rc(GGG) = CCC (P); TGG (W) is written
@@ -1622,7 +1629,7 @@ mod tests {
         assert!(design.forward_tm().basis() == TmBasis::MatchedComplement);
         let reason: String = design.forward_tm().substituted_because().unwrap();
         assert!(reason.contains("tandem mismatch"), "{}", reason);
-        assert_tms(&design, 64.51, 62.79, 65.79);
+        assert_tms(&design, 64.51, 62.79, 64.00);
     }
 
     // §6: "a residue edit whose semantics are on a reverse CDS is the same DNA
@@ -1713,7 +1720,7 @@ mod tests {
                     "ATCGATCCCGGGTTTAAAC".to_string()
                 )
         );
-        assert_tms(&fits, 63.33, 61.85, 64.85);
+        assert_tms(&fits, 63.33, 61.85, 63.00);
 
         let error: DomainError =
             design_primers(&template(), nucleotide(&template(), 50, "A"), request(15)).unwrap_err();
@@ -1866,7 +1873,7 @@ mod tests {
         assert!(spans(&design) == ((45, 68), (0, 45)));
         assert!(design.reverse_length() == 45);
         assert!(design.forward_tm().basis() == TmBasis::MatchedComplement);
-        assert_tms(&design, 71.55, 55.68, 58.68);
+        assert_tms(&design, 71.55, 55.68, 57.00);
         assert!(!design.tm_balance_met());
     }
 
@@ -1882,7 +1889,7 @@ mod tests {
         assert!(design.three_prime_flank() == 34);
         assert!(design.reverse_length() == 16);
         assert!(design.forward_tm().basis() == TmBasis::MismatchedWildTypeSite);
-        assert_tms(&design, 57.91, 62.65, 60.91);
+        assert_tms(&design, 57.91, 62.65, 59.00);
         assert!(design.tm_balance_met());
     }
 
@@ -1896,20 +1903,20 @@ mod tests {
         assert!(spans(&design) == ((32, 55), (17, 32)));
         assert!(design.three_prime_flank() == 12);
         assert!(texts(&design).0.ends_with('G'));
-        assert_tms(&design, 67.60, 70.90, 70.60);
+        assert_tms(&design, 67.60, 70.90, 69.00);
     }
 
     // CGC (R) -> AAA (K) at [37, 40): adjacent changes, a hot forward primer,
     // the reverse primer grown by balancing to a G/C end, and an annealing
-    // temperature at the 72 °C cap.
+    // temperature of the rounded lower Tm plus 1.
     #[test]
-    fn the_annealing_temperature_is_capped() {
+    fn the_annealing_temperature_is_the_rounded_lower_tm_plus_one() {
         let sequence: Sequence = linear(&balanced());
         let edit: MutationResult = codon_edit(&sequence, 37, Strand::Plus, "R", "K", "AAA");
         let design: PrimerDesign = design_primers(&sequence, edit, request(15)).unwrap();
         assert!(spans(&design) == ((27, 50), (8, 27)));
         assert!(design.forward_tm().basis() == TmBasis::MatchedComplement);
-        assert_tms(&design, 73.21, 69.59, 72.00);
+        assert_tms(&design, 73.21, 69.59, 71.00);
     }
 
     // A -> G at 25 with only AT-rich sequence upstream: the reverse primer
@@ -2127,7 +2134,7 @@ mod tests {
         );
         assert!(design.pair().forward().tail().unwrap().sequence() == "T");
         assert!(design.pair().reverse().tail().is_none());
-        assert_tms(&design, 70.90, 68.76, 71.76);
+        assert_tms(&design, 70.90, 68.76, 70.00);
         assert!(
             close(whole_celsius(design.forward_whole_tm()), 72.45),
             "forward whole Tm {:.3}",
@@ -2193,7 +2200,7 @@ mod tests {
         assert!(spans(&design) == ((50, 65), (35, 50)));
         assert!(design.pair().forward().tail().unwrap().sequence() == "GAT");
         assert!(design.pair().reverse().tail().is_none());
-        assert_tms(&design, 63.89, 62.17, 65.17);
+        assert_tms(&design, 63.89, 62.17, 63.00);
         assert!(
             close(whole_celsius(design.forward_whole_tm()), 64.53),
             "forward whole Tm {:.3}",
@@ -2221,7 +2228,7 @@ mod tests {
         assert!(spans(&design) == ((50, 65), (35, 50)));
         assert!(design.pair().forward().tail().unwrap().sequence() == "TACA");
         assert!(design.pair().reverse().tail().unwrap().sequence() == "ATC");
-        assert_tms(&design, 63.89, 62.17, 65.17);
+        assert_tms(&design, 63.89, 62.17, 63.00);
         assert!(
             close(whole_celsius(design.forward_whole_tm()), 66.66),
             "forward whole Tm {:.3}",
@@ -2446,7 +2453,7 @@ mod tests {
         assert!(design.request().buffer() == BufferModel::q5_reaction());
         assert!(design.forward_tm().buffer() == BufferModel::q5_reaction());
         assert!(design.algorithm_name() == NATIVE_DESIGN_ALGORITHM_NAME);
-        assert!(design.algorithm_version() == "0.6.0");
+        assert!(design.algorithm_version() == "0.7.0");
         let inputs: Vec<String> = design.unresolved().into_iter().map(|u| u.input).collect();
         assert!(inputs == vec!["minTm", "maxAnnealingOverlap"]);
     }

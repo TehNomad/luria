@@ -3,8 +3,9 @@
 //! its document with the page's result block, field by field.
 //!
 //! The page states floats at the verification tables' precision, while
-//! luria prints them in full (plan §3.5), so those fields are compared
-//! within a tolerance; every other field must be exactly equal.
+//! luria prints them in full (plan §3.5), so those fields — the Tms, but not
+//! the annealing temperature, which is a whole number of degrees — are
+//! compared within a tolerance; every other field must be exactly equal.
 
 use luria_cli::json::{parse_json, Json};
 use luria_core::identity::sha256_hex;
@@ -43,7 +44,7 @@ fn block(page: &str, marker: &str) -> String {
 fn tolerance(path: &str) -> f64 {
     let last = path.rsplit('.').next().unwrap_or(path);
     match last {
-        "celsius" | "annealingTemperature" | "gcPercent" => 0.005,
+        "celsius" | "gcPercent" => 0.005,
         "enthalpyKcal" | "entropyCal" => 0.05,
         _ => 0.0,
     }

@@ -164,7 +164,7 @@ fn the_native_substitution_rows_match_the_table() {
             19,
             "67.72",
             "62.90",
-            "65.90",
+            "64.00",
         ),
         (
             "native-02",
@@ -254,7 +254,7 @@ fn the_adjacent_change_row_falls_back_to_the_matched_basis() {
     assert_eq!(two(&view["forward"]["tm"]["celsius"]), "63.36");
     assert_eq!(text(&view["forward"]["tm"]["basis"]), "matched_complement");
     assert_eq!(two(&view["reverse"]["tm"]["celsius"]), "59.45");
-    assert_eq!(two(&view["annealingTemperature"]), "62.45");
+    assert_eq!(two(&view["annealingTemperature"]), "60.00");
     assert_eq!(view["tmBalanceMet"], true);
 }
 
@@ -276,7 +276,7 @@ fn the_deletion_row_matches_the_table() {
     assert_eq!(text(&view["reverse"]["sequence"]), "TTGCTCAACGAGCGGATTG");
     assert_eq!(two(&view["forward"]["tm"]["celsius"]), "67.61");
     assert_eq!(two(&view["reverse"]["tm"]["celsius"]), "65.77");
-    assert_eq!(two(&view["annealingTemperature"]), "68.77");
+    assert_eq!(two(&view["annealingTemperature"]), "67.00");
     assert_eq!(view["tmBalanceMet"], true);
     // A deletion carries no tail on either primer.
     assert_eq!(view["forward"]["tail"], Value::Null);
@@ -321,7 +321,7 @@ fn the_insertion_row_matches_the_table() {
     assert_eq!(two(&view["reverse"]["tm"]["celsius"]), "62.38");
     assert_eq!(two(&view["forward"]["wholePrimerTm"]["celsius"]), "67.15");
     assert_eq!(two(&view["reverse"]["wholePrimerTm"]["celsius"]), "62.38");
-    assert_eq!(two(&view["annealingTemperature"]), "65.38");
+    assert_eq!(two(&view["annealingTemperature"]), "63.00");
     assert_eq!(view["tmBalanceMet"], true);
     assert_eq!(
         document["results"][0]["mutation"]["edited"]["length"]
@@ -357,7 +357,7 @@ fn the_replacement_rows_match_the_table() {
         "mismatched_wild_type_site"
     );
     assert_eq!(two(&view["reverse"]["tm"]["celsius"]), "62.90");
-    assert_eq!(two(&view["annealingTemperature"]), "65.90");
+    assert_eq!(two(&view["annealingTemperature"]), "64.00");
 
     let tailed = document(
         "rep-15",
@@ -390,7 +390,7 @@ fn the_replacement_rows_match_the_table() {
     assert_eq!(two(&view["reverse"]["tm"]["celsius"]), "65.77");
     assert_eq!(two(&view["forward"]["wholePrimerTm"]["celsius"]), "76.65");
     assert_eq!(two(&view["reverse"]["wholePrimerTm"]["celsius"]), "69.32");
-    assert_eq!(two(&view["annealingTemperature"]), "68.77");
+    assert_eq!(two(&view["annealingTemperature"]), "67.00");
     assert_eq!(view["tmBalanceMet"], true);
 }
 

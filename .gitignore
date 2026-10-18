@@ -1,5 +1,6 @@
 nvim.log
 target/
+.venv/
 .ruff_cache/
 .tmp/
 __pycache__/

@@ -76,7 +76,7 @@ fn the_d404n_design_is_native_01() {
     assert_eq!(view.reverse.span, (1180, 1199));
     assert_eq!(view.reverse.tail, None);
     assert_eq!(two(view.reverse.tm.celsius), "62.90");
-    assert_eq!(two(view.annealing_temperature), "65.90");
+    assert_eq!(two(view.annealing_temperature), "64.00");
     assert!(view.tm_balance_met);
 }
 
@@ -99,7 +99,7 @@ fn the_tailed_insertion_design_is_ins_14() {
     assert_eq!(view.reverse.annealing.spans, vec![(1194, 1209)]);
     assert_eq!(view.reverse.tail, None);
     assert_eq!(two(view.reverse.tm.celsius), "62.38");
-    assert_eq!(two(view.annealing_temperature), "65.38");
+    assert_eq!(two(view.annealing_temperature), "63.00");
     assert!(view.tm_balance_met);
 }
 

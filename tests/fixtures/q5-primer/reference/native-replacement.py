@@ -36,7 +36,7 @@ linear template of length n, with t = max(w, m):
            whole-primer Tm is reported and never used for sizing.
 
 Both paths: 55 C floor, G/C end below 63 C, forward first, 5 C balance,
-Ta = min(72, lower Tm + 3). Pair invariant: reverse end + w = forward start.
+Ta = min(72, round_half_up(lower Tm) + 1). Pair invariant: reverse end + w = forward start.
 """
 import importlib.util
 import os
@@ -51,7 +51,7 @@ nd = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(nd)
 
 FLOOR, CEILING, BALANCE = nd.FLOOR, nd.CEILING, nd.BALANCE
-TA_OFFSET, TA_CAP, FLANK5 = nd.TA_OFFSET, nd.TA_CAP, nd.FLANK5
+FLANK5 = nd.FLANK5
 ACGT, rc, bio, ends_gc = nd.ACGT, nd.rc, nd.bio, nd.ends_gc
 
 INLINE_MAX = 6
@@ -239,7 +239,7 @@ def design(t, s, e, replacement, b):
         "reverse_tm": f"{tr:.2f}",
         "forward_whole_tm": whole_f,
         "reverse_whole_tm": whole_r,
-        "annealing_temp": f"{min(TA_CAP, min(tf, tr) + TA_OFFSET):.2f}",
+        "annealing_temp": f"{nd.annealing_temp(tf, tr):.2f}",
         "balance_met": "yes" if met else "no",
         "failure": "none",
     }, trace

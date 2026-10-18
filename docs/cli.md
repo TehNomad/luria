@@ -97,12 +97,13 @@ luria q5 design d404n.json
 
 The run exits 0 and prints the document below.
 
-**Temperatures and the two thermodynamic terms are written here to the
-precision the verification tables record** — two decimals for a
-temperature, one for ΔH and ΔS, two for a G+C percentage. luria itself
-prints every float at full precision and rounds nothing (D041), so the
-figures below are the document's values to that precision, not its exact
-bytes. Every other field is exact.
+**Melting temperatures and the two thermodynamic terms are written here to
+the precision the verification tables record** — two decimals for a Tm,
+one for ΔH and ΔS, two for a G+C percentage. luria itself prints every
+float at full precision (D041), so those figures are the document's values
+to that precision, not its exact bytes. Every other field is exact,
+including `annealingTemperature`, which is a whole number of degrees by
+definition (D030).
 
 <!-- luria:result -->
 ```json
@@ -134,7 +135,7 @@ bytes. Every other field is exact.
       {
         "role": "native_design",
         "name": "luria-core-primer-design-native",
-        "version": "0.6.0"
+        "version": "0.7.0"
       },
       {
         "role": "q5_workflow",
@@ -239,7 +240,7 @@ bytes. Every other field is exact.
         "style": "q5_polymerase",
         "algorithm": {
           "name": "luria-core-primer-design-native",
-          "version": "0.6.0"
+          "version": "0.7.0"
         },
         "minAnnealingOverlap": 15,
         "placement": "inline",
@@ -359,7 +360,7 @@ bytes. Every other field is exact.
             }
           ]
         },
-        "annealingTemperature": 65.90,
+        "annealingTemperature": 64.0,
         "tmBalanceMet": true,
         "pair": {
           "deletedWidth": 0,
@@ -409,8 +410,10 @@ bytes. Every other field is exact.
   `mismatched_wild_type_site`: the first cycle anneals it over the
   unedited template, where the codon mismatches. The reverse primer
   mismatches nothing, so its basis is `matched_complement`. The two are
-  never averaged. `annealingTemperature` is the lower Tm plus 3 °C, capped
-  at 72 °C, and `tmBalanceMet` says the two Tms are within 5 °C.
+  never averaged. `annealingTemperature` is the lower Tm rounded to a
+  whole degree, plus 1 °C, capped at 72 °C: the rule NEB's Tm calculator
+  and NEBaseChanger use for Q5 (D030). Here that is 62.90 → 63, plus 1,
+  so 64. `tmBalanceMet` says the two Tms are within 5 °C.
 - **Warnings are guidelines, not failures.** This pair is still a design:
   the forward primer is 60.9 % G+C against a 40–60 % guideline, has runs
   of four A and four G, and ends in eight G or C. Each warning carries the
@@ -444,7 +447,7 @@ bytes. Every other field is exact.
     {
       "role": "native_design",
       "name": "luria-core-primer-design-native",
-      "version": "0.6.0"
+      "version": "0.7.0"
     },
     {
       "role": "q5_workflow",

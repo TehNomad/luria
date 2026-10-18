@@ -820,7 +820,7 @@ mod tests {
         );
         assert!(design.deleted_width() == 3);
         assert!(design.pair().abuts());
-        assert_tms(&design, 56.52, 58.66, 59.52);
+        assert_tms(&design, 56.52, 58.66, 58.00);
     }
 
     // One coding base removed from the same CDS: 1 is not a multiple of 3, so
@@ -856,7 +856,7 @@ mod tests {
         );
         assert!(design.deleted_width() == 1);
         assert!(design.pair().abuts());
-        assert_tms(&design, 57.83, 58.37, 60.83);
+        assert_tms(&design, 57.83, 58.37, 59.00);
     }
 
     // Both deletions as members of one set under one request: each gets its own
@@ -939,7 +939,7 @@ mod tests {
         );
         assert!(design.pair().forward().tail().unwrap().sequence() == "GCT");
         assert!(design.pair().reverse().tail().is_none());
-        assert_tms(&design, 56.52, 58.66, 59.52);
+        assert_tms(&design, 56.52, 58.66, 58.00);
         assert!(
             close(design.forward_whole_tm().unwrap().celsius(), 60.54),
             "forward whole Tm {:.3}, expected {:.2}",
@@ -1054,7 +1054,7 @@ mod tests {
         );
         assert!(design.pair().forward().tail().is_none());
         assert!(design.pair().reverse().tail().is_none());
-        assert_tms(&design, 68.70, 64.00, 67.00);
+        assert_tms(&design, 68.70, 64.00, 65.00);
     }
 
     // Three bases overwritten by two: `m − w` is −1, not a multiple of 3, so D033's
@@ -1091,7 +1091,7 @@ mod tests {
                     "ATCATCATCATCATCATCATCATC".to_string(),
                 )
         );
-        assert_tms(&design, 63.36, 59.48, 62.48);
+        assert_tms(&design, 63.36, 59.48, 60.00);
     }
 
     // Three bases overwritten by nine: `t = max(w, m)` is 9, past
@@ -1121,7 +1121,7 @@ mod tests {
         );
         assert!(design.pair().forward().tail().unwrap().sequence() == "GGTGG");
         assert!(design.pair().reverse().tail().unwrap().sequence() == "ACCA");
-        assert_tms(&design, 56.52, 58.66, 59.52);
+        assert_tms(&design, 56.52, 58.66, 58.00);
         assert!(
             close(design.forward_whole_tm().unwrap().celsius(), 65.03),
             "forward whole Tm {:.3}, expected {:.2}",

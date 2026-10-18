@@ -291,7 +291,9 @@ forward primer's unchanged bases 5′ (fixed under D030) and 3′ of the edit;
 Q5 buffer condition (150 mM monovalent, 500 nM primer); `forward_tm_basis` is
 `mismatched_wild_type_site` or, where two changed bases are adjacent,
 `matched_complement`; `balance_met` says whether the two Tms ended within
-5 °C. `failure` is `pair:<smallest pair>><template length>` for no design
+5 °C. `annealing_temp` is a whole number of degrees,
+`min(72, round_half_up(lower Tm) + 1)` (D030 as amended 2026-10-18), written
+to two decimals like the Tms. `failure` is `pair:<smallest pair>><template length>` for no design
 possible, one `<side>:<available><<needed>` per binding side when the starting
 pair does not fit, or `tm-floor <side>:<available>:<Tm reached>` when a primer
 runs out of template below 55 °C.
@@ -410,7 +412,7 @@ Python, reusing only `native-design.py`'s `bio`, `rc`, `ends_gc`,
 `GAT`→`AAC` at bound 15, expressed as a replacement instead of a codon
 substitution. It reproduces `native.tsv`'s `native-01` exactly — forward span
 `1199:1222`, reverse `1180:1199`, Tms 67.72 (mismatched basis) and 62.90,
-Ta 65.90, balance met. Two scripts written weeks apart agree, which is direct
+Ta 64.00, balance met. Two scripts written weeks apart agree, which is direct
 evidence that D033's inline path really is D030 generalised rather than a
 second geometry.
 
