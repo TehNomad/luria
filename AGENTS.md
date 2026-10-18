@@ -34,10 +34,13 @@ sequences, primer designs, coordinates, or experimental results.
   defects; failing checks, wrong behavior and scope violations are.
 - If worker output fails review or checks, `resume` the same worker with
   concrete feedback: file, line, what is wrong, what is expected.
-- Worker runs are capped at 80 turns by default. If runs often end with
-  the turn limit reached, pass a higher `max_turns` on the `subagent` call
-  for large contracts instead of resuming, and tell the user so the
-  default can be revisited.
+- Worker runs are capped at 120 turns by default (`worker.md`). If runs
+  often end with the turn limit reached, pass a higher `max_turns` on the
+  `subagent` call for large contracts instead of resuming, and tell the
+  user so the default can be revisited. A run that ends `aborted` hit the
+  turn limit, not a time limit; say "turn limit" when resuming it. Agent
+  files are read at session start, so restart the planner session after
+  editing `worker.md`.
 - The planner may take over a fix only after 3 failed rounds on the same
   issue, and must tell the user when it does and why.
 - Tests and fixtures come first where practical: the planner writes or
@@ -53,6 +56,9 @@ sequences, primer designs, coordinates, or experimental results.
   large one.
 - Give the worker the relevant `docs/decisions.md` sections inline or by
   exact heading, not "see the docs".
+- For each new rule, name the test that must fail if the rule is disabled,
+  and have the worker prove it by disabling the rule once and restoring it
+  (a weak assertion can pass with the rule removed).
 
 ## Current task
 - The task contract is the file named in the prompt, normally
