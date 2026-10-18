@@ -213,10 +213,66 @@ pub struct InternalStopCodonProblem {
     pub codon: String,
 }
 
+/// Which rule refused a mutation request. Stable: `code()` is part of the
+/// CLI's output contract (D041), and renaming one needs approval.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum MutationRequestRule {
+    CodonIsStop,
+    CodonIsAmbiguous,
+    CodonNotThreeDnaLetters,
+    SuppliedCodonSyntax,
+    ResidueNotOneLetter,
+    ResidueNotInStandardCode,
+    TargetOnOtherSequence,
+    SubstitutionNotOneNucleotide,
+    ExpectedTextLengthMismatch,
+    NothingWritten,
+    NoChange,
+    WholeSequence,
+    InsertionAtSequenceEnd,
+    SuppliedCodonWrongResidue,
+    NoDefaultCodon,
+    CodonOutsideSequence,
+    BaseNotOneLetter,
+    BaseNotDnaLetter,
+    EmptyVariantSet,
+    DuplicateVariantName,
+}
+
+impl MutationRequestRule {
+    /// The rule's stable code: its name in snake_case.
+    pub fn code(self) -> &'static str {
+        use MutationRequestRule::*;
+        match self {
+            CodonIsStop => "codon_is_stop",
+            CodonIsAmbiguous => "codon_is_ambiguous",
+            CodonNotThreeDnaLetters => "codon_not_three_dna_letters",
+            SuppliedCodonSyntax => "supplied_codon_syntax",
+            ResidueNotOneLetter => "residue_not_one_letter",
+            ResidueNotInStandardCode => "residue_not_in_standard_code",
+            TargetOnOtherSequence => "target_on_other_sequence",
+            SubstitutionNotOneNucleotide => "substitution_not_one_nucleotide",
+            ExpectedTextLengthMismatch => "expected_text_length_mismatch",
+            NothingWritten => "nothing_written",
+            NoChange => "no_change",
+            WholeSequence => "whole_sequence",
+            InsertionAtSequenceEnd => "insertion_at_sequence_end",
+            SuppliedCodonWrongResidue => "supplied_codon_wrong_residue",
+            NoDefaultCodon => "no_default_codon",
+            CodonOutsideSequence => "codon_outside_sequence",
+            BaseNotOneLetter => "base_not_one_letter",
+            BaseNotDnaLetter => "base_not_dna_letter",
+            EmptyVariantSet => "empty_variant_set",
+            DuplicateVariantName => "duplicate_variant_name",
+        }
+    }
+}
+
 /// Payload: a mutation request that cannot be represented.
 #[derive(Clone, Debug, PartialEq)]
 pub struct InvalidMutationRequestProblem {
     pub request: String,
+    pub rule: MutationRequestRule,
     pub reason: String,
 }
 
@@ -278,10 +334,52 @@ pub struct MutationVerificationFailureProblem {
     pub reason: String,
 }
 
+/// Which rule refused a primer or pair. Stable: `code()` is part of the
+/// CLI's output contract (D041), and renaming one needs approval.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum PrimerCandidateRule {
+    SpanOverlapsDeletion,
+    SpanStraddlesInsertionPoint,
+    SpanOverlapsReplacement,
+    TextLengthNotSpanWidth,
+    ForwardSpanDoesNotCoverReplacement,
+    EditTakesNoTail,
+    EmptyTail,
+    RoleDoesNotMatchSlot,
+    PrimersOnDifferentTemplates,
+    PairNotOnEditTemplate,
+    PairNotAbuttingEdit,
+    MinimumOverlapBelowOne,
+    TailsDoNotRebuild,
+}
+
+impl PrimerCandidateRule {
+    /// The rule's stable code: its name in snake_case.
+    pub fn code(self) -> &'static str {
+        use PrimerCandidateRule::*;
+        match self {
+            SpanOverlapsDeletion => "span_overlaps_deletion",
+            SpanStraddlesInsertionPoint => "span_straddles_insertion_point",
+            SpanOverlapsReplacement => "span_overlaps_replacement",
+            TextLengthNotSpanWidth => "text_length_not_span_width",
+            ForwardSpanDoesNotCoverReplacement => "forward_span_does_not_cover_replacement",
+            EditTakesNoTail => "edit_takes_no_tail",
+            EmptyTail => "empty_tail",
+            RoleDoesNotMatchSlot => "role_does_not_match_slot",
+            PrimersOnDifferentTemplates => "primers_on_different_templates",
+            PairNotOnEditTemplate => "pair_not_on_edit_template",
+            PairNotAbuttingEdit => "pair_not_abutting_edit",
+            MinimumOverlapBelowOne => "minimum_overlap_below_one",
+            TailsDoNotRebuild => "tails_do_not_rebuild",
+        }
+    }
+}
+
 /// Payload: a proposed primer cannot become a primer record at all.
 #[derive(Clone, Debug, PartialEq)]
 pub struct InvalidPrimerCandidateProblem {
     pub primer: String,
+    pub rule: PrimerCandidateRule,
     pub reason: String,
 }
 
@@ -461,6 +559,227 @@ pub struct DegenerateExpansionTooLargeProblem {
     pub replacement: String,
 }
 
+/// Which rule refused a FASTA text. Stable: `code()` is part of the CLI's
+/// output contract (D041), and renaming one needs approval.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum FastaRule {
+    NoRecord,
+    TextBeforeHeader,
+    SecondRecord,
+}
+
+impl FastaRule {
+    /// The rule's stable code: its name in snake_case.
+    pub fn code(self) -> &'static str {
+        use FastaRule::*;
+        match self {
+            NoRecord => "no_record",
+            TextBeforeHeader => "text_before_header",
+            SecondRecord => "second_record",
+        }
+    }
+}
+
+/// Which rule refused a GenBank location. Stable: `code()` is part of the
+/// CLI's output contract (D041), and renaming one needs approval.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum GenBankLocationRule {
+    Syntax,
+    PositionZero,
+    RangeEndsBeforeStart,
+    PastSequenceEnd,
+    FuzzyEnd,
+    BetweenBases,
+    Order,
+    RemoteReference,
+    SinglePosition,
+    OriginJoinOnLinear,
+    UnsupportedJoin,
+}
+
+impl GenBankLocationRule {
+    /// The rule's stable code: its name in snake_case.
+    pub fn code(self) -> &'static str {
+        use GenBankLocationRule::*;
+        match self {
+            Syntax => "syntax",
+            PositionZero => "position_zero",
+            RangeEndsBeforeStart => "range_ends_before_start",
+            PastSequenceEnd => "past_sequence_end",
+            FuzzyEnd => "fuzzy_end",
+            BetweenBases => "between_bases",
+            Order => "order",
+            RemoteReference => "remote_reference",
+            SinglePosition => "single_position",
+            OriginJoinOnLinear => "origin_join_on_linear",
+            UnsupportedJoin => "unsupported_join",
+        }
+    }
+
+    /// The rule's failure class. `PastSequenceEnd` is `BiologicalValidation`
+    /// because a well-formed location contradicts the sequence it was read
+    /// against, as `CoordinateOutOfBounds` does; the rest of the rules
+    /// either cannot be represented at all or are outside this milestone's
+    /// scope (D009, D036).
+    pub fn category(self) -> ErrorCategory {
+        use GenBankLocationRule::*;
+        match self {
+            Syntax | PositionZero | RangeEndsBeforeStart => ErrorCategory::MalformedInput,
+            PastSequenceEnd => ErrorCategory::BiologicalValidation,
+            FuzzyEnd | BetweenBases | Order | RemoteReference | SinglePosition
+            | OriginJoinOnLinear | UnsupportedJoin => ErrorCategory::Unsupported,
+        }
+    }
+}
+
+/// Which rule refused a GenBank CDS. Stable: `code()` is part of the CLI's
+/// output contract (D041), and renaming one needs approval.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum GenBankCdsRule {
+    NotFound,
+    AmbiguousName,
+    RepeatedName,
+    NoId,
+    RepeatedQualifier,
+    Pseudo,
+    CodonStart,
+    TranslTable,
+    AlternativeStart,
+}
+
+impl GenBankCdsRule {
+    /// The rule's stable code: its name in snake_case.
+    pub fn code(self) -> &'static str {
+        use GenBankCdsRule::*;
+        match self {
+            NotFound => "not_found",
+            AmbiguousName => "ambiguous_name",
+            RepeatedName => "repeated_name",
+            NoId => "no_id",
+            RepeatedQualifier => "repeated_qualifier",
+            Pseudo => "pseudo",
+            CodonStart => "codon_start",
+            TranslTable => "transl_table",
+            AlternativeStart => "alternative_start",
+        }
+    }
+
+    /// The rule's failure class. `NotFound` and `AmbiguousName` are
+    /// `BiologicalValidation` because a well-formed request names a CDS the
+    /// record does not hold exactly once, as `CoordinateOutOfBounds` does; a
+    /// repeated request name or a repeated qualifier cannot be represented at
+    /// all (D041 G1, G2, G5).
+    pub fn category(self) -> ErrorCategory {
+        use GenBankCdsRule::*;
+        match self {
+            NotFound | AmbiguousName => ErrorCategory::BiologicalValidation,
+            RepeatedName | RepeatedQualifier => ErrorCategory::MalformedInput,
+            NoId | Pseudo | CodonStart | TranslTable | AlternativeStart => {
+                ErrorCategory::Unsupported
+            }
+        }
+    }
+}
+
+/// Which rule refused a GenBank text. Stable: `code()` is part of the CLI's
+/// output contract (D041), and renaming one needs approval.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum GenBankRule {
+    NoLocus,
+    LocusLength,
+    TopologyMissing,
+    TopologyConflict,
+    RepeatedSection,
+    LineLayout,
+    QualifierSyntax,
+    NoOrigin,
+    OriginLine,
+    OriginNumbering,
+    LengthMismatch,
+    MissingEnd,
+    SecondRecord,
+    TextAfterEnd,
+}
+
+impl GenBankRule {
+    /// The rule's stable code: its name in snake_case.
+    pub fn code(self) -> &'static str {
+        use GenBankRule::*;
+        match self {
+            NoLocus => "no_locus",
+            LocusLength => "locus_length",
+            TopologyMissing => "topology_missing",
+            TopologyConflict => "topology_conflict",
+            RepeatedSection => "repeated_section",
+            LineLayout => "line_layout",
+            QualifierSyntax => "qualifier_syntax",
+            NoOrigin => "no_origin",
+            OriginLine => "origin_line",
+            OriginNumbering => "origin_numbering",
+            LengthMismatch => "length_mismatch",
+            MissingEnd => "missing_end",
+            SecondRecord => "second_record",
+            TextAfterEnd => "text_after_end",
+        }
+    }
+}
+
+/// Payload: a FASTA text that is not exactly one record. `line` counts text
+/// lines from 1, as an editor does; it is not a sequence coordinate. It is
+/// `None` for `NoRecord`, which has no line to point at.
+#[derive(Clone, Debug, PartialEq)]
+pub struct MalformedFastaProblem {
+    pub sequence: String,
+    pub rule: FastaRule,
+    pub line: Option<u64>,
+}
+
+/// Payload: a GenBank feature location luria cannot use. `location` is the
+/// text as given; `sequence_length` is the length it was read against.
+#[derive(Clone, Debug, PartialEq)]
+pub struct UnusableGenBankLocationProblem {
+    pub location: String,
+    pub rule: GenBankLocationRule,
+    pub sequence_length: u64,
+}
+
+/// Payload: a GenBank text that is not one readable record. `line` counts
+/// text lines from 1; it is not a sequence coordinate. It is `None` when
+/// there is no line to point at (an empty text, or a text that ends early).
+#[derive(Clone, Debug, PartialEq)]
+pub struct MalformedGenBankProblem {
+    pub sequence: String,
+    pub rule: GenBankRule,
+    pub line: Option<u64>,
+}
+
+/// Payload: a GenBank CDS luria cannot import. `cds` is the requested name
+/// or the feature's id (empty for `NoId`). `line` is the feature's key line,
+/// `None` for `NotFound` and `RepeatedName`. `detail` is the offending
+/// value: the qualifier's value for `CodonStart` and `TranslTable` (`None`
+/// for a value-less flag), the first codon for `AlternativeStart`, the
+/// qualifier name for `RepeatedQualifier` and `Pseudo`; `None` otherwise.
+#[derive(Clone, Debug, PartialEq)]
+pub struct UnusableGenBankCdsProblem {
+    pub cds: String,
+    pub rule: GenBankCdsRule,
+    pub line: Option<u64>,
+    pub detail: Option<String>,
+}
+
+/// Payload: a CDS whose `/translation` differs from luria's translation
+/// without the terminal stop (D041 G3). `residue` is the first differing
+/// residue, counted from 1; `stated` and `translated` are the letters there,
+/// `None` where one translation has already ended.
+#[derive(Clone, Debug, PartialEq)]
+pub struct GenBankTranslationMismatchProblem {
+    pub cds: String,
+    pub line: u64,
+    pub residue: u64,
+    pub stated: Option<String>,
+    pub translated: Option<String>,
+}
+
 /// A structured domain failure.
 #[derive(Clone, Debug, PartialEq)]
 pub enum DomainError {
@@ -511,6 +830,11 @@ pub enum DomainError {
     InvalidBufferModel(InvalidBufferModelProblem),
     TmParametersUnavailable(TmParametersUnavailableProblem),
     DegenerateExpansionTooLarge(DegenerateExpansionTooLargeProblem),
+    MalformedFasta(MalformedFastaProblem),
+    UnusableGenBankLocation(UnusableGenBankLocationProblem),
+    MalformedGenBank(MalformedGenBankProblem),
+    UnusableGenBankCds(UnusableGenBankCdsProblem),
+    GenBankTranslationMismatch(GenBankTranslationMismatchProblem),
 }
 
 impl ErrorCategory {
@@ -547,7 +871,9 @@ impl DomainError {
             | DomainError::UnspecifiedCodonPolicy(_) => ErrorCategory::MalformedInput,
             DomainError::InvalidPrimerCandidate(_)
             | DomainError::InvalidPrimerDesignRequest(_)
-            | DomainError::InvalidBufferModel(_) => ErrorCategory::MalformedInput,
+            | DomainError::InvalidBufferModel(_)
+            | DomainError::MalformedFasta(_)
+            | DomainError::MalformedGenBank(_) => ErrorCategory::MalformedInput,
             DomainError::CoordinateOutOfBounds(_)
             | DomainError::SequenceReferenceMismatch(_)
             | DomainError::CdsLengthNotDivisibleByThree(_)
@@ -566,7 +892,8 @@ impl DomainError {
             | DomainError::AnnealingOverlapBelowBound(_)
             | DomainError::PrimerPairCoverage(_)
             | DomainError::PrimerOrientationConflict(_)
-            | DomainError::NoPrimerDesignPossible(_) => ErrorCategory::BiologicalValidation,
+            | DomainError::NoPrimerDesignPossible(_)
+            | DomainError::GenBankTranslationMismatch(_) => ErrorCategory::BiologicalValidation,
             DomainError::UnsupportedFeatureStructure(_)
             | DomainError::IncompleteCds(_)
             | DomainError::UnsupportedGeneticCode(_)
@@ -578,6 +905,71 @@ impl DomainError {
             | DomainError::NoPrimerDesignFits(_)
             | DomainError::TmParametersUnavailable(_)
             | DomainError::DegenerateExpansionTooLarge(_) => ErrorCategory::Unsupported,
+            // The variants whose category comes from their payload: the rule
+            // that refused the location or the CDS decides, so `PastSequenceEnd`
+            // is `BiologicalValidation` and the rest are `MalformedInput` or
+            // `Unsupported`.
+            DomainError::UnusableGenBankLocation(problem) => problem.rule.category(),
+            DomainError::UnusableGenBankCds(problem) => problem.rule.category(),
+        }
+    }
+
+    /// A stable machine-readable code: the variant name in snake_case.
+    /// Codes are part of the CLI's output contract; renaming one needs approval.
+    pub fn code(&self) -> &'static str {
+        match self {
+            DomainError::EmptyIdentifier => "empty_identifier",
+            DomainError::InvalidIdentifierCharacters(_) => "invalid_identifier_characters",
+            DomainError::EmptySequenceContent(_) => "empty_sequence_content",
+            DomainError::InvalidSequenceCharacters(_) => "invalid_sequence_characters",
+            DomainError::NegativeCoordinate(_) => "negative_coordinate",
+            DomainError::ReversedInterval(_) => "reversed_interval",
+            DomainError::EmptyInterval(_) => "empty_interval",
+            DomainError::CoordinateOutOfBounds(_) => "coordinate_out_of_bounds",
+            DomainError::SequenceReferenceMismatch(_) => "sequence_reference_mismatch",
+            DomainError::FeatureWithoutIntervals(_) => "feature_without_intervals",
+            DomainError::IntervalsOutOfOrder(_) => "intervals_out_of_order",
+            DomainError::OverlappingIntervals(_) => "overlapping_intervals",
+            DomainError::UnsupportedFeatureStructure(_) => "unsupported_feature_structure",
+            DomainError::MissingCdsAttribute(_) => "missing_cds_attribute",
+            DomainError::IncompleteCds(_) => "incomplete_cds",
+            DomainError::UnsupportedGeneticCode(_) => "unsupported_genetic_code",
+            DomainError::CdsLengthNotDivisibleByThree(_) => "cds_length_not_divisible_by_three",
+            DomainError::AmbiguousCodon(_) => "ambiguous_codon",
+            DomainError::InvalidCodon(_) => "invalid_codon",
+            DomainError::InternalStopCodon(_) => "internal_stop_codon",
+            DomainError::InvalidResiduePosition(_) => "invalid_residue_position",
+            DomainError::ResiduePositionOutsideCds(_) => "residue_position_outside_cds",
+            DomainError::ResiduePositionWrongCds(_) => "residue_position_wrong_cds",
+            DomainError::UnsupportedNumberingScheme(_) => "unsupported_numbering_scheme",
+            DomainError::InvalidMutationRequest(_) => "invalid_mutation_request",
+            DomainError::UnspecifiedCodonPolicy(_) => "unspecified_codon_policy",
+            DomainError::UnsupportedMutationPolicy(_) => "unsupported_mutation_policy",
+            DomainError::UnsupportedComposition(_) => "unsupported_composition",
+            DomainError::ExpectedNucleotideMismatch(_) => "expected_nucleotide_mismatch",
+            DomainError::ExpectedResidueMismatch(_) => "expected_residue_mismatch",
+            DomainError::TargetOutsideFeature(_) => "target_outside_feature",
+            DomainError::MutationVerificationFailure(_) => "mutation_verification_failure",
+            DomainError::InvalidPrimerCandidate(_) => "invalid_primer_candidate",
+            DomainError::PrimerTextAtSpanMismatch(_) => "primer_text_at_span_mismatch",
+            DomainError::PrimerAnnealingNotTemplate(_) => "primer_annealing_not_template",
+            DomainError::PrimerPartition(_) => "primer_partition",
+            DomainError::AnnealingOverlapBelowBound(_) => "annealing_overlap_below_bound",
+            DomainError::PrimerPairCoverage(_) => "primer_pair_coverage",
+            DomainError::PrimerOrientationConflict(_) => "primer_orientation_conflict",
+            DomainError::UnsupportedPrimerPlacement(_) => "unsupported_primer_placement",
+            DomainError::InvalidPrimerDesignRequest(_) => "invalid_primer_design_request",
+            DomainError::UnsupportedPrimerDesignScope(_) => "unsupported_primer_design_scope",
+            DomainError::NoPrimerDesignPossible(_) => "no_primer_design_possible",
+            DomainError::NoPrimerDesignFits(_) => "no_primer_design_fits",
+            DomainError::InvalidBufferModel(_) => "invalid_buffer_model",
+            DomainError::TmParametersUnavailable(_) => "tm_parameters_unavailable",
+            DomainError::DegenerateExpansionTooLarge(_) => "degenerate_expansion_too_large",
+            DomainError::MalformedFasta(_) => "malformed_fasta",
+            DomainError::UnusableGenBankLocation(_) => "unusable_genbank_location",
+            DomainError::MalformedGenBank(_) => "malformed_genbank",
+            DomainError::UnusableGenBankCds(_) => "unusable_genbank_cds",
+            DomainError::GenBankTranslationMismatch(_) => "genbank_translation_mismatch",
         }
     }
 
@@ -723,6 +1115,138 @@ impl DomainError {
             DomainError::DegenerateExpansionTooLarge(problem) =>
                 format!("'{}' denotes more concrete sequences than can be counted",
                     problem.replacement),
+            DomainError::MalformedFasta(problem) => {
+                let line: String = match problem.line {
+                    Some(number) => number.to_string(),
+                    None => "?".to_string(),
+                };
+                match problem.rule {
+                    FastaRule::NoRecord =>
+                        format!("FASTA text for '{}' holds no record: it has no '>' header line",
+                            problem.sequence),
+                    FastaRule::TextBeforeHeader =>
+                        format!("FASTA text for '{}' has text on line {} before its '>' header line",
+                            problem.sequence, line),
+                    FastaRule::SecondRecord =>
+                        format!("FASTA text for '{}' starts a second record on line {}; only one record is read",
+                            problem.sequence, line),
+                }
+            }
+            DomainError::UnusableGenBankLocation(problem) => {
+                let reason: String = match problem.rule {
+                    GenBankLocationRule::Syntax =>
+                        "is not a location luria can read".to_string(),
+                    GenBankLocationRule::PositionZero =>
+                        "uses position 0; GenBank positions count from 1".to_string(),
+                    GenBankLocationRule::RangeEndsBeforeStart =>
+                        "has a range that ends before it starts".to_string(),
+                    GenBankLocationRule::PastSequenceEnd =>
+                        format!("reaches past the end of the {}-base sequence",
+                            problem.sequence_length),
+                    GenBankLocationRule::FuzzyEnd =>
+                        "has a fuzzy end (< or >), which marks an incomplete feature".to_string(),
+                    GenBankLocationRule::BetweenBases =>
+                        "names a site between two bases (^), not a range of bases".to_string(),
+                    GenBankLocationRule::Order =>
+                        "uses order(), whose parts have no stated connection".to_string(),
+                    GenBankLocationRule::RemoteReference =>
+                        "refers to another record".to_string(),
+                    GenBankLocationRule::SinglePosition =>
+                        "is a single base, not a range".to_string(),
+                    GenBankLocationRule::OriginJoinOnLinear =>
+                        "joins across the origin, but the sequence is linear".to_string(),
+                    GenBankLocationRule::UnsupportedJoin =>
+                        "is a join luria does not represent: only a join that crosses the origin of a circular sequence is read".to_string(),
+                };
+                format!("GenBank location '{}' {}", problem.location, reason)
+            }
+            DomainError::MalformedGenBank(problem) => {
+                let reason: String = match problem.rule {
+                    GenBankRule::NoLocus =>
+                        "it does not start with a LOCUS line".to_string(),
+                    GenBankRule::LocusLength =>
+                        "the LOCUS line does not give a length in bp".to_string(),
+                    GenBankRule::TopologyMissing =>
+                        "the LOCUS line states neither linear nor circular".to_string(),
+                    GenBankRule::TopologyConflict =>
+                        "the LOCUS line states more than one topology".to_string(),
+                    GenBankRule::RepeatedSection =>
+                        "a section that appears once per record appears again".to_string(),
+                    GenBankRule::LineLayout =>
+                        "a line fits no part of the record layout".to_string(),
+                    GenBankRule::QualifierSyntax =>
+                        "a qualifier is not /name or /name=value, or its quoted value is not closed".to_string(),
+                    GenBankRule::NoOrigin =>
+                        "the record has no ORIGIN sequence".to_string(),
+                    GenBankRule::OriginLine =>
+                        "a line in ORIGIN is not a position number followed by bases".to_string(),
+                    GenBankRule::OriginNumbering =>
+                        "a line in ORIGIN is numbered other than one past the bases before it".to_string(),
+                    GenBankRule::LengthMismatch =>
+                        "the LOCUS line's length differs from the ORIGIN sequence's".to_string(),
+                    GenBankRule::MissingEnd =>
+                        "the record does not end with a // line".to_string(),
+                    GenBankRule::SecondRecord =>
+                        "a second record starts after //; only one record is read".to_string(),
+                    GenBankRule::TextAfterEnd =>
+                        "text follows the record's // line".to_string(),
+                };
+                let located: String = match problem.line {
+                    Some(number) => format!(" (line {})", number),
+                    None => "".to_string(),
+                };
+                format!("GenBank text for '{}': {}{}", problem.sequence, reason, located)
+            }
+            DomainError::UnusableGenBankCds(problem) => {
+                let located: String = match problem.line {
+                    Some(number) => format!(" (line {})", number),
+                    None => "".to_string(),
+                };
+                let stated: String = match &problem.detail {
+                    Some(text) => text.to_string(),
+                    None => "(no value)".to_string(),
+                };
+                match problem.rule {
+                    GenBankCdsRule::NotFound =>
+                        format!("GenBank CDS '{}' is not the id of any CDS feature in the record{}",
+                            problem.cds, located),
+                    GenBankCdsRule::AmbiguousName =>
+                        format!("GenBank CDS '{}' is the id of more than one CDS feature{}",
+                            problem.cds, located),
+                    GenBankCdsRule::RepeatedName =>
+                        format!("GenBank CDS '{}' is named more than once in the request{}",
+                            problem.cds, located),
+                    GenBankCdsRule::NoId =>
+                        format!("a GenBank CDS has none of /locus_tag, /gene or /label with a value, so it cannot be named{}",
+                            located),
+                    GenBankCdsRule::RepeatedQualifier =>
+                        format!("GenBank CDS '{}' repeats /{}{}", problem.cds, stated, located),
+                    GenBankCdsRule::Pseudo =>
+                        format!("GenBank CDS '{}' is marked /{}, so it is not a coding sequence luria edits{}",
+                            problem.cds, stated, located),
+                    GenBankCdsRule::CodonStart =>
+                        format!("GenBank CDS '{}' has /codon_start {}; only 1 is supported{}",
+                            problem.cds, stated, located),
+                    GenBankCdsRule::TranslTable =>
+                        format!("GenBank CDS '{}' has /transl_table {}; only 1, and 11 with an ATG start, are supported{}",
+                            problem.cds, stated, located),
+                    GenBankCdsRule::AlternativeStart =>
+                        format!("GenBank CDS '{}' has /transl_table 11 and starts with {}; table 11 is read as the standard code only for an ATG start{}",
+                            problem.cds, stated, located),
+                }
+            }
+            DomainError::GenBankTranslationMismatch(problem) => {
+                let stated: String = match &problem.stated {
+                    Some(letter) => letter.to_string(),
+                    None => "nothing".to_string(),
+                };
+                let translated: String = match &problem.translated {
+                    Some(letter) => letter.to_string(),
+                    None => "nothing".to_string(),
+                };
+                format!("GenBank CDS '{}' states a /translation that differs from luria's at residue {}: the record has {}, luria has {} (line {})",
+                    problem.cds, problem.residue, stated, translated, problem.line)
+            }
         }
     }
 }
@@ -905,8 +1429,588 @@ mod tests {
         // A bad replacement letter is malformed input, not a world disagreement.
         let bad_request = DomainError::InvalidMutationRequest(InvalidMutationRequestProblem {
             request: "nucleotide".to_string(),
+            rule: MutationRequestRule::BaseNotDnaLetter,
             reason: "the replacement is not a DNA letter".to_string(),
         });
         assert!(bad_request.category() == ErrorCategory::MalformedInput);
+    }
+
+    // The codes are the CLI's output contract (D041). This pins every one,
+    // and checks that no two variants share a code.
+    #[test]
+    fn every_variant_has_its_pinned_code() {
+        let s = || "x".to_string();
+        let cases: Vec<(DomainError, &str)> = vec![
+            (DomainError::EmptyIdentifier, "empty_identifier"),
+            (
+                DomainError::InvalidIdentifierCharacters(InvalidIdentifierProblem {
+                    identifier: s(),
+                    reason: s(),
+                }),
+                "invalid_identifier_characters",
+            ),
+            (
+                DomainError::EmptySequenceContent(EmptySequenceProblem { sequence: s() }),
+                "empty_sequence_content",
+            ),
+            (
+                DomainError::InvalidSequenceCharacters(InvalidSequenceCharactersProblem {
+                    sequence: s(),
+                    position: 0,
+                    characters: s(),
+                }),
+                "invalid_sequence_characters",
+            ),
+            (
+                DomainError::NegativeCoordinate(NegativeCoordinateProblem {
+                    sequence: s(),
+                    start: -1,
+                    end: 0,
+                }),
+                "negative_coordinate",
+            ),
+            (
+                DomainError::ReversedInterval(ReversedIntervalProblem {
+                    sequence: s(),
+                    start: 2,
+                    end: 1,
+                }),
+                "reversed_interval",
+            ),
+            (
+                DomainError::EmptyInterval(EmptyIntervalProblem {
+                    sequence: s(),
+                    position: 0,
+                }),
+                "empty_interval",
+            ),
+            (
+                DomainError::CoordinateOutOfBounds(CoordinateOutOfBoundsProblem {
+                    sequence: s(),
+                    start: 0,
+                    end: 2,
+                    length: 1,
+                }),
+                "coordinate_out_of_bounds",
+            ),
+            (
+                DomainError::SequenceReferenceMismatch(SequenceReferenceMismatchProblem {
+                    expected_identifier: s(),
+                    actual_identifier: s(),
+                    expected_digest: s(),
+                    actual_digest: s(),
+                    expected_topology: SequenceTopology::Linear,
+                    actual_topology: SequenceTopology::Linear,
+                }),
+                "sequence_reference_mismatch",
+            ),
+            (
+                DomainError::FeatureWithoutIntervals(FeatureWithoutIntervalsProblem {
+                    feature: s(),
+                    sequence: s(),
+                }),
+                "feature_without_intervals",
+            ),
+            (
+                DomainError::IntervalsOutOfOrder(IntervalsOutOfOrderProblem {
+                    feature: s(),
+                    sequence: s(),
+                }),
+                "intervals_out_of_order",
+            ),
+            (
+                DomainError::OverlappingIntervals(OverlappingIntervalsProblem {
+                    feature: s(),
+                    sequence: s(),
+                    start: 0,
+                    end: 1,
+                }),
+                "overlapping_intervals",
+            ),
+            (
+                DomainError::UnsupportedFeatureStructure(UnsupportedFeatureStructureProblem {
+                    feature: s(),
+                    sequence: s(),
+                    interval_count: 2,
+                    reason: s(),
+                }),
+                "unsupported_feature_structure",
+            ),
+            (
+                DomainError::MissingCdsAttribute(MissingCdsAttributeProblem {
+                    cds: s(),
+                    attribute: s(),
+                    value: None,
+                }),
+                "missing_cds_attribute",
+            ),
+            (
+                DomainError::IncompleteCds(IncompleteCdsProblem {
+                    cds: s(),
+                    completeness: s(),
+                }),
+                "incomplete_cds",
+            ),
+            (
+                DomainError::UnsupportedGeneticCode(UnsupportedGeneticCodeProblem {
+                    cds: s(),
+                    genetic_code: s(),
+                }),
+                "unsupported_genetic_code",
+            ),
+            (
+                DomainError::CdsLengthNotDivisibleByThree(CdsLengthNotDivisibleByThreeProblem {
+                    cds: s(),
+                    length: 4,
+                }),
+                "cds_length_not_divisible_by_three",
+            ),
+            (
+                DomainError::AmbiguousCodon(AmbiguousCodonProblem {
+                    cds: s(),
+                    codon_number: 1,
+                    codon: s(),
+                }),
+                "ambiguous_codon",
+            ),
+            (
+                DomainError::InvalidCodon(InvalidCodonProblem {
+                    cds: s(),
+                    codon_number: 1,
+                    codon: s(),
+                }),
+                "invalid_codon",
+            ),
+            (
+                DomainError::InternalStopCodon(InternalStopCodonProblem {
+                    cds: s(),
+                    codon_number: 1,
+                    codon: s(),
+                }),
+                "internal_stop_codon",
+            ),
+            (
+                DomainError::InvalidResiduePosition(ResiduePositionProblem {
+                    cds: s(),
+                    number: 0,
+                }),
+                "invalid_residue_position",
+            ),
+            (
+                DomainError::ResiduePositionOutsideCds(ResiduePositionRangeProblem {
+                    cds: s(),
+                    number: 9,
+                    residue_count: 5,
+                }),
+                "residue_position_outside_cds",
+            ),
+            (
+                DomainError::ResiduePositionWrongCds(CdsMismatchProblem {
+                    expected: s(),
+                    actual: s(),
+                }),
+                "residue_position_wrong_cds",
+            ),
+            (
+                DomainError::UnsupportedNumberingScheme(UnsupportedNumberingProblem {
+                    cds: s(),
+                    numbering: s(),
+                }),
+                "unsupported_numbering_scheme",
+            ),
+            (
+                DomainError::InvalidMutationRequest(InvalidMutationRequestProblem {
+                    request: s(),
+                    rule: MutationRequestRule::NoChange,
+                    reason: s(),
+                }),
+                "invalid_mutation_request",
+            ),
+            (
+                DomainError::UnspecifiedCodonPolicy(UnspecifiedCodonPolicyProblem { cds: s() }),
+                "unspecified_codon_policy",
+            ),
+            (
+                DomainError::UnsupportedMutationPolicy(UnsupportedMutationPolicyProblem {
+                    policy: s(),
+                }),
+                "unsupported_mutation_policy",
+            ),
+            (
+                DomainError::UnsupportedComposition(UnsupportedCompositionProblem {
+                    composition: s(),
+                    variant_count: 2,
+                    reason: s(),
+                }),
+                "unsupported_composition",
+            ),
+            (
+                DomainError::ExpectedNucleotideMismatch(ExpectedNucleotideMismatchProblem {
+                    sequence: s(),
+                    position: 0,
+                    expected: s(),
+                    actual: s(),
+                }),
+                "expected_nucleotide_mismatch",
+            ),
+            (
+                DomainError::ExpectedResidueMismatch(ExpectedResidueMismatchProblem {
+                    cds: s(),
+                    number: 1,
+                    expected: s(),
+                    actual: s(),
+                }),
+                "expected_residue_mismatch",
+            ),
+            (
+                DomainError::TargetOutsideFeature(TargetOutsideFeatureProblem {
+                    feature: s(),
+                    sequence: s(),
+                    start: 0,
+                    end: 1,
+                }),
+                "target_outside_feature",
+            ),
+            (
+                DomainError::MutationVerificationFailure(MutationVerificationFailureProblem {
+                    result: s(),
+                    reason: s(),
+                }),
+                "mutation_verification_failure",
+            ),
+            (
+                DomainError::InvalidPrimerCandidate(InvalidPrimerCandidateProblem {
+                    primer: s(),
+                    rule: PrimerCandidateRule::EmptyTail,
+                    reason: s(),
+                }),
+                "invalid_primer_candidate",
+            ),
+            (
+                DomainError::PrimerTextAtSpanMismatch(PrimerTextAtSpanMismatchProblem {
+                    primer: s(),
+                    span: s(),
+                    expected: s(),
+                    actual: s(),
+                }),
+                "primer_text_at_span_mismatch",
+            ),
+            (
+                DomainError::PrimerAnnealingNotTemplate(PrimerAnnealingNotTemplateProblem {
+                    primer: s(),
+                    position: 0,
+                    expected: s(),
+                    actual: s(),
+                }),
+                "primer_annealing_not_template",
+            ),
+            (
+                DomainError::PrimerPartition(PrimerPartitionProblem {
+                    primer: s(),
+                    reason: s(),
+                }),
+                "primer_partition",
+            ),
+            (
+                DomainError::AnnealingOverlapBelowBound(AnnealingOverlapBelowBoundProblem {
+                    primer: s(),
+                    overlap: 1,
+                    bound: 2,
+                }),
+                "annealing_overlap_below_bound",
+            ),
+            (
+                DomainError::PrimerPairCoverage(PrimerPairCoverageProblem {
+                    pair: s(),
+                    changed: s(),
+                    uncovered: s(),
+                }),
+                "primer_pair_coverage",
+            ),
+            (
+                DomainError::PrimerOrientationConflict(PrimerOrientationConflictProblem {
+                    forward: s(),
+                    reverse: s(),
+                }),
+                "primer_orientation_conflict",
+            ),
+            (
+                DomainError::UnsupportedPrimerPlacement(UnsupportedPrimerPlacementProblem {
+                    placement: s(),
+                    reason: s(),
+                }),
+                "unsupported_primer_placement",
+            ),
+            (
+                DomainError::InvalidPrimerDesignRequest(InvalidPrimerDesignRequestProblem {
+                    field: s(),
+                    reason: s(),
+                }),
+                "invalid_primer_design_request",
+            ),
+            (
+                DomainError::UnsupportedPrimerDesignScope(UnsupportedPrimerDesignScopeProblem {
+                    policy: s(),
+                    reason: s(),
+                }),
+                "unsupported_primer_design_scope",
+            ),
+            (
+                DomainError::NoPrimerDesignPossible(NoPrimerDesignPossibleProblem {
+                    template: s(),
+                    template_length: 10,
+                    smallest_pair: 20,
+                }),
+                "no_primer_design_possible",
+            ),
+            (
+                DomainError::NoPrimerDesignFits(NoPrimerDesignFitsProblem {
+                    template: s(),
+                    edit_start: 0,
+                    edit_end: 1,
+                    obstacles: Vec::new(),
+                }),
+                "no_primer_design_fits",
+            ),
+            (
+                DomainError::InvalidBufferModel(InvalidBufferModelProblem {
+                    field: s(),
+                    reason: s(),
+                }),
+                "invalid_buffer_model",
+            ),
+            (
+                DomainError::TmParametersUnavailable(TmParametersUnavailableProblem {
+                    function: s(),
+                    aspect: s(),
+                    reason: s(),
+                }),
+                "tm_parameters_unavailable",
+            ),
+            (
+                DomainError::DegenerateExpansionTooLarge(DegenerateExpansionTooLargeProblem {
+                    replacement: s(),
+                }),
+                "degenerate_expansion_too_large",
+            ),
+            (
+                DomainError::MalformedFasta(MalformedFastaProblem {
+                    sequence: s(),
+                    rule: FastaRule::NoRecord,
+                    line: None,
+                }),
+                "malformed_fasta",
+            ),
+            (
+                DomainError::UnusableGenBankLocation(UnusableGenBankLocationProblem {
+                    location: s(),
+                    rule: GenBankLocationRule::Syntax,
+                    sequence_length: 1,
+                }),
+                "unusable_genbank_location",
+            ),
+            (
+                DomainError::MalformedGenBank(MalformedGenBankProblem {
+                    sequence: s(),
+                    rule: GenBankRule::NoLocus,
+                    line: None,
+                }),
+                "malformed_genbank",
+            ),
+            (
+                DomainError::UnusableGenBankCds(UnusableGenBankCdsProblem {
+                    cds: s(),
+                    rule: GenBankCdsRule::NotFound,
+                    line: None,
+                    detail: None,
+                }),
+                "unusable_genbank_cds",
+            ),
+            (
+                DomainError::GenBankTranslationMismatch(GenBankTranslationMismatchProblem {
+                    cds: s(),
+                    line: 1,
+                    residue: 1,
+                    stated: None,
+                    translated: None,
+                }),
+                "genbank_translation_mismatch",
+            ),
+        ];
+        assert_eq!(cases.len(), 52);
+        let mut seen = std::collections::BTreeSet::new();
+        for (error, code) in &cases {
+            assert_eq!(error.code(), *code, "{:?}", error);
+            assert!(seen.insert(error.code()), "duplicate code {}", error.code());
+            assert!(code
+                .chars()
+                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_'));
+        }
+    }
+
+    // The rule codes are the CLI's output contract (D041). This pins every
+    // one, and checks that no two rules share a code.
+    #[test]
+    fn every_mutation_request_rule_has_its_pinned_code() {
+        use MutationRequestRule::*;
+        let cases: [(MutationRequestRule, &str); 20] = [
+            (CodonIsStop, "codon_is_stop"),
+            (CodonIsAmbiguous, "codon_is_ambiguous"),
+            (CodonNotThreeDnaLetters, "codon_not_three_dna_letters"),
+            (SuppliedCodonSyntax, "supplied_codon_syntax"),
+            (ResidueNotOneLetter, "residue_not_one_letter"),
+            (ResidueNotInStandardCode, "residue_not_in_standard_code"),
+            (TargetOnOtherSequence, "target_on_other_sequence"),
+            (
+                SubstitutionNotOneNucleotide,
+                "substitution_not_one_nucleotide",
+            ),
+            (ExpectedTextLengthMismatch, "expected_text_length_mismatch"),
+            (NothingWritten, "nothing_written"),
+            (NoChange, "no_change"),
+            (WholeSequence, "whole_sequence"),
+            (InsertionAtSequenceEnd, "insertion_at_sequence_end"),
+            (SuppliedCodonWrongResidue, "supplied_codon_wrong_residue"),
+            (NoDefaultCodon, "no_default_codon"),
+            (CodonOutsideSequence, "codon_outside_sequence"),
+            (BaseNotOneLetter, "base_not_one_letter"),
+            (BaseNotDnaLetter, "base_not_dna_letter"),
+            (EmptyVariantSet, "empty_variant_set"),
+            (DuplicateVariantName, "duplicate_variant_name"),
+        ];
+        let mut seen = std::collections::BTreeSet::new();
+        for (rule, code) in cases {
+            assert_eq!(rule.code(), code, "{:?}", rule);
+            assert!(seen.insert(code), "duplicate code {}", code);
+        }
+    }
+
+    // The rule codes are the CLI's output contract (D041). This pins every
+    // one, and checks that no two rules share a code.
+    #[test]
+    fn every_primer_candidate_rule_has_its_pinned_code() {
+        use PrimerCandidateRule::*;
+        let cases: [(PrimerCandidateRule, &str); 13] = [
+            (SpanOverlapsDeletion, "span_overlaps_deletion"),
+            (
+                SpanStraddlesInsertionPoint,
+                "span_straddles_insertion_point",
+            ),
+            (SpanOverlapsReplacement, "span_overlaps_replacement"),
+            (TextLengthNotSpanWidth, "text_length_not_span_width"),
+            (
+                ForwardSpanDoesNotCoverReplacement,
+                "forward_span_does_not_cover_replacement",
+            ),
+            (EditTakesNoTail, "edit_takes_no_tail"),
+            (EmptyTail, "empty_tail"),
+            (RoleDoesNotMatchSlot, "role_does_not_match_slot"),
+            (
+                PrimersOnDifferentTemplates,
+                "primers_on_different_templates",
+            ),
+            (PairNotOnEditTemplate, "pair_not_on_edit_template"),
+            (PairNotAbuttingEdit, "pair_not_abutting_edit"),
+            (MinimumOverlapBelowOne, "minimum_overlap_below_one"),
+            (TailsDoNotRebuild, "tails_do_not_rebuild"),
+        ];
+        let mut seen = std::collections::BTreeSet::new();
+        for (rule, code) in cases {
+            assert_eq!(rule.code(), code, "{:?}", rule);
+            assert!(seen.insert(code), "duplicate code {}", code);
+        }
+    }
+
+    #[test]
+    fn every_fasta_rule_has_its_pinned_code() {
+        use FastaRule::*;
+        let cases: [(FastaRule, &str); 3] = [
+            (NoRecord, "no_record"),
+            (TextBeforeHeader, "text_before_header"),
+            (SecondRecord, "second_record"),
+        ];
+        let mut seen = std::collections::BTreeSet::new();
+        for (rule, code) in cases {
+            assert_eq!(rule.code(), code, "{:?}", rule);
+            assert!(seen.insert(code), "duplicate code {}", code);
+        }
+    }
+
+    #[test]
+    fn every_genbank_location_rule_has_its_pinned_code_and_category() {
+        use ErrorCategory::*;
+        use GenBankLocationRule::*;
+        let cases: [(GenBankLocationRule, &str, ErrorCategory); 11] = [
+            (Syntax, "syntax", MalformedInput),
+            (PositionZero, "position_zero", MalformedInput),
+            (
+                RangeEndsBeforeStart,
+                "range_ends_before_start",
+                MalformedInput,
+            ),
+            (PastSequenceEnd, "past_sequence_end", BiologicalValidation),
+            (FuzzyEnd, "fuzzy_end", Unsupported),
+            (BetweenBases, "between_bases", Unsupported),
+            (Order, "order", Unsupported),
+            (RemoteReference, "remote_reference", Unsupported),
+            (SinglePosition, "single_position", Unsupported),
+            (OriginJoinOnLinear, "origin_join_on_linear", Unsupported),
+            (UnsupportedJoin, "unsupported_join", Unsupported),
+        ];
+        let mut seen = std::collections::BTreeSet::new();
+        for (rule, code, category) in cases {
+            assert_eq!(rule.code(), code, "{:?}", rule);
+            assert!(rule.category() == category, "{:?}", rule);
+            assert!(seen.insert(code), "duplicate code {}", code);
+        }
+    }
+
+    #[test]
+    fn every_genbank_rule_has_its_pinned_code() {
+        use GenBankRule::*;
+        let cases: [(GenBankRule, &str); 14] = [
+            (NoLocus, "no_locus"),
+            (LocusLength, "locus_length"),
+            (TopologyMissing, "topology_missing"),
+            (TopologyConflict, "topology_conflict"),
+            (RepeatedSection, "repeated_section"),
+            (LineLayout, "line_layout"),
+            (QualifierSyntax, "qualifier_syntax"),
+            (NoOrigin, "no_origin"),
+            (OriginLine, "origin_line"),
+            (OriginNumbering, "origin_numbering"),
+            (LengthMismatch, "length_mismatch"),
+            (MissingEnd, "missing_end"),
+            (SecondRecord, "second_record"),
+            (TextAfterEnd, "text_after_end"),
+        ];
+        let mut seen = std::collections::BTreeSet::new();
+        for (rule, code) in cases {
+            assert_eq!(rule.code(), code, "{:?}", rule);
+            assert!(seen.insert(code), "duplicate code {}", code);
+        }
+    }
+
+    #[test]
+    fn every_genbank_cds_rule_has_its_pinned_code_and_category() {
+        use ErrorCategory::*;
+        use GenBankCdsRule::*;
+        let cases: [(GenBankCdsRule, &str, ErrorCategory); 9] = [
+            (NotFound, "not_found", BiologicalValidation),
+            (AmbiguousName, "ambiguous_name", BiologicalValidation),
+            (RepeatedName, "repeated_name", MalformedInput),
+            (NoId, "no_id", Unsupported),
+            (RepeatedQualifier, "repeated_qualifier", MalformedInput),
+            (Pseudo, "pseudo", Unsupported),
+            (CodonStart, "codon_start", Unsupported),
+            (TranslTable, "transl_table", Unsupported),
+            (AlternativeStart, "alternative_start", Unsupported),
+        ];
+        let mut seen = std::collections::BTreeSet::new();
+        for (rule, code, category) in cases {
+            assert_eq!(rule.code(), code, "{:?}", rule);
+            assert!(rule.category() == category, "{:?}", rule);
+            assert!(seen.insert(code), "duplicate code {}", code);
+        }
     }
 }

@@ -15,6 +15,18 @@ independent verification; and the Q5 site-directed mutagenesis workflow,
 including primer design for substitutions, deletions, insertions,
 replacements and degenerate expansion.
 
-There is no executable yet. The next milestone is a minimal CLI with
-machine-readable output (Milestone 5); natural-language interpretation
-follows (Milestone 6). See `docs/decisions.md` D034.
+Milestone 5 adds the `luria` executable: it reads a typed JSON request,
+runs the Q5 workflow and writes one structured JSON result.
+
+```
+luria q5 design REQUEST.json [--write-edited DIR]
+luria version
+luria help
+```
+
+See `docs/cli.md` for the request and result schemas, a worked example and
+the exit codes. Primer design covers linear templates only (D029), so a
+plasmid gives a verified edit with a design failure rather than primers.
+
+Natural-language interpretation is the next milestone (Milestone 6). See
+`docs/decisions.md` D034.

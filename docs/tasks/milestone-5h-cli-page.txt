@@ -1,0 +1,565 @@
+# The `luria` command line
+
+This page describes `luria-cli` 0.1.0, which reads requests in schema
+`luria.q5-request/1` and writes results in schema `luria.q5-result/1`.
+The decisions behind it are D041 and D034 in `docs/decisions.md`.
+
+`luria` runs one workflow, Q5 site-directed mutagenesis. It reads a request
+and the sequence file the request names, applies the edit, verifies it,
+designs a primer pair and prints one JSON document on stdout.
+
+## 1. Commands
+
+```
+luria q5 design REQUEST.json [--write-edited DIR]
+luria version
+luria help
+```
+
+| Command | What it does |
+| --- | --- |
+| `q5 design REQUEST.json` | Runs the request and prints one result document. |
+| `--write-edited DIR` | Also writes each edited construct to `DIR/<member name>.fa`. `DIR` is created if needed. An existing file is never overwritten. |
+| `version`, `--version` | Prints the package version, every algorithm's name and version, and the two schema names (§4). |
+| `help`, `--help`, `-h` | Prints the usage text. |
+
+A command line luria can't act on prints a one-line reason and the usage
+text on stderr, nothing on stdout, and exits 2.
+
+## 2. Before you rely on a result
+
+- **Results are computational.** `verified` means luria applied the edit,
+  checked the edited construct independently and derived the primers from
+  the template. Every result says `"experimentalValidation":
+  "not_performed"`.
+- **Circular templates cannot be designed yet.** Primer design covers
+  linear templates only (D029). On a plasmid, or any template whose
+  topology is `circular`, the edit is still applied, verified and
+  reported, but each member carries an `unsupported_primer_design_scope`
+  design failure instead of primers, and the run exits 7.
+- **Nothing is guessed.** An ambiguous request gives
+  `needs_clarification`, and a wrong one gives `failed`. luria never picks
+  a CDS, corrects a base or fills in a missing setting.
+
+## 3. A worked example
+
+Save this request as `d404n.json` next to `sid-1_cDNA.fa`, which is in
+this repository at `tests/fixtures/example-construct/input/`. It edits the
+SID-1 cDNA at residue 404, aspartate to asparagine, writing the codon
+`AAC`; paths in a request are relative to the request file's own directory.
+
+<!-- luria:request -->
+```json
+{
+  "schema": "luria.q5-request/1",
+  "coordinates": "zero-based-half-open",
+  "template": {
+    "id": "sid-1",
+    "fasta": "sid-1_cDNA.fa",
+    "topology": "linear",
+    "cds": [
+      {
+        "id": "sid-1",
+        "intervals": [[0, 3153]],
+        "strand": "+",
+        "completeness": "complete",
+        "geneticCode": "standard",
+        "numbering": "from-cds-start"
+      }
+    ]
+  },
+  "scope": "sid-1",
+  "edit": {
+    "name": "D404N",
+    "residue": {
+      "cds": "sid-1",
+      "number": 404,
+      "from": "D",
+      "to": "N",
+      "codon": "AAC"
+    }
+  },
+  "design": {
+    "policy": "luriaNative",
+    "style": "q5_polymerase",
+    "minAnnealingOverlap": 15,
+    "placement": "inline",
+    "buffer": "q5_reaction"
+  }
+}
+```
+
+Then:
+
+```
+luria q5 design d404n.json
+```
+
+The run exits 0 and prints the document below.
+
+**Melting temperatures and the two thermodynamic terms are written here to
+the precision the verification tables record** — two decimals for a Tm,
+one for ΔH and ΔS, two for a G+C percentage. luria itself prints every
+float at full precision (D041), so those figures are the document's values
+to that precision, not its exact bytes. Every other field is exact,
+including `annealingTemperature`, which is a whole number of degrees by
+definition (D030).
+
+<!-- luria:result -->
+```json
+{
+  "schema": "luria.q5-result/1",
+  "state": "verified",
+  "experimentalValidation": "not_performed",
+  "provenance": {
+    "package": {
+      "name": "luria-cli",
+      "version": "0.1.0"
+    },
+    "algorithms": [
+      {
+        "role": "mutation",
+        "name": "luria-core-mutation",
+        "version": "0.3.0"
+      },
+      {
+        "role": "primer",
+        "name": "luria-core-primer",
+        "version": "0.2.0"
+      },
+      {
+        "role": "tm",
+        "name": "nn-santalucia-hicks-2004-owczarzy-2004-monovalent",
+        "version": "0.2.0"
+      },
+      {
+        "role": "native_design",
+        "name": "luria-core-primer-design-native",
+        "version": "0.7.0"
+      },
+      {
+        "role": "q5_workflow",
+        "name": "luria-core-q5-sdm",
+        "version": "0.5.0"
+      }
+    ],
+    "requestSha256": "def773534f112340da19af055721d09ba772ac62a0da937741e35e0c859fcba0",
+    "operation": "edit",
+    "template": {
+      "id": "sid-1",
+      "sha256": "54704740a9f04b79d17147ef95788ad9f0f11e5263843a7ed490924d43b55e3a",
+      "length": 3153,
+      "topology": "linear",
+      "source": {
+        "format": "fasta",
+        "path": "sid-1_cDNA.fa",
+        "header": "3xFLAG-mVenus-sid-1 cDNA"
+      },
+      "genbank": null
+    },
+    "buffer": {
+      "preset": "q5_reaction",
+      "monovalentMillimolar": 150.0,
+      "primerNanomolar": 500.0,
+      "dmsoPercent": 0.0
+    }
+  },
+  "request": {
+    "schema": "luria.q5-request/1",
+    "coordinates": "zero-based-half-open",
+    "template": {
+      "id": "sid-1",
+      "fasta": "sid-1_cDNA.fa",
+      "topology": "linear",
+      "cds": [
+        {
+          "id": "sid-1",
+          "intervals": [[0, 3153]],
+          "strand": "+",
+          "completeness": "complete",
+          "geneticCode": "standard",
+          "numbering": "from-cds-start"
+        }
+      ]
+    },
+    "scope": "sid-1",
+    "edit": {
+      "name": "D404N",
+      "residue": {
+        "cds": "sid-1",
+        "number": 404,
+        "from": "D",
+        "to": "N",
+        "codon": "AAC"
+      }
+    },
+    "design": {
+      "policy": "luriaNative",
+      "style": "q5_polymerase",
+      "minAnnealingOverlap": 15,
+      "placement": "inline",
+      "buffer": "q5_reaction"
+    }
+  },
+  "target": {
+    "id": "sid-1",
+    "intervals": [[0, 3153]],
+    "strand": "+",
+    "completeness": "complete",
+    "geneticCode": "standard",
+    "numbering": "from-cds-start",
+    "length": 3153
+  },
+  "clarifications": [],
+  "candidates": [],
+  "warnings": [],
+  "results": [
+    {
+      "name": "D404N",
+      "mutation": {
+        "kind": "residue",
+        "state": "verified",
+        "cds": "sid-1",
+        "residue": 404,
+        "originalResidue": "D",
+        "writtenResidue": "N",
+        "originalCodon": "GAT",
+        "writtenCodon": "AAC",
+        "codonPolicy": "supplied",
+        "codonPolicySource": null,
+        "coordinates": [1209, 1210, 1211],
+        "edited": {
+          "id": "D404N",
+          "sha256": "6ab7d5a6fdd995692ed5cda5079db64c97a70935deb9edfd10fe402628b7ff50",
+          "length": 3153
+        }
+      },
+      "warnings": [],
+      "design": {
+        "policy": "luriaNative",
+        "style": "q5_polymerase",
+        "algorithm": {
+          "name": "luria-core-primer-design-native",
+          "version": "0.7.0"
+        },
+        "minAnnealingOverlap": 15,
+        "placement": "inline",
+        "editSpan": [1209, 1212],
+        "forward": {
+          "role": "forward",
+          "sequence": "CGTTGAGCAAAACTTCGGGGCGC",
+          "length": 23,
+          "span": [1199, 1222],
+          "editedSpan": [1199, 1222],
+          "tail": null,
+          "parts": [
+            {
+              "role": "context",
+              "annealing": true,
+              "sequence": "CGTTGAGCAA",
+              "span": [1199, 1209],
+              "primerStart": 0,
+              "primerEnd": 10
+            },
+            {
+              "role": "mutation",
+              "annealing": false,
+              "sequence": "AAC",
+              "span": [1209, 1212],
+              "primerStart": 10,
+              "primerEnd": 13
+            },
+            {
+              "role": "context",
+              "annealing": true,
+              "sequence": "TTCGGGGCGC",
+              "span": [1212, 1222],
+              "primerStart": 13,
+              "primerEnd": 23
+            }
+          ],
+          "annealing": {
+            "sequence": "CGTTGAGCAATTCGGGGCGC",
+            "length": 20,
+            "overlap": 20,
+            "spans": [[1199, 1209], [1212, 1222]]
+          },
+          "tm": {
+            "celsius": 67.72,
+            "basis": "mismatched_wild_type_site",
+            "substitutedBecause": null,
+            "enthalpyKcal": -139.9,
+            "entropyCal": -373.3
+          },
+          "wholePrimerTm": null,
+          "warnings": [
+            {
+              "code": "gc_content_outside_band",
+              "gcPercent": 60.87,
+              "message": "G+C is 60.9 %, outside the 40–60 % guideline"
+            },
+            {
+              "code": "single_base_run",
+              "base": "A",
+              "length": 4,
+              "start": 8,
+              "message": "a run of 4 A at position 8; more than 3 can cause primer slippage"
+            },
+            {
+              "code": "single_base_run",
+              "base": "G",
+              "length": 4,
+              "start": 16,
+              "message": "a run of 4 G at position 16; more than 3 can cause primer slippage"
+            },
+            {
+              "code": "three_prime_gc_run",
+              "length": 8,
+              "message": "the last 8 bases are all G or C; more than 2 invites primer-dimers"
+            }
+          ]
+        },
+        "reverse": {
+          "role": "reverse",
+          "sequence": "AGCGGATTGAGCAGTTTTC",
+          "length": 19,
+          "span": [1180, 1199],
+          "editedSpan": null,
+          "tail": null,
+          "parts": [
+            {
+              "role": "context",
+              "annealing": true,
+              "sequence": "AGCGGATTGAGCAGTTTTC",
+              "span": [1180, 1199],
+              "primerStart": 0,
+              "primerEnd": 19
+            }
+          ],
+          "annealing": {
+            "sequence": "AGCGGATTGAGCAGTTTTC",
+            "length": 19,
+            "overlap": 19,
+            "spans": [[1180, 1199]]
+          },
+          "tm": {
+            "celsius": 62.90,
+            "basis": "matched_complement",
+            "substitutedBecause": null,
+            "enthalpyKcal": -146.8,
+            "entropyCal": -397.7
+          },
+          "wholePrimerTm": null,
+          "warnings": [
+            {
+              "code": "single_base_run",
+              "base": "T",
+              "length": 4,
+              "start": 14,
+              "message": "a run of 4 T at position 14; more than 3 can cause primer slippage"
+            }
+          ]
+        },
+        "annealingTemperature": 64.0,
+        "tmBalanceMet": true,
+        "pair": {
+          "deletedWidth": 0,
+          "separation": 0,
+          "boundary": 1199,
+          "abuts": true,
+          "relationship": "reverse span [1180, 1199) and forward span [1199, 1222): abutting"
+        },
+        "unresolved": [
+          {
+            "input": "minTm",
+            "effect": "not accepted: luriaNative applies its fixed 55 °C floor (D030)"
+          },
+          {
+            "input": "maxAnnealingOverlap",
+            "effect": "not accepted (owner, 2026-10-14): no upper bound was applied; the chosen lengths are reported"
+          }
+        ]
+      },
+      "designFailure": null
+    }
+  ],
+  "error": null
+}
+```
+
+### 3.1 Reading it
+
+- **The edit.** `mutation.coordinates` are the three template positions the
+  codon occupies, `[1209, 1210, 1211]`, and `editSpan` is the same region as
+  a half-open interval, `[1209, 1212]`. `originalCodon` is what the template
+  held and `writtenCodon` is what luria wrote; `codonPolicy` is `supplied`
+  because the request named the codon, so `codonPolicySource` is null. A
+  request that said `"policy": "default"` instead would carry `default` and
+  name the codon-usage table it consulted.
+- **The edited construct** is identified by digest, not by its text:
+  `6ab7d5a6…`, still 3153 bases. `--write-edited DIR` writes it to
+  `DIR/D404N.fa`.
+- **The primers** are stated 5′→3′. The forward primer carries the new
+  codon: its three `parts` are template context, the written `AAC`, then
+  template context again, and the `mutation` part is the one part with
+  `"annealing": false`. Its `annealing` block is therefore the 20 bases
+  that do anneal, in two intervals either side of the codon. The reverse
+  primer is pure template, one `context` part, and `editedSpan` is null
+  because it reads the template rather than the edited construct.
+- **Two Tms, on two bases.** The forward primer's `basis` is
+  `mismatched_wild_type_site`: the first cycle anneals it over the
+  unedited template, where the codon mismatches. The reverse primer
+  mismatches nothing, so its basis is `matched_complement`. The two are
+  never averaged. `annealingTemperature` is the lower Tm rounded to a
+  whole degree, plus 1 °C, capped at 72 °C: the rule NEB's Tm calculator
+  and NEBaseChanger use for Q5 (D030). Here that is 62.90 → 63, plus 1,
+  so 64. `tmBalanceMet` says the two Tms are within 5 °C.
+- **Warnings are guidelines, not failures.** This pair is still a design:
+  the forward primer is 60.9 % G+C against a 40–60 % guideline, has runs
+  of four A and four G, and ends in eight G or C. Each warning carries the
+  measurement luria took as well as its text.
+- **`unresolved`** names the design inputs this policy does not accept, so
+  a caller can tell a value was not applied silently.
+
+## 4. `luria version`
+
+```json
+{
+  "schema": "luria.version/1",
+  "package": "luria-cli",
+  "version": "0.1.0",
+  "algorithms": [
+    {
+      "role": "mutation",
+      "name": "luria-core-mutation",
+      "version": "0.3.0"
+    },
+    {
+      "role": "primer",
+      "name": "luria-core-primer",
+      "version": "0.2.0"
+    },
+    {
+      "role": "tm",
+      "name": "nn-santalucia-hicks-2004-owczarzy-2004-monovalent",
+      "version": "0.2.0"
+    },
+    {
+      "role": "native_design",
+      "name": "luria-core-primer-design-native",
+      "version": "0.7.0"
+    },
+    {
+      "role": "q5_workflow",
+      "name": "luria-core-q5-sdm",
+      "version": "0.5.0"
+    }
+  ],
+  "schemas": {
+    "request": "luria.q5-request/1",
+    "result": "luria.q5-result/1"
+  }
+}
+```
+
+Every result repeats these algorithm names and versions in its
+`provenance`, so a result says which code produced it (D021).
+
+## 5. Exit codes
+
+| Code | Meaning |
+| --- | --- |
+| 0 | `verified`, and every member designed |
+| 1 | An internal error or an I/O failure |
+| 2 | Usage error: bad arguments. Text on stderr, no JSON |
+| 3 | `needs_clarification` |
+| 4 | `failed`, category `malformed_input` |
+| 5 | `failed`, category `biological_validation` |
+| 6 | `failed`, category `unsupported` |
+| 7 | Verified, but at least one member could not be designed |
+
+Exit 7 is the plasmid case of §2, and also a single edit whose design
+failed: the edit stands, and `designFailure` says why there are no
+primers.
+
+## 6. Error codes
+
+A `failed` document's `error`, and a member's `designFailure`, carry:
+
+| Field | What it holds |
+| --- | --- |
+| `code` | A stable identifier, such as `expected_residue_mismatch`. |
+| `rule` | For the two broad codes, `invalid_mutation_request` and `invalid_primer_candidate`, which specific rule was broken; null otherwise. |
+| `category` | `malformed_input`, `biological_validation` or `unsupported`, which chooses the exit code. |
+| `message` | The human-readable reason. |
+| `path` | The JSON path in the request, for an error the request itself caused; null otherwise. |
+| `details` | The error's own fields, such as the coordinates or residues involved. |
+
+Match on `code` and `rule`, never on `message`. Four codes are the CLI's
+own; every other code comes from `luria-core`.
+
+| CLI code | Category | When |
+| --- | --- | --- |
+| `request_unreadable` | `malformed_input` | The request file could not be read. |
+| `request_invalid` | `malformed_input` | The request is not valid under the schema. `path` names the field. |
+| `template_digest_mismatch` | `malformed_input` | The request stated `template.sha256` and the file's digest differs. |
+| `output_exists` | `malformed_input` | `--write-edited` would overwrite an existing file. |
+
+The complete list of core codes is pinned by
+`luria_core::error::tests::every_variant_has_its_pinned_code`, and every
+code is distinct.
+
+## 7. The request at a glance
+
+`luria.q5-request/1` is strict: an unknown field, a missing required
+field or a wrong type is refused, and `path` names where. Nothing that
+changes the science has a default.
+
+| Field | Required | What it is |
+| --- | --- | --- |
+| `schema` | yes | `"luria.q5-request/1"`. |
+| `coordinates` | yes | `"zero-based-half-open"`, the convention of every nucleotide interval in the request and the result. Residue numbers are 1-based. |
+| `template` | yes | Either a FASTA template — `fasta`, `topology`, and `cds` as declared objects — or a GenBank one: `genbank`, and `cds` as a list of ids to import. Never both. `id` is the template's identity and comes from the request, not the file (D007). `sha256` is optional and checked when present. |
+| `scope` | no | The CDS the edit applies to. Without it, luria resolves the target, and asks when more than one CDS could be meant. |
+| one of `edit`, `variants`, `degenerate` | yes | One edit, a set of named members, or a degenerate replacement expanded into a set. Exactly one. |
+| `design` | yes | `policy`, `style`, `minAnnealingOverlap`, `placement` and `buffer`. `buffer` is either the preset `"q5_reaction"` or the three numbers `monovalentMillimolar`, `primerNanomolar` and `dmsoPercent` (G6). |
+
+An edit is one of six kinds, each its own object inside `edit` or a
+member: `residue`, `substitution`, `deletion`, `insertion`,
+`replacement`, and `residue` without a `cds`, which is the form that can
+come back as `needs_clarification`. A `residue` edit needs either a
+`codon` or `"policy": "default"`.
+
+## 8. The result at a glance
+
+One document for every outcome, with every top-level key always present —
+`null` or `[]` where it does not apply — so a consumer never has to test
+whether a key exists.
+
+| Field | What it holds |
+| --- | --- |
+| `schema` | `"luria.q5-result/1"`. |
+| `state` | `verified`, `needs_clarification` or `failed`. |
+| `experimentalValidation` | Always `"not_performed"`. |
+| `provenance` | The package, every algorithm and version, the request file's digest, the operation, the template and the buffer. |
+| `request` | The request as luria understood it. It is itself a valid request: parsing the echo gives the same request back. |
+| `target` | The resolved CDS, or null. |
+| `clarifications`, `candidates` | Why luria is asking, and what it could have meant. Non-empty only when `state` is `needs_clarification`. |
+| `warnings` | Warnings about the operation as a whole, such as a degenerate expansion that skipped the wild type. |
+| `results` | One entry per member: its `name`, its `mutation`, its edit `warnings`, and `design` or `designFailure` — one or the other, never both. |
+| `error` | The failure, when `state` is `failed`; null otherwise. |
+
+The result is deterministic: the same inputs give byte-identical output
+(D012). There are no timestamps, hostnames or absolute paths, keys come
+out in a fixed order, floats print at full precision, and every
+nucleotide interval is a `[start, end]` pair rather than text to parse.
+The edited sequence appears only through `--write-edited`.
+
+## 9. What this page does not cover yet
+
+This page is the worked example and the tables above. The full reference —
+every GenBank location form and qualifier rule luria accepts or refuses,
+every request field in detail, every result field in detail, and every
+error code with its `details` — is not written yet. Until it is,
+`docs/tasks/milestone-5-cli.md` §3.3 to §3.5 is the authority, and
+`luria_core::error` is the authority on codes.

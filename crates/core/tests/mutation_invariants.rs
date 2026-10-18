@@ -234,6 +234,11 @@ fn variant_name(error: &DomainError) -> String {
         DomainError::InvalidBufferModel(_) => "InvalidBufferModel",
         DomainError::TmParametersUnavailable(_) => "TmParametersUnavailable",
         DomainError::DegenerateExpansionTooLarge(_) => "DegenerateExpansionTooLarge",
+        DomainError::MalformedFasta(_) => "MalformedFasta",
+        DomainError::UnusableGenBankLocation(_) => "UnusableGenBankLocation",
+        DomainError::MalformedGenBank(_) => "MalformedGenBank",
+        DomainError::UnusableGenBankCds(_) => "UnusableGenBankCds",
+        DomainError::GenBankTranslationMismatch(_) => "GenBankTranslationMismatch",
     }
     .to_string()
 }

@@ -25,7 +25,7 @@ length n:
                            unreachable
     sizing uses the ANNEALING portion's Tm only (matched basis), D030
     otherwise unchanged: floor 55, G/C end below 63, forward first, balance 5,
-    Ta = min(72, min Tm + 3)
+    Ta = min(72, round_half_up(min Tm) + 1)
     whole-primer Tm is also reported, labelled, and never used for sizing
     a primer longer than 100 nt gets a quality warning, never a refusal
 """
@@ -43,7 +43,6 @@ nd = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(nd)
 
 FLOOR, CEILING, BALANCE = nd.FLOOR, nd.CEILING, nd.BALANCE
-TA_OFFSET, TA_CAP = nd.TA_OFFSET, nd.TA_CAP
 ACGT, rc, bio, ends_gc = nd.ACGT, nd.rc, nd.bio, nd.ends_gc
 
 TAIL_WHOLE_MAX = 6
@@ -186,7 +185,7 @@ def design(t, p, inserted, b):
         "reverse_tm": f"{tr:.2f}",
         "forward_whole_tm": f"{whole_f:.2f}",
         "reverse_whole_tm": f"{whole_r:.2f}",
-        "annealing_temp": f"{min(TA_CAP, min(tf, tr) + TA_OFFSET):.2f}",
+        "annealing_temp": f"{nd.annealing_temp(tf, tr):.2f}",
         "balance_met": "yes" if met else "no",
         "failure": "none",
     }, trace

@@ -1562,7 +1562,8 @@ fn each_native_deletion_case_gets_the_design_or_failure_d031_predicts() {
 }
 
 /// D031's invariants, over every deletion design: both primers meet the Tm
-/// floor, the annealing temperature follows the Q5 "Tm+3" rule with its cap,
+/// floor, the annealing temperature follows D030's rule (the lower Tm rounded to a whole degree,
+/// plus 1) with its cap,
 /// the pair abuts across the removed region, and the forward primer carries no
 /// 5′ flank. Both Tms are on the matched basis, since neither primer has a
 /// mismatch.
@@ -1589,7 +1590,7 @@ fn every_native_deletion_design_meets_the_d031_invariants() {
             row.case_id,
             reverse
         );
-        let annealing: f64 = (forward.min(reverse) + TA_OFFSET).min(TA_CAP);
+        let annealing: f64 = (forward.min(reverse).round() + TA_OFFSET).min(TA_CAP);
         assert!(
             (design.annealing_temperature() - annealing).abs() < 1e-9,
             "{}: annealing temperature",
@@ -1948,7 +1949,8 @@ fn tail_letters(primer: Primer) -> Vec<char> {
 }
 
 /// D032's invariants, over every insertion design: both annealing portions
-/// meet the Tm floor, the annealing temperature follows the Q5 "Tm+3" rule
+/// meet the Tm floor, the annealing temperature follows D030's rule (the lower Tm rounded to a
+/// whole degree, plus 1)
 /// with its cap, both annealing portions abut at the point itself — an
 /// insertion occupies no template position — and the two 5′ tails rebuild the
 /// inserted text exactly. Both Tms are on the matched basis, since an
@@ -1976,7 +1978,7 @@ fn every_native_insertion_design_meets_the_d032_invariants() {
             row.case_id,
             reverse
         );
-        let annealing: f64 = (forward.min(reverse) + TA_OFFSET).min(TA_CAP);
+        let annealing: f64 = (forward.min(reverse).round() + TA_OFFSET).min(TA_CAP);
         assert!(
             (design.annealing_temperature() - annealing).abs() < 1e-9,
             "{}: annealing temperature",
@@ -2451,7 +2453,8 @@ fn each_native_replacement_case_gets_the_design_or_failure_d033_predicts() {
 }
 
 /// D033's invariants, over every replacement design: both primers meet the Tm
-/// floor and the annealing temperature follows the Q5 "Tm+3" rule with its cap,
+/// floor and the annealing temperature follows D030's rule (the lower Tm rounded to a whole degree,
+/// plus 1) with its cap,
 /// on both paths. Inline, the pair abuts across the region itself — the forward
 /// primer's span covers `[s, e)` and the reverse ends where it starts — and
 /// neither primer carries a 5′ tail. On the tails path the annealing portions
@@ -2480,7 +2483,7 @@ fn every_native_replacement_design_meets_the_d033_invariants() {
             row.case_id,
             reverse
         );
-        let annealing: f64 = (forward.min(reverse) + TA_OFFSET).min(TA_CAP);
+        let annealing: f64 = (forward.min(reverse).round() + TA_OFFSET).min(TA_CAP);
         assert!(
             (design.annealing_temperature() - annealing).abs() < 1e-9,
             "{}: annealing temperature",
@@ -2672,7 +2675,8 @@ fn luria_tm_matches_the_recorded_reference_tm_on_the_matched_basis() {
 }
 
 /// D030's invariants, over every native design: both primers meet the Tm
-/// floor, the annealing temperature follows the Q5 "Tm+3" rule with its cap,
+/// floor, the annealing temperature follows D030's rule (the lower Tm rounded to a whole degree,
+/// plus 1) with its cap,
 /// and the forward primer's 5′ flank is the fixed 10 bases.
 #[test]
 fn every_native_design_meets_the_d030_invariants() {
@@ -2697,7 +2701,7 @@ fn every_native_design_meets_the_d030_invariants() {
             row.case_id,
             reverse
         );
-        let annealing: f64 = (forward.min(reverse) + TA_OFFSET).min(TA_CAP);
+        let annealing: f64 = (forward.min(reverse).round() + TA_OFFSET).min(TA_CAP);
         assert!(
             (design.annealing_temperature() - annealing).abs() < 1e-9,
             "{}: annealing temperature",

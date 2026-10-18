@@ -34,11 +34,12 @@ D030, for a replacement region [s, e), L = e - s, bound b, template length n:
     balance: grow the colder primer while the gap exceeds 5; then toward a G/C
         last base while its Tm stays below the other's, keeping that length only
         if it ends in G/C at or below the other's Tm; else the balanced length
-    Ta = min(72, min(Tm_f, Tm_r) + 3)
+    Ta = min(72, round_half_up(min(Tm_f, Tm_r)) + 1)
 Forward Tm: mismatch-aware against the wild-type site, or matched where two
 mismatches are adjacent. Reverse Tm: matched.
 """
 import json
+import math
 import os
 import sys
 
@@ -47,7 +48,17 @@ from Bio.SeqUtils import MeltingTemp as mt
 HERE = os.path.dirname(os.path.abspath(__file__))
 FIXTURES = os.path.dirname(HERE)
 
-FLOOR, CEILING, BALANCE, TA_OFFSET, TA_CAP, FLANK5 = 55.0, 63.0, 5.0, 3.0, 72.0, 10
+FLOOR, CEILING, BALANCE, TA_OFFSET, TA_CAP, FLANK5 = 55.0, 63.0, 5.0, 1.0, 72.0, 10
+
+
+def annealing_temp(tf, tr):
+    """D030 as amended 2026-10-18: the lower Tm rounded half up to a whole
+    degree, plus TA_OFFSET, capped at TA_CAP. math.floor(x + 0.5), not
+    round(), which rounds half to even and would disagree with Rust's
+    f64::round at an exact half."""
+    return min(TA_CAP, math.floor(min(tf, tr) + 0.5) + TA_OFFSET)
+
+
 COMP = {"A": "T", "T": "A", "G": "C", "C": "G"}
 ACGT = set("ACGT")
 
@@ -197,7 +208,7 @@ def design(t, s, rep, b):
         "forward_tm": f"{tf:.2f}",
         "forward_tm_basis": basis,
         "reverse_tm": f"{tr:.2f}",
-        "annealing_temp": f"{min(TA_CAP, min(tf, tr) + TA_OFFSET):.2f}",
+        "annealing_temp": f"{annealing_temp(tf, tr):.2f}",
         "balance_met": "yes" if met else "no",
         "failure": "none",
         "_forward": fwd(v), "_reverse": rev(r),

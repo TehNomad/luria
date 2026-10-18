@@ -3,5 +3,5 @@
 # domain semantics (decisions D002, D006, D007, D008, D009, D010).
 
 [workspace]
-members = ["crates/core"]
+members = ["crates/core", "crates/cli"]
 resolver = "2"

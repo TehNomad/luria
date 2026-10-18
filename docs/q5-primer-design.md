@@ -833,7 +833,8 @@ temperature, and §18.1's centred split, §18.3's enumeration and §18.4's
 statement that Tm is not enabled are superseded for lengths: the forward
 primer keeps a fixed 10-base 5′ flank, both primers grow at their 3′ ends to a
 55 °C floor, prefer a G/C last base below 63 °C, and are balanced to within
-5 °C, and the annealing temperature is the lower Tm + 3 °C capped at 72 °C.
+5 °C, and the annealing temperature is the lower Tm, rounded to a whole
+degree, + 1 °C, capped at 72 °C (D030 as amended 2026-10-18).
 `docs/decisions.md` D030 is the rule and its sources; the text below is kept as
 the record of D029 and still governs scope, hard constraints and the failure
 outcomes, as amended in §18.5. The Tm function is `crates/core/src/tm.rs`
@@ -1313,5 +1314,5 @@ maximum primer length was touched.
 | D029 status | **approved** by the owner, 2026-10-14 |
 | §18.2 | an ambiguity code in the template under the centered pair is *no centered design fits* (point-mutation mode) |
 | §19 | future indel/substitution mode: expand ambiguity codes in the replacement combinatorially, one pair per concrete sequence |
-| §18, §18.4, §18.5 | **D030**: Tm-driven lengths (55 °C floor, G/C preference below 63 °C, 5 °C balance, 3′-only growth with a fixed 10-base forward 5′ flank, Ta = lower Tm + 3 capped at 72); outcome 2 renamed *no design fits* with a Tm-floor cause |
+| §18, §18.4, §18.5 | **D030**: Tm-driven lengths (55 °C floor, G/C preference below 63 °C, 5 °C balance, 3′-only growth with a fixed 10-base forward 5′ flank, Ta = rounded lower Tm + 1 capped at 72, amended 2026-10-18); outcome 2 renamed *no design fits* with a Tm-floor cause |
 | §2.2 | under `luriaNative` the buffer (salt and primer concentration) is a required request field rather than an optional `saltModel`: the reference tool uses two different conditions at two call sites, so a default would be an unmade decision. `tmFunction` is fixed by the policy and `minTm` is not accepted (D030's floor is fixed) |

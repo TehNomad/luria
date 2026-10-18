@@ -1,0 +1,3 @@
+file	header	length	sha256
+example-construct/input/sid-1_cDNA.fa	3xFLAG-mVenus-sid-1 cDNA	3153	54704740a9f04b79d17147ef95788ad9f0f11e5263843a7ed490924d43b55e3a
+example-construct/raw/sdmfinalseq.fa	SID-1_D404N  Replace gat between bases 1209-1213 with AAC in SID-1 (D404N) replaced 1210 to 1212 with AAC	3153	6ab7d5a6fdd995692ed5cda5079db64c97a70935deb9edfd10fe402628b7ff50

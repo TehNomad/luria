@@ -809,7 +809,8 @@ allow primers below the reference tool's documented floor.
 
 Status: approved by the owner, 2026-10-14. Amends D029: D029's scope, its
 failure outcomes and its abutting pair stand; its fixed, centred lengths do
-not.
+not. Amended by the owner, 2026-10-18: the annealing temperature is the lower
+Tm rounded to a whole degree, plus 1 °C (was the lower Tm plus 3 °C).
 
 Decision:
 
@@ -840,8 +841,10 @@ replacement region `[s, e)` on a linear template of length `n`, with bound
   the matched Tm where they do not; the reverse primer, which carries no
   mismatch, uses the matched Tm. Each Tm records its basis.
 * **Buffer.** Named by the caller in the request, never defaulted.
-* **Annealing temperature.** Reported as the lower of the two Tms plus 3 °C,
-  capped at 72 °C, using the same Tms the sizing used.
+* **Annealing temperature.** Reported as the lower of the two Tms, rounded
+  half up to a whole degree, plus 1 °C, capped at 72 °C, using the same Tms
+  the sizing used. It is a whole number of degrees because a thermocycler
+  is set to that precision (owner, 2026-10-18).
 * **Ambiguity codes.** An ambiguity code in the template ends availability on
   that side: a primer cannot grow across it.
 
@@ -851,13 +854,23 @@ Sources:
   also the reference tool's documented minimum.
 * 5 °C balance: NEB, *Guidelines for PCR Optimization with Thermophilic DNA
   Polymerases*: "Primer pairs should have Tms within 5 °C of each other."
-* Annealing temperature: NEB, Q5 *PCR Optimization* (E0555): "a 10–30 second
-  annealing step at 3 °C above the Tm of the lower Tm primer"; Q5
-  Site-Directed Mutagenesis Kit FAQ: "For predesigned back-to-back primer sets,
-  a Tm+3 rule can be applied but optimization may be necessary." NEB computes
-  that Tm with its own calculator; luria applies the rule to its own Tm and
-  claims nothing about NEB's number. The 72 °C cap is the top of the Q5 SDM
-  protocol's 50–72 °C annealing range.
+* Annealing temperature: the NEB Tm calculator's changelog, v1.9.1, 27 July
+  2016, as quoted by the owner on 2026-10-18: "The calculations in the NEB Tm
+  calculator were modified to correct an error that was decreasing the
+  effective primer concentration to one quarter of its input value. This
+  correction raises Tm values by roughly 2°C for all polymerase reaction
+  buffers. The suggested value for annealing temperature using Q5 is now
+  Tm + 1 (was Tm + 3) to account for the revised Tm values." luria's Tm uses
+  the primer concentration undivided (`tm.rs`), which is the corrected form,
+  so the +1 offset is the one that matches it. NEBaseChanger computes the
+  same rule, `min(min(tmf, tmr) + 1, 72)`, and rounds it for display
+  (`docs/research/nebasechanger-client-investigation.md`). Two NEB pages
+  still give +3 — Q5 *PCR Optimization* (E0555), "3 °C above the Tm of the
+  lower Tm primer", and the Q5 Site-Directed Mutagenesis Kit FAQ, "a Tm+3
+  rule" — which D030 cited until 2026-10-18; the changelog indicates they
+  describe the pre-2016 Tm. The planner could not open the calculator's page
+  itself (HTTP 403), so the quotation rests on the owner's reading. The
+  72 °C cap is the top of the Q5 SDM protocol's 50–72 °C annealing range.
 * G/C 3′ end and the 63 °C ceiling on G/C extension: owner, 2026-10-14, as
   general PCR practice.
 * Tm model: `crates/core/src/tm.rs` and `tests/fixtures/tm/README.md`.
@@ -879,13 +892,14 @@ NEB's own design tool, whose forward primer keeps a fixed 10-base 5′ flank
 (`docs/research/nebasechanger-live-build-4330b0c7-2026-10-10.md` §6.1), and was
 chosen by the owner over centred growth on 2026-10-14.
 
-Not adopted from the reference tool: its 1 °C annealing offset (the Q5
-documentation says 3 °C), and its mismatch-aware Tm, which differs from the
-published model by several degrees (`tests/fixtures/tm/README.md`).
+Not adopted from the reference tool: its mismatch-aware Tm, which differs
+from the published model by several degrees (`tests/fixtures/tm/README.md`).
+Its 1 °C annealing offset, first not adopted, was adopted on 2026-10-18 with
+the NEB calculator changelog as the source.
 
 Reversibility:
 
-Each threshold — 55, 63, 5, the 10-base 5′ flank and the +3 annealing offset — is
+Each threshold — 55, 63, 5, the 10-base 5′ flank, and the +1 annealing offset with its whole-degree rounding — is
 a policy value and changing one needs approval. Centred growth was considered
 and rejected; adopting it later would change every design with a 3′ flank
 above 10.
@@ -908,8 +922,9 @@ For a deletion of `[s, e)`, width `w = e − s`, on a linear template of length
   case `w = 0` (owner, 2026-10-14, `docs/tasks/milestone-4-indels.md` 4.3).
 * **Starting lengths.** Both primers start at `max(b, 15)`.
 * **Everything else is D030.** The 55 °C floor, the G/C 3′ end below 63 °C,
-  forward first, the 5 °C balance, annealing temperature as the lower Tm plus
-  3 °C capped at 72 °C, ambiguity codes ending availability, the buffer named
+  forward first, the 5 °C balance, annealing temperature as the lower Tm
+  rounded to a whole degree plus 1 °C, capped at 72 °C, ambiguity codes
+  ending availability, the buffer named
   by the caller, and D030's two failure kinds. Both Tms are on the matched
   basis.
 * **Scope.** Linear templates only. No cap on `w`: both primers only have to
@@ -1024,7 +1039,7 @@ is reached through this path.
     target region, so the replaced bases are carried by the tails and
     annealed over by neither primer. Both start at `max(b, 15)`.
 * **Sizing** is D030's throughout: the 55 °C floor, the G/C end below 63 °C,
-  forward first, the 5 °C balance, and `Ta = min(72, lower Tm + 3)`. On the
+  forward first, the 5 °C balance, and `Ta = min(72, round(lower Tm) + 1)`. On the
   tail path sizing uses the annealing portions only, with the whole-primer Tm
   reported, as D032 does.
 * **Pair invariant**, generalising D031's: reverse end + `w` = forward start.
@@ -1266,3 +1281,81 @@ Reversibility:
 
 Changing the order changes recorded results and fixture expectations, and
 needs approval.
+
+## D041: The Milestone 5 CLI, its inputs and its output
+
+Status: approved by the owner, 2026-10-16 (`docs/tasks/milestone-5-cli.md`
+§4). Applies D003, D006, D007, D009, D021 and D034.
+
+Decision:
+
+* **Dependencies.** The new `luria-cli` crate may depend on `serde` and
+  `serde_json`, and on nothing else. It parses its arguments by hand.
+  `luria-core` stays dependency-free.
+* **Coordinates.** Every nucleotide coordinate in the request and result JSON
+  is zero-based half-open, written as a `[start, end]` pair. The request
+  declares this in a required field, `"coordinates":
+  "zero-based-half-open"`, and any other value is refused. Residue numbers
+  are 1-based, as in the library.
+* **Output.** The CLI writes one JSON document to stdout, for success,
+  clarification and failure alike. There is no human-readable text output in
+  this milestone.
+* **Sequence input.** Both FASTA and GenBank are read in this milestone,
+  one record per file. The readers live in `luria-core`. A FASTA template's
+  topology and CDSs are declared in the request.
+* **GenBank CDSs.** The request names the CDS features to import, by id.
+  Only those become annotations. If a named CDS can't be represented, the run
+  fails with that CDS's own error. Every other feature is listed in the
+  result as not used, and never fails the run.
+* **GenBank CDS identity.** A CDS's id is the first of `/locus_tag`, `/gene`
+  and `/label`. The result records which qualifier it came from. A name that
+  matches no CDS, or more than one, is refused.
+* **`/translation`.** When a named CDS has a `/translation` qualifier, it
+  must equal luria's translation without the terminal stop. A mismatch
+  refuses the CDS before any edit.
+* **GenBank topology.** It comes from the LOCUS line. A LOCUS line that
+  states neither `linear` nor `circular` is refused.
+* **`/transl_table`** (added 2026-10-17, owner answer G5). Absent or `1` is
+  the standard code. `11`, the bacterial code, assigns the same amino acid to
+  every codon as `1` and differs only in allowing alternative start codons,
+  so a named CDS with `/transl_table=11` is accepted only when its first
+  codon is `ATG`. It is then imported as the standard code, and the result
+  records that the record said 11. Table 11 with any other start codon, and
+  every other table, is refused.
+* **Buffer** (added 2026-10-17, owner answer G6). A request states its
+  primer-design buffer, which is never defaulted (D028): either the three
+  numbers, monovalent salt in mM, primer in nM and DMSO in percent, or the
+  named preset `q5_reaction` (150 mM, 500 nM, 0 %), which is core's
+  `BufferModel::q5_reaction`. The result echoes the numbers, and the preset's
+  name when one was used.
+* **A single edit's design failure** (added 2026-10-17, owner answer G7). An
+  edit that is applied and verified but cannot be designed is reported like a
+  one-member set: the state stays `verified`, the member carries its mutation
+  and its `designFailure`, and the run exits 7. The verified edit is not
+  discarded because no primer pair fits.
+* **`--write-edited DIR`** (added 2026-10-17, owner answer G8). A directory
+  that does not exist is created, parents included. An existing file is never
+  overwritten: that is `output_exists` and exit 4, with nothing written.
+* **FASTA against GenBank** (added 2026-10-17, owner answer G9, amended the
+  same day). The claim is that the same template in either format gives the
+  same **result**, proven on pBR322 (R1), a real record with real CDS
+  features. It is not proven on a primer design: pBR322 is circular, D029
+  scopes `luriaNative` to a linear template, and both GenBank fixtures in
+  the repository are circular, so both runs report a verified edit whose
+  design was refused. The SID-1 cDNA stays a FASTA fixture only: writing a
+  3153-base GenBank record with a `/translation` qualifier by hand is not
+  practical, and generating one would make the fixture a product of a script
+  rather than of independent verification.
+* **Plasmids cannot be designed** (added 2026-10-17, owner answer G10).
+  D029's native design scope is a linear template, so every circular
+  template — every plasmid, which is where most site-directed mutagenesis is
+  done — gives a verified edit with an `unsupported_primer_design_scope`
+  design failure and exit 7. The CLI does not refuse such a request when it
+  is read: the edit and its construct are still correct and still reported.
+  The limit is stated in `docs/cli.md` and the README. Lifting it means a
+  design policy for circular templates, which is not in this milestone.
+
+Reversibility:
+
+Adding a dependency, a coordinate convention, a text output or another input
+format needs approval. So does relaxing any of the GenBank refusals.

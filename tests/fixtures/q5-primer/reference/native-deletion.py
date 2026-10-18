@@ -19,7 +19,7 @@ D031, for a deletion [s, e), w = e - s, bound b, linear template length n:
     no design fits         if s < r0 (5'), n - e < f0 (3'), an ambiguity code
                            in the starting pair, or a Tm floor unreachable
     sizing: D030 unchanged (floor 55, G/C end below 63, forward first,
-            balance 5, Ta = min(72, min Tm + 3)); both Tms matched
+            balance 5, Ta = min(72, round_half_up(min Tm) + 1)); both Tms matched
     pair invariant: reverse end + w == forward start
 """
 import importlib.util
@@ -32,7 +32,7 @@ _spec = importlib.util.spec_from_file_location("native_design", os.path.join(HER
 nd = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(nd)
 
-FLOOR, CEILING, BALANCE, TA_OFFSET, TA_CAP = nd.FLOOR, nd.CEILING, nd.BALANCE, nd.TA_OFFSET, nd.TA_CAP
+FLOOR, CEILING, BALANCE = nd.FLOOR, nd.CEILING, nd.BALANCE
 ACGT, rc, bio, ends_gc = nd.ACGT, nd.rc, nd.bio, nd.ends_gc
 
 
@@ -142,7 +142,7 @@ def design(t, s, e, b):
         "reverse_span": f"{s - r}:{s}",
         "forward_tm": f"{tf:.2f}",
         "reverse_tm": f"{tr:.2f}",
-        "annealing_temp": f"{min(TA_CAP, min(tf, tr) + TA_OFFSET):.2f}",
+        "annealing_temp": f"{nd.annealing_temp(tf, tr):.2f}",
         "balance_met": "yes" if met else "no",
         "forward": fwd(f),
         "reverse": rev(r),
