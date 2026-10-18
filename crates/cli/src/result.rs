@@ -53,11 +53,14 @@ use luria_core::genbank_cds::{GenBankImport, ImportedCds, UnusedFeature};
 use luria_core::identity::Identifier;
 use luria_core::interval::OrderedIntervals;
 use luria_core::mutation::MutationResult;
+use luria_core::primer::{Primer, PrimerPair, PrimerPart, PrimerRole};
+use luria_core::primer_design::{PrimerDesign, PrimerDesignRequest, UnresolvedInput};
+use luria_core::primer_quality::PrimerWarning;
 use luria_core::q5::{Q5EditWarning, Q5WorkflowResult};
 use luria_core::q5_expand::Q5ExpansionWarning;
 use luria_core::sequence::{Sequence, SequenceTopology};
 use luria_core::strand::Strand;
-use luria_core::tm::BufferModel;
+use luria_core::tm::{BufferModel, MeltingTemperature};
 
 /// The document `luria q5 design` prints (plan §3.5). Field order is the
 /// document's key order (5d), and every key is always present: a consumer
@@ -218,10 +221,167 @@ pub enum OperationWarning {
     },
 }
 
-/// One member's design. 5f3 fills this in; until then it stays empty, so the
-/// document gives `design: null` for every member (§3.1).
+/// One member's design (plan §3.5): the policy, style, algorithm and version
+/// that produced it, the geometry the policy chose, both primers 5′→3′ with
+/// their spans, tails, parts, annealing portions, Tms and guideline warnings,
+/// the annealing temperature and balance, the pair's relationship and what the
+/// design left unresolved. Every value is one core gave (D021, D028).
 #[derive(Clone, Debug, PartialEq, Serialize)]
-pub struct DesignView {}
+#[serde(rename_all = "camelCase")]
+pub struct DesignView {
+    pub policy: String,
+    pub style: String,
+    pub algorithm: AlgorithmRef,
+    pub min_annealing_overlap: u64,
+    pub placement: String,
+    pub edit_span: (u64, u64),
+    pub forward: PrimerView,
+    pub reverse: PrimerView,
+    pub annealing_temperature: f64,
+    pub tm_balance_met: bool,
+    pub pair: PairView,
+    pub unresolved: Vec<UnresolvedView>,
+}
+
+/// The algorithm that ran the design, named with its version (D021, D028).
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AlgorithmRef {
+    pub name: &'static str,
+    pub version: &'static str,
+}
+
+/// One primer as it is to be typed into the kit, 5′→3′: its role, text, length,
+/// the template interval it covers and the edited interval its text came from,
+/// its 5′ tail when it has one, its parts, its annealing portion, its Tm and
+/// whole-primer Tm, and its sequence guideline warnings (§3.5).
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PrimerView {
+    pub role: String,
+    pub sequence: String,
+    pub length: u64,
+    pub span: (u64, u64),
+    pub edited_span: Option<(u64, u64)>,
+    pub tail: Option<TailView>,
+    pub parts: Vec<PartView>,
+    pub annealing: AnnealingView,
+    pub tm: TmView,
+    pub whole_primer_tm: Option<TmView>,
+    pub warnings: Vec<PrimerWarningView>,
+}
+
+/// The 5′ tail a primer carries: its written text, and why the primer has one
+/// where it has none (core's `tail_reason` states the absence, never the
+/// presence).
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TailView {
+    pub sequence: String,
+    pub reason: String,
+}
+
+/// One run of a primer: wild-type context that anneals, positions carrying the
+/// mutation that do not, or a 5′ tail of written bases; the primer indices it
+/// occupies and the template interval it sits at, absent for a tail (§3.5).
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PartView {
+    pub role: String,
+    pub annealing: bool,
+    pub sequence: String,
+    pub span: Option<(u64, u64)>,
+    pub primer_start: u64,
+    pub primer_end: u64,
+}
+
+/// The annealing portion of a primer: its text, its length, the overlap it
+/// holds against the template beneath it and the template intervals it covers
+/// (§3.5, I-1 and I-5).
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AnnealingView {
+    pub sequence: String,
+    pub length: u64,
+    pub overlap: u64,
+    pub spans: Vec<(u64, u64)>,
+}
+
+/// A melting temperature: the value, the duplex it describes, why that is not
+/// the basis the caller asked for when it is not, and the two terms it came
+/// from. Floats are carried as core gave them, never rounded (§3.5).
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TmView {
+    pub celsius: f64,
+    pub basis: String,
+    pub substituted_because: Option<String>,
+    pub enthalpy_kcal: f64,
+    pub entropy_cal: f64,
+}
+
+/// The relationship between the two primers, derived by core from the two
+/// spans and stated here rather than implied: the template positions between
+/// the two annealing portions, the signed separation, where the 5′ ends meet,
+/// whether that counts as abutting and the phrase core derived (§3.5, D031,
+/// H5).
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PairView {
+    pub deleted_width: u64,
+    pub separation: i64,
+    pub boundary: Option<u64>,
+    pub abuts: bool,
+    pub relationship: String,
+}
+
+/// An input the design contract names that this design did not use, and what
+/// that means for the output (D028: the design states what it left unresolved).
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UnresolvedView {
+    pub input: String,
+    pub effect: String,
+}
+
+/// A sequence guideline warning about one primer, keyed by its `code`: core's
+/// own measurement and core's own `describe` text, never a rephrasing of it.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(
+    tag = "code",
+    rename_all = "snake_case",
+    rename_all_fields = "camelCase"
+)]
+pub enum PrimerWarningView {
+    GcContentOutsideBand {
+        gc_percent: f64,
+        message: String,
+    },
+    SingleBaseRun {
+        base: String,
+        length: u64,
+        start: u64,
+        message: String,
+    },
+    DinucleotideRepeat {
+        unit: String,
+        repeats: u64,
+        start: u64,
+        message: String,
+    },
+    ThreePrimeGcRun {
+        length: u64,
+        message: String,
+    },
+    LengthOutsideGuideline {
+        length: u64,
+        message: String,
+    },
+    AboveOrderingLimit {
+        length: u64,
+        message: String,
+    },
+}
 
 /// One member's result: its name, the mutation it performed, the warnings it
 /// raised, and its design or the reason it had none (5f3 gives the last two)
@@ -405,6 +565,228 @@ pub fn member_view(
         warnings: warnings.iter().map(edit_warning_view).collect(),
         design: None,
         design_failure: None,
+    }
+}
+
+/// One member's design, as the result reports it (§3.5): every value comes from
+/// a `PrimerDesign` accessor — the request it answers, the geometry, both primers,
+/// the Tms, the balance and what was left unresolved — and nothing is computed
+/// here.
+pub fn design_view(design: &PrimerDesign) -> DesignView {
+    let request: PrimerDesignRequest = design.request();
+    DesignView {
+        policy: request.policy().name(),
+        style: request.style().name(),
+        algorithm: algorithm_view(design),
+        min_annealing_overlap: request.min_annealing_overlap(),
+        placement: request.placement().name(),
+        edit_span: design.edit_span(),
+        forward: primer_view(design, PrimerRole::Forward),
+        reverse: primer_view(design, PrimerRole::Reverse),
+        annealing_temperature: design.annealing_temperature(),
+        tm_balance_met: design.tm_balance_met(),
+        pair: pair_view(design.pair()),
+        unresolved: design.unresolved().iter().map(unresolved_view).collect(),
+    }
+}
+
+/// The algorithm that ran this design, by name and version (D021, D028).
+fn algorithm_view(design: &PrimerDesign) -> AlgorithmRef {
+    AlgorithmRef {
+        name: design.algorithm_name(),
+        version: design.algorithm_version(),
+    }
+}
+
+/// One of the design's two primers, as the result reports it (§3.5): the role
+/// chooses which of the design's accessors give its Tm, its whole-primer Tm,
+/// its warnings and the primer itself, so the reverse primer is never read
+/// through the forward primer's accessors.
+pub fn primer_view(design: &PrimerDesign, role: PrimerRole) -> PrimerView {
+    let pair: PrimerPair = design.pair();
+    let primer: Primer = match role {
+        PrimerRole::Forward => pair.forward(),
+        PrimerRole::Reverse => pair.reverse(),
+    };
+    let tm: MeltingTemperature = match role {
+        PrimerRole::Forward => design.forward_tm(),
+        PrimerRole::Reverse => design.reverse_tm(),
+    };
+    let whole_tm: Option<MeltingTemperature> = match role {
+        PrimerRole::Forward => design.forward_whole_tm(),
+        PrimerRole::Reverse => design.reverse_whole_tm(),
+    };
+    let warnings: Vec<PrimerWarning> = match role {
+        PrimerRole::Forward => design.forward_warnings(),
+        PrimerRole::Reverse => design.reverse_warnings(),
+    };
+    PrimerView {
+        role: role.name(),
+        sequence: primer.clone().sequence(),
+        length: primer.clone().length(),
+        span: (primer.clone().span().start(), primer.clone().span().end()),
+        edited_span: primer
+            .clone()
+            .edited_span()
+            .map(|interval| (interval.start(), interval.end())),
+        tail: primer
+            .clone()
+            .tail()
+            .map(|part| tail_view(part, primer.clone().tail_reason())),
+        parts: primer.clone().parts().into_iter().map(part_view).collect(),
+        annealing: annealing_view(primer),
+        tm: tm_view(tm),
+        whole_primer_tm: whole_tm.map(tm_view),
+        warnings: warnings.iter().map(primer_warning_view).collect(),
+    }
+}
+
+/// The pair's relationship to the edit, as core derived it from the two spans
+/// (§3.5, D031, H5).
+pub fn pair_view(pair: PrimerPair) -> PairView {
+    PairView {
+        deleted_width: pair.clone().deleted_width(),
+        separation: pair.clone().separation(),
+        boundary: pair.clone().boundary(),
+        abuts: pair.clone().abuts(),
+        relationship: pair.relationship(),
+    }
+}
+
+/// An input the design left unresolved, and what that means for the output
+/// (D028).
+fn unresolved_view(input: &UnresolvedInput) -> UnresolvedView {
+    UnresolvedView {
+        input: input.input.clone(),
+        effect: input.effect.clone(),
+    }
+}
+
+/// The 5′ tail a primer carries: its written text and why it is there, which is
+/// core's `tail_reason` — the reason the primer has no tail when it has none
+/// (§3.5, D032, D033).
+fn tail_view(part: PrimerPart, tail_reason: String) -> TailView {
+    TailView {
+        sequence: part.sequence(),
+        reason: tail_reason,
+    }
+}
+
+/// One run of a primer: its role, whether it anneals, its text, the template
+/// interval it sits at and the primer indices it occupies (§3.5).
+fn part_view(part: PrimerPart) -> PartView {
+    PartView {
+        role: part.clone().role().name(),
+        annealing: part.clone().annealing(),
+        sequence: part.clone().sequence(),
+        span: part
+            .clone()
+            .span()
+            .map(|interval| (interval.start(), interval.end())),
+        primer_start: part.clone().primer_indices().0,
+        primer_end: part.primer_indices().1,
+    }
+}
+
+/// The annealing portion of a primer: its text, its length, the overlap it
+/// holds against the template beneath it and the template intervals it covers
+/// (§3.5).
+fn annealing_view(primer: Primer) -> AnnealingView {
+    AnnealingView {
+        sequence: primer.clone().annealing_sequence(),
+        length: primer.clone().annealing_length(),
+        overlap: primer.clone().annealing_overlap(),
+        spans: primer
+            .annealing_spans()
+            .iter()
+            .map(|interval| (interval.start(), interval.end()))
+            .collect(),
+    }
+}
+
+/// A melting temperature: the value, the duplex it describes, why that is not
+/// the basis the caller asked for when it is not, and the two terms it came
+/// from. Nothing here is rounded or reformatted (§3.5).
+fn tm_view(temperature: MeltingTemperature) -> TmView {
+    TmView {
+        celsius: temperature.clone().celsius(),
+        basis: temperature.clone().basis().name(),
+        substituted_because: temperature.clone().substituted_because(),
+        enthalpy_kcal: temperature.clone().enthalpy_kcal(),
+        entropy_cal: temperature.entropy_cal(),
+    }
+}
+
+/// A sequence guideline warning about one primer: core's own measurement and
+/// core's own `describe` text, and a run of one base given as its letter (§3.5).
+pub fn primer_warning_view(warning: &PrimerWarning) -> PrimerWarningView {
+    match warning {
+        PrimerWarning::GcContentOutsideBand { gc_percent } => {
+            PrimerWarningView::GcContentOutsideBand {
+                gc_percent: *gc_percent,
+                message: warning.describe(),
+            }
+        }
+        PrimerWarning::SingleBaseRun {
+            base,
+            length,
+            start,
+        } => PrimerWarningView::SingleBaseRun {
+            base: base.to_string(),
+            length: *length,
+            start: *start,
+            message: warning.describe(),
+        },
+        PrimerWarning::DinucleotideRepeat {
+            unit,
+            repeats,
+            start,
+        } => PrimerWarningView::DinucleotideRepeat {
+            unit: unit.clone(),
+            repeats: *repeats,
+            start: *start,
+            message: warning.describe(),
+        },
+        PrimerWarning::ThreePrimeGcRun { length } => PrimerWarningView::ThreePrimeGcRun {
+            length: *length,
+            message: warning.describe(),
+        },
+        PrimerWarning::LengthOutsideGuideline { length } => {
+            PrimerWarningView::LengthOutsideGuideline {
+                length: *length,
+                message: warning.describe(),
+            }
+        }
+        PrimerWarning::AboveOrderingLimit { length } => PrimerWarningView::AboveOrderingLimit {
+            length: *length,
+            message: warning.describe(),
+        },
+    }
+}
+
+/// The member with its design: the design is attached and the design failure
+/// stays absent, so a member states one or the other and never both (§3.5,
+/// `docs/q5-sdm.md` §12).
+pub fn designed_member(member: MemberView, design: &PrimerDesign) -> MemberView {
+    MemberView {
+        name: member.name,
+        mutation: member.mutation,
+        warnings: member.warnings,
+        design: Some(design_view(design)),
+        design_failure: None,
+    }
+}
+
+/// The member that could not be designed: its own error, at no path in the
+/// request, and no design — the other members of a set are still designed
+/// (§3.5, `docs/q5-sdm.md` §12).
+pub fn undesigned_member(member: MemberView, error: &DomainError) -> MemberView {
+    MemberView {
+        name: member.name,
+        mutation: member.mutation,
+        warnings: member.warnings,
+        design: None,
+        design_failure: Some(domain_error_view(error, None)),
     }
 }
 
