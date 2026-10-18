@@ -34,7 +34,9 @@
 //!   `unsupported`; a CLI error is `malformed_input` with no rule, and only the
 //!   six domain errors that carry a rule name one.
 
+use serde::ser::SerializeMap;
 use serde::Serialize;
+use serde::Serializer;
 use serde_json::to_string_pretty;
 
 use crate::prepare::{PrepareFailure, Prepared, RequestFailure, TemplateSource};
@@ -48,7 +50,7 @@ use crate::REQUEST_SCHEMA;
 use crate::RESULT_SCHEMA;
 
 use luria_core::cds::Cds;
-use luria_core::error::{DomainError, ErrorCategory};
+use luria_core::error::{DesignObstacle, DomainError, ErrorCategory};
 use luria_core::genbank_cds::{GenBankImport, ImportedCds, UnusedFeature};
 use luria_core::identity::Identifier;
 use luria_core::interval::OrderedIntervals;
@@ -1512,9 +1514,80 @@ fn buffer_echo(spec: &BufferSpec) -> BufferEcho {
     }
 }
 
+/// One value in an error's `details` (5f4 §3). Untagged: `Text` is a JSON
+/// string, `Count` and `Signed` are JSON numbers, `Absent` is `null` for an
+/// `Option` that holds nothing — the key is still present, so each code has one
+/// fixed shape — and `Obstacles` is an array.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(untagged)]
+pub enum DetailValue {
+    Text(String),
+    Count(u64),
+    Signed(i64),
+    Absent,
+    Obstacles(Vec<ObstacleView>),
+}
+
+/// An error's details: (key, value) pairs in the problem struct's field order,
+/// serialized as a JSON object in that order (plan §3.5: keys in a fixed order).
+/// The hand-written `impl Serialize` uses `serialize_map`; a `serde_json::Value`
+/// or `Map` would sort its keys, which needs serde_json's `preserve_order`
+/// feature (5d, §5).
+#[derive(Clone, Debug, PartialEq)]
+pub struct Details(pub Vec<(&'static str, DetailValue)>);
+
+impl Serialize for Details {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut map = serializer.serialize_map(Some(self.0.len()))?;
+        for (key, value) in &self.0 {
+            map.serialize_entry(key, value)?;
+        }
+        map.end()
+    }
+}
+
+/// One reason a design did not fit (`DesignObstacle`), with core's own
+/// `describe()` text as `message` (5f4 §3).
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(
+    tag = "kind",
+    rename_all = "snake_case",
+    rename_all_fields = "camelCase"
+)]
+pub enum ObstacleView {
+    FivePrimeAvailability {
+        available: u64,
+        needed: u64,
+        message: String,
+    },
+    ThreePrimeAvailability {
+        available: u64,
+        needed: u64,
+        message: String,
+    },
+    AmbiguousTemplateBase {
+        position: u64,
+        base: String,
+        message: String,
+    },
+    FivePrimeTmFloorUnreachable {
+        available: u64,
+        reached_celsius: f64,
+        message: String,
+    },
+    ThreePrimeTmFloorUnreachable {
+        available: u64,
+        reached_celsius: f64,
+        message: String,
+    },
+}
+
 /// An error: its code, the rule that refused it when one applies, the failure
-/// class, one line of message and the JSON path of the request element it
-/// came from (§3.4).
+/// class, one line of message, the JSON path of the request element it came
+/// from and the payload fields as `details` (§3.4, 5f4).
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ErrorView {
@@ -1523,6 +1596,7 @@ pub struct ErrorView {
     pub category: &'static str,
     pub message: String,
     pub path: Option<String>,
+    pub details: Details,
 }
 
 /// The failure class's name: `malformed_input`, `biological_validation` or
@@ -1594,6 +1668,395 @@ pub fn rule_code(error: &DomainError) -> Option<&'static str> {
     }
 }
 
+/// The payload fields of a domain error, as its `details` (5f4 §2, §3): one
+/// entry per field of the variant's problem struct, in core's declaration
+/// order, keyed by the field's name in camelCase. The six `rule` fields are
+/// left out — the rule is already the error's own `rule` — as are the four
+/// fields that hold nothing but interval text from core's `describe`, whose
+/// text `message` already carries. `EmptyIdentifier` has no payload and the
+/// errors that name no field carry one entry per payload field. There is no
+/// `_` arm: a variant core gains is a compile error here (5f1).
+pub fn error_details(error: &DomainError) -> Details {
+    match error {
+        DomainError::EmptyIdentifier => Details(vec![]),
+        DomainError::InvalidIdentifierCharacters(problem) => Details(vec![
+            ("identifier", DetailValue::Text(problem.identifier.clone())),
+            ("reason", DetailValue::Text(problem.reason.clone())),
+        ]),
+        DomainError::EmptySequenceContent(problem) => Details(vec![(
+            "sequence",
+            DetailValue::Text(problem.sequence.clone()),
+        )]),
+        DomainError::InvalidSequenceCharacters(problem) => Details(vec![
+            ("sequence", DetailValue::Text(problem.sequence.clone())),
+            ("position", DetailValue::Count(problem.position)),
+            ("characters", DetailValue::Text(problem.characters.clone())),
+        ]),
+        DomainError::NegativeCoordinate(problem) => Details(vec![
+            ("sequence", DetailValue::Text(problem.sequence.clone())),
+            ("start", DetailValue::Signed(problem.start)),
+            ("end", DetailValue::Signed(problem.end)),
+        ]),
+        DomainError::ReversedInterval(problem) => Details(vec![
+            ("sequence", DetailValue::Text(problem.sequence.clone())),
+            ("start", DetailValue::Count(problem.start)),
+            ("end", DetailValue::Count(problem.end)),
+        ]),
+        DomainError::EmptyInterval(problem) => Details(vec![
+            ("sequence", DetailValue::Text(problem.sequence.clone())),
+            ("position", DetailValue::Count(problem.position)),
+        ]),
+        DomainError::CoordinateOutOfBounds(problem) => Details(vec![
+            ("sequence", DetailValue::Text(problem.sequence.clone())),
+            ("start", DetailValue::Count(problem.start)),
+            ("end", DetailValue::Count(problem.end)),
+            ("length", DetailValue::Count(problem.length)),
+        ]),
+        DomainError::SequenceReferenceMismatch(problem) => Details(vec![
+            (
+                "expectedIdentifier",
+                DetailValue::Text(problem.expected_identifier.clone()),
+            ),
+            (
+                "actualIdentifier",
+                DetailValue::Text(problem.actual_identifier.clone()),
+            ),
+            (
+                "expectedDigest",
+                DetailValue::Text(problem.expected_digest.clone()),
+            ),
+            (
+                "actualDigest",
+                DetailValue::Text(problem.actual_digest.clone()),
+            ),
+            (
+                "expectedTopology",
+                DetailValue::Text(problem.expected_topology.name()),
+            ),
+            (
+                "actualTopology",
+                DetailValue::Text(problem.actual_topology.name()),
+            ),
+        ]),
+        DomainError::FeatureWithoutIntervals(problem) => Details(vec![
+            ("feature", DetailValue::Text(problem.feature.clone())),
+            ("sequence", DetailValue::Text(problem.sequence.clone())),
+        ]),
+        DomainError::IntervalsOutOfOrder(problem) => Details(vec![
+            ("feature", DetailValue::Text(problem.feature.clone())),
+            ("sequence", DetailValue::Text(problem.sequence.clone())),
+        ]),
+        DomainError::OverlappingIntervals(problem) => Details(vec![
+            ("feature", DetailValue::Text(problem.feature.clone())),
+            ("sequence", DetailValue::Text(problem.sequence.clone())),
+            ("start", DetailValue::Count(problem.start)),
+            ("end", DetailValue::Count(problem.end)),
+        ]),
+        DomainError::UnsupportedFeatureStructure(problem) => Details(vec![
+            ("feature", DetailValue::Text(problem.feature.clone())),
+            ("sequence", DetailValue::Text(problem.sequence.clone())),
+            (
+                "intervalCount",
+                DetailValue::Count(problem.interval_count as u64),
+            ),
+            ("reason", DetailValue::Text(problem.reason.clone())),
+        ]),
+        DomainError::MissingCdsAttribute(problem) => Details(vec![
+            ("cds", DetailValue::Text(problem.cds.clone())),
+            ("attribute", DetailValue::Text(problem.attribute.clone())),
+            (
+                "value",
+                match &problem.value {
+                    Some(text) => DetailValue::Text(text.clone()),
+                    None => DetailValue::Absent,
+                },
+            ),
+        ]),
+        DomainError::IncompleteCds(problem) => Details(vec![
+            ("cds", DetailValue::Text(problem.cds.clone())),
+            (
+                "completeness",
+                DetailValue::Text(problem.completeness.clone()),
+            ),
+        ]),
+        DomainError::UnsupportedGeneticCode(problem) => Details(vec![
+            ("cds", DetailValue::Text(problem.cds.clone())),
+            (
+                "geneticCode",
+                DetailValue::Text(problem.genetic_code.clone()),
+            ),
+        ]),
+        DomainError::CdsLengthNotDivisibleByThree(problem) => Details(vec![
+            ("cds", DetailValue::Text(problem.cds.clone())),
+            ("length", DetailValue::Count(problem.length)),
+        ]),
+        DomainError::AmbiguousCodon(problem) => Details(vec![
+            ("cds", DetailValue::Text(problem.cds.clone())),
+            (
+                "codonNumber",
+                DetailValue::Count(problem.codon_number as u64),
+            ),
+            ("codon", DetailValue::Text(problem.codon.clone())),
+        ]),
+        DomainError::InvalidCodon(problem) => Details(vec![
+            ("cds", DetailValue::Text(problem.cds.clone())),
+            (
+                "codonNumber",
+                DetailValue::Count(problem.codon_number as u64),
+            ),
+            ("codon", DetailValue::Text(problem.codon.clone())),
+        ]),
+        DomainError::InternalStopCodon(problem) => Details(vec![
+            ("cds", DetailValue::Text(problem.cds.clone())),
+            (
+                "codonNumber",
+                DetailValue::Count(problem.codon_number as u64),
+            ),
+            ("codon", DetailValue::Text(problem.codon.clone())),
+        ]),
+        DomainError::InvalidResiduePosition(problem) => Details(vec![
+            ("cds", DetailValue::Text(problem.cds.clone())),
+            ("number", DetailValue::Signed(problem.number)),
+        ]),
+        DomainError::ResiduePositionOutsideCds(problem) => Details(vec![
+            ("cds", DetailValue::Text(problem.cds.clone())),
+            ("number", DetailValue::Count(problem.number)),
+            ("residueCount", DetailValue::Count(problem.residue_count)),
+        ]),
+        DomainError::ResiduePositionWrongCds(problem) => Details(vec![
+            ("expected", DetailValue::Text(problem.expected.clone())),
+            ("actual", DetailValue::Text(problem.actual.clone())),
+        ]),
+        DomainError::UnsupportedNumberingScheme(problem) => Details(vec![
+            ("cds", DetailValue::Text(problem.cds.clone())),
+            ("numbering", DetailValue::Text(problem.numbering.clone())),
+        ]),
+        DomainError::InvalidMutationRequest(problem) => Details(vec![
+            ("request", DetailValue::Text(problem.request.clone())),
+            ("reason", DetailValue::Text(problem.reason.clone())),
+        ]),
+        DomainError::UnspecifiedCodonPolicy(problem) => {
+            Details(vec![("cds", DetailValue::Text(problem.cds.clone()))])
+        }
+        DomainError::UnsupportedMutationPolicy(problem) => {
+            Details(vec![("policy", DetailValue::Text(problem.policy.clone()))])
+        }
+        DomainError::UnsupportedComposition(problem) => Details(vec![
+            (
+                "composition",
+                DetailValue::Text(problem.composition.clone()),
+            ),
+            (
+                "variantCount",
+                DetailValue::Count(problem.variant_count as u64),
+            ),
+            ("reason", DetailValue::Text(problem.reason.clone())),
+        ]),
+        DomainError::ExpectedNucleotideMismatch(problem) => Details(vec![
+            ("sequence", DetailValue::Text(problem.sequence.clone())),
+            ("position", DetailValue::Count(problem.position)),
+            ("expected", DetailValue::Text(problem.expected.clone())),
+            ("actual", DetailValue::Text(problem.actual.clone())),
+        ]),
+        DomainError::ExpectedResidueMismatch(problem) => Details(vec![
+            ("cds", DetailValue::Text(problem.cds.clone())),
+            ("number", DetailValue::Count(problem.number)),
+            ("expected", DetailValue::Text(problem.expected.clone())),
+            ("actual", DetailValue::Text(problem.actual.clone())),
+        ]),
+        DomainError::TargetOutsideFeature(problem) => Details(vec![
+            ("feature", DetailValue::Text(problem.feature.clone())),
+            ("sequence", DetailValue::Text(problem.sequence.clone())),
+            ("start", DetailValue::Count(problem.start)),
+            ("end", DetailValue::Count(problem.end)),
+        ]),
+        DomainError::MutationVerificationFailure(problem) => Details(vec![
+            ("result", DetailValue::Text(problem.result.clone())),
+            ("reason", DetailValue::Text(problem.reason.clone())),
+        ]),
+        DomainError::InvalidPrimerCandidate(problem) => Details(vec![
+            ("primer", DetailValue::Text(problem.primer.clone())),
+            ("reason", DetailValue::Text(problem.reason.clone())),
+        ]),
+        DomainError::PrimerTextAtSpanMismatch(problem) => Details(vec![
+            ("primer", DetailValue::Text(problem.primer.clone())),
+            ("expected", DetailValue::Text(problem.expected.clone())),
+            ("actual", DetailValue::Text(problem.actual.clone())),
+        ]),
+        DomainError::PrimerAnnealingNotTemplate(problem) => Details(vec![
+            ("primer", DetailValue::Text(problem.primer.clone())),
+            ("position", DetailValue::Count(problem.position)),
+            ("expected", DetailValue::Text(problem.expected.clone())),
+            ("actual", DetailValue::Text(problem.actual.clone())),
+        ]),
+        DomainError::PrimerPartition(problem) => Details(vec![
+            ("primer", DetailValue::Text(problem.primer.clone())),
+            ("reason", DetailValue::Text(problem.reason.clone())),
+        ]),
+        DomainError::AnnealingOverlapBelowBound(problem) => Details(vec![
+            ("primer", DetailValue::Text(problem.primer.clone())),
+            ("overlap", DetailValue::Count(problem.overlap)),
+            ("bound", DetailValue::Count(problem.bound)),
+        ]),
+        DomainError::PrimerPairCoverage(_) => Details(vec![]),
+        DomainError::PrimerOrientationConflict(problem) => Details(vec![
+            ("forward", DetailValue::Text(problem.forward.clone())),
+            ("reverse", DetailValue::Text(problem.reverse.clone())),
+        ]),
+        DomainError::UnsupportedPrimerPlacement(problem) => Details(vec![
+            ("placement", DetailValue::Text(problem.placement.clone())),
+            ("reason", DetailValue::Text(problem.reason.clone())),
+        ]),
+        DomainError::InvalidPrimerDesignRequest(problem) => Details(vec![
+            ("field", DetailValue::Text(problem.field.clone())),
+            ("reason", DetailValue::Text(problem.reason.clone())),
+        ]),
+        DomainError::UnsupportedPrimerDesignScope(problem) => Details(vec![
+            ("policy", DetailValue::Text(problem.policy.clone())),
+            ("reason", DetailValue::Text(problem.reason.clone())),
+        ]),
+        DomainError::NoPrimerDesignPossible(problem) => Details(vec![
+            ("template", DetailValue::Text(problem.template.clone())),
+            (
+                "templateLength",
+                DetailValue::Count(problem.template_length),
+            ),
+            ("smallestPair", DetailValue::Count(problem.smallest_pair)),
+        ]),
+        DomainError::NoPrimerDesignFits(problem) => Details(vec![
+            ("template", DetailValue::Text(problem.template.clone())),
+            ("editStart", DetailValue::Count(problem.edit_start)),
+            ("editEnd", DetailValue::Count(problem.edit_end)),
+            (
+                "obstacles",
+                DetailValue::Obstacles(
+                    problem.obstacles.iter().map(design_obstacle_view).collect(),
+                ),
+            ),
+        ]),
+        DomainError::InvalidBufferModel(problem) => Details(vec![
+            ("field", DetailValue::Text(problem.field.clone())),
+            ("reason", DetailValue::Text(problem.reason.clone())),
+        ]),
+        DomainError::TmParametersUnavailable(problem) => Details(vec![
+            ("function", DetailValue::Text(problem.function.clone())),
+            ("aspect", DetailValue::Text(problem.aspect.clone())),
+            ("reason", DetailValue::Text(problem.reason.clone())),
+        ]),
+        DomainError::DegenerateExpansionTooLarge(problem) => Details(vec![(
+            "replacement",
+            DetailValue::Text(problem.replacement.clone()),
+        )]),
+        DomainError::MalformedFasta(problem) => Details(vec![
+            ("sequence", DetailValue::Text(problem.sequence.clone())),
+            (
+                "line",
+                match problem.line {
+                    Some(line) => DetailValue::Count(line),
+                    None => DetailValue::Absent,
+                },
+            ),
+        ]),
+        DomainError::UnusableGenBankLocation(problem) => Details(vec![
+            ("location", DetailValue::Text(problem.location.clone())),
+            (
+                "sequenceLength",
+                DetailValue::Count(problem.sequence_length),
+            ),
+        ]),
+        DomainError::MalformedGenBank(problem) => Details(vec![
+            ("sequence", DetailValue::Text(problem.sequence.clone())),
+            (
+                "line",
+                match problem.line {
+                    Some(line) => DetailValue::Count(line),
+                    None => DetailValue::Absent,
+                },
+            ),
+        ]),
+        DomainError::UnusableGenBankCds(problem) => Details(vec![
+            ("cds", DetailValue::Text(problem.cds.clone())),
+            (
+                "line",
+                match problem.line {
+                    Some(line) => DetailValue::Count(line),
+                    None => DetailValue::Absent,
+                },
+            ),
+            (
+                "detail",
+                match &problem.detail {
+                    Some(text) => DetailValue::Text(text.clone()),
+                    None => DetailValue::Absent,
+                },
+            ),
+        ]),
+        DomainError::GenBankTranslationMismatch(problem) => Details(vec![
+            ("cds", DetailValue::Text(problem.cds.clone())),
+            ("line", DetailValue::Count(problem.line)),
+            ("residue", DetailValue::Count(problem.residue)),
+            (
+                "stated",
+                match &problem.stated {
+                    Some(text) => DetailValue::Text(text.clone()),
+                    None => DetailValue::Absent,
+                },
+            ),
+            (
+                "translated",
+                match &problem.translated {
+                    Some(text) => DetailValue::Text(text.clone()),
+                    None => DetailValue::Absent,
+                },
+            ),
+        ]),
+    }
+}
+
+/// One reason a design did not fit, as the result reports it: core's own
+/// `describe` text as `message`, one entry per `DesignObstacle` field (§3).
+fn design_obstacle_view(obstacle: &DesignObstacle) -> ObstacleView {
+    match obstacle {
+        DesignObstacle::FivePrimeAvailability { available, needed } => {
+            ObstacleView::FivePrimeAvailability {
+                available: *available,
+                needed: *needed,
+                message: obstacle.describe(),
+            }
+        }
+        DesignObstacle::ThreePrimeAvailability { available, needed } => {
+            ObstacleView::ThreePrimeAvailability {
+                available: *available,
+                needed: *needed,
+                message: obstacle.describe(),
+            }
+        }
+        DesignObstacle::AmbiguousTemplateBase { position, base } => {
+            ObstacleView::AmbiguousTemplateBase {
+                position: *position,
+                base: base.clone(),
+                message: obstacle.describe(),
+            }
+        }
+        DesignObstacle::FivePrimeTmFloorUnreachable {
+            available,
+            reached_celsius,
+        } => ObstacleView::FivePrimeTmFloorUnreachable {
+            available: *available,
+            reached_celsius: *reached_celsius,
+            message: obstacle.describe(),
+        },
+        DesignObstacle::ThreePrimeTmFloorUnreachable {
+            available,
+            reached_celsius,
+        } => ObstacleView::ThreePrimeTmFloorUnreachable {
+            available: *available,
+            reached_celsius: *reached_celsius,
+            message: obstacle.describe(),
+        },
+    }
+}
+
 /// A `luria-core` refusal, as the result reports it: its code, the rule that
 /// refused it when one applies, its class, its message and the path the
 /// caller gives for it (§3.4).
@@ -1604,6 +2067,7 @@ pub fn domain_error_view(error: &DomainError, path: Option<String>) -> ErrorView
         category: category_name(error.category()),
         message: error.message(),
         path: path.clone(),
+        details: error_details(error),
     }
 }
 
@@ -1620,6 +2084,7 @@ pub fn failure_view(failure: &RequestFailure) -> ErrorView {
                 category: category_name(ErrorCategory::MalformedInput),
                 message: problem.message.clone(),
                 path: Some(problem.path.clone()),
+                details: Details(vec![]),
             }
         }
         RequestFailure::Domain { path, error } => {
@@ -1845,7 +2310,7 @@ mod tests {
             })
             .collect();
         let expected: String = format!(
-            "{{\n  \"schema\": \"luria.q5-result/1\",\n  \"state\": \"failed\",\n  \"experimentalValidation\": \"not_performed\",\n  \"provenance\": {{\n    \"package\": {{\n      \"name\": \"luria-cli\",\n      \"version\": \"{}\"\n    }},\n    \"algorithms\": [\n{}    ],\n    \"requestSha256\": null,\n    \"operation\": null,\n    \"template\": null,\n    \"buffer\": null\n  }},\n  \"request\": null,\n  \"target\": null,\n  \"clarifications\": [],\n  \"candidates\": [],\n  \"warnings\": [],\n  \"results\": [],\n  \"error\": {{\n    \"code\": \"request_unreadable\",\n    \"rule\": null,\n    \"category\": \"malformed_input\",\n    \"message\": \"cannot read the request file: No such file or directory (os error 2)\",\n    \"path\": \"$\"\n  }}\n}}\n",
+            "{{\n  \"schema\": \"luria.q5-result/1\",\n  \"state\": \"failed\",\n  \"experimentalValidation\": \"not_performed\",\n  \"provenance\": {{\n    \"package\": {{\n      \"name\": \"luria-cli\",\n      \"version\": \"{}\"\n    }},\n    \"algorithms\": [\n{}    ],\n    \"requestSha256\": null,\n    \"operation\": null,\n    \"template\": null,\n    \"buffer\": null\n  }},\n  \"request\": null,\n  \"target\": null,\n  \"clarifications\": [],\n  \"candidates\": [],\n  \"warnings\": [],\n  \"results\": [],\n  \"error\": {{\n    \"code\": \"request_unreadable\",\n    \"rule\": null,\n    \"category\": \"malformed_input\",\n    \"message\": \"cannot read the request file: No such file or directory (os error 2)\",\n    \"path\": \"$\",\n    \"details\": {{}}\n  }}\n}}\n",
             env!("CARGO_PKG_VERSION"),
             blocks
         );
