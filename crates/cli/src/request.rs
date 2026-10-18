@@ -49,17 +49,28 @@ pub enum RequestErrorCode {
     TemplateUnreadable,
     /// `template.sha256` is not the template sequence's digest (5e2).
     TemplateDigestMismatch,
+    /// A file `--write-edited` would write already exists (5g2). Not produced
+    /// by `parse_request`: it is here so the CLI's own codes are one list
+    /// (plan §3.6).
+    OutputExists,
+    /// A result name cannot be a file name: it holds a path separator, so the
+    /// file would sit outside the output directory (5g2 §4.1). Not produced
+    /// by `parse_request`: it is here so the CLI's own codes are one list
+    /// (plan §3.6).
+    OutputNameUnusable,
 }
 
 impl RequestErrorCode {
     /// `request_unreadable`, `request_invalid`, `template_unreadable`,
-    /// `template_digest_mismatch`.
+    /// `template_digest_mismatch`, `output_exists`, `output_name_unusable`.
     pub fn code(self) -> &'static str {
         match self {
             RequestErrorCode::Unreadable => "request_unreadable",
             RequestErrorCode::Invalid => "request_invalid",
             RequestErrorCode::TemplateUnreadable => "template_unreadable",
             RequestErrorCode::TemplateDigestMismatch => "template_digest_mismatch",
+            RequestErrorCode::OutputExists => "output_exists",
+            RequestErrorCode::OutputNameUnusable => "output_name_unusable",
         }
     }
 }

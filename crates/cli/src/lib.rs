@@ -10,6 +10,7 @@ pub mod request;
 pub mod result;
 pub mod run;
 pub mod version;
+pub mod write;
 
 /// The request schema `luria q5 design` reads (plan §3.4).
 pub const REQUEST_SCHEMA: &str = "luria.q5-request/1";

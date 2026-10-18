@@ -9,7 +9,7 @@ use std::process::ExitCode;
 use luria_cli::args::{parse, Command, UsageError, USAGE};
 use luria_cli::exit::ExitStatus;
 use luria_cli::result::render;
-use luria_cli::run::{run, Outcome};
+use luria_cli::run::{run_with_output, Outcome};
 use luria_cli::version::render_version;
 
 /// Write `text` on stdout; false when the write or the flush failed (plan
@@ -50,24 +50,21 @@ fn emit_version() -> ExitStatus {
 
 /// `luria q5 design`: run the request through core and print the document it
 /// produced (plan §3.2, §3.7). The run's status is the exit status; a document
-/// that cannot be written is an internal error, and the status is the report,
-/// so nothing more goes to stderr on that path.
-fn emit_design(request: PathBuf) -> ExitStatus {
-    let outcome: Outcome = run(&request);
-    if write_out(render(&outcome.document).as_str()) {
-        return outcome.status;
+/// that cannot be written is an internal error, because the status is the
+/// report. When the run itself succeeded but writing the edited constructs did
+/// not, the document is still printed and the run's `note` is the report's own
+/// line on stderr (plan §3.7); a failed stderr write changes nothing.
+fn emit_design(request: PathBuf, write_edited: Option<PathBuf>) -> ExitStatus {
+    let outcome: Outcome = run_with_output(&request, write_edited.as_deref());
+    if !write_out(render(&outcome.document).as_str()) {
+        return ExitStatus::Internal;
     }
-    ExitStatus::Internal
-}
 
-/// `--write-edited` arrives in 5g2: until then the flag is refused before
-/// anything runs, and the status is the report.
-const WRITE_EDITED_UNAVAILABLE: &str =
-    "luria: '--write-edited' is not available in this build yet\n";
+    if let Some(text) = outcome.note {
+        write_err(format!("luria: {}\n", text).as_str());
+    }
 
-fn write_edited_unavailable() -> ExitStatus {
-    write_err(WRITE_EDITED_UNAVAILABLE);
-    ExitStatus::Internal
+    outcome.status
 }
 
 /// Report a usage error on stderr, with the usage text repeated (plan §3.7,
@@ -87,10 +84,7 @@ fn main() -> ExitCode {
         Ok(Command::Q5Design {
             request,
             write_edited,
-        }) => match write_edited {
-            Some(_) => write_edited_unavailable(),
-            None => emit_design(request),
-        },
+        }) => emit_design(request, write_edited),
         Err(problem) => report_usage(problem),
     };
 

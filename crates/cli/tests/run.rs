@@ -405,26 +405,3 @@ fn the_binary_prints_a_failed_document_and_exits_4() {
     assert_eq!(document["state"], "failed");
     assert_eq!(document["error"]["code"], "request_unreadable");
 }
-
-// 5g2 replaces this with the flag's real behaviour.
-#[test]
-fn write_edited_is_refused_in_this_build() {
-    let dir = workspace("write-edited");
-    let output = Command::new(env!("CARGO_BIN_EXE_luria"))
-        .args([
-            "q5",
-            "design",
-            dir.join("request.json").to_str().unwrap(),
-            "--write-edited",
-            dir.join("out").to_str().unwrap(),
-        ])
-        .output()
-        .unwrap();
-    assert_eq!(output.status.code(), Some(1));
-    assert_eq!(output.stdout, Vec::<u8>::new());
-    let text = String::from_utf8(output.stderr).unwrap();
-    assert_eq!(
-        text,
-        "luria: '--write-edited' is not available in this build yet\n"
-    );
-}

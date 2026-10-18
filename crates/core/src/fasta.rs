@@ -169,6 +169,23 @@ pub fn read_fasta(
     Ok(FastaRecord { header, sequence })
 }
 
+/// Write one FASTA record: a header line of `>` and `name`, then the
+/// sequence's letters, 60 to a line. Every line ends in `\n`, including the
+/// last, so the text is a complete file.
+///
+/// The letters are the sequence's own canonical upper-case bases; nothing is
+/// re-derived and no description is invented. 60 is this project's choice,
+/// stated here because the committed fixtures use no single width (one is
+/// 79, another is one long line) and `read_fasta` accepts any.
+pub fn render_fasta(name: &Identifier, sequence: &Sequence) -> String {
+    const LINE_LENGTH: usize = 60;
+    let mut lines: Vec<String> = [].to_vec();
+    for chunk in sequence.letters().chunks(LINE_LENGTH) {
+        lines.push(chunk.iter().collect());
+    }
+    format!(">{}\n{}\n", name.value(), lines.join("\n"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -317,5 +334,65 @@ mod tests {
             read("").unwrap_err().message(),
             "FASTA text for 'tmpl' holds no record: it has no '>' header line"
         );
+    }
+
+    // 60 bases a line, every line terminated, and the record reads back as
+    // the sequence it was written from. The digest is sha256 of the 65-base
+    // canonical text, computed independently:
+    // python3 -c "import hashlib;print(hashlib.sha256((b'ACGT'*16+b'A')).hexdigest())"
+    #[test]
+    fn a_rendered_record_reads_back_as_the_same_sequence() {
+        let name: Identifier = Identifier::create("edited-1".to_string()).unwrap();
+        let text: String = "ACGT".repeat(16) + "A";
+        let sequence: Sequence =
+            normalize(name.clone(), text.clone(), SequenceTopology::Circular).unwrap();
+        assert_eq!(sequence.length(), 65);
+        assert_eq!(
+            sequence.content_hash().hex_digest(),
+            "8f9f1ddb55b44538520ac5adbac06717fc0840702a9dc2728d1f99ec99911a5a"
+        );
+
+        let rendered: String = render_fasta(&name, &sequence);
+        assert_eq!(
+            rendered,
+            ">edited-1\n\
+             ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT\n\
+             ACGTA\n"
+        );
+
+        // The round trip: the same letters, length, topology and digest. The
+        // name is the caller's, as `read_fasta` requires (D007).
+        let record: FastaRecord =
+            read_fasta(name.clone(), rendered, SequenceTopology::Circular).unwrap();
+        let read_back: Sequence = record.sequence();
+        assert_eq!(record.header(), "edited-1");
+        assert_eq!(read_back.letters(), sequence.letters());
+        assert_eq!(read_back.length(), 65);
+        assert_eq!(read_back.topology(), SequenceTopology::Circular);
+        assert_eq!(
+            read_back.content_hash().hex_digest(),
+            sequence.content_hash().hex_digest()
+        );
+    }
+
+    // A sequence shorter than one line is one line, still terminated.
+    #[test]
+    fn a_short_record_is_one_line() {
+        let name: Identifier = Identifier::create("t".to_string()).unwrap();
+        let sequence: Sequence =
+            normalize(name.clone(), "acgt".to_string(), SequenceTopology::Linear).unwrap();
+        assert_eq!(render_fasta(&name, &sequence), ">t\nACGT\n");
+    }
+
+    // Exactly one line's worth is one line, with no empty second line.
+    #[test]
+    fn sixty_bases_are_one_line() {
+        let name: Identifier = Identifier::create("t".to_string()).unwrap();
+        let text: String = "A".repeat(60);
+        let sequence: Sequence =
+            normalize(name.clone(), text.clone(), SequenceTopology::Linear).unwrap();
+        let rendered: String = render_fasta(&name, &sequence);
+        assert_eq!(rendered, format!(">t\n{}\n", text));
+        assert_eq!(rendered.lines().count(), 2);
     }
 }
