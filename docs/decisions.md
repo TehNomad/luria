@@ -1313,6 +1313,21 @@ Decision:
   named preset `q5_reaction` (150 mM, 500 nM, 0 %), which is core's
   `BufferModel::q5_reaction`. The result echoes the numbers, and the preset's
   name when one was used.
+* **A single edit's design failure** (added 2026-10-17, owner answer G7). An
+  edit that is applied and verified but cannot be designed is reported like a
+  one-member set: the state stays `verified`, the member carries its mutation
+  and its `designFailure`, and the run exits 7. The verified edit is not
+  discarded because no primer pair fits.
+* **`--write-edited DIR`** (added 2026-10-17, owner answer G8). A directory
+  that does not exist is created, parents included. An existing file is never
+  overwritten: that is `output_exists` and exit 4, with nothing written.
+* **FASTA against GenBank** (added 2026-10-17, owner answer G9). The claim
+  that the same template in either format gives the same design is proven on
+  pBR322 (R1), which is a real record with real CDS features. The SID-1 cDNA
+  stays a FASTA fixture only: writing a 3153-base GenBank record with a
+  `/translation` qualifier by hand is not practical, and generating one would
+  make the fixture a product of a script rather than of independent
+  verification.
 
 Reversibility:
 

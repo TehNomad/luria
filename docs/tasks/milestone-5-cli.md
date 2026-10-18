@@ -315,6 +315,7 @@ Rules:
 | G6 | Buffer in the request (2026-10-17) | Required. Either the three numbers (`monovalentMillimolar`, `primerNanomolar`, `dmsoPercent`) or the named preset `"q5_reaction"` (150 mM, 500 nM, 0 % DMSO, `BufferModel::q5_reaction`). The result echoes the numbers, and the preset name when one was used. |
 | G7 | Single-edit design failure (2026-10-17) | Treated like a one-member set: `verified`, the member has its mutation and a `designFailure`, exit 7. |
 | G8 | `--write-edited DIR` that doesn't exist (2026-10-17) | Created, parents included. Existing files are still never overwritten (`output_exists`). |
+| G9 | FASTA against GenBank (2026-10-17) | Proven on pBR322, not on a hand-written SID-1 GenBank record. |
 | R1 | Public cross-check record (2026-10-17) | pBR322, J01749.1. pUC19 L09137.2 was the first choice but has no CDS features. |
 
 ## 5. Contracts, in order
@@ -333,7 +334,9 @@ Each is one small worker contract with tests first.
 | 5d | CLI crate skeleton | Workspace member, `luria version`, `luria help`, usage errors, exit-code type. |
 | 5e | Request parsing | Strict JSON to core types for both template forms, all three edit forms and six kinds, path-located errors, and one test per refusal. |
 | 5f | Result serialization | Every result type to JSON, provenance, determinism (same input twice gives identical bytes). |
-| 5g | `luria q5 design` end to end | Wiring, exit codes, `--write-edited`, and end-to-end tests (§6). |
+| 5g1 | `luria q5 design` wiring | The three run paths, the result document, exit codes, unit tests. |
+| 5g2 | `--write-edited` | Writing each edited construct as FASTA, creating the directory (G8), never overwriting (`output_exists`). |
+| 5g3 | End-to-end tests | §6: the fixture-checked cases, fail-closed, FASTA against GenBank (G9), and byte-identical determinism. |
 | 5h | Docs | `docs/cli.md` (both schemas, exit codes, error codes), README usage, `product-brief.md` status. |
 | 5i | Optional: `luria sequence inspect` | Digest, length, topology and source metadata of a FASTA or GenBank file, and a GenBank file's CDS features with their ids and whether luria can use them. Useful for writing a request. |
 
@@ -358,8 +361,13 @@ inputs exist before the output that depends on them.
     Biopython's independent GenBank parser (D039): its sequence digest, and
     each CDS's intervals, strand and translation. I'll choose the record
     and ask before fetching it.
-  - The SID-1 cDNA, written as a GenBank record by hand, must give the same
-    design as the FASTA request.
+  - **The same template in either format gives the same design** (G9),
+    proven on pBR322: a FASTA request declaring the `tet` CDS by interval
+    and a GenBank request importing `tet` by name must give byte-identical
+    results, apart from the provenance that states the format. The SID-1
+    cDNA stays FASTA only; a hand-written 3153-base GenBank record with a
+    `/translation` qualifier is not practical, and a generated one would not
+    be independently verified.
 - **The planner hand-writes one small expected document** in `docs/cli.md`
   for a synthetic case, with values taken from those fixtures. A test checks
   that the CLI's output matches it field by field. This pins the shape.
