@@ -3,10 +3,13 @@
 
 use std::env;
 use std::io::{stderr, stdout, Write};
+use std::path::PathBuf;
 use std::process::ExitCode;
 
 use luria_cli::args::{parse, Command, UsageError, USAGE};
 use luria_cli::exit::ExitStatus;
+use luria_cli::result::render;
+use luria_cli::run::{run, Outcome};
 use luria_cli::version::render_version;
 
 /// Write `text` on stdout; false when the write or the flush failed (plan
@@ -45,12 +48,25 @@ fn emit_version() -> ExitStatus {
     ExitStatus::Internal
 }
 
-/// `luria q5 design`'s arguments are parsed here, but the command itself is
-/// wired in 5g; until then it says so and exits 1.
-const NOT_WIRED: &str = "luria: 'q5 design' is not available in this build yet\n";
+/// `luria q5 design`: run the request through core and print the document it
+/// produced (plan §3.2, §3.7). The run's status is the exit status; a document
+/// that cannot be written is an internal error, and the status is the report,
+/// so nothing more goes to stderr on that path.
+fn emit_design(request: PathBuf) -> ExitStatus {
+    let outcome: Outcome = run(&request);
+    if write_out(render(&outcome.document).as_str()) {
+        return outcome.status;
+    }
+    ExitStatus::Internal
+}
 
-fn not_wired() -> ExitStatus {
-    write_err(NOT_WIRED);
+/// `--write-edited` arrives in 5g2: until then the flag is refused before
+/// anything runs, and the status is the report.
+const WRITE_EDITED_UNAVAILABLE: &str =
+    "luria: '--write-edited' is not available in this build yet\n";
+
+fn write_edited_unavailable() -> ExitStatus {
+    write_err(WRITE_EDITED_UNAVAILABLE);
     ExitStatus::Internal
 }
 
@@ -69,9 +85,12 @@ fn main() -> ExitCode {
         Ok(Command::Help) => emit_help(),
         Ok(Command::Version) => emit_version(),
         Ok(Command::Q5Design {
-            request: _,
-            write_edited: _,
-        }) => not_wired(),
+            request,
+            write_edited,
+        }) => match write_edited {
+            Some(_) => write_edited_unavailable(),
+            None => emit_design(request),
+        },
         Err(problem) => report_usage(problem),
     };
 

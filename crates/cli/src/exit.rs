@@ -17,7 +17,7 @@ pub enum ExitStatus {
     BiologicalValidation,
     /// 6: `failed`, `Unsupported`.
     Unsupported,
-    /// 7: verified, but at least one variant-set member could not be designed.
+    /// 7: verified, but at least one member, of a set or a single edit, could not be designed.
     PartialDesign,
 }
 

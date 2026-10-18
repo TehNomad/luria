@@ -114,14 +114,3 @@ fn a_failed_write_to_stdout_exits_1() {
         assert_eq!(output.status.code(), Some(1), "{:?}", arguments);
     }
 }
-
-#[test]
-fn q5_design_is_not_wired_yet_and_says_so() {
-    let output = luria(&["q5", "design", "request.json"]);
-    assert_eq!(output.status.code(), Some(1));
-    assert!(output.stdout.is_empty());
-    assert_eq!(
-        String::from_utf8(output.stderr).unwrap(),
-        "luria: 'q5 design' is not available in this build yet\n"
-    );
-}
