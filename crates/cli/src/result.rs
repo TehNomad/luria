@@ -47,9 +47,16 @@ use crate::version::{algorithms, Algorithm};
 use crate::REQUEST_SCHEMA;
 use crate::RESULT_SCHEMA;
 
+use luria_core::cds::Cds;
 use luria_core::error::{DomainError, ErrorCategory};
 use luria_core::genbank_cds::{GenBankImport, ImportedCds, UnusedFeature};
+use luria_core::identity::Identifier;
+use luria_core::interval::OrderedIntervals;
+use luria_core::mutation::MutationResult;
+use luria_core::q5::{Q5EditWarning, Q5WorkflowResult};
+use luria_core::q5_expand::Q5ExpansionWarning;
 use luria_core::sequence::{Sequence, SequenceTopology};
+use luria_core::strand::Strand;
 use luria_core::tm::BufferModel;
 
 /// The document `luria q5 design` prints (plan §3.5). Field order is the
@@ -73,20 +80,161 @@ pub struct ResultDocument {
     pub error: Option<ErrorView>,
 }
 
-/// The target CDS, filled in by 5f2 (§3.1).
+/// The target CDS, as the result reports it (§3.1): its identifier, its
+/// intervals as `[start, end]` pairs in D036's order, its strand, its
+/// completeness, genetic code and numbering, and its total length.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct CdsView {}
+pub struct CdsView {
+    pub id: String,
+    pub intervals: Vec<(u64, u64)>,
+    pub strand: &'static str,
+    pub completeness: String,
+    pub genetic_code: String,
+    pub numbering: String,
+    pub length: u64,
+}
 
-/// One edit or expansion warning, filled in by 5f2 (§3.1).
+/// The edited construct: its identifier, the digest of its content and its
+/// length. The sequence text itself is not in the document (5g's
+/// `--write-edited` writes it).
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct OperationWarning {}
+pub struct EditedView {
+    pub id: String,
+    pub sha256: String,
+    pub length: u64,
+}
 
-/// One member's result, filled in by 5f2 (§3.1).
+/// The mutation one member performed, keyed by its `kind`: the state it
+/// reached, the recorded coordinates in D040's order, the text the core saw
+/// and wrote, the codon and residues for a residue edit, and the edited
+/// construct (§3.1).
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(
+    tag = "kind",
+    rename_all = "snake_case",
+    rename_all_fields = "camelCase"
+)]
+pub enum MutationView {
+    Substitution {
+        state: String,
+        interval: (u64, u64),
+        original: String,
+        written: String,
+        coordinates: Vec<u64>,
+        edited: EditedView,
+    },
+    Residue {
+        state: String,
+        cds: String,
+        residue: u64,
+        original_residue: String,
+        written_residue: String,
+        original_codon: String,
+        written_codon: String,
+        codon_policy: String,
+        codon_policy_source: Option<String>,
+        coordinates: Vec<u64>,
+        edited: EditedView,
+    },
+    Deletion {
+        state: String,
+        interval: (u64, u64),
+        original: String,
+        coordinates: Vec<u64>,
+        edited: EditedView,
+    },
+    Insertion {
+        state: String,
+        point: u64,
+        before: String,
+        after: String,
+        written: String,
+        coordinates: Vec<u64>,
+        edited: EditedView,
+    },
+    Replacement {
+        state: String,
+        interval: (u64, u64),
+        original: String,
+        written: String,
+        coordinates: Vec<u64>,
+        edited: EditedView,
+    },
+}
+
+/// A warning about one member's edit, keyed by its `code` (§3.1).
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(
+    tag = "code",
+    rename_all = "snake_case",
+    rename_all_fields = "camelCase"
+)]
+pub enum EditWarningView {
+    Frameshift {
+        cds: String,
+        coding_bases_removed: u64,
+        wholly_inside: bool,
+        message: String,
+    },
+    InsertionFrameshift {
+        cds: String,
+        bases_inserted: u64,
+        message: String,
+    },
+    ReplacementFrameshift {
+        cds: String,
+        bases_replaced: u64,
+        bases_written: u64,
+        wholly_inside: bool,
+        message: String,
+    },
+    PrematureStop {
+        cds: String,
+        codon_number: u64,
+        message: String,
+    },
+}
+
+/// A warning about the operation as a whole, keyed by its `code` (§3.1): a
+/// degenerate expansion that skipped a member, or a set that grew past its
+/// threshold.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(
+    tag = "code",
+    rename_all = "snake_case",
+    rename_all_fields = "camelCase"
+)]
+pub enum OperationWarning {
+    WildTypeSkipped {
+        sequence: String,
+        message: String,
+    },
+    ManyDesigns {
+        count: usize,
+        threshold: usize,
+        message: String,
+    },
+}
+
+/// One member's design. 5f3 fills this in; until then it stays empty, so the
+/// document gives `design: null` for every member (§3.1).
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct DesignView {}
+
+/// One member's result: its name, the mutation it performed, the warnings it
+/// raised, and its design or the reason it had none (5f3 gives the last two)
+/// (§3.1).
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct MemberView {}
+pub struct MemberView {
+    pub name: String,
+    pub mutation: MutationView,
+    pub warnings: Vec<EditWarningView>,
+    pub design: Option<DesignView>,
+    pub design_failure: Option<ErrorView>,
+}
 
 /// The document as luria prints it: serde_json's pretty form plus one `\n`
 /// (5d).
@@ -94,6 +242,169 @@ pub fn render(document: &ResultDocument) -> String {
     match to_string_pretty(document) {
         Ok(text) => text + "\n",
         Err(problem) => panic!("the result document always serializes: {}", problem),
+    }
+}
+
+/// The strand, as the result writes it (D006): `+` or `-`.
+fn strand_symbol(strand: Strand) -> &'static str {
+    match strand {
+        Strand::Plus => "+",
+        Strand::Minus => "-",
+    }
+}
+
+/// The target CDS, as the result reports it (§3.1): every value comes from a
+/// `Cds` accessor, and the intervals keep D036's order as core gives them.
+pub fn cds_view(cds: &Cds) -> CdsView {
+    let intervals: OrderedIntervals = cds.intervals();
+    CdsView {
+        id: cds.id().value().to_string(),
+        intervals: intervals
+            .iter()
+            .map(|interval| (interval.start(), interval.end()))
+            .collect(),
+        strand: strand_symbol(cds.strand()),
+        completeness: cds.completeness().name(),
+        genetic_code: cds.genetic_code().name(),
+        numbering: cds.numbering().name(),
+        length: cds.total_length(),
+    }
+}
+
+/// The edited construct: its identifier, the digest of its content and its
+/// length; the sequence text itself is not in the document (§3.1).
+fn edited_view(sequence: &Sequence) -> EditedView {
+    EditedView {
+        id: sequence.name().value().to_string(),
+        sha256: sequence.content_hash().hex_digest().to_string(),
+        length: sequence.length(),
+    }
+}
+
+/// One mutation result, as its member reports it (§3.1): the kind is the
+/// operation core ran, and every value is one that result recorded. The
+/// coordinates keep D040's order as `target_coordinates` gives them.
+pub fn mutation_view(mutation: &MutationResult) -> MutationView {
+    match mutation {
+        MutationResult::Nucleotide(record) => MutationView::Substitution {
+            state: record.state().name(),
+            interval: (record.position().start(), record.position().end()),
+            original: record.actual_original().to_string(),
+            written: record.replacement().to_string(),
+            coordinates: mutation.target_coordinates(),
+            edited: edited_view(&mutation.edited()),
+        },
+        MutationResult::Residue(record) => MutationView::Residue {
+            state: record.state().name(),
+            cds: record.cds().value().to_string(),
+            residue: record.position().number(),
+            original_residue: record.actual_original().symbol(),
+            written_residue: record.replacement().symbol(),
+            original_codon: record.original_codon(),
+            written_codon: record.selected_codon().text(),
+            codon_policy: record.policy().name(),
+            codon_policy_source: record.policy().source(),
+            coordinates: mutation.target_coordinates(),
+            edited: edited_view(&mutation.edited()),
+        },
+        MutationResult::Deletion(record) => MutationView::Deletion {
+            state: record.state().name(),
+            interval: (record.region().start(), record.region().end()),
+            original: record.actual_deleted(),
+            coordinates: mutation.target_coordinates(),
+            edited: edited_view(&mutation.edited()),
+        },
+        MutationResult::Insertion(record) => MutationView::Insertion {
+            state: record.state().name(),
+            point: record.point().position(),
+            before: record.actual_before().to_string(),
+            after: record.actual_after().to_string(),
+            written: record.inserted(),
+            coordinates: mutation.target_coordinates(),
+            edited: edited_view(&mutation.edited()),
+        },
+        MutationResult::Replacement(record) => MutationView::Replacement {
+            state: record.state().name(),
+            interval: (record.region().start(), record.region().end()),
+            original: record.actual_original(),
+            written: record.replacement(),
+            coordinates: mutation.target_coordinates(),
+            edited: edited_view(&mutation.edited()),
+        },
+    }
+}
+
+/// A warning about one member's edit, as the result reports it (§3.1): the
+/// code, the values core counted, and core's own `describe` text.
+pub fn edit_warning_view(warning: &Q5EditWarning) -> EditWarningView {
+    match warning {
+        Q5EditWarning::Frameshift {
+            cds,
+            coding_bases_removed,
+            wholly_inside,
+        } => EditWarningView::Frameshift {
+            cds: cds.value().to_string(),
+            coding_bases_removed: *coding_bases_removed,
+            wholly_inside: *wholly_inside,
+            message: warning.describe(),
+        },
+        Q5EditWarning::InsertionFrameshift {
+            cds,
+            bases_inserted,
+        } => EditWarningView::InsertionFrameshift {
+            cds: cds.value().to_string(),
+            bases_inserted: *bases_inserted,
+            message: warning.describe(),
+        },
+        Q5EditWarning::ReplacementFrameshift {
+            cds,
+            bases_replaced,
+            bases_written,
+            wholly_inside,
+        } => EditWarningView::ReplacementFrameshift {
+            cds: cds.value().to_string(),
+            bases_replaced: *bases_replaced,
+            bases_written: *bases_written,
+            wholly_inside: *wholly_inside,
+            message: warning.describe(),
+        },
+        Q5EditWarning::PrematureStop { cds, codon_number } => EditWarningView::PrematureStop {
+            cds: cds.value().to_string(),
+            codon_number: *codon_number,
+            message: warning.describe(),
+        },
+    }
+}
+
+/// A warning about the operation as a whole: the code, the values core
+/// counted, and core's own `describe` text (§3.1).
+pub fn operation_warning_view(warning: &Q5ExpansionWarning) -> OperationWarning {
+    match warning {
+        Q5ExpansionWarning::WildTypeSkipped { sequence } => OperationWarning::WildTypeSkipped {
+            sequence: sequence.clone(),
+            message: warning.describe(),
+        },
+        Q5ExpansionWarning::ManyDesigns { count, threshold } => OperationWarning::ManyDesigns {
+            count: *count,
+            threshold: *threshold,
+            message: warning.describe(),
+        },
+    }
+}
+
+/// One member: its name, its mutation, the warnings it raised, and no design
+/// yet — 5f3 gives `design` and `designFailure` (§3.1).
+pub fn member_view(
+    name: &Identifier,
+    mutation: &MutationResult,
+    warnings: &[Q5EditWarning],
+) -> MemberView {
+    MemberView {
+        name: name.value().to_string(),
+        mutation: mutation_view(mutation),
+        warnings: warnings.iter().map(edit_warning_view).collect(),
+        design: None,
+        design_failure: None,
     }
 }
 
@@ -979,6 +1290,57 @@ pub fn failed_after(prepared: &Prepared, error: ErrorView) -> ResultDocument {
         warnings: [].to_vec(),
         results: [].to_vec(),
         error: Some(error.clone()),
+    }
+}
+
+/// The brief's fail-closed case (D020): the scope did not resolve, so nothing
+/// was chosen and nothing was edited. The gate's clarifications and candidates
+/// are the whole result: no target, no members, no error (§3.1).
+pub fn clarification_document(prepared: &Prepared, gate: &Q5WorkflowResult) -> ResultDocument {
+    ResultDocument {
+        schema: RESULT_SCHEMA,
+        state: "needs_clarification",
+        experimental_validation: "not_performed",
+        provenance: provenance(
+            Some(prepared.request_sha256.clone()),
+            Some(&prepared.document),
+            Some(prepared),
+        ),
+        request: Some(request_echo(&prepared.document)),
+        target: None,
+        clarifications: gate.clarifications(),
+        candidates: gate.candidates(),
+        warnings: [].to_vec(),
+        results: [].to_vec(),
+        error: None,
+    }
+}
+
+/// A run that edited every member (5g calls this): the resolved target, the
+/// members in order and the operation's own warnings. Designs are 5f3's, so
+/// every member's `design` and `designFailure` are still `null` (§3.1).
+pub fn verified_document(
+    prepared: &Prepared,
+    target: Option<&Cds>,
+    members: Vec<MemberView>,
+    warnings: Vec<OperationWarning>,
+) -> ResultDocument {
+    ResultDocument {
+        schema: RESULT_SCHEMA,
+        state: "verified",
+        experimental_validation: "not_performed",
+        provenance: provenance(
+            Some(prepared.request_sha256.clone()),
+            Some(&prepared.document),
+            Some(prepared),
+        ),
+        request: Some(request_echo(&prepared.document)),
+        target: target.map(cds_view),
+        clarifications: [].to_vec(),
+        candidates: [].to_vec(),
+        warnings,
+        results: members,
+        error: None,
     }
 }
 
