@@ -1321,13 +1321,24 @@ Decision:
 * **`--write-edited DIR`** (added 2026-10-17, owner answer G8). A directory
   that does not exist is created, parents included. An existing file is never
   overwritten: that is `output_exists` and exit 4, with nothing written.
-* **FASTA against GenBank** (added 2026-10-17, owner answer G9). The claim
-  that the same template in either format gives the same design is proven on
-  pBR322 (R1), which is a real record with real CDS features. The SID-1 cDNA
-  stays a FASTA fixture only: writing a 3153-base GenBank record with a
-  `/translation` qualifier by hand is not practical, and generating one would
-  make the fixture a product of a script rather than of independent
-  verification.
+* **FASTA against GenBank** (added 2026-10-17, owner answer G9, amended the
+  same day). The claim is that the same template in either format gives the
+  same **result**, proven on pBR322 (R1), a real record with real CDS
+  features. It is not proven on a primer design: pBR322 is circular, D029
+  scopes `luriaNative` to a linear template, and both GenBank fixtures in
+  the repository are circular, so both runs report a verified edit whose
+  design was refused. The SID-1 cDNA stays a FASTA fixture only: writing a
+  3153-base GenBank record with a `/translation` qualifier by hand is not
+  practical, and generating one would make the fixture a product of a script
+  rather than of independent verification.
+* **Plasmids cannot be designed** (added 2026-10-17, owner answer G10).
+  D029's native design scope is a linear template, so every circular
+  template — every plasmid, which is where most site-directed mutagenesis is
+  done — gives a verified edit with an `unsupported_primer_design_scope`
+  design failure and exit 7. The CLI does not refuse such a request when it
+  is read: the edit and its construct are still correct and still reported.
+  The limit is stated in `docs/cli.md` and the README. Lifting it means a
+  design policy for circular templates, which is not in this milestone.
 
 Reversibility:
 

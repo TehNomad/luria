@@ -315,7 +315,8 @@ Rules:
 | G6 | Buffer in the request (2026-10-17) | Required. Either the three numbers (`monovalentMillimolar`, `primerNanomolar`, `dmsoPercent`) or the named preset `"q5_reaction"` (150 mM, 500 nM, 0 % DMSO, `BufferModel::q5_reaction`). The result echoes the numbers, and the preset name when one was used. |
 | G7 | Single-edit design failure (2026-10-17) | Treated like a one-member set: `verified`, the member has its mutation and a `designFailure`, exit 7. |
 | G8 | `--write-edited DIR` that doesn't exist (2026-10-17) | Created, parents included. Existing files are still never overwritten (`output_exists`). |
-| G9 | FASTA against GenBank (2026-10-17) | Proven on pBR322, not on a hand-written SID-1 GenBank record. |
+| G9 | FASTA against GenBank (2026-10-17) | Proven on pBR322, not on a hand-written SID-1 GenBank record. Amended the same day: proven on the whole result, not on a primer design, because pBR322 is circular and D029's design scope is linear. |
+| G10 | Plasmids cannot be designed (2026-10-17) | D029's limit stands. Documented in `docs/cli.md` and the README rather than refused when the request is read. |
 | R1 | Public cross-check record (2026-10-17) | pBR322, J01749.1. pUC19 L09137.2 was the first choice but has no CDS features. |
 
 ## 5. Contracts, in order
@@ -361,13 +362,19 @@ inputs exist before the output that depends on them.
     Biopython's independent GenBank parser (D039): its sequence digest, and
     each CDS's intervals, strand and translation. I'll choose the record
     and ask before fetching it.
-  - **The same template in either format gives the same design** (G9),
-    proven on pBR322: a FASTA request declaring the `tet` CDS by interval
-    and a GenBank request importing `tet` by name must give byte-identical
-    results, apart from the provenance that states the format. The SID-1
-    cDNA stays FASTA only; a hand-written 3153-base GenBank record with a
-    `/translation` qualifier is not practical, and a generated one would not
-    be independently verified.
+  - **The same template in either format gives the same result** (G9,
+    amended 2026-10-17), proven on pBR322: a FASTA request declaring the
+    `tet` CDS by interval and a GenBank request importing `tet` by name
+    must give identical results, apart from the provenance that states the
+    format. It is not proven on a primer design, because pBR322 is circular
+    and D029 scopes `luriaNative` to a linear template: both runs report a
+    verified edit whose design was refused, at exit 7. Both GenBank
+    fixtures are circular, so this milestone has no cross-format design
+    comparison. The SID-1 cDNA stays FASTA only.
+  - **No circular template can be designed** (D029). Every plasmid
+    therefore gives a verified edit with a `designFailure` and exit 7. This
+    is stated in `docs/cli.md` and the README (5h, owner 2026-10-17), not
+    refused at request time: the verified edit is still useful.
 - **The planner hand-writes one small expected document** in `docs/cli.md`
   for a synthetic case, with values taken from those fixtures. A test checks
   that the CLI's output matches it field by field. This pins the shape.
