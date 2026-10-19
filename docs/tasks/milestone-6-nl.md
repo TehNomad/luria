@@ -113,6 +113,7 @@ command refuses before anything is sent.
 | M6-13 | Linear fixture (§9 Q6) | **Yes**: a short, hand-written, independently verified linear GenBank record with one CDS. |
 | M6-14 | Exit status (§9 Q7) | **New exit 8** for a refused model reply. |
 | M6-16 | A combined construct (asked 2026-10-19) | **Proposed faithfully.** `interpret` emits the request and core refuses it (`unsupported_composition`, exit 6). D003: the adapter must not duplicate a scientific scope limit core owns. |
+| M6-18 | TLS and the Anthropic backend (asked 2026-10-19) | **Deferred.** The TLS stack `ureq` uses (`rustls` → `ring`) compiles C and needs `/usr/include`, which the development sandbox denies (`nono why`: `path_not_granted`). Milestone 6 ships the OpenAI-compatible backend over plain HTTP only, with `ureq`'s default features off. An `https://` endpoint is refused before anything is sent. 6g2 is not built; see `docs/tasks/later-tls-and-anthropic.md`. Amends M6-1. |
 | M6-17 | Model thinking (6g1, asked 2026-10-19) | **Follow the server's setting.** The backend sends no thinking switch; whether a model thinks is the server's configuration. The research found thinking 4.4 times slower with no gain, which is documented for users, not enforced. |
 | M6-15 | Grounding (asked 2026-10-19, after §5.2 was first written) | **Evidence quotes**: the model returns a canonical `token` and a verbatim `quote` from the user's text, and Rust checks the quote supports the token (§5.3a). Strict verbatim tokens would refuse ordinary prose. |
 
@@ -377,7 +378,7 @@ Each is small, with tests first, as in M5:
 | 6e | `milestone-6e-build.md` | Grounding and request building: `Extraction` + catalogue + profile → `RequestDocument` or questions. A pure function, where most of the tests sit. |
 | 6f | `milestone-6f-prompt-backend.md` | `Prompt`, `PROMPT_VERSION`, the `Backend` trait and the scripted backend. |
 | 6g1 | `milestone-6g1-openai.md` | The OpenAI-compatible backend, with `ureq`, against a local stub. |
-| 6g2 | `milestone-6g2-anthropic.md` | The Anthropic backend, against a local stub. |
+| 6g2 | — | **Deferred (M6-18).** The Anthropic backend needs TLS. |
 | 6h | `milestone-6h-command.md` | Arguments, the remote gate, the document, `--write-request`, exit 8. |
 | 6i0 | `milestone-6i0-linear-genbank.md` | The linear GenBank fixture and its verification (planner), and `genbank_fixtures.rs` tests reading it (worker). No production code. |
 | 6i | `milestone-6i-end-to-end.md` | The NL corpus (§8) through the scripted backend: interpret, then design, compared byte for byte with the hand-written request's result. |
