@@ -24,9 +24,10 @@ luria version
 luria help
 ```
 
-See `docs/cli.md` for the request and result schemas, a worked example and
-the exit codes. Primer design covers linear templates only (D029), so a
-plasmid gives a verified edit with a design failure rather than primers.
+See `docs/cli.md` for a worked example, the exit codes and error codes, and
+a summary of the request and result. Primer design covers linear templates
+only (D029), so a plasmid gives a verified edit with a design failure rather
+than primers.
 
 Natural-language interpretation is the next milestone (Milestone 6). See
 `docs/decisions.md` D034.

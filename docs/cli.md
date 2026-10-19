@@ -19,7 +19,7 @@ luria help
 | Command | What it does |
 | --- | --- |
 | `q5 design REQUEST.json` | Runs the request and prints one result document. |
-| `--write-edited DIR` | Also writes each edited construct to `DIR/<member name>.fa`. `DIR` is created if needed. An existing file is never overwritten. |
+| `--write-edited DIR` | Also writes each edited construct to `DIR/<member name>.fa`. `DIR` is created if needed. An existing file is never overwritten. The file's header is the result name, and it records no topology. |
 | `version`, `--version` | Prints the package version, every algorithm's name and version, and the two schema names (§4). |
 | `help`, `--help`, `-h` | Prints the usage text. |
 
@@ -472,7 +472,7 @@ Every result repeats these algorithm names and versions in its
 | Code | Meaning |
 | --- | --- |
 | 0 | `verified`, and every member designed |
-| 1 | An internal error or an I/O failure |
+| 1 | An internal error, or a failure to write the output: stdout or a `--write-edited` file |
 | 2 | Usage error: bad arguments. Text on stderr, no JSON |
 | 3 | `needs_clarification` |
 | 4 | `failed`, category `malformed_input` |
@@ -484,6 +484,17 @@ Exit 7 is the plasmid case of §2, and also a single edit whose design
 failed: the edit stands, and `designFailure` says why there are no
 primers.
 
+An unreadable file is not exit 1. A request file that cannot be read is
+`request_unreadable`, and a template file the request names is
+`template_unreadable`; both are `malformed_input` and exit 4 (§6). Exit 1 is
+an internal error, or a write that failed — stdout, or a file `--write-edited`
+asked for. Unless stdout itself is what failed, the document still goes to
+stdout. When the run has a reason outside the document, it goes to stderr as
+one line, `luria: ` then the reason; for a failed write that reason is the
+operating system's message. A failed `--write-edited` write takes exit 1 in
+place of the status the run had reached, 7 included: the document still shows
+each member's `design` or its `designFailure`.
+
 ## 6. Error codes
 
 A `failed` document's `error`, and a member's `designFailure`, carry:
@@ -491,21 +502,23 @@ A `failed` document's `error`, and a member's `designFailure`, carry:
 | Field | What it holds |
 | --- | --- |
 | `code` | A stable identifier, such as `expected_residue_mismatch`. |
-| `rule` | For the two broad codes, `invalid_mutation_request` and `invalid_primer_candidate`, which specific rule was broken; null otherwise. |
+| `rule` | The specific rule broken, for the six codes that carry one: `invalid_mutation_request`, `invalid_primer_candidate`, `malformed_fasta`, `unusable_genbank_location`, `malformed_genbank` and `unusable_genbank_cds`. Null otherwise. |
 | `category` | `malformed_input`, `biological_validation` or `unsupported`, which chooses the exit code. |
 | `message` | The human-readable reason. |
-| `path` | The JSON path in the request, for an error the request itself caused; null otherwise. |
-| `details` | The error's own fields, such as the coordinates or residues involved. |
+| `path` | The JSON path in the request, for an error found while the request is read and prepared; null otherwise, an error raised while the edit runs included — `expected_residue_mismatch` gives a path of null. Mapping those errors to request fields is planned for Milestone 6. |
+| `details` | The error's own fields, such as the coordinates or residues involved. Four fields that hold nothing but interval text are left out: `primer_text_at_span_mismatch` loses its span, and `primer_pair_coverage` has empty `details`, so those intervals appear in `message` only. A refused GenBank CDS location gives `cds` and `line` as well, null when no named feature caused it. Of the CLI codes, `output_exists` gives `file` and `output_name_unusable` gives `name`; the other four give empty `details`. |
 
-Match on `code` and `rule`, never on `message`. Four codes are the CLI's
-own; every other code comes from `luria-core`.
+Match on `code` and `rule`, never on `message`. Six codes are the CLI's own;
+every other code comes from `luria-core`.
 
 | CLI code | Category | When |
 | --- | --- | --- |
-| `request_unreadable` | `malformed_input` | The request file could not be read. |
-| `request_invalid` | `malformed_input` | The request is not valid under the schema. `path` names the field. |
-| `template_digest_mismatch` | `malformed_input` | The request stated `template.sha256` and the file's digest differs. |
-| `output_exists` | `malformed_input` | `--write-edited` would overwrite an existing file. |
+| `request_unreadable` | `malformed_input` | The request file cannot be read, or its bytes are not UTF-8. |
+| `request_invalid` | `malformed_input` | The request is not valid JSON or breaks the schema, a template path is absolute, or two declared CDSs share an id. `path` names the field. |
+| `template_unreadable` | `malformed_input` | The template file the request names cannot be read. |
+| `template_digest_mismatch` | `malformed_input` | The request stated `template.sha256` and it is not the digest of the template's normalized sequence (§7). |
+| `output_exists` | `malformed_input` | With `--write-edited`: the file luria would write already holds something — a file, a directory or a link, a dangling one included. Nothing is written. |
+| `output_name_unusable` | `malformed_input` | With `--write-edited`: a result name holds a path separator (`/` or `\`), or one of `:` `*` `?` `<` `>` and the vertical bar, or two result names differ only in case. Nothing is written. |
 
 The complete list of core codes is pinned by
 `luria_core::error::tests::every_variant_has_its_pinned_code`, and every
@@ -521,10 +534,10 @@ changes the science has a default.
 | --- | --- | --- |
 | `schema` | yes | `"luria.q5-request/1"`. |
 | `coordinates` | yes | `"zero-based-half-open"`, the convention of every nucleotide interval in the request and the result. Residue numbers are 1-based. |
-| `template` | yes | Either a FASTA template — `fasta`, `topology`, and `cds` as declared objects — or a GenBank one: `genbank`, and `cds` as a list of ids to import. Never both. `id` is the template's identity and comes from the request, not the file (D007). `sha256` is optional and checked when present. |
+| `template` | yes | Either a FASTA template — `fasta`, `topology`, and `cds` as declared objects — or a GenBank one: `genbank`, and `cds` as a list of ids to import. Never both. `id` is the template's identity and comes from the request, not the file (D007). `sha256` is optional; when present it is checked against the SHA-256 of the normalized sequence — upper-cased bases, line breaks and whitespace removed — the value `provenance.template.sha256` reports, not `sha256sum` of the file. A GenBank CDS is imported only from an `ATG` start, under every `/transl_table` (D042). |
 | `scope` | no | The CDS the edit applies to. Without it, luria resolves the target, and asks when more than one CDS could be meant. |
 | one of `edit`, `variants`, `degenerate` | yes | One edit, a set of named members, or a degenerate replacement expanded into a set. Exactly one. |
-| `design` | yes | `policy`, `style`, `minAnnealingOverlap`, `placement` and `buffer`. `buffer` is either the preset `"q5_reaction"` or the three numbers `monovalentMillimolar`, `primerNanomolar` and `dmsoPercent` (G6). |
+| `design` | yes | `policy`, `style`, `minAnnealingOverlap`, `placement` and `buffer`. `buffer` is either the preset `"q5_reaction"` or the three numbers `monovalentMillimolar`, `primerNanomolar` and `dmsoPercent` (G6). A stated buffer needs a positive salt and primer concentration and a DMSO proportion of at least zero, and the most luria accepts is 1000 mM monovalent, 10000 nM primer and 20 % DMSO: above that the request is refused as `invalid_buffer_model` (D043). |
 
 An edit is one of six kinds, each its own object inside `edit` or a
 member: `residue`, `substitution`, `deletion`, `insertion`,
@@ -543,7 +556,7 @@ whether a key exists.
 | `schema` | `"luria.q5-result/1"`. |
 | `state` | `verified`, `needs_clarification` or `failed`. |
 | `experimentalValidation` | Always `"not_performed"`. |
-| `provenance` | The package, every algorithm and version, the request file's digest, the operation, the template and the buffer. |
+| `provenance` | The package, every algorithm and version, the request file's SHA-256 over its raw bytes (unlike `template.sha256`, which is over the normalized sequence), the operation, the template and the buffer. For a GenBank template, `template.genbank` carries `importedCds`, each with its `intervals` and `strand` next to where it came from, and `unusedFeatures`: every feature not imported, a `CDS` one with the refusal importing it would have given. |
 | `request` | The request as luria understood it. It is itself a valid request: parsing the echo gives the same request back. |
 | `target` | The resolved CDS, or null. |
 | `clarifications`, `candidates` | Why luria is asking, and what it could have meant. Non-empty only when `state` is `needs_clarification`. |

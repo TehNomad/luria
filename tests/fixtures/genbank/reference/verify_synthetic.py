@@ -40,8 +40,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 FIXTURE = os.path.dirname(HERE)
 
 with warnings.catch_warnings():
-    # Biopython warns about the remote and between-base locations, which are
-    # in the record on purpose.
+    # Biopython 1.88 gives no parse warning for this record. The filter stays
+    # so that a version which warns about the locations the record holds on
+    # purpose, such as the remote X00001.1:1..12, can't fail the check.
     warnings.simplefilter("ignore", BiopythonParserWarning)
     record = SeqIO.read(os.path.join(FIXTURE, "synthetic.gb"), "genbank")
 SEQ = record.seq

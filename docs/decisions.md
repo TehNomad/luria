@@ -869,8 +869,12 @@ Sources:
   lower Tm primer", and the Q5 Site-Directed Mutagenesis Kit FAQ, "a Tm+3
   rule" — which D030 cited until 2026-10-18; the changelog indicates they
   describe the pre-2016 Tm. The planner could not open the calculator's page
-  itself (HTTP 403), so the quotation rests on the owner's reading. The
-  72 °C cap is the top of the Q5 SDM protocol's 50–72 °C annealing range.
+  itself (HTTP 403), so the quotation rests on the owner's reading.
+  NEBaseChanger's own SID-1 D404N result, captured in
+  `tests/fixtures/example-construct/raw/sdmsummary.txt`, shows the same rule
+  independently of the changelog: Tms of 74 and 70 °C and a Ta of 71 °C, the
+  lower Tm plus 1 (plus 3 would give 73). The 72 °C cap is the top of the Q5
+  SDM protocol's 50–72 °C annealing range.
 * G/C 3′ end and the 63 °C ceiling on G/C extension: owner, 2026-10-14, as
   general PCR practice.
 * Tm model: `crates/core/src/tm.rs` and `tests/fixtures/tm/README.md`.

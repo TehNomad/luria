@@ -8,10 +8,10 @@
 //! `reference/verify_synthetic.py` re-derives every biological column of the
 //! synthetic tables; `tests/fixtures/genbank/README.md` records how each
 //! value was derived and checked. The scripts run from the repository root,
-//! not from cargo:
+//! not from cargo, in the pinned Python environment:
 //!
 //! ```
-//! target/venv/bin/python -I tests/fixtures/verify.py
+//! python -I tests/fixtures/verify.py
 //! ```
 //!
 //! That Python check is not part of the required cargo checks (D039, D026).

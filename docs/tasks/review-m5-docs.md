@@ -1,6 +1,6 @@
 # Review M5 docs: the CLI page, the GenBank fixture notes and D030's evidence
 
-Status: **Contract, 2026-10-18.** Planner: Claude. Parent:
+Status: **Implemented 2026-10-18** by the local worker; accepted after two small review rounds (the CLI codes' `details`, the verify script comment). Planner: Claude. Parent:
 `docs/tasks/review-post-m5.md`: B-2 to B-6, C-5, C-6, C-11, the owner
 answers of 2026-10-18 (B-2, B-3, B-6, C-6, D030), and reviewer A's doc drift.
 Docs and comments only: no code, test or fixture value changes.

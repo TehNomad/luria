@@ -62,9 +62,17 @@ It has 27 features, one per case:
 - `/transl_table=11` with an ATG start (`atg11`, imported) and with a GTG
   start (`alt11`, refused); a first codon other than `ATG` is refused under
   every table, absent, 1 or 11 (D042);
-- one per refused qualifier and location form, a CDS with no id, a repeated
-  qualifier, two CDSs sharing an id, an id with a blank, a length that is
-  not a multiple of three, and an internal stop;
+- the refusals the record holds: `/pseudo` (`ps`), `/codon_start=2` (`cs2`),
+  `/transl_table=4` (`tt4`) and a repeated `/codon_start` (`rep`); a CDS
+  with no id, two CDSs sharing the id `dup`, an id with a blank (`bad id`),
+  a length that is not a multiple of three (`len13`), an internal stop
+  (`stop`); and the location refusals `<1..12` (`fuzzy`), `order(1..6,7..12)`
+  (`ord`), a plain `join(1..6,7..12)` (`exons`), a bare position `5`
+  (`single`) and `X00001.1:1..12` (`remote`);
+- not in this record: `between_bases` (`^`), `position_zero`,
+  `range_ends_before_start`, `past_sequence_end` and `syntax`, and the
+  `/pseudogene` qualifier; the same code refuses them, but they are tested
+  only in the unit tests of `genbank_location.rs` and `genbank_cds.rs`.
 - a non-CDS `gene` feature with `/gene="p1"`, which must not count as a
   second `p1`.
 

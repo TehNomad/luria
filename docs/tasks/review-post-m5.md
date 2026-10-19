@@ -1,9 +1,13 @@
 # Post-Milestone-5 code review: findings
 
-Status: Phase 1 (read-only review) complete, 2026-10-18. Phase 2 (fixes) in
-progress. Branch: `feat/milestone-5` (owner's choice, 2026-10-18; it is
-already merged into `main` at `c9feca0`, and is merged again afterwards).
-Planner: Claude.
+Status: Phase 1 (read-only review) and Phase 2 (fixes) complete,
+2026-10-18. All ten contracts are done; items recorded with no change, or
+deferred to Milestone 6, are listed under each section. Branch:
+`feat/milestone-5` (owner's choice, 2026-10-18; it was already merged into
+`main` at `c9feca0`, and is to be merged again). Planner: Claude.
+
+After Phase 2: `cargo fmt --check` clean, 753 tests pass, `cargo clippy -D
+warnings` clean, `python -I tests/fixtures/verify.py` 12 of 12 pass.
 
 Baseline at review start (`c9feca0`): `cargo fmt --check` clean, 719 tests
 pass, `cargo clippy -D warnings` clean, `python -I tests/fixtures/verify.py`
@@ -168,4 +172,4 @@ and README drift listed by reviewer A.
 | `review-m5-c4-buffer-bounds.md` | C-4 (D043) | done |
 | `review-m5-c9-run-and-imports.md` | C-6, C-9, C-12 | done |
 | `review-m5-c3-cli-tests.md` | C-3, C-7, C-8, C-13 | done |
-| `review-m5-docs.md` | the docs drift above | |
+| `review-m5-docs.md` | the docs drift above | done |

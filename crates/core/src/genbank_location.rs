@@ -12,9 +12,11 @@
 //! decides, and every refusal carries the text as given and the length it
 //! was read against.
 //!
-//! 1. Every ASCII whitespace character — space, tab, carriage return,
-//!    newline — is removed, so a location continued over several lines
-//!    reads as one. The text is kept as given for the payload.
+//! 1. Space, tab, carriage return and newline are removed, so a location
+//!    continued over several lines reads as one. No other character is
+//!    whitespace to step 1: a form feed is ASCII whitespace but stays, and
+//!    step 7 then refuses it as `Syntax`. The text is kept as given for the
+//!    payload.
 //! 2. Nothing left after step 1 is `Syntax`.
 //! 3. A `:` is a reference into another record: `RemoteReference`.
 //! 4. A `<` or a `>` marks an incomplete feature: `FuzzyEnd`.
