@@ -1,6 +1,8 @@
 # Milestone 6c: the CDS catalogue
 
-Status: **Ready for the worker, 2026-10-19.**
+Status: **Implemented 2026-10-19** by the local worker; accepted on the first
+review. The unreachable branch of §3.3 step 4 (an import that returns no CDS)
+returns core's own `NotFound` refusal for the id; no test reaches it.
 Planner: Claude. Parent: `docs/tasks/milestone-6-nl.md` §3 ("What leaves
 the machine"), §5.5, M6-4, §6 (6c).
 

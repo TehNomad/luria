@@ -3,4 +3,5 @@
 //! deterministic and holds no model I/O; the model is spoken to only in
 //! `luria-nl` (milestone 6 plan §3, §5.1).
 
+pub mod catalogue;
 pub mod notation;
