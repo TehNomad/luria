@@ -66,6 +66,15 @@ interpretation code existed. Nothing here was produced by running
   purpose and was confirmed once by hand, as
   `../genbank/README.md` records under "Fit for purpose".
 
+- **The profiles** (`profile/*.json`) are user files of plan §5.4, written
+  by hand. `full.json` states the corpus's one design — `luriaNative`,
+  `q5_polymerase`, `minAnnealingOverlap` 15, `inline`, the `q5_reaction`
+  buffer — with `"codon": "default"` and `"numbering": "from-cds-start"`;
+  `no-codon.json` and `no-numbering.json` each leave one of those two out.
+  That design is the same object every expected request states, and
+  contract 6d's tests check that a profile's `design` reads exactly as a
+  request's.
+
 **No scientific value is recorded here.** The corpus holds no primer
 sequence, no Tm and no annealing temperature; those live in `../q5-primer/`
 and `../tm/` with their own independent sources. A case asserts only which

@@ -1,6 +1,8 @@
 # Milestone 6d: the design profile
 
-Status: **Ready for the worker, 2026-10-19.**
+Status: **Implemented 2026-10-19** by the local worker; accepted on the first
+review. The worker flagged that the profile fixtures' provenance was not
+written down; the planner added it to `tests/fixtures/nl/README.md`.
 Planner: Claude. Parent: `docs/tasks/milestone-6-nl.md` §5.4 (and its
 implementation note), M6-6, M6-11, §6 (6d).
 

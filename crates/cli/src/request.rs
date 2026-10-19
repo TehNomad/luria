@@ -58,11 +58,15 @@ pub enum RequestErrorCode {
     /// by `parse_request`: it is here so the CLI's own codes are one list
     /// (plan §3.6).
     OutputNameUnusable,
+    /// A design profile is not valid JSON or breaks its schema (milestone 6,
+    /// 6d). Produced only by `parse_profile`.
+    ProfileInvalid,
 }
 
 impl RequestErrorCode {
     /// `request_unreadable`, `request_invalid`, `template_unreadable`,
-    /// `template_digest_mismatch`, `output_exists`, `output_name_unusable`.
+    /// `template_digest_mismatch`, `output_exists`, `output_name_unusable`,
+    /// `profile_invalid`.
     pub fn code(self) -> &'static str {
         match self {
             RequestErrorCode::Unreadable => "request_unreadable",
@@ -71,6 +75,7 @@ impl RequestErrorCode {
             RequestErrorCode::TemplateDigestMismatch => "template_digest_mismatch",
             RequestErrorCode::OutputExists => "output_exists",
             RequestErrorCode::OutputNameUnusable => "output_name_unusable",
+            RequestErrorCode::ProfileInvalid => "profile_invalid",
         }
     }
 }
@@ -251,6 +256,24 @@ pub enum BufferSpec {
         primer_nanomolar: f64,
         dmso_percent: f64,
     },
+}
+
+/// The numbering origin a design profile may state (M6-11). From the start of
+/// the CDS is the only one luria supports.
+#[derive(Clone, Debug, PartialEq)]
+pub enum NumberingSpec {
+    FromCdsStart,
+}
+
+/// A design profile (milestone 6 plan §5.4): values a user keeps for the
+/// requests whose text does not state them. Each is optional; an absent one is
+/// asked about, never defaulted (D028).
+#[derive(Clone, Debug, PartialEq)]
+pub struct ProfileDocument {
+    pub design: Option<DesignSpec>,
+    /// `CodonSpec::Default` when the profile says `"codon": "default"`.
+    pub codon: Option<CodonSpec>,
+    pub numbering: Option<NumberingSpec>,
 }
 
 /// One step of a JSON path: an object member or an array element.
@@ -1271,6 +1294,81 @@ pub fn parse_request(text: &str) -> Result<RequestDocument, RequestError> {
     let members: Members = want_object(steps.clone(), value)?;
     let document: RequestDocument = read_root(steps.clone(), members)?;
     Ok(document)
+}
+
+/// Read a design profile from JSON text, refusing anything its schema does
+/// not allow and naming the JSON path of the first problem (milestone 6, 6d). A
+/// JSON syntax error, a duplicate key or trailing text is reported at `$` with
+/// serde_json's own message, as a request's is (5e1); every other refusal comes
+/// from the request parser's own helpers, so a profile's `design` is read by
+/// `read_design`, as a request's is, with the same path and message. Only the
+/// code differs: every refusal here is `profile_invalid`, never a request error.
+/// An absent member is `None` and nothing has a default (D028).
+pub fn parse_profile(text: &str) -> Result<ProfileDocument, RequestError> {
+    // The helpers report a request error; a profile's problem is its own code,
+    // with the path and message they found kept (§3.2).
+    let refused = |error: RequestError| -> RequestError {
+        RequestError {
+            code: RequestErrorCode::ProfileInvalid,
+            path: error.path,
+            message: error.message,
+        }
+    };
+    let value: crate::json::Json =
+        crate::json::parse_json(text).map_err(|problem| RequestError {
+            code: RequestErrorCode::ProfileInvalid,
+            path: "$".to_string(),
+            message: format!("invalid JSON: {}", problem),
+        })?;
+    let steps: Tokens = [].to_vec();
+    let members: Members = want_object(steps.clone(), value).map_err(refused)?;
+    check_unknown(
+        steps.clone(),
+        members.clone(),
+        names_of(vec!["schema", "design", "codon", "numbering"]),
+    )
+    .map_err(refused)?;
+    field_fixed(
+        steps.clone(),
+        members.clone(),
+        "schema".to_string(),
+        crate::PROFILE_SCHEMA.to_string(),
+    )
+    .map_err(refused)?;
+    let design: Option<DesignSpec> = if has_field(members.clone(), "design".to_string()) {
+        let (design_steps, design_members) =
+            field_object(steps.clone(), members.clone(), "design".to_string()).map_err(refused)?;
+        Some(read_design(design_steps.clone(), design_members).map_err(refused)?)
+    } else {
+        None
+    };
+    let codon: Option<CodonSpec> = if has_field(members.clone(), "codon".to_string()) {
+        want_fixed(
+            step_key(steps.clone(), "codon".to_string()),
+            optional(members.clone(), "codon".to_string()),
+            "default".to_string(),
+        )
+        .map_err(refused)?;
+        Some(CodonSpec::Default)
+    } else {
+        None
+    };
+    let numbering: Option<NumberingSpec> = if has_field(members.clone(), "numbering".to_string()) {
+        want_fixed(
+            step_key(steps.clone(), "numbering".to_string()),
+            optional(members.clone(), "numbering".to_string()),
+            "from-cds-start".to_string(),
+        )
+        .map_err(refused)?;
+        Some(NumberingSpec::FromCdsStart)
+    } else {
+        None
+    };
+    Ok(ProfileDocument {
+        design,
+        codon,
+        numbering,
+    })
 }
 
 #[cfg(test)]
