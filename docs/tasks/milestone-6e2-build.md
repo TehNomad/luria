@@ -1,7 +1,6 @@
 # Milestone 6e2: from an extraction to a request or questions
 
-Status: **Waiting on 6d and 6e1, 2026-10-19.** Start only when both are
-committed.
+Status: **Ready for the worker, 2026-10-19** (6d and 6e1 are committed).
 Planner: Claude. Parent: `docs/tasks/milestone-6-nl.md` §3, §5.3a, §5.5,
 M6-9, M6-10, M6-11, M6-15, M6-16, §6 (6e).
 
