@@ -196,6 +196,16 @@ Luria asks instead, naming what is missing: `residue_number_unstated`,
 an expected original residue the user did not state (D011), and never takes
 a coordinate from the model (D004).
 
+**`?` for an unstated part** (planner clarification, 2026-10-19, from the
+local-model research in `docs/research/m6-local-model-extraction-2026-10-19.md`).
+The prompt tells the model to write `?` for a part the user did not state:
+`A?G` for "change alanine to glycine". The notation parser recognises `?`
+in any of the three places and reports which parts are unstated, so the
+question is the specific `*_unstated` code above rather than
+`mutation_notation_unsupported`. A `?` never becomes a value: it only
+chooses which question is asked. The IQ1_M local model used it unprompted
+by example, on the first try.
+
 The residue-name table (`A`/`Ala`/`alanine`, and so on, 20 residues) lives
 in `luria-cli` beside the notation parser, and is tested against
 `luria_core::genetic_code`'s own residue letters so the two cannot drift.
