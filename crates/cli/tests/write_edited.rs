@@ -350,6 +350,41 @@ fn the_binary_accepts_write_edited() {
     assert_eq!(digest_of(&out.join("D404N.fa")), D404N_DIGEST);
 }
 
+// §3.7: an I/O failure is exit 1, the document still goes to stdout and the
+// operating system's message goes to stderr. `afile` is a regular file, so
+// creating the output directory `afile/x` cannot succeed; the run itself still
+// succeeded, so its document is unchanged.
+#[test]
+fn an_io_failure_prints_the_document_and_exits_1() {
+    let dir = workspace("io-failure");
+    fs::write(dir.join("afile"), "not a directory\n").unwrap();
+    let path = write(&dir, &d404n());
+
+    let output = Command::new(env!("CARGO_BIN_EXE_luria"))
+        .args([
+            "q5",
+            "design",
+            path.to_str().unwrap(),
+            "--write-edited",
+            dir.join("afile/x").to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+
+    assert_eq!(output.status.code(), Some(1), "an I/O failure exits 1");
+    let document: Value = serde_json::from_str(&String::from_utf8(output.stdout).unwrap()).unwrap();
+    assert_eq!(
+        document["state"], "verified",
+        "the run's own document is still printed"
+    );
+    let errors: String = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        errors.starts_with("luria: "),
+        "the operating system's message on stderr: {}",
+        errors
+    );
+}
+
 // §4.1: a result name becomes a file name, so one holding a path separator
 // is refused before anything is created. A request cannot write outside DIR.
 #[test]

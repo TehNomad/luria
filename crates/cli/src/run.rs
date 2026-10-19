@@ -151,9 +151,24 @@ fn single_edit(
     // §3.2: core returns `Ok` only for a clarification or for a run whose edit
     // it verified, so here the mutation is present and the edit is verified;
     // `a_verified_run_is_verified_by_core` pins that rather than trusting it.
+    // A broken invariant is `Internal` with the document the run can still
+    // carry - state `verified` and no member - rather than a panic, so a broken
+    // core still gives JSON and exit 1 (plan §3.7).
     let target: Option<Cds> = execution.scope().target();
     let warnings: Vec<Q5EditWarning> = execution.warnings();
-    let mutation: MutationResult = execution.mutation().unwrap();
+    let mutation: MutationResult = match execution.mutation() {
+        Some(done) => done,
+        None => {
+            return (
+                Outcome {
+                    document: verified_document(prepared, target.as_ref(), vec![], vec![]),
+                    status: ExitStatus::Internal,
+                    note: Some("core verified the edit but gave no mutation result".to_string()),
+                },
+                artifacts,
+            )
+        }
+    };
     let member: MemberView = member_view(&name, &mutation, &warnings);
 
     let outcome: Outcome = match design_run(execution.clone(), prepared.design.clone()) {
