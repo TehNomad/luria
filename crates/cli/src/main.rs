@@ -2,11 +2,12 @@
 //! build can do, and report it with an exit status (plan §3.7).
 
 use std::env;
+use std::ffi::OsString;
 use std::io::{stderr, stdout, Write};
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-use luria_cli::args::{parse, Command, UsageError, USAGE};
+use luria_cli::args::{parse, utf8_arguments, Command, UsageError, USAGE};
 use luria_cli::exit::ExitStatus;
 use luria_cli::result::render;
 use luria_cli::run::{run_with_output, Outcome};
@@ -77,15 +78,18 @@ fn report_usage(problem: UsageError) -> ExitStatus {
 
 /// Run one `luria` command line.
 fn main() -> ExitCode {
-    let arguments: Vec<String> = env::args().skip(1).collect();
-    let status: ExitStatus = match parse(&arguments) {
-        Ok(Command::Help) => emit_help(),
-        Ok(Command::Version) => emit_version(),
-        Ok(Command::Q5Design {
-            request,
-            write_edited,
-        }) => emit_design(request, write_edited),
+    let words: Vec<OsString> = env::args_os().skip(1).collect();
+    let status: ExitStatus = match utf8_arguments(words) {
         Err(problem) => report_usage(problem),
+        Ok(arguments) => match parse(&arguments) {
+            Ok(Command::Help) => emit_help(),
+            Ok(Command::Version) => emit_version(),
+            Ok(Command::Q5Design {
+                request,
+                write_edited,
+            }) => emit_design(request, write_edited),
+            Err(problem) => report_usage(problem),
+        },
     };
 
     ExitCode::from(status.code())

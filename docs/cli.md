@@ -24,7 +24,9 @@ luria help
 | `help`, `--help`, `-h` | Prints the usage text. |
 
 A command line luria can't act on prints a one-line reason and the usage
-text on stderr, nothing on stdout, and exits 2.
+text on stderr, nothing on stdout, and exits 2. An argument that isn't valid
+UTF-8 is a usage error. In `q5 design`, `--` ends the options, so a request
+file whose name starts with `-` can be given after it.
 
 ## 2. Before you rely on a result
 
