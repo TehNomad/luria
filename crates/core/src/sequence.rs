@@ -286,10 +286,33 @@ pub fn expand_degenerate(text: &str) -> Result<Vec<String>, DomainError> {
     Ok(out)
 }
 
+/// True for the three whitespace characters normalization removes from a
+/// line's ends and skips inside it.
+fn is_line_noise(ch: char) -> bool {
+    ch == ' ' || ch == '\t' || ch == '\r'
+}
+
+/// `line` with only `' '`, `'\t'` and `'\r'` removed from both ends: the same
+/// three characters normalization's own loop skips. Every other character,
+/// Unicode whitespace included, is kept so the alphabet check refuses it
+/// (D008: normalization never deletes unexpected symbols).
+fn trim_line_noise(line: &str) -> String {
+    let chars: Vec<char> = line.chars().collect();
+    let mut from: usize = 0;
+    while from < chars.len() && is_line_noise(chars[from]) {
+        from += 1
+    }
+    let mut to: usize = chars.len();
+    while to > from && is_line_noise(chars[to - 1]) {
+        to -= 1
+    }
+    chars[from..to].iter().collect()
+}
+
 /// Normalization and validation of FASTA-style sequence text.
 ///
 /// * lines beginning with `;` are record headers and are ignored
-/// * whitespace is ignored
+/// * `' '`, `'\t'` and `'\r'` are ignored; no other character is whitespace
 /// * lowercase ASCII letters are uppercased; nothing else is folded
 /// * every remaining character must be in the DNA IUPAC alphabet
 /// * the content must be non-empty
@@ -304,7 +327,7 @@ pub fn normalize(
 ) -> Result<Sequence, DomainError> {
     let mut letters: Vec<char> = Vec::new();
     for line in text.lines() {
-        let trimmed = line.trim();
+        let trimmed: String = trim_line_noise(line);
         if trimmed.starts_with(";") {
             continue;
         }
@@ -425,6 +448,61 @@ mod tests {
         );
         assert!(sequence.is_ok());
         assert!(sequence.unwrap().canonical_text() == "ATGGCTTGGAATCAGCAGCAGCAGCAGCAG");
+    }
+
+    // Added in review: normalization removes only ` `, `\t` and `\r` from a
+    // line's ends, the three characters its own loop skips. Every other
+    // character, Unicode whitespace included, reaches the alphabet check
+    // (D008: normalization never deletes unexpected symbols).
+    #[test]
+    fn a_non_breaking_space_at_a_line_edge_is_an_unexpected_symbol() {
+        let identifier = crate::identity::Identifier::create("seq-v".to_string()).unwrap();
+        let sequence = normalize(
+            identifier,
+            "\u{a0}ACGT".to_string(),
+            SequenceTopology::Linear,
+        );
+        assert_eq!(
+            sequence.unwrap_err(),
+            crate::error::DomainError::InvalidSequenceCharacters(
+                crate::error::InvalidSequenceCharactersProblem {
+                    sequence: "seq-v".to_string(),
+                    position: 0,
+                    characters: "\u{a0}".to_string(),
+                }
+            )
+        );
+    }
+
+    #[test]
+    fn an_ideographic_space_at_a_line_edge_is_an_unexpected_symbol() {
+        let identifier = crate::identity::Identifier::create("seq-w".to_string()).unwrap();
+        let sequence = normalize(
+            identifier,
+            "ACGT\u{3000}".to_string(),
+            SequenceTopology::Linear,
+        );
+        assert_eq!(
+            sequence.unwrap_err(),
+            crate::error::DomainError::InvalidSequenceCharacters(
+                crate::error::InvalidSequenceCharactersProblem {
+                    sequence: "seq-w".to_string(),
+                    position: 4,
+                    characters: "\u{3000}".to_string(),
+                }
+            )
+        );
+    }
+
+    #[test]
+    fn a_space_a_tab_and_a_carriage_return_are_still_removed() {
+        let identifier = crate::identity::Identifier::create("seq-y".to_string()).unwrap();
+        let sequence = normalize(
+            identifier,
+            "  ACGT\t\r".to_string(),
+            SequenceTopology::Linear,
+        );
+        assert_eq!(sequence.unwrap().canonical_text(), "ACGT");
     }
 
     #[test]

@@ -1,6 +1,6 @@
 # Review M5 A-1, A-2, A-4, A-5, A-6: the readers drop or misread input
 
-Status: **Contract, 2026-10-18.** Planner: Claude. Parent:
+Status: **Implemented 2026-10-18** by the local worker; accepted on planner review. Planner: Claude. Parent:
 `docs/tasks/review-post-m5.md` A-1, A-2, A-4, A-5 and A-6.
 Requirement: D008, which says normalization must never silently "delete
 unexpected symbols", and D009/D041 (G4), under which topology comes from the
