@@ -1,6 +1,6 @@
 # Review M5 A-3: a refused CDS location names its CDS
 
-Status: **Contract, 2026-10-18.** Planner: Claude. Parent:
+Status: **Implemented 2026-10-18** by the local worker; accepted on planner review. Planner: Claude. Parent:
 `docs/tasks/review-post-m5.md` A-3. Requirement: D041, under which a named CDS
 that can't be represented fails the run "with that CDS's own error". Amends
 `docs/tasks/milestone-5c3-genbank-cds.md` §4.2 step 8 ("passed through"),

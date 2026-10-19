@@ -1963,6 +1963,20 @@ pub fn error_details(error: &DomainError) -> Details {
                 "sequenceLength",
                 DetailValue::Count(problem.sequence_length),
             ),
+            (
+                "cds",
+                match &problem.cds {
+                    Some(name) => DetailValue::Text(name.clone()),
+                    None => DetailValue::Absent,
+                },
+            ),
+            (
+                "line",
+                match problem.line {
+                    Some(found) => DetailValue::Count(found),
+                    None => DetailValue::Absent,
+                },
+            ),
         ]),
         DomainError::MalformedGenBank(problem) => Details(vec![
             ("sequence", DetailValue::Text(problem.sequence.clone())),

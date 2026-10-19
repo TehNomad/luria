@@ -96,6 +96,8 @@ fn refusal(
             location: text,
             rule,
             sequence_length,
+            cds: None,
+            line: None,
         },
     ))
 }
@@ -743,11 +745,30 @@ mod tests {
     }
 
     #[test]
+    fn a_refusal_read_on_its_own_names_no_cds_and_no_line() {
+        let refusals: Vec<Result<GenBankLocation, DomainError>> = vec![
+            linear("0..10"),
+            linear("<1..99"),
+            linear("join(90..100,1..12)"),
+        ];
+        for found in refusals.iter() {
+            let problem = match found {
+                Err(DomainError::UnusableGenBankLocation(problem)) => problem,
+                other => panic!("expected UnusableGenBankLocation, got {:?}", other),
+            };
+            assert_eq!(problem.cds, None);
+            assert_eq!(problem.line, None);
+        }
+    }
+
+    #[test]
     fn each_rule_has_its_category() {
         let malformed = DomainError::UnusableGenBankLocation(UnusableGenBankLocationProblem {
             location: "0..10".to_string(),
             rule: PositionZero,
             sequence_length: N,
+            cds: None,
+            line: None,
         });
         assert!(malformed.category() == ErrorCategory::MalformedInput);
         assert!(linear("1..101").unwrap_err().category() == ErrorCategory::BiologicalValidation);

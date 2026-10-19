@@ -49,7 +49,9 @@
 //!    under every table. The CDS is imported as the standard code and the
 //!    record's value kept for provenance.
 //! 8. `parse_genbank_location` (5c1) on the location text, against the
-//!    sequence's length and topology; its errors are passed through (D036).
+//!    sequence's length and topology; an `UnusableGenBankLocation` refusal is
+//!    given the CDS's `{id}` and `line`, so a request that names several CDSs
+//!    says which one failed; any other error is passed through (D036).
 //! 9. The pairs as intervals on the sequence's reference (D006) and `Cds::create`
 //!    with the location's strand, explicitly complete, the standard code and
 //!    numbering from the CDS start; its errors are passed through.
@@ -78,6 +80,7 @@ use crate::error::DomainError;
 use crate::error::GenBankCdsRule;
 use crate::error::GenBankTranslationMismatchProblem;
 use crate::error::UnusableGenBankCdsProblem;
+use crate::error::UnusableGenBankLocationProblem;
 use crate::extraction::extract_cds;
 use crate::genbank::GenBankFeature;
 use crate::genbank::GenBankRecord;
@@ -462,10 +465,26 @@ fn evaluate(record: &GenBankRecord, index: usize) -> Result<ImportedCds, DomainE
         );
     }
 
-    // Step 8: the location, as 5c1 reads it.
+    // Step 8: the location, as 5c1 reads it. Its refusal is given this CDS's
+    // id text and key line, so a request that names several CDSs says which
+    // one failed; any other error passes through (D036).
     let location_text: String = feature.location();
     let location: GenBankLocation =
-        parse_genbank_location(&location_text, seq.length(), seq.topology())?;
+        match parse_genbank_location(&location_text, seq.length(), seq.topology()) {
+            Ok(found) => found,
+            Err(DomainError::UnusableGenBankLocation(problem)) => {
+                return Err(DomainError::UnusableGenBankLocation(
+                    UnusableGenBankLocationProblem {
+                        location: problem.location,
+                        rule: problem.rule,
+                        sequence_length: problem.sequence_length,
+                        cds: Some(text),
+                        line: Some(line),
+                    },
+                ))
+            }
+            Err(other) => return Err(other),
+        };
 
     // Step 9: the intervals, and the CDS they carry.
     let intervals: OrderedIntervals = intervals_of(seq.reference(), location.intervals())?;
@@ -613,6 +632,7 @@ mod tests {
     use crate::cds::Completeness;
     use crate::cds::Numbering;
     use crate::error::GenBankCdsRule;
+    use crate::error::GenBankLocationRule;
     use crate::error::UnusableGenBankCdsProblem;
     use crate::genbank::read_genbank;
     use crate::genetic_code::GeneticCode;
@@ -831,5 +851,24 @@ mod tests {
             .unwrap_or_else(|error| panic!("the imported CDS cannot be translated: {:?}", error))
             .residues_text();
         assert_eq!(residues, "MA".to_string());
+    }
+
+    #[test]
+    fn a_refused_location_names_the_cds_it_belongs_to() {
+        let found = record(&[
+            key("CDS", "<1..12"),
+            q("/gene=\"g\""),
+            key("CDS", "1..12"),
+            q("/gene=\"h\""),
+        ]);
+        let problem = match import_cds(&found, &names(&["h", "g"])).unwrap_err() {
+            DomainError::UnusableGenBankLocation(problem) => problem,
+            other => panic!("expected UnusableGenBankLocation, got {:?}", other),
+        };
+        assert_eq!(problem.rule, GenBankLocationRule::FuzzyEnd);
+        assert_eq!(problem.location, "<1..12".to_string());
+        assert_eq!(problem.sequence_length, 12);
+        assert_eq!(problem.cds, Some("g".to_string()));
+        assert_eq!(problem.line, Some(3));
     }
 }

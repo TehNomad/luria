@@ -736,11 +736,16 @@ pub struct MalformedFastaProblem {
 
 /// Payload: a GenBank feature location luria cannot use. `location` is the
 /// text as given; `sequence_length` is the length it was read against.
+/// `cds` is the id text of the CDS feature whose location this is, and `line`
+/// its key line in the GenBank text, counted from 1; both are `None` when the
+/// location was read on its own, outside a record import.
 #[derive(Clone, Debug, PartialEq)]
 pub struct UnusableGenBankLocationProblem {
     pub location: String,
     pub rule: GenBankLocationRule,
     pub sequence_length: u64,
+    pub cds: Option<String>,
+    pub line: Option<u64>,
 }
 
 /// Payload: a GenBank text that is not one readable record. `line` counts
@@ -1806,6 +1811,8 @@ mod tests {
                     location: s(),
                     rule: GenBankLocationRule::Syntax,
                     sequence_length: 1,
+                    cds: None,
+                    line: None,
                 }),
                 "unusable_genbank_location",
             ),

@@ -162,7 +162,7 @@ and README drift listed by reviewer A.
 | `review-m5-b1-arguments.md` | B-1, B-7 | done |
 | `review-m5-a1-genbank-reader.md` | A-1, A-2, A-4, A-5, A-6 | done |
 | `review-m5-a9-start-codon.md` | A-9 (D042) | done |
-| `review-m5-a3-location-names-cds.md` | A-3 | |
+| `review-m5-a3-location-names-cds.md` | A-3 | done |
 | `review-m5-a10-genbank-tests.md` | A-8, A-10 | |
 | `review-m5-c1-write-edited.md` | C-1, C-2 | |
 | `review-m5-c4-buffer-bounds.md` | C-4 (D043) | |
