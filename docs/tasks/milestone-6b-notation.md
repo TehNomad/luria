@@ -1,6 +1,9 @@
 # Milestone 6b: mutation notation and the residue-name table
 
-Status: **Ready for the worker, 2026-10-19.**
+Status: **Implemented 2026-10-19** by the local worker, accepted after one
+review round. The round added `the_table_holds_the_iupac_codes_and_names`:
+the §4 tests read `RESIDUE_NAMES` back to itself, so nothing pinned its sourced
+values (a planner gap; the worker proved the new test fails on "Glu" → "Glq").
 Planner: Claude. Parent: `docs/tasks/milestone-6-nl.md` §5.3, §5.3a, M6-8,
 M6-15, §6 (6b).
 
