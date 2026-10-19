@@ -1,0 +1,1 @@
+In synA, make A42G and W87A. Numbering from the CDS start.

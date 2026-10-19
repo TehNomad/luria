@@ -1,0 +1,1 @@
+In synA, change alanine 42 to glycine. Number residues from the start of the CDS.

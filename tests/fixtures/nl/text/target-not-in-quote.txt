@@ -1,0 +1,1 @@
+In synA, change alanine 42 to something better, numbering from the CDS start.

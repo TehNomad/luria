@@ -1,0 +1,14 @@
+{
+  "operation": "q5_residue_substitutions",
+  "cds": "synA",
+  "mutations": [
+    {
+      "token": "W87A",
+      "quote": "W87 to alanine",
+      "codon": "GCG"
+    }
+  ],
+  "composition": null,
+  "numbering": "from the CDS start",
+  "unsupported": []
+}

@@ -1,0 +1,1 @@
+In alt11, change valine 1 to alanine, numbering from the CDS start.

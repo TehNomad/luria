@@ -1,0 +1,11 @@
+{
+  "schema": "luria.q5-design-profile/1",
+  "design": {
+    "policy": "luriaNative",
+    "style": "q5_polymerase",
+    "minAnnealingOverlap": 15,
+    "placement": "inline",
+    "buffer": "q5_reaction"
+  },
+  "codon": "default"
+}

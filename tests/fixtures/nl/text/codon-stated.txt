@@ -1,0 +1,1 @@
+In synA, change W87 to alanine using the codon GCG. Numbering from the CDS start.

@@ -1,0 +1,1 @@
+In synA, change residue 42 to glycine, numbering from the CDS start.

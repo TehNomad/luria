@@ -1,0 +1,25 @@
+case_id	template	text_file	reply_file	profile	state	codes	request_file	design_exit	note
+one-sub-prose	synthetic-linear.gb	one-sub-prose.txt	one-sub-prose.json	full.json	proposed	-	edit-a42g.json	0	prose with no token; one mutation is an edit, not a one-member set
+three-letter	synthetic-linear.gb	three-letter.txt	three-letter.json	full.json	proposed	-	edit-a42g.json	0	three-letter notation gives the same request as one-sub-prose
+two-separate	synthetic-linear.gb	two-separate.txt	two-separate.json	full.json	proposed	-	variants-separate.json	0	the product brief's own example request
+two-combined	synthetic-linear.gb	two-combined.txt	two-combined.json	full.json	proposed	-	variants-combined.json	6	a combined construct is never assumed from separate variants
+codon-stated	synthetic-linear.gb	codon-stated.txt	codon-stated.json	no-codon.json	proposed	-	edit-w87a-gcg.json	0	a codon in the text is used, so the profile needs none
+composition-unstated	synthetic-linear.gb	composition-unstated.txt	composition-unstated.json	full.json	needs_clarification	composition_unstated	-	-	two mutations and no statement: separate or combined is never assumed
+cds-unnamed	synthetic-linear.gb	cds-unnamed.txt	cds-unnamed.json	full.json	needs_clarification	cds_unnamed	-	-	M6-9: always ask, even though this record has one usable CDS
+cds-not-found	synthetic-linear.gb	cds-not-found.txt	cds-not-found.json	full.json	needs_clarification	cds_not_found	-	-	bla is in the text, so it is grounded; the record has no such CDS
+cds-unusable	synthetic.gb	cds-unusable.txt	cds-unusable.json	full.json	needs_clarification	cds_unusable	-	-	alt11 has a GTG start, refused as alternative_start (D042)
+notation-deletion	synthetic-linear.gb	notation-deletion.txt	notation-deletion.json	full.json	needs_clarification	mutation_notation_unsupported	-	-	M6-8: substitutions only; a deletion token is refused, not guessed
+numbering-unstated	synthetic-linear.gb	numbering-unstated.txt	numbering-unstated.json	no-numbering.json	needs_clarification	numbering_unstated	-	-	D005: an unspecified numbering origin is asked about
+numbering-unsupported	synthetic-linear.gb	numbering-unsupported.txt	numbering-unsupported.json	full.json	needs_clarification	numbering_unsupported	-	-	a stated origin that is not the CDS start is refused; the profile does not override the text
+codon-unstated	synthetic-linear.gb	codon-unstated.txt	codon-unstated.json	no-codon.json	needs_clarification	codon_unstated	-	-	no codon in the text and none in the profile: D028, nothing is defaulted
+no-profile	synthetic-linear.gb	no-profile.txt	no-profile.json	-	needs_clarification	codon_unstated;design_unstated;numbering_unstated	-	-	with no profile every unstated value is asked about, all at once
+operation-other	synthetic-linear.gb	operation-other.txt	operation-other.json	full.json	needs_clarification	operation_unsupported	-	-	not a mutagenesis request at all
+unsupported-extra	synthetic-linear.gb	unsupported-extra.txt	unsupported-extra.json	full.json	needs_clarification	operation_unsupported	-	-	a supported edit plus an unsupported one is refused as a whole, not silently split
+number-not-in-quote	synthetic-linear.gb	number-not-in-quote.txt	number-not-in-quote.json	full.json	needs_clarification	residue_number_unstated	-	-	the quote is in the text but shows no number, so the 42 is unsupported (5.3a)
+number-not-bounded	synthetic-linear.gb	number-not-bounded.txt	number-not-bounded.json	full.json	needs_clarification	residue_number_unstated	-	-	42 inside 420 is not the number 42: the digit run must be bounded (5.3a)
+original-not-in-quote	synthetic-linear.gb	original-not-in-quote.txt	original-not-in-quote.json	full.json	needs_clarification	original_residue_unstated	-	-	luria never asserts an expected original the user did not state (D011)
+target-not-in-quote	synthetic-linear.gb	target-not-in-quote.txt	target-not-in-quote.json	full.json	needs_clarification	target_residue_unstated	-	-	the quote shows no target residue, so the G is unsupported (5.3a)
+ungrounded-mutation	synthetic-linear.gb	ungrounded-mutation.txt	ungrounded-mutation.json	full.json	failed	ungrounded_extraction	-	-	the second quote is nowhere in the text: a fabricated mutation
+ungrounded-cds	synthetic-linear.gb	ungrounded-cds.txt	ungrounded-cds.json	full.json	failed	ungrounded_extraction	-	-	a CDS name the user never wrote
+reply-extra-field	synthetic-linear.gb	reply-extra-field.txt	reply-extra-field.json	full.json	failed	model_output_invalid	-	-	an unknown field is refused, not ignored
+reply-wrong-type	synthetic-linear.gb	reply-wrong-type.txt	reply-wrong-type.json	full.json	failed	model_output_invalid	-	-	mutations must be an array, never a bare string

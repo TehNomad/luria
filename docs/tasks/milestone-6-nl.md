@@ -62,10 +62,15 @@ document (§5.2) that says what the user asked for, in the user's own
 words. Rust:
 1. parses it strictly: an unknown field or a wrong type is a failure, not
    a repair;
-2. **grounds** it: every token the model reports (each mutation such as
-   `A42G`, a CDS name, a codon) must appear in the user's text. A token
-   that doesn't is `ungrounded_extraction` and the state is `failed`. The
-   model cannot introduce a value the user did not write;
+2. **grounds** it (M6-15). Every string the model returns that is not one
+   of the schema's fixed values must be found in the user's text,
+   verbatim: the CDS name, each mutation's evidence `quote`, the numbering
+   words and each `unsupported` quote as an exact substring, and a codon
+   case-insensitively. A string that is not there is
+   `ungrounded_extraction` and the state is `failed`: the model cannot
+   introduce a value the user did not write. The one exception is a
+   mutation's `token`, which is a canonical form rather than the user's
+   words, and is checked against its own quote instead (§5.3a);
 3. parses the mutation notation itself (§5.3). The model copies `A42G`
    verbatim; Rust reads the residue letter, the number and the target;
 4. checks each named CDS against the record's catalogue (§5.1);
@@ -107,6 +112,8 @@ command refuses before anything is sent.
 | M6-12 | `q5 design` codes (§9 Q5) | **Unchanged in M6.** `luria.q5-result/1` keeps its schema. |
 | M6-13 | Linear fixture (§9 Q6) | **Yes**: a short, hand-written, independently verified linear GenBank record with one CDS. |
 | M6-14 | Exit status (§9 Q7) | **New exit 8** for a refused model reply. |
+| M6-16 | A combined construct (asked 2026-10-19) | **Proposed faithfully.** `interpret` emits the request and core refuses it (`unsupported_composition`, exit 6). D003: the adapter must not duplicate a scientific scope limit core owns. |
+| M6-15 | Grounding (asked 2026-10-19, after §5.2 was first written) | **Evidence quotes**: the model returns a canonical `token` and a verbatim `quote` from the user's text, and Rust checks the quote supports the token (§5.3a). Strict verbatim tokens would refuse ordinary prose. |
 
 These become D044 when the plan is approved.
 
@@ -138,8 +145,8 @@ strictly in any case:
   "operation": "q5_residue_substitutions",
   "cds": "bla",
   "mutations": [
-    { "token": "A42G", "codon": null },
-    { "token": "W87A", "codon": "GCG" }
+    { "token": "A42G", "quote": "alanine 42 to glycine", "codon": null },
+    { "token": "W87A", "quote": "W87A", "codon": "GCG" }
   ],
   "composition": "separate_variants",
   "numbering": null,
@@ -150,7 +157,11 @@ strictly in any case:
 - `operation`: `q5_residue_substitutions`, or `other` when the user asked
   for something else;
 - `cds`: the CDS name exactly as the user wrote it, or null;
-- `mutations[].token` and `codon`: copied verbatim, or null;
+- `mutations[].token`: the mutation in canonical one-letter form, which the
+  model may write even when the user did not (`A42G`);
+- `mutations[].quote`: the span of the user's own text that says so, copied
+  verbatim. It is the model's evidence for the token (§5.3a);
+- `mutations[].codon`: the codon the user named, copied verbatim, or null;
 - `composition`: `separate_variants`, `combined_construct`, or null when
   the user did not say;
 - `numbering`: the user's own words about numbering, or null;
@@ -159,6 +170,35 @@ strictly in any case:
 
 The reply is capped in size (B-8). A reply that is not this document is
 `model_output_invalid`.
+
+### 5.3a Evidence quotes (M6-15)
+
+Strict verbatim tokens would refuse ordinary prose: "change alanine 42 to
+glycine" contains no `A42G`. So the model reports a canonical `token` and,
+beside it, the `quote` from the user's text that supports it. Rust checks
+the evidence:
+
+1. the `quote` occurs in the user's text as an exact substring. If it does
+   not, the model fabricated it: `ungrounded_extraction`, `failed`;
+2. the `token` parses as a residue substitution (§5.3), giving `from`,
+   `number` and `to`;
+3. each of those three is **visible in the quote**:
+   - the `number` as a digit run equal to it, bounded by non-digits, so
+     `42` is not found inside `420`;
+   - `from` and `to` each as the one-letter code (a standalone capital
+     letter), the three-letter code, or the full English residue name, the
+     last two case-insensitively, each bounded by non-letters.
+
+A quote that occurs in the text but does not show one of the three is not
+treated as fabrication, because the user may simply not have said it.
+Luria asks instead, naming what is missing: `residue_number_unstated`,
+`original_residue_unstated` or `target_residue_unstated`. It never asserts
+an expected original residue the user did not state (D011), and never takes
+a coordinate from the model (D004).
+
+The residue-name table (`A`/`Ala`/`alanine`, and so on, 20 residues) lives
+in `luria-cli` beside the notation parser, and is tested against
+`luria_core::genetic_code`'s own residue letters so the two cannot drift.
 
 ### 5.3 Mutation notation (Rust, `luria-cli`)
 
@@ -218,6 +258,9 @@ values; the user's own file does.
   matching a CDS that luria cannot use is `cds_unusable`, with that CDS's
   refusal code. When the text names no CDS, the question is `cds_unnamed`,
 whatever the record holds (M6-9).
+- **Member names**: a member's `name` is the canonical token (`A42G`), not
+  the user's words, because a request name is an identifier with no
+  whitespace (review input 4).
 - **Operation**: one mutation is `edit`, and two or more are `variants`
   (review input 7). With two or more and no stated composition, the
   question is `composition_unstated` (product brief: separate and combined
@@ -322,11 +365,13 @@ Each is small, with tests first, as in M5:
 
 ## 8. Fixtures and verification
 
-- **NL corpus** (`tests/fixtures/nl/`): each case is a prose text, the
-  model reply it is paired with, and the expected document state. For a
-  `proposed` case, the expected request is **written by hand from the prose
-  and the record**, not by running `interpret`, and recorded in
-  `tests/fixtures/README.md` (AGENTS.md, Working method). It includes
+- **NL corpus** (`tests/fixtures/nl/`): **written, 2026-10-19.** 24 cases,
+  indexed by `cases.tsv`: 5 proposed, 15 needs-clarification, 4 failed.
+  Each is a prose text, the model reply it is paired with, a profile, the
+  expected state and codes, and for a `proposed` case the expected request,
+  **written by hand from the prose and the record**, not by running
+  `interpret`. `tests/fixtures/nl/README.md` records how every expectation
+  was derived and what is compared how. It includes
   negative cases: a hallucinated token, a CDS the record lacks, unstated
   composition, a deletion, three-letter notation, and a reply with extra
   fields.
