@@ -243,7 +243,11 @@ question naming the token, not a guess.
 ```
 
 - `design` has exactly the shape of the request's `design` and is parsed
-  by the same code, made public in `request.rs`.
+  by the same code. *Implementation note (planner, 6d):* the profile parser,
+  `parse_profile`, lives in `request.rs` beside the request parser, so the
+  private `read_design` and its path-reporting helpers are reused unchanged
+  instead of being made public. A refused profile is `profile_invalid`, with
+  the same JSON paths and messages a request's `design` would give.
 - `codon` is the codon policy for a mutation whose text names no codon.
   The only value is `"default"`. When it is absent, such a mutation is
   `codon_unstated`.
