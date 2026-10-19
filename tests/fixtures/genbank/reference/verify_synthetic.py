@@ -129,15 +129,15 @@ def check_expected():
             table = qualifiers.get("transl_table", ["-"])[0]
             if table != row["transl_table"]:
                 problems.append(name + ": transl_table " + row["transl_table"])
-            if table == "11" and str(location.extract(SEQ))[:3] != "ATG":
-                problems.append(name + ": imported with table 11 but no ATG start")
+            if str(location.extract(SEQ))[:3] != "ATG":
+                problems.append(name + ": imported without an ATG start")
             stated = qualifiers.get("translation", [None])[0]
             if stated is not None and stated != row["residues"]:
                 problems.append(name + ": /translation differs")
         elif rule == "alternative_start":
             start = str(location.extract(SEQ))[:3]
-            if qualifiers.get("transl_table") != ["11"] or start != row["detail"]:
-                problems.append(name + ": not table 11 with start " + row["detail"])
+            if start == "ATG" or start != row["detail"]:
+                problems.append(name + ": start is not " + row["detail"])
         elif rule in ("codon_start", "transl_table"):
             if qualifiers.get(rule) != [row["detail"]]:
                 problems.append(name + ": /%s is not %s" % (rule, row["detail"]))
@@ -198,6 +198,8 @@ def check_unused():
             problems.append("feature %s: id has no blank" % row["index"])
         if row["refusal"] == "unusable_genbank_cds:ambiguous_name" and len(only(expected_id)) < 2:
             problems.append("feature %s: id is not shared" % row["index"])
+        if row["refusal"] == "unusable_genbank_cds:alternative_start" and str(feature.location.extract(SEQ))[:3] == "ATG":
+            problems.append("feature %s: starts with ATG" % row["index"])
     return problems
 
 

@@ -1,6 +1,6 @@
 # Review M5 A-9: every imported GenBank CDS starts with ATG (D042)
 
-Status: **Contract, 2026-10-18.** Planner: Claude. Parent:
+Status: **Implemented 2026-10-18** by the local worker; accepted after one review round (the `AlternativeStart` message wording). Planner: Claude. Parent:
 `docs/tasks/review-post-m5.md`, owner item A-9 (the reviewer's owner item 1).
 Owner answer, 2026-10-18: "Require ATG for every table." Recorded by this
 contract as D042. Amends `docs/tasks/milestone-5c3-genbank-cds.md` §4.2 step

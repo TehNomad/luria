@@ -60,7 +60,8 @@ It has 27 features, one per case:
 - the id precedence: `m1` has `/gene` before `/locus_tag` in the file, and
   its id still comes from `/locus_tag`;
 - `/transl_table=11` with an ATG start (`atg11`, imported) and with a GTG
-  start (`alt11`, refused);
+  start (`alt11`, refused); a first codon other than `ATG` is refused under
+  every table, absent, 1 or 11 (D042);
 - one per refused qualifier and location form, a CDS with no id, a repeated
   qualifier, two CDSs sharing an id, an id with a blank, a length that is
   not a multiple of three, and an internal stop;
@@ -74,7 +75,10 @@ The expected values were derived by hand from the table above and the
 - **`mj1`** and **`mj2`**: `complement(join(55..60,1..3))` and
   `join(complement(1..3),complement(55..60))` are both `[54, 60)` then
   `[0, 3)` on the minus strand. The plus-strand text is `ATGAAA` + `ATG`.
-  Its reverse complement, `CATTTTCAT`, reads H F H.
+  Its reverse complement, `CATTTTCAT`, reads H F H. It starts `CAT`, so both
+  are refused as `alternative_start` under D042, with detail `CAT`, at key
+  lines 22 and 24; both still go through the location reader first, so both
+  minus-strand spellings of an origin join are still read.
 - **`badtr`**: states `MAV` where the CDS reads `MAW`, so the first
   difference is residue 3, V against W. **`shorttr`** states `MA`, so
   residue 3 is missing against W.

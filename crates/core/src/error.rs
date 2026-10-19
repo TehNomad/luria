@@ -1231,7 +1231,7 @@ impl DomainError {
                         format!("GenBank CDS '{}' has /transl_table {}; only 1, and 11 with an ATG start, are supported{}",
                             problem.cds, stated, located),
                     GenBankCdsRule::AlternativeStart =>
-                        format!("GenBank CDS '{}' has /transl_table 11 and starts with {}; table 11 is read as the standard code only for an ATG start{}",
+                        format!("GenBank CDS '{}' starts with {}; luria imports a CDS only from an ATG start, under every /transl_table (D042){}",
                             problem.cds, stated, located),
                 }
             }

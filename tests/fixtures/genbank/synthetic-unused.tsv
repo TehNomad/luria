@@ -3,8 +3,8 @@ index	key	id	refusal
 1	CDS	p1	-
 2	CDS	m1	-
 3	CDS	pj	-
-4	CDS	mj1	-
-5	CDS	mj2	-
+4	CDS	mj1	unusable_genbank_cds:alternative_start
+5	CDS	mj2	unusable_genbank_cds:alternative_start
 6	CDS	alt11	unusable_genbank_cds:alternative_start
 7	CDS	atg11	-
 8	CDS	cs2	unusable_genbank_cds:codon_start

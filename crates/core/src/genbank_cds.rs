@@ -1,5 +1,5 @@
 //! Importing the CDSs a request names from a GenBank record (D041 G1, G2,
-//! G3, G5; D006, D036).
+//! G3, G5; D006, D036, D042).
 //!
 //! A request names the CDSs it wants by id. This module turns each named
 //! feature into a `Cds`, checked against every rule luria applies, and lists
@@ -43,18 +43,20 @@
 //! 6. `/codon_start` with a value other than 1 is `CodonStart`, with that
 //!    value as the detail (`(no value)` for a flag).
 //! 7. `/transl_table` other than 1 or 11 is `TranslTable`, with that value
-//!    as the detail. G5: 1 is the standard code, and 11 is accepted only as
-//!    an ATG start, because tables 1 and 11 give every codon the same residue
-//!    and differ only in their alternative starts. The CDS is imported as the
-//!    standard code and the record's value kept for provenance.
+//!    as the detail. G5, amended by D042: 1 is the standard code, and 11 is
+//!    accepted because tables 1 and 11 give every codon the same residue and
+//!    differ only in their alternative starts; step 11 requires an ATG start
+//!    under every table. The CDS is imported as the standard code and the
+//!    record's value kept for provenance.
 //! 8. `parse_genbank_location` (5c1) on the location text, against the
 //!    sequence's length and topology; its errors are passed through (D036).
 //! 9. The pairs as intervals on the sequence's reference (D006) and `Cds::create`
 //!    with the location's strand, explicitly complete, the standard code and
 //!    numbering from the CDS start; its errors are passed through.
 //! 10. `translate`; its errors are passed through.
-//! 11. Under `/transl_table=11`, a first codon other than `ATG` is
-//!     `AlternativeStart`, with those three letters as the detail.
+//! 11. A first codon other than `ATG` is `AlternativeStart`, with those
+//!     three letters as the detail, under every table (D042): luria translates
+//!     codon 1 literally, and a cell reads every start codon as methionine.
 //! 12. A `/translation` that differs from the translation without its
 //!     terminal stop is `GenBankTranslationMismatch` (G3) at the first
 //!     differing residue, counted from 1, or at the shorter length + 1 when
@@ -444,8 +446,9 @@ fn evaluate(record: &GenBankRecord, index: usize) -> Result<ImportedCds, DomainE
         }
     }
 
-    // Step 7: only tables 1 and 11 are read at all, and 11 only for an ATG
-    // start, which step 11 checks.
+    // Step 7: only tables 1 and 11 are read at all, and 11 because tables 1
+    // and 11 give every codon the same residue; step 11 requires an ATG start
+    // under every table (D042).
     let transl_table: Option<String> = first_value(&feature, "transl_table".to_string());
     if count(&feature, "transl_table".to_string()) > 0
         && transl_table != Some("1".to_string())
@@ -479,18 +482,16 @@ fn evaluate(record: &GenBankRecord, index: usize) -> Result<ImportedCds, DomainE
     // Step 10: the residues, whose terminal stop is not one.
     let residues: Translation = translate(&seq, &cds)?;
 
-    // Step 11: table 11 is the standard code only from ATG (G5).
-    if transl_table == Some("11".to_string()) {
-        let coding: String = extract_cds(&seq, &cds)?;
-        let start: String = first_codon(coding);
-        if start != "ATG" {
-            return refuse(
-                GenBankCdsRule::AlternativeStart,
-                text,
-                Some(line),
-                Some(start),
-            );
-        }
+    // Step 11: every table is the standard code only from an ATG start (D042).
+    let coding: String = extract_cds(&seq, &cds)?;
+    let start: String = first_codon(coding);
+    if start != "ATG" {
+        return refuse(
+            GenBankCdsRule::AlternativeStart,
+            text,
+            Some(line),
+            Some(start),
+        );
     }
 
     // Step 12: a stated translation must be luria's own (G3).
@@ -641,6 +642,23 @@ mod tests {
         .unwrap()
     }
 
+    fn circular_record(features: &[String]) -> GenBankRecord {
+        let mut lines: Vec<String> = vec![
+            "LOCUS       tiny                      12 bp    DNA     circular SYN 17-OCT-2026"
+                .to_string(),
+            "FEATURES             Location/Qualifiers".to_string(),
+        ];
+        lines.extend(features.iter().cloned());
+        lines.push("ORIGIN".to_string());
+        lines.push("        1 agccatgggt ta".to_string());
+        lines.push("//".to_string());
+        read_genbank(
+            Identifier::create("tiny".to_string()).unwrap(),
+            lines.join("\n"),
+        )
+        .unwrap()
+    }
+
     fn names(list: &[&str]) -> Vec<Identifier> {
         list.iter()
             .map(|name| Identifier::create(name.to_string()).unwrap())
@@ -748,5 +766,70 @@ mod tests {
             import_cds(&table, &names(&["g"])).unwrap_err().message(),
             "GenBank CDS 'g' has /transl_table 4; only 1, and 11 with an ATG start, are supported (line 3)"
         );
+    }
+
+    #[test]
+    fn a_non_atg_start_is_refused_when_no_table_is_given() {
+        let found = record(&[key("CDS", "4..12"), q("/gene=\"g\"")]);
+        let problem = cds_problem(import_cds(&found, &names(&["g"])).unwrap_err());
+        assert_eq!(problem.rule, GenBankCdsRule::AlternativeStart);
+        assert_eq!(problem.detail, Some("GCT".to_string()));
+        assert_eq!(problem.line, Some(3));
+        assert_eq!(
+            import_cds(&found, &names(&["g"])).unwrap_err().message(),
+            "GenBank CDS 'g' starts with GCT; luria imports a CDS only from an ATG start, under every /transl_table (D042) (line 3)"
+        );
+    }
+
+    #[test]
+    fn a_non_atg_start_is_refused_under_table_1() {
+        let found = record(&[key("CDS", "4..12"), q("/gene=\"g\""), q("/transl_table=1")]);
+        let problem = cds_problem(import_cds(&found, &names(&["g"])).unwrap_err());
+        assert_eq!(problem.rule, GenBankCdsRule::AlternativeStart);
+        assert_eq!(problem.detail, Some("GCT".to_string()));
+        assert_eq!(problem.line, Some(3));
+    }
+
+    #[test]
+    fn a_non_atg_start_is_refused_before_its_translation_is_read() {
+        let found = record(&[
+            key("CDS", "4..12"),
+            q("/gene=\"g\""),
+            q("/translation=\"MW\""),
+        ]);
+        let problem = cds_problem(import_cds(&found, &names(&["g"])).unwrap_err());
+        assert_eq!(problem.rule, GenBankCdsRule::AlternativeStart);
+        assert_eq!(problem.detail, Some("GCT".to_string()));
+        assert_eq!(problem.line, Some(3));
+    }
+
+    #[test]
+    fn an_origin_join_on_a_circular_sequence_still_imports_from_an_atg_start() {
+        let found = circular_record(&[
+            key("CDS", "complement(join(10..12,1..6))"),
+            q("/gene=\"mo\""),
+            q("/translation=\"MA\""),
+        ]);
+        let imported = import_cds(&found, &names(&["mo"])).unwrap();
+        assert_eq!(imported.cds().len(), 1);
+        let cds: Cds = imported.cds()[0].cds();
+        let intervals: OrderedIntervals = cds.intervals();
+        let bounds: Vec<String> = intervals
+            .iter()
+            .map(|each| format!("{}-{}", each.start(), each.end()))
+            .collect();
+        assert!(
+            bounds == vec!["9-12".to_string(), "0-6".to_string()],
+            "the CDS runs [9, 12) then [0, 6) in D036 order, it gives {:?}",
+            bounds,
+        );
+        assert!(
+            !cds.strand().is_plus(),
+            "the CDS is on the plus strand, expected the minus"
+        );
+        let residues: String = translate(&found.sequence(), &cds)
+            .unwrap_or_else(|error| panic!("the imported CDS cannot be translated: {:?}", error))
+            .residues_text();
+        assert_eq!(residues, "MA".to_string());
     }
 }
