@@ -1,6 +1,19 @@
 # Milestone 6e2: from an extraction to a request or questions
 
-Status: **Ready for the worker, 2026-10-19** (6d and 6e1 are committed).
+Status: **Implemented 2026-10-19** by the local worker, accepted after one
+round. Review notes:
+- **Planner defect, fixed:** §4.1's `TemplateFacts` built `sha256` from
+  `hex_digest()`, which returns `&str`; it now ends `.to_string()`, here and
+  in the test. The worker stopped and asked instead of editing the test.
+- **Planner defect in §4.3, recorded:** removing step 3d alone does not fail
+  `every_corpus_case_ends_where_the_corpus_says`, because step 4's guard,
+  which §3.4 requires so nothing panics, asks the same question. It fails
+  `every_unstated_value_is_asked_about_at_once_in_order` instead, which pins
+  the full question list. Removing both fails the corpus test. The row below
+  is corrected.
+- **Accepted:** `#[allow(clippy::large_enum_variant)]` on `Built`, with a
+  comment. Boxing the request, the house style elsewhere, would break the
+  tests' direct comparison with a parsed `RequestDocument`.
 Planner: Claude. Parent: `docs/tasks/milestone-6-nl.md` §3, §5.3a, §5.5,
 M6-9, M6-10, M6-11, M6-15, M6-16, §6 (6e).
 
@@ -362,7 +375,7 @@ fn run(row: &[String]) -> Built {
     let facts: TemplateFacts = TemplateFacts {
         locus_name: template.locus_name(),
         path: row[1].clone(),
-        sha256: template.sequence().content_hash().hex_digest(),
+        sha256: template.sequence().content_hash().hex_digest().to_string(),
     };
     build(text, &reply, &entries, profile.as_ref(), &facts)
 }
@@ -829,7 +842,7 @@ Disable each once, confirm the named test fails, restore, report both:
 | grounding of quotes (skip the substring check) | `the_ungrounded_corpus_cases_name_the_string` |
 | the empty-string check | `an_empty_or_absent_string_is_ungrounded_and_first_in_order_wins` |
 | the `in_order` question | `a_swapped_token_is_asked_about_not_proposed` |
-| the composition question | `every_corpus_case_ends_where_the_corpus_says` |
+| the composition question (step 3d) | `every_unstated_value_is_asked_about_at_once_in_order` |
 | one member is an `Edit` (always build `Variants`) | `every_corpus_case_ends_where_the_corpus_says` |
 | codon upper-casing | `a_lower_case_codon_is_grounded_and_written_upper_case` |
 

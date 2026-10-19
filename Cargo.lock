@@ -13,6 +13,7 @@ name = "luria-cli"
 version = "0.1.0"
 dependencies = [
  "luria-core",
+ "luria-nl",
  "serde",
  "serde_json",
 ]
