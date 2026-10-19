@@ -1,9 +1,10 @@
 # GenBank fixtures
 
-Two GenBank records drive `crates/core/tests/genbank_fixtures.rs`: a public
-plasmid read by an independent parser, and a synthetic record written by
-hand. Together they check luria's record reader (`genbank.rs`, 5c2) and CDS
-import (`genbank_cds.rs`, 5c3) against D041.
+Three GenBank records drive `crates/core/tests/genbank_fixtures.rs`: a public
+plasmid read by an independent parser, and two synthetic records written by
+hand. The first two check luria's record reader (`genbank.rs`, 5c2) and CDS
+import (`genbank_cds.rs`, 5c3) against D041. The third, the linear record,
+is the template of the natural-language milestone (M6-13).
 
 ## pBR322, the public record
 
@@ -103,6 +104,66 @@ the stop codon, and the length. It writes nothing. It was also checked to
 fail on three deliberately wrong values: swapped origin-join intervals, a
 wrong residue number, and an id given to the CDS that has none.
 
+## The linear record
+
+`synthetic-linear.gb` is a 393-base **linear** record written by hand on
+2026-10-19 for the natural-language milestone (`docs/tasks/milestone-6-nl.md`
+M6-13, contract 6i0). Every other GenBank fixture is circular, and luria
+designs primers on linear templates only (D035, D041 G10), so this is the one
+GenBank record on which a request can run from text to a designed primer
+pair.
+
+How it was written:
+- **The protein first.** A synthetic 100-residue protein, `synA`, typed by
+  hand in ten blocks of ten. It encodes no real gene. Residue 42 is Ala and
+  residue 87 is Trp, so the product brief's own example, "A42G and W87A as
+  separate variants", applies to it literally. Its `/translation` is that
+  protein as typed.
+- **Then a codon for each residue**, chosen by hand from common *E. coli*
+  codons so that the sequence has no run of four identical bases (the primer
+  quality limit is three, `MAX_SINGLE_BASE_RUN`), and the stop `TAA`.
+  Residue 42's codon is `GCA` and residue 87's is `TGG`.
+- **Then two flanks**, typed by hand: 42 bases 5′ of the CDS and 48 bases 3′
+  of it, enough for a primer pair around residue 42 and residue 87 alike.
+- The ORIGIN block was laid out (line numbers, groups of ten) by a throwaway
+  script that joined the hand-typed pieces. It chose no base.
+
+| Bases (1-based) | Half-open | What |
+| --- | --- | --- |
+| 1–42 | `[0, 42)` | 5′ flank |
+| 43–345 | `[42, 345)` | CDS `synA`, plus strand: 100 codons and `TAA` |
+| 346–393 | `[345, 393)` | 3′ flank |
+
+Features, in order: `source` (index 0), a `gene` with `/gene="synA"`
+(index 1), and the CDS (index 2), whose id is `synA` from `/gene` (D041 G2).
+It states `/codon_start=1` and no `/transl_table`, and has a `/product`.
+
+The expected values were derived by hand:
+- **`synthetic-linear-record.tsv`**: LOCUS name, accession and version as
+  written; 42 + 303 + 48 = 393 bases; `linear`; three features. The SHA-256
+  of the upper-cased sequence was computed with coreutils, from the ORIGIN
+  lines with digits and blanks removed (`tr -d ' 0-9\n' | tr a-z A-Z |
+  sha256sum`), sharing no code with luria or Biopython.
+- **`synthetic-linear-cds.tsv`**: `43..345` is `[42, 345)` (D006); 303
+  bases are 101 codons, so 100 residues without the stop; the first codon is
+  `ATG`; the `/translation` is the protein the codons were chosen for.
+- **`synthetic-linear-residues.tsv`**: residue *k*'s codon is
+  `[42 + 3(k − 1), 42 + 3k)`, so residue 1 is `[42, 45)`, 42 is
+  `[165, 168)`, 87 is `[300, 303)` and 100 is `[339, 342)`. Each letter and
+  codon is the one chosen above.
+
+`reference/verify_synthetic_linear.py` re-derives every column of the three
+tables with Biopython and `hashlib`, including the translation against
+`/translation` and the absence of any internal stop. It writes nothing. It
+was checked to fail on three deliberately wrong values, one per table: a
+changed SHA-256 digit, residue 87 one codon early, and the minus strand.
+
+Fit for purpose, not an expectation: on 2026-10-19 a hand-written request
+for A42G and W87A as separate variants, with `"policy": "default"` codons,
+`luriaNative`, `minAnnealingOverlap` 15, inline placement and the
+`q5_reaction` buffer, ran through `luria q5 design` to `verified` with both
+members designed and exit 0. No value from that run is recorded here.
+
 ## Rerunning
 
 From the repository root, with the pinned environment
@@ -110,6 +171,7 @@ From the repository root, with the pinned environment
 
     python -I tests/fixtures/genbank/reference/pbr322.py --check
     python -I tests/fixtures/genbank/reference/verify_synthetic.py --check
+    python -I tests/fixtures/genbank/reference/verify_synthetic_linear.py --check
 
-Both run under `tests/fixtures/verify.py`. They are not part of the cargo
+All three run under `tests/fixtures/verify.py`. They are not part of the cargo
 checks (D039, D026).

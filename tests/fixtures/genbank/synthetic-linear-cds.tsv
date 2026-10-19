@@ -1,0 +1,2 @@
+index	id	id_source	start	end	strand	codon_start	transl_table	start_codon	residues	translation_matches
+2	synA	gene	42	345	+	1	-	ATG	100	yes
