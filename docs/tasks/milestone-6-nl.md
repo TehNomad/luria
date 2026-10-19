@@ -113,6 +113,7 @@ command refuses before anything is sent.
 | M6-13 | Linear fixture (§9 Q6) | **Yes**: a short, hand-written, independently verified linear GenBank record with one CDS. |
 | M6-14 | Exit status (§9 Q7) | **New exit 8** for a refused model reply. |
 | M6-16 | A combined construct (asked 2026-10-19) | **Proposed faithfully.** `interpret` emits the request and core refuses it (`unsupported_composition`, exit 6). D003: the adapter must not duplicate a scientific scope limit core owns. |
+| M6-17 | Model thinking (6g1, asked 2026-10-19) | **Follow the server's setting.** The backend sends no thinking switch; whether a model thinks is the server's configuration. The research found thinking 4.4 times slower with no gain, which is documented for users, not enforced. |
 | M6-15 | Grounding (asked 2026-10-19, after §5.2 was first written) | **Evidence quotes**: the model returns a canonical `token` and a verbatim `quote` from the user's text, and Rust checks the quote supports the token (§5.3a). Strict verbatim tokens would refuse ordinary prose. |
 
 These become D044 when the plan is approved.
@@ -307,6 +308,8 @@ pub trait Backend {
 - **`scripted`** (tests only, not selectable from the command line): it
   returns canned replies and records the prompts it was given.
 - Temperature 0 everywhere. A seed is sent when the backend accepts one.
+- No thinking switch is sent (M6-17): no `chat_template_kwargs`, no
+  reasoning effort. The server's own setting decides.
 - HTTP backends are tested against a local `std::net::TcpListener` stub in
   the test itself. No test uses the network.
 
@@ -395,6 +398,13 @@ Each is small, with tests first, as in M5:
   configured backend, reports how many corpus cases a real model gets
   right. It is never part of the required checks, and its score is
   development information, not a correctness claim.
+
+## 8a. Not in this milestone
+
+- **Naming a residue by an annotated site** ("the histidine in the catalytic
+  triad"): deferred by the owner, 2026-10-19, to a later milestone not yet
+  scheduled. Recorded in `docs/tasks/later-annotated-sites.md`. Milestone 6
+  asks for the number instead (`residue_number_unstated`).
 
 ## 9. Questions put to the owner (answered 2026-10-19 as M6-8 to M6-14)
 
