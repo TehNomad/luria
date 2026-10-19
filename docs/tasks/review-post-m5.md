@@ -164,7 +164,7 @@ and README drift listed by reviewer A.
 | `review-m5-a9-start-codon.md` | A-9 (D042) | done |
 | `review-m5-a3-location-names-cds.md` | A-3 | done |
 | `review-m5-a10-genbank-tests.md` | A-8, A-10 | done |
-| `review-m5-c1-write-edited.md` | C-1, C-2 | |
+| `review-m5-c1-write-edited.md` | C-1, C-2 | done |
 | `review-m5-c4-buffer-bounds.md` | C-4 (D043) | |
 | `review-m5-c9-run-and-imports.md` | C-6, C-9, C-12 | |
 | `review-m5-c3-cli-tests.md` | C-3, C-7, C-8, C-13 | |

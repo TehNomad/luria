@@ -366,7 +366,7 @@ fn a_result_name_with_a_path_separator_is_refused() {
     assert_eq!(error.path, None);
     assert_eq!(
         error.message,
-        "the result name '../escaped' cannot be a file name: it contains a path separator"
+        "the result name '../escaped' cannot be a file name: it contains a path separator or one of : * ? < > |"
     );
     assert_eq!(
         serde_json::to_string(&error.details).unwrap(),
@@ -374,6 +374,152 @@ fn a_result_name_with_a_path_separator_is_refused() {
     );
     assert!(!out.exists(), "nothing is created");
     assert!(!dir.join("escaped.fa").exists(), "nothing escaped DIR");
+}
+
+// C-1: a dangling symlink reads as a free name, so the write went through it
+// to wherever it points. The check must see the path itself (G8: an existing
+// file is never overwritten, and here there is a link rather than nothing).
+#[cfg(unix)]
+#[test]
+fn a_dangling_symlink_is_refused_and_nothing_is_written_through_it() {
+    use std::os::unix::fs::symlink;
+
+    let dir = workspace("symlink");
+    let out = dir.join("out");
+    fs::create_dir_all(&out).unwrap();
+    symlink("../elsewhere.fa", out.join("D404N.fa")).unwrap();
+    assert!(
+        !dir.join("elsewhere.fa").exists(),
+        "the link's target is missing"
+    );
+
+    let outcome = run_with_output(&write(&dir, &d404n()), Some(&out));
+    assert_eq!(outcome.status, ExitStatus::MalformedInput);
+    assert_eq!(outcome.status.code(), 4);
+    assert_eq!(outcome.document.state, "failed");
+    assert_eq!(outcome.document.results.len(), 0);
+    let error = outcome.document.error.clone().unwrap();
+    assert_eq!(error.code, "output_exists");
+    assert_eq!(error.category, "malformed_input");
+    assert_eq!(error.path, None);
+    assert_eq!(
+        error.message,
+        "will not overwrite the existing file 'D404N.fa'"
+    );
+    assert_eq!(
+        serde_json::to_string(&error.details).unwrap(),
+        r#"{"file":"D404N.fa"}"#
+    );
+
+    // The link is still there, still dangling, and nothing was created at its
+    // target: the run never wrote through it.
+    assert_eq!(
+        entries(&out),
+        vec!["D404N.fa"],
+        "the link itself is unchanged"
+    );
+    assert!(
+        !dir.join("elsewhere.fa").exists(),
+        "nothing written outside DIR"
+    );
+}
+
+// C-2: two result names that differ only in case name the same file on a
+// case-insensitive file system, while the document reports both members. The
+// later name is refused and nothing at all is created (G8).
+#[test]
+fn two_names_differing_only_in_case_are_refused() {
+    let dir = workspace("case-clash");
+    let out = dir.join("out");
+    let outcome = run_with_output(
+        &write(
+            &dir,
+            &json!({
+                "schema": "luria.q5-request/1",
+                "coordinates": "zero-based-half-open",
+                "template": sid1_template(),
+                "scope": "sid-1",
+                "variants": {
+                    "composition": "separate_variants",
+                    "members": [
+                        { "name": "D404N", "residue": { "cds": "sid-1", "number": 404, "from": "D", "to": "N", "codon": "AAC" } },
+                        { "name": "d404n", "residue": { "cds": "sid-1", "number": 404, "from": "D", "to": "N", "codon": "AAC" } }
+                    ]
+                },
+                "design": design()
+            }),
+        ),
+        Some(&out),
+    );
+    assert_eq!(outcome.status, ExitStatus::MalformedInput);
+    assert_eq!(outcome.status.code(), 4);
+    assert_eq!(outcome.document.state, "failed");
+    assert_eq!(outcome.document.results.len(), 0);
+    let error = outcome.document.error.clone().unwrap();
+    assert_eq!(error.code, "output_name_unusable");
+    assert_eq!(error.category, "malformed_input");
+    assert_eq!(error.path, None);
+    assert_eq!(
+        error.message,
+        "the result name 'd404n' differs from an earlier one only in case, so their files would collide"
+    );
+    assert_eq!(
+        serde_json::to_string(&error.details).unwrap(),
+        r#"{"name":"d404n"}"#
+    );
+
+    // The refusal comes before anything is created, so DIR stays absent.
+    assert!(!out.exists(), "nothing is created");
+}
+
+// C-2: the characters a portable file name may not hold are refused the same
+// way as a path separator. `Identifier` accepts every printable ASCII token,
+// so each of these reaches `write_edited`, and each name reaches the file-name
+// check with nothing created.
+#[test]
+fn an_unportable_character_in_a_result_name_is_refused() {
+    let characters: Vec<char> = [':', '*', '?', '<', '>', '|'].to_vec();
+    for (index, character) in characters.iter().enumerate() {
+        let name: String = format!("a{}b", character);
+        let dir = workspace(&format!("unportable-{}", index));
+        let out = dir.join("out");
+        let mut request: Value = d404n();
+        request["edit"]["name"] = json!(name.clone());
+
+        let outcome = run_with_output(&write(&dir, &request), Some(&out));
+        assert_eq!(
+            outcome.status,
+            ExitStatus::MalformedInput,
+            "name {}",
+            name.clone()
+        );
+        assert_eq!(outcome.document.state, "failed", "name {}", name.clone());
+        assert_eq!(outcome.document.results.len(), 0, "name {}", name.clone());
+        let error = outcome.document.error.clone().unwrap();
+        assert_eq!(error.code, "output_name_unusable", "name {}", name.clone());
+        assert_eq!(error.category, "malformed_input", "name {}", name.clone());
+        assert_eq!(error.path, None, "name {}", name.clone());
+        assert_eq!(
+            error.message,
+            format!(
+                "the result name '{}' cannot be a file name: it contains a path separator or one of : * ? < > |",
+                name.clone(),
+            ),
+            "name {}",
+            name.clone(),
+        );
+        assert_eq!(
+            serde_json::to_string(&error.details).unwrap(),
+            json!({ "name": name.clone() }).to_string(),
+            "name {}",
+            name.clone(),
+        );
+        assert!(
+            !out.exists(),
+            "the directory was not created for name {}",
+            name.clone()
+        );
+    }
 }
 
 // The same request twice, into two directories, gives byte-identical files
