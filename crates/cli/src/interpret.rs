@@ -4,4 +4,5 @@
 //! `luria-nl` (milestone 6 plan §3, §5.1).
 
 pub mod catalogue;
+pub mod evidence;
 pub mod notation;
