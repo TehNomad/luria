@@ -96,6 +96,37 @@ fn a_usage_error_exits_2_with_text_on_stderr_and_nothing_on_stdout() {
     }
 }
 
+// Added in review: a command-line word that isn't valid UTF-8 cannot be
+// parsed, so it is a usage error: exit 2 (plan §3.7), not a panic (101).
+#[cfg(unix)]
+#[test]
+fn a_word_that_is_not_utf8_exits_2_with_text_on_stderr_and_nothing_on_stdout() {
+    use std::ffi::OsString;
+    use std::os::unix::ffi::OsStringExt;
+    use std::path::PathBuf;
+
+    let bad_word: OsString = OsStringExt::from_vec(b"r\xff.json".to_vec());
+    let arguments: Vec<OsString> = [
+        PathBuf::from("q5").into_os_string(),
+        PathBuf::from("design").into_os_string(),
+        bad_word,
+    ]
+    .to_vec();
+    let output = Command::new(env!("CARGO_BIN_EXE_luria"))
+        .args(&arguments)
+        .output()
+        .expect("the luria executable runs");
+
+    assert_eq!(output.status.code(), Some(2));
+    assert!(output.stdout.is_empty());
+    let text: String = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        text.contains("argument 3 is not valid UTF-8"),
+        "stderr: {}",
+        text
+    );
+}
+
 // Added in review: a document that cannot be written is an I/O failure,
 // exit 1 (plan §3.7), not a panic (101). /dev/full refuses every write.
 #[cfg(target_os = "linux")]

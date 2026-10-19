@@ -32,6 +32,27 @@ fn reject(message: String) -> Result<Command, UsageError> {
     Err(UsageError { message })
 }
 
+/// The command line's words as text. A word that isn't valid UTF-8 is a
+/// usage error naming its 1-based position after the program name.
+pub fn utf8_arguments(arguments: Vec<std::ffi::OsString>) -> Result<Vec<String>, UsageError> {
+    let mut words: Vec<String> = [].to_vec();
+    let mut position: usize = 0;
+
+    for word in arguments {
+        position += 1;
+        match word.into_string() {
+            Ok(text) => words.push(text),
+            Err(_) => {
+                return Err(UsageError {
+                    message: format!("argument {} is not valid UTF-8", position),
+                })
+            }
+        }
+    }
+
+    Ok(words)
+}
+
 /// Parse the arguments after the program name.
 pub fn parse(arguments: &[String]) -> Result<Command, UsageError> {
     if arguments.is_empty() {
@@ -75,18 +96,26 @@ fn parse_q5(words: &[String]) -> Result<Command, UsageError> {
 }
 
 /// Read `q5 design`'s arguments left to right: one request path and an
-/// optional `--write-edited` directory. The first error found is the one
-/// reported.
+/// optional `--write-edited` directory. A word exactly `--` ends the options,
+/// so every later word is the request path, even one that starts with `-`,
+/// and `--` itself is not a path. The first error found is the one reported.
 fn parse_design(words: &[String]) -> Result<Command, UsageError> {
     let mut request: Option<String> = None;
     let mut directory: Option<String> = None;
+    let mut options_end: bool = false;
     let last: usize = words.len();
     let mut index: usize = 0;
 
     while index < last {
         let word: &str = &words[index];
 
-        if word == "--write-edited" {
+        if word == "--" && !options_end {
+            options_end = true;
+            index += 1;
+            continue;
+        }
+
+        if word == "--write-edited" && !options_end {
             match directory {
                 Some(_) => return reject("--write-edited is given more than once".to_string()),
                 None => {
@@ -102,7 +131,7 @@ fn parse_design(words: &[String]) -> Result<Command, UsageError> {
                     directory = Some(value.to_string());
                 }
             }
-        } else if word.starts_with("-") {
+        } else if !options_end && word.starts_with("-") {
             return reject(format!("unknown option '{}'", word));
         } else {
             match request {
@@ -240,5 +269,69 @@ mod tests {
         for (words, message) in cases {
             assert_eq!(usage(words), message, "{:?}", words);
         }
+    }
+
+    /// The word as an argument the operating system could pass.
+    fn os_word(word: &str) -> std::ffi::OsString {
+        PathBuf::from(word).into_os_string()
+    }
+
+    #[test]
+    fn utf8_arguments_passes_through_the_words_it_was_given() {
+        let expected: Vec<String> = ["q5", "design", "a.json"]
+            .iter()
+            .map(|word| word.to_string())
+            .collect();
+        let arguments: Vec<std::ffi::OsString> =
+            [os_word("q5"), os_word("design"), os_word("a.json")].to_vec();
+        assert_eq!(utf8_arguments(arguments), Ok(expected));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_word_that_is_not_utf8_names_its_position() {
+        use std::os::unix::ffi::OsStringExt;
+
+        let word: std::ffi::OsString = OsStringExt::from_vec(b"r\xff.json".to_vec());
+        let arguments: Vec<std::ffi::OsString> = [os_word("q5"), os_word("design"), word].to_vec();
+        assert_eq!(
+            utf8_arguments(arguments),
+            Err(UsageError {
+                message: "argument 3 is not valid UTF-8".to_string(),
+            })
+        );
+    }
+
+    #[test]
+    fn a_double_dash_ends_the_options_of_q5_design() {
+        assert_eq!(
+            parse_words(&["q5", "design", "--", "-x.json"]),
+            Ok(Command::Q5Design {
+                request: PathBuf::from("-x.json"),
+                write_edited: None,
+            })
+        );
+        assert_eq!(
+            parse_words(&["q5", "design", "--write-edited", "out", "--", "-x.json"]),
+            Ok(Command::Q5Design {
+                request: PathBuf::from("-x.json"),
+                write_edited: Some(PathBuf::from("out")),
+            })
+        );
+        assert_eq!(
+            usage(&["q5", "design", "--", "a.json", "b.json"]),
+            "'q5 design' takes one request file, got a second: 'b.json'"
+        );
+        assert_eq!(
+            usage(&["q5", "design", "--"]),
+            "'q5 design' needs a request file"
+        );
+        assert_eq!(
+            parse_words(&["q5", "design", "--", "--write-edited"]),
+            Ok(Command::Q5Design {
+                request: PathBuf::from("--write-edited"),
+                write_edited: None,
+            })
+        );
     }
 }

@@ -98,6 +98,24 @@ fn a_genbank_template_lists_its_imported_and_unused_features() {
             ("bla".to_string(), "gene", 38, 361, Some("11".to_string())),
         ]
     );
+    // C-12: where each imported CDS sits, so a `needs_clarification` document's
+    // candidates carry their locations. The values are `tests/fixtures/genbank/pbr322-cds.tsv`'s
+    // `start`, `end` and `strand` columns for rows 10 (`tet`) and 38 (`bla`),
+    // which Biopython verified.
+    let tet = genbank
+        .imported_cds
+        .iter()
+        .find(|cds| cds.id == "tet")
+        .unwrap();
+    assert_eq!(tet.intervals, vec![(85u64, 1276u64)]);
+    assert_eq!(tet.strand, "+");
+    let bla = genbank
+        .imported_cds
+        .iter()
+        .find(|cds| cds.id == "bla")
+        .unwrap();
+    assert_eq!(bla.intervals, vec![(3292u64, 4153u64)]);
+    assert_eq!(bla.strand, "-");
     assert_eq!(genbank.unused_features.len(), 48);
     let rop = genbank
         .unused_features

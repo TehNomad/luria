@@ -272,7 +272,9 @@ Rules:
   as it is.
 - Errors raised by the CLI itself get their own codes, with category
   `MalformedInput`: `request_unreadable`, `request_invalid` (with the JSON
-  path), `template_digest_mismatch`, `output_exists`. The FASTA and GenBank
+  path), `template_digest_mismatch`, `output_exists`; implementation added
+  `template_unreadable` (5e2) and `output_name_unusable` (5g2), six in all
+  (post-M5 review B-4). The FASTA and GenBank
   readers are in core, so their errors are `DomainError` variants with codes
   of their own: one per refused location form and per refused qualifier.
 
@@ -281,7 +283,7 @@ Rules:
 | Code | Meaning |
 | --- | --- |
 | 0 | `verified`, and every member designed |
-| 1 | Internal error or I/O failure (the document still goes to stdout if it can be written) |
+| 1 | Internal error, or a failure to write output: stdout or a `--write-edited` file (the document still goes to stdout if it can be written). Amended 2026-10-18 (post-M5 review B-3): an unreadable request or template file is `malformed_input`, exit 4, as §3.6 says; a `--write-edited` I/O failure replaces exit 7 (C-6). |
 | 2 | Usage error: bad arguments. Text on stderr, no JSON |
 | 3 | `needs_clarification` |
 | 4 | `failed`, `MalformedInput` |

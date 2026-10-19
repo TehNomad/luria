@@ -643,7 +643,7 @@ fn design_inline(
     let forward_tm: MeltingTemperature = sizer.forward_tm(flank)?;
     let reverse_tm: MeltingTemperature = sizer.reverse_tm(reverse)?;
     let (tm_balance_met, annealing_temperature): (bool, f64) =
-        pair_summary(&forward_tm, &reverse_tm);
+        pair_summary(forward_tm.celsius(), reverse_tm.celsius());
 
     let forward_span: NucleotideInterval = span(template, boundary, end + flank)?;
     let reverse_span: NucleotideInterval = span(template, boundary - reverse, boundary)?;
@@ -846,7 +846,7 @@ fn design_edge_pair(
     let forward_tm: MeltingTemperature = sizer.forward_tm(forward)?;
     let reverse_tm: MeltingTemperature = sizer.reverse_tm(reverse)?;
     let (tm_balance_met, annealing_temperature): (bool, f64) =
-        pair_summary(&forward_tm, &reverse_tm);
+        pair_summary(forward_tm.celsius(), reverse_tm.celsius());
 
     // D032/D033's tails: at or below `MAX_WHOLE_TAIL` the whole written text is
     // the forward primer's tail and the reverse primer gets none; above it — and
@@ -1245,10 +1245,10 @@ fn run_before(wild_type: &[char], to: u64) -> u64 {
 /// the lower Tm rounded half up to a whole degree (`f64::round`, half away from
 /// zero, which for a positive Tm is half up), plus `TA_OFFSET`, capped at
 /// `TA_CAP`.
-fn pair_summary(forward_tm: &MeltingTemperature, reverse_tm: &MeltingTemperature) -> (bool, f64) {
-    let tm_balance_met: bool = (forward_tm.celsius() - reverse_tm.celsius()).abs() <= TM_BALANCE;
+fn pair_summary(forward_celsius: f64, reverse_celsius: f64) -> (bool, f64) {
+    let tm_balance_met: bool = (forward_celsius - reverse_celsius).abs() <= TM_BALANCE;
     let annealing_temperature: f64 =
-        (forward_tm.celsius().min(reverse_tm.celsius()).round() + TA_OFFSET).min(TA_CAP);
+        (forward_celsius.min(reverse_celsius).round() + TA_OFFSET).min(TA_CAP);
     (tm_balance_met, annealing_temperature)
 }
 
@@ -2512,5 +2512,33 @@ mod tests {
         let second: PrimerDesign =
             design_primers(&template(), nucleotide(&template(), 30, "A"), request(15)).unwrap();
         assert!(first == second);
+    }
+
+    // D030 defines the annealing temperature as a whole number of degrees: the
+    // lower Tm rounded half up (`f64::round`, half away from zero, which for a
+    // positive Tm is half up), plus `TA_OFFSET`, capped at `TA_CAP`. The
+    // expectations below come from that rule, not from what luria prints: a
+    // lower Tm of 62.5 rounds to 63 and gives 64.0, while 62.4999 rounds to 62
+    // and gives 63.0, one degree apart; 71.5 plus the offset is 73.0, which the
+    // cap holds at 72.0; and a lower Tm of 70.6 rounds to 71 and gives 72.0,
+    // which the cap also leaves at 72.0. Compared with `==` because D030 makes
+    // the value a whole degree: a two-decimal comparison would pass a lower Tm
+    // of 63.996 as 64.00.
+    #[test]
+    fn the_annealing_temperature_is_the_lower_tm_rounded_half_up() {
+        let cases: [(f64, f64, f64); 4] = [
+            (65.0, 62.5, 64.0),
+            (65.0, 62.4999, 63.0),
+            (74.0, 71.5, 72.0),
+            (70.6, 73.0, 72.0),
+        ];
+        for (forward_celsius, reverse_celsius, expected) in cases {
+            let summary: (bool, f64) = pair_summary(forward_celsius, reverse_celsius);
+            assert_eq!(
+                summary.1, expected,
+                "{} and {} give {}",
+                forward_celsius, reverse_celsius, summary.1
+            );
+        }
     }
 }

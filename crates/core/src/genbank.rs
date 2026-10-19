@@ -23,9 +23,11 @@
 //!    with no non-blank line is `NoLocus` with no line (§4.2).
 //! 4. The LOCUS line gives the length in bp — a digits token before a `bp`
 //!    token at index 2 or later, `LocusLength` otherwise — exactly one of
-//!    `linear` or `circular` (`TopologyMissing`, `TopologyConflict`) and the
-//!    record's name. Every refusal carries the LOCUS line's number, and the
-//!    topology is the sequence's, never inferred (§4.3, D009, D041).
+//!    `linear` or `circular` among the tokens after that `bp` token
+//!    (`TopologyMissing`, `TopologyConflict`) and the record's name, which
+//!    states no topology of its own. Every refusal carries the LOCUS line's
+//!    number, and the topology is the sequence's, never inferred (§4.3 step
+//!    2, D009, D041).
 //! 5. Each later non-blank line is `//`, a section line (first character an
 //!    ASCII upper-case letter), a continuation line (first character a space)
 //!    or `LineLayout`; `LOCUS`, `ACCESSION`, `VERSION`, `FEATURES` and
@@ -42,15 +44,17 @@
 //!    `QualifierSyntax`.
 //! 7. A qualifier value starting with `"` is quoted: its text lines are
 //!    joined with one space, it stays open while the quote count is odd, and
-//!    a closed value must end at its closing quote, so `"a"b` is
-//!    `QualifierSyntax`; its stored text is inside the outer quotes with each
-//!    `""` made a `"`. An unquoted value may not contain a `"` at all, and
-//!    `/name=` is the empty value (§4.6). Every qualifier is read the same
-//!    way, so a wrapped `/translation` keeps its spaces: 5c3 removes them
-//!    there.
+//!    a closed value must end at its closing quote and hold every inner `"`
+//!    doubled, so `"a"b` and `"a" "b"` are `QualifierSyntax`; its stored
+//!    text is inside the outer quotes with each `""` made a `"`. An unquoted
+//!    value may not contain a `"` at all, and `/name=` is the empty value
+//!    (§4.6, amended in review). Every qualifier is read the same way, so a
+//!    wrapped `/translation` keeps its spaces: 5c3 removes them there.
 //! 8. Each ORIGIN sequence line is a position number then its bases: a line
-//!    whose first token is not a number is `OriginLine`, and a number other
-//!    than one past the bases before it is `OriginNumbering` (§4.7).
+//!    whose first token is not a number is `OriginLine`, a base token holding
+//!    `;` is the same refusal — ORIGIN text never reaches `normalize`'s
+//!    comment-line rule — and a number other than one past the bases before
+//!    it is `OriginNumbering` (§4.7, §4.8).
 //! 9. The end: `//` with no ORIGIN section is `NoOrigin`; text that ends
 //!    before `//` is `MissingEnd`; after `//` a `LOCUS` line is
 //!    `SecondRecord` and any other non-blank line is `TextAfterEnd`; the
@@ -445,14 +449,41 @@ fn end_feature(sequence: &str, state: FeaturesRead) -> Result<FeaturesRead, Doma
     Ok(state)
 }
 
+/// True when the text of a closed quoted value holds a `"` inside its outer
+/// quotes that is not part of a `""` pair, read left to right: an inner quote
+/// is literal only when doubled, so `/note="a" "b"` is not one value (§4.6,
+/// amended in review A-5).
+fn lone_inner_quote(text: &str) -> bool {
+    let chars: Vec<char> = text.chars().collect();
+    let mut at: usize = 1;
+    while at + 1 < chars.len() {
+        if chars[at] != '"' {
+            at += 1
+        } else if at + 2 < chars.len() && chars[at + 1] == '"' {
+            at += 2
+        } else {
+            return true;
+        }
+    }
+    false
+}
+
 /// A quoted value whose joined text has become complete, or stayed open: the
 /// text inside the outer quotes with each `""` made a `"`, or a refusal when
-/// the joined text does not end at its closing quote (§4.6).
+/// the joined text does not end at its closing quote, or when an inner quote
+/// is not doubled (§4.5, §4.6).
 fn close_quoted(sequence: &str, mut state: FeaturesRead) -> Result<FeaturesRead, DomainError> {
     if quote_count(&state.value_text) % 2 == 1 {
         return Ok(state);
     }
     if !state.value_text.ends_with("\"") {
+        return Err(refusal(
+            sequence,
+            GenBankRule::QualifierSyntax,
+            Some(state.qualifier_line),
+        ));
+    }
+    if lone_inner_quote(&state.value_text) {
         return Err(refusal(
             sequence,
             GenBankRule::QualifierSyntax,
@@ -477,8 +508,8 @@ fn continue_quoted(
 }
 
 /// Case 2 of the qualifier area: a new qualifier, `/name` with no value or
-/// `/name=value`. An empty name, or one holding a space or a `"`, is refused
-/// (§4.5, §4.6).
+/// `/name=value`. An empty name, or one holding a `"` or any character for
+/// which `char::is_whitespace` is true, is refused (§4.5 case 2, §4.6).
 fn start_qualifier(
     sequence: &str,
     number: u64,
@@ -500,7 +531,7 @@ fn start_qualifier(
     } else {
         "".to_string()
     };
-    if name.is_empty() || name.contains(" ") || name.contains("\"") {
+    if name.is_empty() || name.contains("\"") || name.chars().any(|ch| ch.is_whitespace()) {
         return Err(refusal(
             sequence,
             GenBankRule::QualifierSyntax,
@@ -621,7 +652,8 @@ fn keyword_value(line: &str) -> Option<String> {
 
 /// One sequence line of the ORIGIN section (§4.7): its first token is the
 /// position one past the bases read before it, `before`, and its remaining
-/// tokens are the line's bases.
+/// tokens are the line's bases. A base token holding `;` is an ORIGIN line
+/// that is not one, refused at this line's number.
 fn read_origin_line(
     sequence: &str,
     number: u64,
@@ -646,14 +678,24 @@ fn read_origin_line(
             Some(number),
         ));
     }
+    // A `;` in a base token is not a sequence character: refused here, so
+    // ORIGIN text never reaches `normalize`'s comment-line rule (§4.8).
+    for token in &tokens[1..tokens.len()] {
+        if token.contains(";") {
+            return Err(refusal(sequence, GenBankRule::OriginLine, Some(number)));
+        }
+    }
     Ok(tokens[1..tokens.len()].join(""))
 }
 
 /// The LOCUS line's length in bp, the record's name and the sequence's
-/// topology (§4.3): the length is a digits token before a `bp` token at index
-/// 2 or later, the topology exactly one of `linear` or `circular` matched
-/// lower case, and the name is the token after `LOCUS` unless the length
-/// token is that token. Every refusal carries the LOCUS line's `number`.
+/// topology (§4.3, amended in review): the length is a digits token before a
+/// `bp` token at index 2 or later, the topology exactly one of `linear` or
+/// `circular` among the tokens after that `bp` token, matched lower case, and
+/// the name is the token after `LOCUS` unless the length token is that token.
+/// A `linear` or `circular` name states no topology, so zero matches is
+/// `TopologyMissing` and more than one is `TopologyConflict`. Every refusal
+/// carries the LOCUS line's `number`.
 fn read_locus(sequence: &str, line: &str, number: u64) -> Result<Locus, DomainError> {
     let tokens: Vec<String> = space_tokens(line);
     let mut at: usize = 2;
@@ -671,8 +713,12 @@ fn read_locus(sequence: &str, line: &str, number: u64) -> Result<Locus, DomainEr
         Ok(value) => value,
         Err(_) => return Err(refusal(sequence, GenBankRule::LocusLength, Some(number))),
     };
+    // The topology tokens are the ones after the `bp` token (§4.3 step 2,
+    // amended in review): a token before it belongs to the record's name, and
+    // a name such as `linear` states no topology.
+    let topology_tokens: Vec<String> = tokens[at + 1..tokens.len()].to_vec();
     let mut topologies: usize = 0;
-    for token in &tokens {
+    for token in &topology_tokens {
         if token == "linear" || token == "circular" {
             topologies += 1
         }
@@ -691,7 +737,7 @@ fn read_locus(sequence: &str, line: &str, number: u64) -> Result<Locus, DomainEr
             Some(number),
         ));
     }
-    let topology: SequenceTopology = if tokens.iter().any(|token| token == "circular") {
+    let topology: SequenceTopology = if topology_tokens.iter().any(|token| token == "circular") {
         SequenceTopology::Circular
     } else {
         SequenceTopology::Linear
@@ -1341,6 +1387,70 @@ mod tests {
             lines.insert(21, s(line));
             assert_eq!(refusal(read(&lines)), (OriginLine, Some(22)), "{:?}", line);
         }
+    }
+
+    // Added in review (A-1): an ORIGIN line's bases never reach `normalize`'s
+    // comment-line rule, so a `;` in any base token is an ORIGIN line that is
+    // not one, refused at that line's number.
+    #[test]
+    fn an_origin_line_holding_a_semicolon_is_refused() {
+        let mut comment = sample();
+        comment[0] = locus("20 bp    DNA circular SYN 17-OCT-2026");
+        comment[23] = s("       11 ;tcagcagca");
+        assert_eq!(refusal(read(&comment)), (OriginLine, Some(24)));
+
+        let mut inner = sample();
+        inner[23] = s("       11 atcag;agca");
+        assert_eq!(refusal(read(&inner)), (OriginLine, Some(24)));
+    }
+
+    // Added in review (A-2): a qualifier name may hold no whitespace, not only
+    // no space.
+    #[test]
+    fn a_qualifier_name_may_not_hold_a_tab() {
+        let mut tabbed = sample();
+        tabbed[20] = q("/pseudo\t");
+        assert_eq!(refusal(read(&tabbed)), (QualifierSyntax, Some(21)));
+    }
+
+    // Added in review (A-4): the topology tokens are the ones after the `bp`
+    // token, so a LOCUS name that reads `linear` or `circular` states nothing
+    // about topology (D009, D041 G4).
+    #[test]
+    fn a_locus_topology_token_before_the_bp_token_is_not_a_topology() {
+        let mut unnamed_topology = sample();
+        unnamed_topology[0] = s("LOCUS       linear   30 bp    DNA     SYN 17-OCT-2026");
+        assert_eq!(refusal(read(&unnamed_topology)), (TopologyMissing, Some(1)));
+
+        let mut named_topology = sample();
+        named_topology[0] = s("LOCUS       circular   30 bp    DNA     linear   SYN 17-OCT-2026");
+        let record = read(&named_topology).unwrap();
+        assert_eq!(record.locus_name(), "circular");
+        assert_eq!(record.sequence().topology(), SequenceTopology::Linear);
+    }
+
+    // Added in review (A-5): inside a closed quoted value every `"` must be
+    // part of a `""` pair, read left to right; a lone `"` is refused.
+    #[test]
+    fn a_closed_quoted_value_may_not_hold_a_lone_inner_quote() {
+        let mut lone = sample();
+        lone[14] = q("/note=\"a\" \"b\"");
+        lone.remove(15);
+        assert_eq!(refusal(read(&lone)), (QualifierSyntax, Some(15)));
+
+        let mut doubled = sample();
+        doubled[14] = q("/note=\"say \"\"hi\"\"\"");
+        doubled.remove(15);
+        let features = read(&doubled).unwrap().features();
+        assert_eq!(
+            pairs(&features[1]),
+            vec![
+                (s("locus_tag"), some("tst_0001")),
+                (s("codon_start"), some("1")),
+                (s("note"), some("say \"hi\"")),
+                (s("translation"), some("MAWN")),
+            ]
+        );
     }
 
     // Added in review: `/label=wrap` is at index 19, so its continuation is

@@ -12,9 +12,11 @@
 //! decides, and every refusal carries the text as given and the length it
 //! was read against.
 //!
-//! 1. Every ASCII whitespace character — space, tab, carriage return,
-//!    newline — is removed, so a location continued over several lines
-//!    reads as one. The text is kept as given for the payload.
+//! 1. Space, tab, carriage return and newline are removed, so a location
+//!    continued over several lines reads as one. No other character is
+//!    whitespace to step 1: a form feed is ASCII whitespace but stays, and
+//!    step 7 then refuses it as `Syntax`. The text is kept as given for the
+//!    payload.
 //! 2. Nothing left after step 1 is `Syntax`.
 //! 3. A `:` is a reference into another record: `RemoteReference`.
 //! 4. A `<` or a `>` marks an incomplete feature: `FuzzyEnd`.
@@ -96,6 +98,8 @@ fn refusal(
             location: text,
             rule,
             sequence_length,
+            cds: None,
+            line: None,
         },
     ))
 }
@@ -743,11 +747,30 @@ mod tests {
     }
 
     #[test]
+    fn a_refusal_read_on_its_own_names_no_cds_and_no_line() {
+        let refusals: Vec<Result<GenBankLocation, DomainError>> = vec![
+            linear("0..10"),
+            linear("<1..99"),
+            linear("join(90..100,1..12)"),
+        ];
+        for found in refusals.iter() {
+            let problem = match found {
+                Err(DomainError::UnusableGenBankLocation(problem)) => problem,
+                other => panic!("expected UnusableGenBankLocation, got {:?}", other),
+            };
+            assert_eq!(problem.cds, None);
+            assert_eq!(problem.line, None);
+        }
+    }
+
+    #[test]
     fn each_rule_has_its_category() {
         let malformed = DomainError::UnusableGenBankLocation(UnusableGenBankLocationProblem {
             location: "0..10".to_string(),
             rule: PositionZero,
             sequence_length: N,
+            cds: None,
+            line: None,
         });
         assert!(malformed.category() == ErrorCategory::MalformedInput);
         assert!(linear("1..101").unwrap_err().category() == ErrorCategory::BiologicalValidation);

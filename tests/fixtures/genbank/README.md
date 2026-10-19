@@ -60,10 +60,19 @@ It has 27 features, one per case:
 - the id precedence: `m1` has `/gene` before `/locus_tag` in the file, and
   its id still comes from `/locus_tag`;
 - `/transl_table=11` with an ATG start (`atg11`, imported) and with a GTG
-  start (`alt11`, refused);
-- one per refused qualifier and location form, a CDS with no id, a repeated
-  qualifier, two CDSs sharing an id, an id with a blank, a length that is
-  not a multiple of three, and an internal stop;
+  start (`alt11`, refused); a first codon other than `ATG` is refused under
+  every table, absent, 1 or 11 (D042);
+- the refusals the record holds: `/pseudo` (`ps`), `/codon_start=2` (`cs2`),
+  `/transl_table=4` (`tt4`) and a repeated `/codon_start` (`rep`); a CDS
+  with no id, two CDSs sharing the id `dup`, an id with a blank (`bad id`),
+  a length that is not a multiple of three (`len13`), an internal stop
+  (`stop`); and the location refusals `<1..12` (`fuzzy`), `order(1..6,7..12)`
+  (`ord`), a plain `join(1..6,7..12)` (`exons`), a bare position `5`
+  (`single`) and `X00001.1:1..12` (`remote`);
+- not in this record: `between_bases` (`^`), `position_zero`,
+  `range_ends_before_start`, `past_sequence_end` and `syntax`, and the
+  `/pseudogene` qualifier; the same code refuses them, but they are tested
+  only in the unit tests of `genbank_location.rs` and `genbank_cds.rs`.
 - a non-CDS `gene` feature with `/gene="p1"`, which must not count as a
   second `p1`.
 
@@ -74,7 +83,10 @@ The expected values were derived by hand from the table above and the
 - **`mj1`** and **`mj2`**: `complement(join(55..60,1..3))` and
   `join(complement(1..3),complement(55..60))` are both `[54, 60)` then
   `[0, 3)` on the minus strand. The plus-strand text is `ATGAAA` + `ATG`.
-  Its reverse complement, `CATTTTCAT`, reads H F H.
+  Its reverse complement, `CATTTTCAT`, reads H F H. It starts `CAT`, so both
+  are refused as `alternative_start` under D042, with detail `CAT`, at key
+  lines 22 and 24; both still go through the location reader first, so both
+  minus-strand spellings of an origin join are still read.
 - **`badtr`**: states `MAV` where the CDS reads `MAW`, so the first
   difference is residue 3, V against W. **`shorttr`** states `MA`, so
   residue 3 is missing against W.

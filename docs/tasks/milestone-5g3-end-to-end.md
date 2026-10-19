@@ -7,6 +7,10 @@ tuple tripped `clippy::type_complexity`. Both were amended (G9 now compares
 the whole result) and all nine tests pass. Known limit: two simultaneous
 `cargo test` invocations of this file collide on its fixed scratch
 directories, as the other CLI test files do; one invocation is fine.
+Deviation found in the post-M5 review (C-3), 2026-10-18: plan §6's residue
+edits through the executable, minus strand and origin-crossing, against
+`mutation/cases.tsv`, were left out of this contract without a recorded
+deviation. They were added under `docs/tasks/review-m5-c3-cli-tests.md`.
 Planner: Claude. Parent: `docs/tasks/milestone-5-cli.md` §6 and §5 (5g3).
 Follows 5g1 (the wiring) and 5g2 (`--write-edited`).
 

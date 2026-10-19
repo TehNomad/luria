@@ -2,8 +2,8 @@ name	error	rule	intervals	strand	id_qualifier	transl_table	residues	detail	line
 p1	-	-	0-12	plus	gene	-	MAW	-	-
 m1	-	-	12-24	minus	locus_tag	-	MQQ	-	-
 pj	-	-	54-60,0-12	plus	label	-	MKMAW	-	-
-mj1	-	-	54-60,0-3	minus	gene	-	HFH	-	-
-mj2	-	-	54-60,0-3	minus	gene	-	HFH	-	-
+mj1	unusable_genbank_cds	alternative_start	-	-	-	-	-	CAT	22
+mj2	unusable_genbank_cds	alternative_start	-	-	-	-	-	CAT	24
 atg11	-	-	0-12	plus	gene	11	MAW	-	-
 alt11	unusable_genbank_cds	alternative_start	-	-	-	-	-	GTG	27
 cs2	unusable_genbank_cds	codon_start	-	-	-	-	-	2	34

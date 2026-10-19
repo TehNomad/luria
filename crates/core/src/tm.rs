@@ -59,8 +59,8 @@ use crate::sequence::is_dna_base;
 /// Identity of this Tm code path (D021, D014).
 pub const TM_FUNCTION_NAME: &str = "nn-santalucia-hicks-2004-owczarzy-2004-monovalent";
 
-/// Version of this Tm code path (D021).
-pub const TM_FUNCTION_VERSION: &str = "0.2.0";
+/// Version of this Tm code path (D021). 0.3.0 adds D043's buffer upper limits.
+pub const TM_FUNCTION_VERSION: &str = "0.3.0";
 
 /// Gas constant, cal/(K mol), as the sources use it.
 const R: f64 = 1.987;
@@ -197,6 +197,10 @@ impl BufferModel {
     /// A stated buffer. Divalent cations are not a parameter: the monovalent
     /// Owczarzy branch is the only one implemented, so a condition with
     /// magnesium cannot be represented rather than being approximated.
+    /// D043 bounds the accepted domain: the most luria accepts is 1000 mM
+    /// monovalent, 10000 nM (10 µM) primer and 20 % DMSO, each limit inclusive,
+    /// besides the lower limits of a positive salt and primer concentration and
+    /// a DMSO proportion of at least zero.
     pub fn create(
         monovalent_millimolar: f64,
         primer_nanomolar: f64,
@@ -217,6 +221,15 @@ impl BufferModel {
                 ),
             ));
         }
+        if monovalent_millimolar > 1000.0 {
+            return Err(refuse(
+                "monovalent",
+                format!(
+                    "{} mM is above 1000 mM, the most luria accepts (D043)",
+                    monovalent_millimolar
+                ),
+            ));
+        }
         if !(primer_nanomolar.is_finite() && primer_nanomolar > 0.0) {
             return Err(refuse(
                 "primer",
@@ -226,10 +239,28 @@ impl BufferModel {
                 ),
             ));
         }
+        if primer_nanomolar > 10000.0 {
+            return Err(refuse(
+                "primer",
+                format!(
+                    "{} nM is above 10000 nM (10 µM), the most luria accepts (D043)",
+                    primer_nanomolar
+                ),
+            ));
+        }
         if !(dmso_percent.is_finite() && dmso_percent >= 0.0) {
             return Err(refuse(
                 "dmso",
                 format!("{} % is not a usable proportion", dmso_percent),
+            ));
+        }
+        if dmso_percent > 20.0 {
+            return Err(refuse(
+                "dmso",
+                format!(
+                    "{} % is above 20 %, the most luria accepts (D043)",
+                    dmso_percent
+                ),
             ));
         }
         Ok(BufferModel {
@@ -984,6 +1015,55 @@ mod tests {
             let error: DomainError = BufferModel::create(monovalent, primer, dmso).unwrap_err();
             assert!(error.category() == ErrorCategory::MalformedInput);
             assert!(matches!(error, DomainError::InvalidBufferModel(_)));
+        }
+    }
+
+    // D043: each limit is inclusive, so a buffer on the limit is a buffer the
+    // model still scores.
+    #[test]
+    fn a_buffer_on_an_upper_limit_is_accepted() {
+        assert!(BufferModel::create(1000.0, 500.0, 0.0).is_ok());
+        assert!(BufferModel::create(150.0, 10000.0, 0.0).is_ok());
+        assert!(BufferModel::create(150.0, 500.0, 20.0).is_ok());
+    }
+
+    // D043: above a limit the buffer is refused, and the field names which
+    // limit was crossed.
+    #[test]
+    fn a_buffer_above_an_upper_limit_is_refused_naming_the_field() {
+        let crossed: [(f64, f64, f64, &str); 3] = [
+            (1000.5, 500.0, 0.0, "monovalent"),
+            (150.0, 10000.5, 0.0, "primer"),
+            (150.0, 500.0, 20.5, "dmso"),
+        ];
+        for (monovalent, primer, dmso, field) in crossed {
+            let error: DomainError = BufferModel::create(monovalent, primer, dmso).unwrap_err();
+            assert!(error.category() == ErrorCategory::MalformedInput);
+            match error {
+                DomainError::InvalidBufferModel(problem) => {
+                    assert_eq!(problem.field, field, "{}", problem.field);
+                }
+                other => panic!("expected InvalidBufferModel, got {:?}", other),
+            }
+        }
+    }
+
+    // The defect D043 closes: a finite but absurd concentration used to be
+    // accepted, and a verified document reported meaningless Tms and primers.
+    #[test]
+    fn an_absurd_primer_concentration_is_refused() {
+        let error: DomainError = BufferModel::create(150.0, 1e300, 0.0).unwrap_err();
+        assert!(error.category() == ErrorCategory::MalformedInput);
+        match error {
+            DomainError::InvalidBufferModel(problem) => {
+                assert_eq!(problem.field, "primer", "{}", problem.field);
+                assert!(
+                    problem.reason.contains("above 10000 nM"),
+                    "{}",
+                    problem.reason
+                );
+            }
+            other => panic!("expected InvalidBufferModel, got {:?}", other),
         }
     }
 

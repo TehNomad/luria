@@ -448,14 +448,27 @@ fn cases() -> Vec<(DomainError, &'static str)> {
             }),
             r#"{"sequence":"sequence-1","line":null}"#,
         ),
-        // UnusableGenBankLocation
+        // UnusableGenBankLocation, as a CDS feature's evaluation gives it
         (
             DomainError::UnusableGenBankLocation(UnusableGenBankLocationProblem {
                 location: "location-1".to_string(),
                 rule: GenBankLocationRule::Syntax,
                 sequence_length: 102,
+                cds: Some("g".to_string()),
+                line: Some(3),
             }),
-            r#"{"location":"location-1","sequenceLength":102}"#,
+            r#"{"location":"location-1","sequenceLength":102,"cds":"g","line":3}"#,
+        ),
+        // UnusableGenBankLocation read on its own, with no CDS to name
+        (
+            DomainError::UnusableGenBankLocation(UnusableGenBankLocationProblem {
+                location: "location-2".to_string(),
+                rule: GenBankLocationRule::FuzzyEnd,
+                sequence_length: 103,
+                cds: None,
+                line: None,
+            }),
+            r#"{"location":"location-2","sequenceLength":103,"cds":null,"line":null}"#,
         ),
         // MalformedGenBank
         (

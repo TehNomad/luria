@@ -858,11 +858,16 @@ pub struct GenBankView {
     pub unused_features: Vec<UnusedFeatureView>,
 }
 
-/// One imported CDS and where it came from (§3.2).
+/// One imported CDS, where it came from and where it sits (§3.2, C-12): the
+/// intervals keep D036's order as core gives them, exactly as `cds_view` writes
+/// a target's, so a `needs_clarification` document's candidates carry the
+/// locations a consumer needs to name them.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ImportedCdsView {
     pub id: String,
+    pub intervals: Vec<(u64, u64)>,
+    pub strand: &'static str,
     pub id_qualifier: &'static str,
     pub feature_index: usize,
     pub line: u64,
@@ -956,10 +961,16 @@ fn genbank_view(import: &GenBankImport) -> GenBankView {
     }
 }
 
-/// One imported CDS and where it came from (§3.2).
+/// One imported CDS and where it came from (§3.2, C-12).
 fn imported_cds_view(entry: &ImportedCds) -> ImportedCdsView {
+    let intervals: OrderedIntervals = entry.cds().intervals();
     ImportedCdsView {
         id: entry.cds().id().value().to_string(),
+        intervals: intervals
+            .iter()
+            .map(|interval| (interval.start(), interval.end()))
+            .collect(),
+        strand: strand_symbol(entry.cds().strand()),
         id_qualifier: entry.id_qualifier().name(),
         feature_index: entry.index(),
         line: entry.line(),
@@ -1962,6 +1973,20 @@ pub fn error_details(error: &DomainError) -> Details {
             (
                 "sequenceLength",
                 DetailValue::Count(problem.sequence_length),
+            ),
+            (
+                "cds",
+                match &problem.cds {
+                    Some(name) => DetailValue::Text(name.clone()),
+                    None => DetailValue::Absent,
+                },
+            ),
+            (
+                "line",
+                match problem.line {
+                    Some(found) => DetailValue::Count(found),
+                    None => DetailValue::Absent,
+                },
             ),
         ]),
         DomainError::MalformedGenBank(problem) => Details(vec![

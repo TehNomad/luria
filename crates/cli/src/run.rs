@@ -30,12 +30,15 @@
 //!   document must never claim a design it does not carry;
 //! - `--write-edited` writes the constructs core produced, once the document is
 //!   built (plan §3.2, G8): every edited construct is one FASTA file, an existing
-//!   file name is `output_exists` with nothing written and exit 4, and a result
-//!   name that holds a path separator is `output_name_unusable` the same way -
-//!   nothing is created, so a request cannot write outside the directory it named
+//!   path is never written through or replaced - a link included, a dangling
+//!   one included - and is `output_exists` with nothing written and exit 4,
+//!   and a result name that cannot be a file name (a path separator, one of
+//!   `:` `*` `?` `<` `>` `|`, or two names differing only in case) is
+//!   `output_name_unusable` the same way: nothing is created, so a request can
+//!   choose neither where luria writes nor a name a file system would refuse
 //!   (§4.1, D012); an I/O failure leaves the document as it is - the run still
-//!   succeeded - with exit 1 and the operating system's message as `note`, which
-//!   `main.rs` puts on stderr (plan §3.7).
+//!   succeeded - with exit 1 and the operating system's message as `note`,
+//!   which `main.rs` puts on stderr (plan §3.7).
 
 use crate::exit::ExitStatus;
 use crate::prepare::{prepare, Operation, PrepareFailure, Prepared, RequestFailure};
@@ -148,9 +151,24 @@ fn single_edit(
     // §3.2: core returns `Ok` only for a clarification or for a run whose edit
     // it verified, so here the mutation is present and the edit is verified;
     // `a_verified_run_is_verified_by_core` pins that rather than trusting it.
+    // A broken invariant is `Internal` with the document the run can still
+    // carry - state `verified` and no member - rather than a panic, so a broken
+    // core still gives JSON and exit 1 (plan §3.7).
     let target: Option<Cds> = execution.scope().target();
     let warnings: Vec<Q5EditWarning> = execution.warnings();
-    let mutation: MutationResult = execution.mutation().unwrap();
+    let mutation: MutationResult = match execution.mutation() {
+        Some(done) => done,
+        None => {
+            return (
+                Outcome {
+                    document: verified_document(prepared, target.as_ref(), vec![], vec![]),
+                    status: ExitStatus::Internal,
+                    note: Some("core verified the edit but gave no mutation result".to_string()),
+                },
+                artifacts,
+            )
+        }
+    };
     let member: MemberView = member_view(&name, &mutation, &warnings);
 
     let outcome: Outcome = match design_run(execution.clone(), prepared.design.clone()) {
@@ -324,10 +342,13 @@ fn write_outcome(
                 status: ExitStatus::MalformedInput,
                 note: None,
             },
-            // §4.1, §5.3: the result name cannot be a file name - it holds a
-            // path separator - so `directory` was never created and nothing was
-            // written: the same refusal as an existing file, with its own code,
-            // and naming the result name alone, never a directory (D012).
+            // §4.1 and the owner answer of 2026-10-18: the result name cannot
+            // be a file name at all - it holds a path separator, which would
+            // leave `directory`, or one of `:` `*` `?` `<` `>` `|`, which no
+            // portable file name may hold - so `directory` was never created
+            // and nothing was written: the same refusal as an existing file,
+            // with its own code, naming the result name alone, never a
+            // directory (D012).
             Err(WriteFailure::NotAFileName(name)) => Outcome {
                 document: failed_after(
                     prepared,
@@ -337,7 +358,33 @@ fn write_outcome(
                         category: category_name(ErrorCategory::MalformedInput),
                         message:
                             format!(
-                                "the result name '{}' cannot be a file name: it contains a path separator",
+                                "the result name '{}' cannot be a file name: it contains a path separator or one of : * ? < > |",
+                                name,
+                            ),
+                        path: None,
+                        details: Details(vec![("name", DetailValue::Text(name.clone()))]),
+                    },
+                ),
+                status: ExitStatus::MalformedInput,
+                note: None,
+            },
+            // §4.1 and the owner answer of 2026-10-18: two result names differ
+            // only in case, so their files would replace each other on a
+            // case-insensitive file system while the document reports both
+            // members. The later name is refused, before `directory` was
+            // created and before anything was written: the same refusal as an
+            // existing file, with its own code, naming the result name alone,
+            // never a directory (D012).
+            Err(WriteFailure::CaseClash(name)) => Outcome {
+                document: failed_after(
+                    prepared,
+                    ErrorView {
+                        code: RequestErrorCode::OutputNameUnusable.code(),
+                        rule: None,
+                        category: category_name(ErrorCategory::MalformedInput),
+                        message:
+                            format!(
+                                "the result name '{}' differs from an earlier one only in case, so their files would collide",
                                 name,
                             ),
                         path: None,

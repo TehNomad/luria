@@ -869,8 +869,12 @@ Sources:
   lower Tm primer", and the Q5 Site-Directed Mutagenesis Kit FAQ, "a Tm+3
   rule" — which D030 cited until 2026-10-18; the changelog indicates they
   describe the pre-2016 Tm. The planner could not open the calculator's page
-  itself (HTTP 403), so the quotation rests on the owner's reading. The
-  72 °C cap is the top of the Q5 SDM protocol's 50–72 °C annealing range.
+  itself (HTTP 403), so the quotation rests on the owner's reading.
+  NEBaseChanger's own SID-1 D404N result, captured in
+  `tests/fixtures/example-construct/raw/sdmsummary.txt`, shows the same rule
+  independently of the changelog: Tms of 74 and 70 °C and a Ta of 71 °C, the
+  lower Tm plus 1 (plus 3 would give 73). The 72 °C cap is the top of the Q5
+  SDM protocol's 50–72 °C annealing range.
 * G/C 3′ end and the 63 °C ceiling on G/C extension: owner, 2026-10-14, as
   general PCR practice.
 * Tm model: `crates/core/src/tm.rs` and `tests/fixtures/tm/README.md`.
@@ -1359,3 +1363,45 @@ Reversibility:
 
 Adding a dependency, a coordinate convention, a text output or another input
 format needs approval. So does relaxing any of the GenBank refusals.
+
+## D042: Every imported GenBank CDS starts with ATG
+
+Status: approved by the owner, 2026-10-18 (`docs/tasks/review-post-m5.md`
+A-9). Amends D041's `/transl_table` rule.
+
+Decision:
+
+* A CDS a request names from a GenBank record is imported only when its
+  first codon is `ATG`, whatever its `/transl_table` (absent, 1 or 11). Any
+  other first codon is refused as `alternative_start`, with the codon as the
+  detail.
+* Reason: luria translates codon 1 literally. A cell reads every start codon
+  as methionine, so a GTG, TTG or CTG start would give a wrong residue 1, and
+  a residue edit numbered against it would assert the wrong original. Table
+  11 was already limited to ATG starts (G5); tables absent and 1 now follow
+  the same rule.
+* FASTA CDSs declared in a request are unchanged.
+
+Reversibility:
+
+Accepting alternative starts needs approval and a rule for residue 1.
+
+## D043: Upper limits on the primer-design buffer
+
+Status: approved by the owner, 2026-10-18 (`docs/tasks/review-post-m5.md`
+C-4). Amends D041's buffer rule.
+
+Decision:
+
+* A buffer is refused (`invalid_buffer_model`) when its monovalent salt is
+  above 1000 mM, its primer concentration above 10000 nM (10 µM), or its
+  DMSO above 20 %. Each limit is inclusive. The existing lower limits stay:
+  salt and primer above zero, DMSO at least zero.
+* Reason: the Tm model accepted any finite positive value, so an absurd
+  buffer gave a verified result with meaningless Tms and primers. 1000 mM is
+  about the top of the Owczarzy salt correction's validated range; the other
+  two are well above any real PCR condition.
+
+Reversibility:
+
+Changing a limit changes which requests are accepted and needs approval.
