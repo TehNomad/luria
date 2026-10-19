@@ -50,12 +50,62 @@ fn luria(dir: &Path, request: &Value) -> (i32, String) {
     )
 }
 
+/// Run the executable with `--write-edited DIR` and return its exit code and
+/// stdout. `luria` passes only the request path, so this sibling adds the flag.
+fn luria_write_edited(dir: &Path, request: &Value, out: &Path) -> (i32, String) {
+    let path = dir.join("request.json");
+    fs::write(&path, request.to_string()).unwrap();
+    let output = Command::new(env!("CARGO_BIN_EXE_luria"))
+        .args([
+            "q5",
+            "design",
+            path.to_str().unwrap(),
+            "--write-edited",
+            out.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    (
+        output.status.code().unwrap(),
+        String::from_utf8(output.stdout).unwrap(),
+    )
+}
+
+/// Write one `tests/fixtures/mutation/` sequence as a FASTA file in the
+/// workspace. Its leading `;` lines are the fixture's own comment; the rest is
+/// the sequence text, read here rather than pasted into a test.
+fn write_fixture_sequence(dir: &Path, file: &str, reference: &str) {
+    let text: String =
+        fs::read_to_string(PathBuf::from("../../tests/fixtures/mutation").join(file)).unwrap();
+    let lines: Vec<&str> = text.lines().filter(|line| !line.starts_with(";")).collect();
+    let joined: String = lines.join("");
+    let body: &str = joined.trim();
+    fs::write(
+        dir.join(format!("{}.fa", reference)),
+        format!(">{}\n{}\n", reference, body),
+    )
+    .unwrap();
+}
+
+/// The sequence a written FASTA file holds: its header line dropped, and its
+/// remaining lines joined into one line.
+fn written_sequence(path: &Path) -> String {
+    let text: String = fs::read_to_string(path).unwrap();
+    let lines: Vec<&str> = text.lines().skip(1).collect();
+    lines.join("")
+}
+
 /// Run the executable and return the document of a run that must exit with
-/// `expected`.
+/// `expected`. D012: the same request run twice in the same workspace prints
+/// the same bytes, so a run whose output depended on anything outside its
+/// input fails here rather than in one test's comparison.
 fn document_at(test: &str, request: &Value, expected: i32) -> Value {
     let dir = workspace(test);
     let (code, text) = luria(&dir, request);
     assert_eq!(code, expected, "{}: {}", test, text);
+    let (again_code, again_text) = luria(&dir, request);
+    assert_eq!(again_code, expected, "{}: {}", test, again_text);
+    assert_eq!(text, again_text, "{} is not deterministic", test);
     serde_json::from_str(&text).unwrap()
 }
 
@@ -137,8 +187,9 @@ fn text(value: &Value) -> &str {
 }
 
 /// One `native.tsv` row, as this test reads it: the case, the bound, the
-/// forward and reverse spans, the reverse primer's length, and the forward,
-/// reverse and annealing temperatures at two decimals.
+/// forward and reverse spans, the reverse primer's length, the forward and
+/// reverse temperatures at two decimals, and the annealing temperature itself,
+/// which D030 defines as a whole number of degrees.
 type SubstitutionRow = (
     &'static str,
     u64,
@@ -147,7 +198,7 @@ type SubstitutionRow = (
     u64,
     &'static str,
     &'static str,
-    &'static str,
+    f64,
 );
 
 // native.tsv rows native-01, native-02 and native-03: the same edit at
@@ -164,7 +215,7 @@ fn the_native_substitution_rows_match_the_table() {
             19,
             "67.72",
             "62.90",
-            "64.00",
+            64.0,
         ),
         (
             "native-02",
@@ -174,7 +225,7 @@ fn the_native_substitution_rows_match_the_table() {
             24,
             "72.08",
             "71.19",
-            "72.00",
+            72.0,
         ),
         (
             "native-03",
@@ -184,7 +235,7 @@ fn the_native_substitution_rows_match_the_table() {
             25,
             "73.02",
             "71.66",
-            "72.00",
+            72.0,
         ),
     ];
     for (case, bound, forward, reverse, reverse_length, forward_tm, reverse_tm, annealing) in rows {
@@ -218,8 +269,8 @@ fn the_native_substitution_rows_match_the_table() {
             case
         );
         assert_eq!(
-            two(&view["annealingTemperature"]),
-            annealing,
+            view["annealingTemperature"].as_f64(),
+            Some(annealing),
             "{} annealing",
             case
         );
@@ -254,7 +305,7 @@ fn the_adjacent_change_row_falls_back_to_the_matched_basis() {
     assert_eq!(two(&view["forward"]["tm"]["celsius"]), "63.36");
     assert_eq!(text(&view["forward"]["tm"]["basis"]), "matched_complement");
     assert_eq!(two(&view["reverse"]["tm"]["celsius"]), "59.45");
-    assert_eq!(two(&view["annealingTemperature"]), "60.00");
+    assert_eq!(view["annealingTemperature"].as_f64(), Some(60.0));
     assert_eq!(view["tmBalanceMet"], true);
 }
 
@@ -276,7 +327,7 @@ fn the_deletion_row_matches_the_table() {
     assert_eq!(text(&view["reverse"]["sequence"]), "TTGCTCAACGAGCGGATTG");
     assert_eq!(two(&view["forward"]["tm"]["celsius"]), "67.61");
     assert_eq!(two(&view["reverse"]["tm"]["celsius"]), "65.77");
-    assert_eq!(two(&view["annealingTemperature"]), "67.00");
+    assert_eq!(view["annealingTemperature"].as_f64(), Some(67.0));
     assert_eq!(view["tmBalanceMet"], true);
     // A deletion carries no tail on either primer.
     assert_eq!(view["forward"]["tail"], Value::Null);
@@ -321,7 +372,7 @@ fn the_insertion_row_matches_the_table() {
     assert_eq!(two(&view["reverse"]["tm"]["celsius"]), "62.38");
     assert_eq!(two(&view["forward"]["wholePrimerTm"]["celsius"]), "67.15");
     assert_eq!(two(&view["reverse"]["wholePrimerTm"]["celsius"]), "62.38");
-    assert_eq!(two(&view["annealingTemperature"]), "63.00");
+    assert_eq!(view["annealingTemperature"].as_f64(), Some(63.0));
     assert_eq!(view["tmBalanceMet"], true);
     assert_eq!(
         document["results"][0]["mutation"]["edited"]["length"]
@@ -357,7 +408,7 @@ fn the_replacement_rows_match_the_table() {
         "mismatched_wild_type_site"
     );
     assert_eq!(two(&view["reverse"]["tm"]["celsius"]), "62.90");
-    assert_eq!(two(&view["annealingTemperature"]), "64.00");
+    assert_eq!(view["annealingTemperature"].as_f64(), Some(64.0));
 
     let tailed = document(
         "rep-15",
@@ -390,7 +441,7 @@ fn the_replacement_rows_match_the_table() {
     assert_eq!(two(&view["reverse"]["tm"]["celsius"]), "65.77");
     assert_eq!(two(&view["forward"]["wholePrimerTm"]["celsius"]), "76.65");
     assert_eq!(two(&view["reverse"]["wholePrimerTm"]["celsius"]), "69.32");
-    assert_eq!(two(&view["annealingTemperature"]), "67.00");
+    assert_eq!(view["annealingTemperature"].as_f64(), Some(67.0));
     assert_eq!(view["tmBalanceMet"], true);
 }
 
@@ -666,4 +717,175 @@ fn every_case_is_byte_identical_when_run_twice() {
         assert_eq!(first, second, "{} is not deterministic", case);
         assert!(!first.is_empty());
     }
+}
+
+// §6, C-3: the residue edits that `tests/fixtures/mutation/cases.tsv` rows
+// `res-a-minus-7` (a minus-strand CDS) and `res-c-origin` (a CDS that crosses
+// the sequence origin) record, run through the executable with `--write-edited`.
+// The sequence is the fixture's own text, and the expectations are those two
+// rows' `expected` column: its `edited:`, `codon:` and `coords:`. Neither a
+// 30-base nor a 24-base template takes a `luriaNative` pair, so each edit is
+// verified and the run exits 7 (G7).
+#[test]
+fn the_minus_strand_residue_case_matches_its_fixture_row() {
+    let dir = workspace("res-a-minus-7");
+    write_fixture_sequence(&dir, "mut-a.txt", "mut-a");
+    let out = dir.join("out");
+    let (code, printed) = luria_write_edited(
+        &dir,
+        &json!({
+            "schema": "luria.q5-request/1",
+            "coordinates": "zero-based-half-open",
+            "template": {
+                "id": "mut-a",
+                "fasta": "mut-a.fa",
+                "topology": "linear",
+                "cds": [{
+                    "id": "cds-2",
+                    "intervals": [[0, 30]],
+                    "strand": "-",
+                    "completeness": "complete",
+                    "geneticCode": "standard",
+                    "numbering": "from-cds-start"
+                }]
+            },
+            "scope": "cds-2",
+            "edit": {
+                "name": "mut-a-res-minus",
+                "residue": {
+                    "cds": "cds-2",
+                    "number": 7,
+                    "from": "I",
+                    "to": "L",
+                    "policy": "default"
+                }
+            },
+            "design": design()
+        }),
+        &out,
+    );
+    assert_eq!(code, 7, "{}: {}", "res-a-minus-7", printed);
+    let document: Value = serde_json::from_str(&printed).unwrap();
+    assert_eq!(document["state"], "verified", "res-a-minus-7 state");
+    let mutation = &document["results"][0]["mutation"];
+    assert_eq!(
+        text(&mutation["originalResidue"]),
+        "I",
+        "res-a-minus-7 original residue"
+    );
+    assert_eq!(
+        text(&mutation["writtenResidue"]),
+        "L",
+        "res-a-minus-7 written residue"
+    );
+    assert_eq!(
+        text(&mutation["writtenCodon"]),
+        "CTG",
+        "res-a-minus-7 written codon"
+    );
+    assert_eq!(
+        mutation["coordinates"],
+        json!([9, 10, 11]),
+        "res-a-minus-7 coords"
+    );
+    assert_eq!(
+        written_sequence(&out.join("mut-a-res-minus.fa")),
+        "ATGGCTTGGCAGCAGCAGCAGCAGCAGCAG",
+        "res-a-minus-7 edited construct"
+    );
+}
+
+#[test]
+fn the_origin_crossing_residue_case_matches_its_fixture_row() {
+    let dir = workspace("res-c-origin");
+    write_fixture_sequence(&dir, "mut-c.txt", "mut-c");
+    let out = dir.join("out");
+    let (code, printed) = luria_write_edited(
+        &dir,
+        &json!({
+            "schema": "luria.q5-request/1",
+            "coordinates": "zero-based-half-open",
+            "template": {
+                "id": "mut-c",
+                "fasta": "mut-c.fa",
+                "topology": "circular",
+                "cds": [{
+                    "id": "cds-1",
+                    "intervals": [[22, 24], [0, 7]],
+                    "strand": "+",
+                    "completeness": "complete",
+                    "geneticCode": "standard",
+                    "numbering": "from-cds-start"
+                }]
+            },
+            "scope": "cds-1",
+            "edit": {
+                "name": "mut-c-res-origin",
+                "residue": {
+                    "cds": "cds-1",
+                    "number": 1,
+                    "from": "W",
+                    "to": "L",
+                    "policy": "default"
+                }
+            },
+            "design": design()
+        }),
+        &out,
+    );
+    assert_eq!(code, 7, "{}: {}", "res-c-origin", printed);
+    let document: Value = serde_json::from_str(&printed).unwrap();
+    assert_eq!(document["state"], "verified", "res-c-origin state");
+    let mutation = &document["results"][0]["mutation"];
+    assert_eq!(
+        text(&mutation["writtenCodon"]),
+        "CTG",
+        "res-c-origin written codon"
+    );
+    // D040: the codon straddles the origin, and its coordinates are listed in
+    // feature interval order, not ascending.
+    assert_eq!(
+        mutation["coordinates"],
+        json!([22, 23, 0]),
+        "res-c-origin coords"
+    );
+    assert_eq!(
+        written_sequence(&out.join("mut-c-res-origin.fa")),
+        "GCTTGGAACGAACGAACGAACACT",
+        "res-c-origin edited construct"
+    );
+}
+
+// C-7: every pair above runs from the same directory and names the request by
+// the same absolute path, so a path leaking into the document would not have
+// failed them. These two runs differ in where the executable runs and in how
+// the request is named; D012 says the document is the same either way.
+#[test]
+fn the_output_does_not_depend_on_where_luria_runs() {
+    let spec = request(
+        "D404N",
+        json!({
+            "replacement": { "interval": [1209, 1212], "from": "GAT", "to": "AAC" }
+        }),
+        15,
+    );
+
+    // The absolute path, as `luria` gives it.
+    let absolute = workspace("where-absolute");
+    let (absolute_code, absolute_text) = luria(&absolute, &spec);
+
+    // The same workspace's request named by a relative path, with the
+    // executable run from inside that workspace.
+    let relative = workspace("where-relative");
+    fs::write(relative.join("request.json"), spec.to_string()).unwrap();
+    let output = Command::new(env!("CARGO_BIN_EXE_luria"))
+        .args(["q5", "design", "request.json"])
+        .current_dir(&relative)
+        .output()
+        .unwrap();
+    let printed: String = String::from_utf8(output.stdout).unwrap();
+
+    assert_eq!(absolute_code, 0, "{}: {}", "where-absolute", absolute_text);
+    assert_eq!(output.status.code(), Some(0), "{}", printed);
+    assert_eq!(printed, absolute_text, "the two runs print one document");
 }

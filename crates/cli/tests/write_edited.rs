@@ -93,6 +93,18 @@ fn digest_of(path: &Path) -> String {
     record.sequence().content_hash().hex_digest().to_string()
 }
 
+/// The digest the document reports for one member's edited construct, the
+/// `mutation.edited.sha256` of the run that wrote it.
+fn edited_sha256(member: &luria_cli::result::MemberView) -> String {
+    match &member.mutation {
+        luria_cli::result::MutationView::Substitution { edited, .. }
+        | luria_cli::result::MutationView::Residue { edited, .. }
+        | luria_cli::result::MutationView::Deletion { edited, .. }
+        | luria_cli::result::MutationView::Insertion { edited, .. }
+        | luria_cli::result::MutationView::Replacement { edited, .. } => edited.sha256.clone(),
+    }
+}
+
 /// Every entry of a directory, by file name, sorted.
 fn entries(dir: &Path) -> Vec<String> {
     let mut names: Vec<String> = fs::read_dir(dir)
@@ -186,6 +198,19 @@ fn a_variant_set_writes_one_file_per_member() {
     )
     .unwrap();
     assert_eq!(inserted.sequence().length(), 3156);
+    // C-13: the written file is checked against the document's own digest for
+    // that member, not only against its length: the deletion (results[1]) and
+    // the insertion (results[2]), in the request's order.
+    assert_eq!(
+        digest_of(&out.join("d1.fa")),
+        edited_sha256(&outcome.document.results[1]),
+        "d1.fa is the construct the document reports"
+    );
+    assert_eq!(
+        digest_of(&out.join("i1.fa")),
+        edited_sha256(&outcome.document.results[2]),
+        "i1.fa is the construct the document reports"
+    );
 }
 
 // G7 and plan §3.2: the edit was applied, so its construct is written even

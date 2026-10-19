@@ -1,6 +1,6 @@
 # Review M5 C-3, C-7, C-8, C-13: CLI test gaps
 
-Status: **Contract, 2026-10-18.** Planner: Claude. Parent:
+Status: **Implemented 2026-10-18** by the local worker; accepted after one round (the `pair_summary` amendment in §2.3). Planner: Claude. Parent:
 `docs/tasks/review-post-m5.md` C-3, C-7, C-8 and C-13. Requirements:
 `docs/tasks/milestone-5-cli.md` §6 (end-to-end cases against
 independently verified fixtures; each case run twice, byte-identical, D012),
@@ -113,6 +113,16 @@ report the document rather than changing the expectation.
   | 70.6 | 73.0 | 72.0 |
 
   Compare the second element of the returned pair with `==`.
+
+  **Amendment, 2026-10-18 (planner):** the worker reported that
+  `MeltingTemperature` has private fields and no constructor from a chosen
+  value. So this contract now allows one behavior-preserving production
+  change in `primer_design.rs`: `pair_summary` takes
+  `(forward_celsius: f64, reverse_celsius: f64)` instead of two
+  `&MeltingTemperature`, with the same body on those values. Its two call
+  sites pass `forward_tm.celsius()` and `reverse_tm.celsius()`. Its doc
+  comment is unchanged apart from naming the parameters. No other production
+  change is allowed.
 
 ### 2.4 C-13: written file against the document
 
