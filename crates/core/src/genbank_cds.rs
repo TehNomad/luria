@@ -871,4 +871,78 @@ mod tests {
         assert_eq!(problem.cds, Some("g".to_string()));
         assert_eq!(problem.line, Some(3));
     }
+
+    #[test]
+    fn a_repeated_id_qualifier_is_refused_by_its_own_name() {
+        let found = record(&[key("CDS", "1..12"), q("/gene=\"g\""), q("/gene=\"g\"")]);
+        let problem = cds_problem(import_cds(&found, &names(&["g"])).unwrap_err());
+        assert_eq!(problem.rule, GenBankCdsRule::RepeatedQualifier);
+        assert_eq!(problem.detail, Some("gene".to_string()));
+        assert_eq!(problem.line, Some(3));
+    }
+
+    #[test]
+    fn a_repeated_transl_table_is_refused_by_its_name() {
+        let found = record(&[
+            key("CDS", "1..12"),
+            q("/gene=\"g\""),
+            q("/transl_table=1"),
+            q("/transl_table=1"),
+        ]);
+        let problem = cds_problem(import_cds(&found, &names(&["g"])).unwrap_err());
+        assert_eq!(problem.rule, GenBankCdsRule::RepeatedQualifier);
+        assert_eq!(problem.detail, Some("transl_table".to_string()));
+    }
+
+    #[test]
+    fn a_repeated_translation_is_refused_before_it_is_read() {
+        let found = record(&[
+            key("CDS", "1..12"),
+            q("/gene=\"g\""),
+            q("/translation=\"MAW\""),
+            q("/translation=\"MAW\""),
+        ]);
+        let problem = cds_problem(import_cds(&found, &names(&["g"])).unwrap_err());
+        assert_eq!(problem.rule, GenBankCdsRule::RepeatedQualifier);
+        assert_eq!(problem.detail, Some("translation".to_string()));
+    }
+
+    #[test]
+    fn the_repeated_qualifier_check_follows_its_own_order_not_the_files() {
+        let found = record(&[
+            key("CDS", "1..12"),
+            q("/gene=\"g\""),
+            q("/translation=\"MAW\""),
+            q("/translation=\"MAW\""),
+            q("/codon_start=1"),
+            q("/codon_start=1"),
+        ]);
+        let problem = cds_problem(import_cds(&found, &names(&["g"])).unwrap_err());
+        assert_eq!(problem.rule, GenBankCdsRule::RepeatedQualifier);
+        assert_eq!(problem.detail, Some("codon_start".to_string()));
+    }
+
+    #[test]
+    fn the_id_qualifier_is_checked_first_whatever_the_file_order() {
+        let found = record(&[
+            key("CDS", "1..12"),
+            q("/gene=\"g\""),
+            q("/codon_start=1"),
+            q("/codon_start=1"),
+            q("/gene=\"g\""),
+        ]);
+        let problem = cds_problem(import_cds(&found, &names(&["g"])).unwrap_err());
+        assert_eq!(problem.rule, GenBankCdsRule::RepeatedQualifier);
+        assert_eq!(problem.detail, Some("gene".to_string()));
+    }
+
+    #[test]
+    fn an_empty_id_value_is_refused_as_an_empty_identifier() {
+        let found = record(&[key("CDS", "1..12"), q("/gene=\"\"")]);
+        let imported = import_cds(&found, &names(&[])).unwrap();
+        assert_eq!(imported.cds().len(), 0);
+        assert_eq!(imported.unused().len(), 1);
+        let refusal: Option<DomainError> = imported.unused()[0].refusal();
+        assert_eq!(refusal.unwrap().code(), "empty_identifier");
+    }
 }

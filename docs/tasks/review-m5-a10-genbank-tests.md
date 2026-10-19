@@ -1,6 +1,6 @@
 # Review M5 A-8, A-10: GenBank test gaps
 
-Status: **Contract, 2026-10-18.** Planner: Claude. Parent:
+Status: **Implemented 2026-10-18** by the local worker; accepted on planner review. Planner: Claude. Parent:
 `docs/tasks/review-post-m5.md` A-8 and A-10. Test-only: no production code
 changes.
 

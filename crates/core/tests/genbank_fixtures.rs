@@ -22,6 +22,7 @@ use luria_core::cds::Numbering;
 use luria_core::error::DomainError;
 use luria_core::error::GenBankCdsRule;
 use luria_core::error::GenBankLocationRule;
+use luria_core::extraction::extract_cds;
 use luria_core::genbank::read_genbank;
 use luria_core::genbank::GenBankFeature;
 use luria_core::genbank::GenBankRecord;
@@ -124,16 +125,29 @@ fn synthetic() -> GenBankRecord {
 /// The id text of a feature under D041 G2: the first of `/locus_tag`, `/gene`
 /// and `/label` that appears among the qualifiers, in that priority order, and
 /// the value of its first occurrence. `-` is what the fixture tables write for
-/// a feature that has none.
+/// a feature that has none. A first occurrence with no value means no id:
+/// the search stops at the first qualifier of the three that appears, as
+/// luria's `id_of` does, and does not fall through to the next name.
 fn fixture_id(feature: GenBankFeature) -> String {
     for wanted in ["locus_tag", "gene", "label"] {
         for qualifier in feature.qualifiers().iter() {
             if qualifier.name() == wanted {
                 match qualifier.value() {
-                    None => {}
+                    None => return "-".to_string(),
                     Some(value) => return value,
                 }
             }
+        }
+    }
+    "-".to_string()
+}
+
+/// The value of the first occurrence of the qualifier `/name`, or `-` as the
+/// fixture tables write it when the qualifier is absent or carries no value.
+fn first_qualifier(feature: GenBankFeature, name: String) -> String {
+    for qualifier in feature.qualifiers().iter() {
+        if qualifier.name() == name {
+            return or_dash(qualifier.value());
         }
     }
     "-".to_string()
@@ -374,6 +388,10 @@ fn pbr322_reads_as_biopython_reads_it() {
     }
 }
 
+// Row 26 (the ROP CDS) is a row of `pbr322-cds.tsv` this test does not
+// compare: luria refuses that feature at §4.2 step 1 (`NoId`), so it has no
+// imported CDS of its own. The row's `start_codon` (GTG) and `translation_matches`
+// (no) are Biopython's facts about the record with no luria counterpart.
 #[test]
 fn pbr322_imports_tet_and_bla_as_biopython_reads_them() {
     let record: GenBankRecord = pbr322();
@@ -461,6 +479,45 @@ fn pbr322_imports_tet_and_bla_as_biopython_reads_them() {
             count,
             row[9]
         );
+        let feature: GenBankFeature = record.features()[imported.index()].clone();
+        let codon_start: String = first_qualifier(feature.clone(), "codon_start".to_string());
+        assert!(
+            codon_start == row[6],
+            "{}: the CDS {} reads /codon_start {}, the fixture records {}",
+            "pbr322-cds.tsv",
+            name,
+            codon_start,
+            row[6]
+        );
+        let coding: String = extract_cds(&record.sequence(), &imported.cds())
+            .unwrap_or_else(|error| panic!("cannot extract the CDS: {:?}", error));
+        let start: String = coding.chars().take(3).collect();
+        assert!(
+            start == row[8],
+            "{}: the CDS {} starts its coding text with {}, the fixture records {}",
+            "pbr322-cds.tsv",
+            name,
+            start,
+            row[8]
+        );
+        assert!(
+            row[10] == "yes",
+            "{}: the imported CDS {} has translation_matches {}, the only value an imported CDS can have is yes",
+            "pbr322-cds.tsv",
+            name,
+            row[10]
+        );
+        let states_translation: bool = feature
+            .qualifiers()
+            .iter()
+            .any(|each| each.name() == "translation");
+        assert!(
+            states_translation,
+            "{}: the CDS {} is imported with translation_matches {}; its record feature states no /translation",
+            "pbr322-cds.tsv",
+            name,
+            row[10]
+        );
     }
 }
 
@@ -508,6 +565,50 @@ fn pbr322_lists_every_other_feature_as_unused() {
         if feature.key() != "CDS" {
             assert!(feature.id().is_none() && feature.refusal().is_none(), "the unused non-CDS {:?} at index {} gives id {:?} and refusal {:?}, expected neither", feature.key(), feature.index(), feature.id(), feature.refusal());
         }
+    }
+    for row_item in feature_rows.iter().enumerate() {
+        let position: usize = row_item.0;
+        let row: Vec<String> = row_item.1.clone();
+        if imported.contains(&position) {
+            let imported_cds = import
+                .cds()
+                .iter()
+                .find(|each| each.index() == position)
+                .unwrap()
+                .clone();
+            assert!(
+                imported_cds.cds().id().value() == row[2]
+                    && imported_cds.id_qualifier().name() == row[3],
+                "{}: the imported feature at index {} has id {} from {}, the fixture records id {} from {}",
+                "pbr322-features.tsv",
+                position,
+                imported_cds.cds().id().value(),
+                imported_cds.id_qualifier().name(),
+                row[2],
+                row[3]
+            );
+            continue;
+        }
+        let unused_feature = unused
+            .iter()
+            .find(|each| each.index() == position)
+            .unwrap()
+            .clone();
+        assert!(
+            or_dash(unused_feature.id()) == row[2],
+            "{}: the unused feature at index {} has id {}, the fixture records {}",
+            "pbr322-features.tsv",
+            position,
+            or_dash(unused_feature.id()),
+            row[2]
+        );
+        assert!(
+            row[3] == "-",
+            "{}: the unused feature at index {} gives no id qualifier, the fixture records id_source {:?}",
+            "pbr322-features.tsv",
+            position,
+            row[3]
+        );
     }
     let found_rop: Vec<UnusedFeature> = unused
         .iter()
