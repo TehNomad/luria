@@ -190,6 +190,22 @@ the evidence:
      letter), the three-letter code, or the full English residue name, the
      last two case-insensitively, each bounded by non-letters.
 
+**Tightenings** (planner, 2026-10-19, while writing 6e1; each fails closed,
+so a looser reading can only ask, never propose more):
+- **Order.** The original residue must be named before the target in the
+  quote. Without it, "glycine 42 to alanine" reported as `A42G` would pass
+  every visibility check, and because synA's residue 42 really is alanine,
+  core's expected-residue check would pass too: luria would make the
+  opposite edit. Both visible but not in that order is the question
+  `substitution_direction_unclear`.
+- **One-letter codes** count only as an upper-case letter with no letter on
+  either side **and a digit immediately before or after it** (`A42G`,
+  `W87`), so the article "A" and the pronoun "I" are not evidence.
+- **"his", "met", "pro"** in all lower case are English words, not
+  three-letter codes; `His`, `HIS`, `Met` and so on still count.
+- **Empty strings.** A grounded string must be non-empty: an empty `cds`,
+  quote, codon, numbering or unsupported entry is `ungrounded_extraction`.
+
 A quote that occurs in the text but does not show one of the three is not
 treated as fabrication, because the user may simply not have said it.
 Luria asks instead, naming what is missing: `residue_number_unstated`,
