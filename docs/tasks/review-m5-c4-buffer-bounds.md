@@ -1,6 +1,6 @@
 # Review M5 C-4: upper limits on the buffer model (D043)
 
-Status: **Contract, 2026-10-18.** Planner: Claude. Parent:
+Status: **Implemented 2026-10-18** by the local worker; accepted on planner review. Planner: Claude. Parent:
 `docs/tasks/review-post-m5.md` C-4. Owner answer, 2026-10-18: "Na+ ≤ 1000
 mM, primer ≤ 10 µM, DMSO ≤ 20 %". Recorded by this contract as D043.
 

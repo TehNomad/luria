@@ -132,7 +132,7 @@ definition (D030).
       {
         "role": "tm",
         "name": "nn-santalucia-hicks-2004-owczarzy-2004-monovalent",
-        "version": "0.2.0"
+        "version": "0.3.0"
       },
       {
         "role": "native_design",
@@ -444,7 +444,7 @@ definition (D030).
     {
       "role": "tm",
       "name": "nn-santalucia-hicks-2004-owczarzy-2004-monovalent",
-      "version": "0.2.0"
+      "version": "0.3.0"
     },
     {
       "role": "native_design",
