@@ -1,6 +1,6 @@
 # Milestone 6g1: the OpenAI-compatible backend, over plain HTTP
 
-Status: **Waiting on 6f, 2026-10-19.** Start only when 6f is committed.
+Status: **Ready for the worker, 2026-10-19** (6f is committed).
 Planner: Claude. Parent: `docs/tasks/milestone-6-nl.md` §3 ("Cloud use is
 explicit"), §5.6, M6-1, M6-2, M6-17, M6-18, §6 (6g1).
 

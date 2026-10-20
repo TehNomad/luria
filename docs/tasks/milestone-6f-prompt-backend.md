@@ -1,6 +1,8 @@
 # Milestone 6f: the prompt and the backend interface
 
-Status: **Ready for the worker, 2026-10-19.**
+Status: **Implemented 2026-10-19** by the local worker; accepted on the first
+review. Both constants were also checked against the note with a second,
+line-based extractor.
 Planner: Claude. Parent: `docs/tasks/milestone-6-nl.md` §3 ("What leaves
 the machine"), §5.6, M6-4, M6-17, M6-18, §6 (6f); research note
 `docs/research/m6-local-model-extraction-2026-10-19.md`.

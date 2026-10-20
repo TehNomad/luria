@@ -4,4 +4,6 @@
 //! it stops at what the model said. `luria-cli` grounds that against the
 //! user's own text and builds the typed request (milestone 6 plan §3).
 
+pub mod backend;
 pub mod extraction;
+pub mod prompt;
