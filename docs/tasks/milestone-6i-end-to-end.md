@@ -1,6 +1,7 @@
 # Milestone 6i: the corpus end to end
 
-Status: **Ready for the worker, 2026-10-19** (6h1 is committed).
+Status: **Implemented 2026-10-19** by the local worker; accepted on the first
+review.
 Planner: Claude. Parent: `docs/tasks/milestone-6-nl.md` §1 ("The milestone
 succeeds when..."), §8, §6 (6i); the product brief's "Definition of
 success": *natural language can produce the same typed operation and
