@@ -731,6 +731,7 @@ an existing file.
 | `substitution_direction_unclear` | Your words do not name the residue there now, then the number, then the residue to put there. |
 | `mutation_quote_ambiguous` | The words given for one substitution hold more than one number. |
 | `codon_unstated` | No codon in the text and no codon policy in the profile. |
+| `codon_not_in_quote` | A codon is in the text, but not in the words given for its substitution. |
 | `cds_unnamed` | The text names no CDS. luria never picks one, even when the record has one. |
 | `cds_not_found` | The record has no CDS of that name (matched exactly). |
 | `cds_unusable` | The record has it, but luria refuses to import it; the message gives core's code. |

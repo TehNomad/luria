@@ -79,6 +79,7 @@ pub enum QuestionCode {
     SubstitutionDirectionUnclear,
     MutationQuoteAmbiguous,
     CodonUnstated,
+    CodonNotInQuote,
     CdsUnnamed,
     CdsNotFound,
     CdsUnusable,
@@ -103,6 +104,7 @@ impl QuestionCode {
             QuestionCode::SubstitutionDirectionUnclear => "substitution_direction_unclear",
             QuestionCode::MutationQuoteAmbiguous => "mutation_quote_ambiguous",
             QuestionCode::CodonUnstated => "codon_unstated",
+            QuestionCode::CodonNotInQuote => "codon_not_in_quote",
             QuestionCode::CdsUnnamed => "cds_unnamed",
             QuestionCode::CdsNotFound => "cds_not_found",
             QuestionCode::CdsUnusable => "cds_unusable",
@@ -199,14 +201,44 @@ fn stated_in(text: &str, value: &str) -> bool {
     !value.trim().is_empty() && text.contains(value)
 }
 
-/// Whether the text states a codon: like `stated_in`, and the one string
-/// step 1 compares ASCII-case-insensitively, since a user writes a codon
-/// either way (§3.4 step 1).
+/// Whether the text states a codon at all (§3.4 step 1): like `stated_in`,
+/// and the one string step 1 compares ASCII-case-insensitively, since a user
+/// writes a codon either way. Which substitution a codon belongs to is not
+/// step 1's to judge: step 3b checks the quote with `codon_in_quote` (D045).
 fn stated_codon_in(text: &str, codon: &str) -> bool {
     !codon.trim().is_empty()
         && text
             .to_ascii_lowercase()
             .contains(&codon.to_ascii_lowercase())
+}
+
+/// Whether `quote` holds `codon` as a whole word (D045): its chars, ASCII
+/// case-insensitively, at some position with no ASCII letter just before or
+/// just after. A blank codon is never held.
+fn codon_in_quote(quote: &str, codon: &str) -> bool {
+    if codon.trim().is_empty() {
+        return false;
+    }
+    let chars: Vec<char> = quote.chars().map(|c| c.to_ascii_lowercase()).collect();
+    let wanted: Vec<char> = codon.chars().map(|c| c.to_ascii_lowercase()).collect();
+    if wanted.is_empty() || wanted.len() > chars.len() {
+        return false;
+    }
+    // A letter on either side would make `codon` part of a longer word.
+    let letter = |c: char| -> bool { c.is_ascii_alphabetic() };
+    let mut at: usize = 0;
+    while at + wanted.len() <= chars.len() {
+        if chars[at..at + wanted.len()] == wanted[..] {
+            let end: usize = at + wanted.len();
+            let before: bool = at == 0 || !letter(chars[at - 1]);
+            let after: bool = end == chars.len() || !letter(chars[end]);
+            if before && after {
+                return true;
+            }
+        }
+        at += 1;
+    }
+    false
 }
 
 /// Whether the text names the CDS `name` as a whole name (D045): `name` is
@@ -523,6 +555,22 @@ fn read_mutation(
                         message: format!(
                             "\"{}\" does not name the original residue, then the number, then the target",
                             quote.clone(),
+                        ),
+                    });
+                }
+            }
+            // D045 (B-7): step 1 grounded this codon in the text, but the
+            // words given for this substitution must hold it too, or it
+            // could be another substitution's codon.
+            if let Some(stated) = codon.clone() {
+                if !codon_in_quote(&quote, &stated) {
+                    asked.push(Question {
+                        code: QuestionCode::CodonNotInQuote,
+                        subject: token.clone(),
+                        message: format!(
+                            "\"{}\" does not hold the codon {}, so luria cannot tell it is meant for this substitution",
+                            quote.clone(),
+                            stated.clone(),
                         ),
                     });
                 }
@@ -1189,7 +1237,7 @@ mod tests {
             text,
             &reply(&format!(
                 r#"{{"operation":"q5_residue_substitutions","cds":"synA",
-                "mutations":[{{"token":"A42G","quote":"A42 to glycine","codon":"ggc"}}],{}}}"#,
+                "mutations":[{{"token":"A42G","quote":"A42 to glycine using codon ggc","codon":"ggc"}}],{}}}"#,
                 NONE
             )),
             &syna(),
@@ -1583,7 +1631,7 @@ mod tests {
 
     #[test]
     fn every_question_code_is_pinned() {
-        let codes: [(QuestionCode, &str); 17] = [
+        let codes: [(QuestionCode, &str); 18] = [
             (QuestionCode::OperationUnsupported, "operation_unsupported"),
             (QuestionCode::MutationUnstated, "mutation_unstated"),
             (
@@ -1611,6 +1659,7 @@ mod tests {
                 "mutation_quote_ambiguous",
             ),
             (QuestionCode::CodonUnstated, "codon_unstated"),
+            (QuestionCode::CodonNotInQuote, "codon_not_in_quote"),
             (QuestionCode::CdsUnnamed, "cds_unnamed"),
             (QuestionCode::CdsNotFound, "cds_not_found"),
             (QuestionCode::CdsUnusable, "cds_unusable"),
@@ -1764,6 +1813,121 @@ mod tests {
                 "{}",
                 text,
             );
+        }
+    }
+
+    // D045 (B-7): a codon belongs to the words of its own substitution. The
+    // text holds it, but those words do not, so luria cannot tell which
+    // substitution it is for and asks.
+    #[test]
+    fn a_codon_outside_its_quote_is_asked_about() {
+        let text: &str =
+            "In synA, change W87 to alanine using the codon GCG. Numbering from the CDS start.";
+        let built: Built = build(
+            text,
+            &reply(
+                r#"{"operation":"q5_residue_substitutions","cds":"synA",
+                "mutations":[{"token":"W87A","quote":"W87 to alanine","codon":"GCG"}],
+                "composition":null,"numbering":"Numbering from the CDS start","unsupported":[]}"#,
+            ),
+            &syna(),
+            Some(&profile(false, true)),
+            &facts(),
+        );
+        assert_eq!(
+            asked(&built),
+            vec![("codon_not_in_quote", "W87A".to_string())]
+        );
+        assert_eq!(
+            messages(&built),
+            vec![
+                "\"W87 to alanine\" does not hold the codon GCG, so luria cannot tell it is meant for this substitution"
+                    .to_string()
+            ]
+        );
+    }
+
+    // D045 (B-7): inside a longer word, `ggcx` does not state the codon `ggc`.
+    #[test]
+    fn a_codon_inside_a_word_is_not_a_codon() {
+        let text: &str = "In synA, change A42 to glycine with ggcx. Numbering from the CDS start.";
+        let built: Built = build(
+            text,
+            &reply(
+                r#"{"operation":"q5_residue_substitutions","cds":"synA",
+                "mutations":[{"token":"A42G","quote":"A42 to glycine with ggcx","codon":"GGC"}],
+                "composition":null,"numbering":"Numbering from the CDS start","unsupported":[]}"#,
+            ),
+            &syna(),
+            Some(&profile(false, true)),
+            &facts(),
+        );
+        assert_eq!(
+            asked(&built),
+            vec![("codon_not_in_quote", "A42G".to_string())]
+        );
+    }
+
+    // D045 (B-7): the model gave each of two substitutions the other's codon.
+    // Both codons are in the text, so grounding passes; each is asked about
+    // because it is not in the words of its own mutation.
+    #[test]
+    fn codons_swapped_between_mutations_are_asked_about() {
+        let text: &str =
+            "In synA, make A42G with GGC and W87G with GGT as separate variants. Numbering from the CDS start.";
+        let built: Built = build(
+            text,
+            &reply(
+                r#"{"operation":"q5_residue_substitutions","cds":"synA",
+                "mutations":[{"token":"A42G","quote":"A42G with GGC","codon":"GGT"},
+                {"token":"W87G","quote":"W87G with GGT","codon":"GGC"}],
+                "composition":"separate_variants","numbering":"Numbering from the CDS start","unsupported":[]}"#,
+            ),
+            &syna(),
+            Some(&profile(false, true)),
+            &facts(),
+        );
+        assert_eq!(
+            asked(&built),
+            vec![
+                ("codon_not_in_quote", "A42G".to_string()),
+                ("codon_not_in_quote", "W87G".to_string())
+            ]
+        );
+    }
+
+    #[test]
+    fn a_codon_in_its_quote_is_used() {
+        let text: &str =
+            "In synA, change W87 to alanine using the codon GCG. Numbering from the CDS start.";
+        let built: Built = build(
+            text,
+            &reply(
+                r#"{"operation":"q5_residue_substitutions","cds":"synA",
+                "mutations":[{"token":"W87A","quote":"W87 to alanine using the codon GCG","codon":"gcg"}],
+                "composition":null,"numbering":"Numbering from the CDS start","unsupported":[]}"#,
+            ),
+            &syna(),
+            Some(&profile(false, true)),
+            &facts(),
+        );
+        match built {
+            Built::Proposed { request, .. } => {
+                assert_eq!(
+                    request.operation,
+                    OperationSpec::Edit(MemberSpec {
+                        name: "W87A".to_string(),
+                        edit: EditSpec::Residue {
+                            cds: Some("synA".to_string()),
+                            number: 87,
+                            from: "W".to_string(),
+                            to: "A".to_string(),
+                            codon: CodonSpec::Supplied("GCG".to_string()),
+                        },
+                    })
+                );
+            }
+            other => panic!("expected a proposal, got {:?}", other),
         }
     }
 }

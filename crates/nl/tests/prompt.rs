@@ -1,5 +1,5 @@
 //! The shipped prompt is the measured one: `SYSTEM_PROMPT`,
-//! `EXTRACTION_SCHEMA` and the user message's layout against prompt v2 of
+//! `EXTRACTION_SCHEMA` and the user message's layout against prompt v3 of
 //! `docs/research/m6-local-model-extraction-2026-10-19.md`, and the schema
 //! against the extraction parser.
 
@@ -14,18 +14,18 @@ use serde_json::Value;
 const NOTE: &str = "../../docs/research/m6-local-model-extraction-2026-10-19.md";
 const NL: &str = "../../tests/fixtures/nl/";
 
-/// The fenced block that follows `label` in the note's "Prompt v2" section,
+/// The fenced block that follows `label` in the note's "Prompt v3" section,
 /// without its fences.
 fn block(label: &str) -> String {
     let note: String = std::fs::read_to_string(NOTE).expect("the research note is readable");
     let section: &str = note
-        .split("## Prompt v2")
+        .split("## Prompt v3")
         .nth(1)
-        .expect("the note has a Prompt v2 section");
+        .expect("the note has a Prompt v3 section");
     let after: &str = section
         .split(label)
         .nth(1)
-        .unwrap_or_else(|| panic!("no {:?} in Prompt v2", label));
+        .unwrap_or_else(|| panic!("no {:?} in Prompt v3", label));
     let fenced: &str = after.split("```").nth(1).expect("a fenced block follows");
     let body: &str = fenced.split_once('\n').expect("the fence line ends").1;
     body.strip_suffix('\n').unwrap_or(body).to_string()

@@ -252,3 +252,135 @@ All against `synthetic-linear.gb`.
 | `lower-cds` | in syna change a42g, numbering from the cds start | `full.json` | ask |
 | `insertion` | Insert a glycine after residue 42 of synA, numbering from the CDS start. | `full.json` | ask |
 | `each-own` | For synA (numbered from the CDS start), make A42G and W87A, each on its own. | `full.json` | propose A42G, W87A (separate_variants) |
+
+## Prompt v3
+
+Post-M6 review, 2026-10-20 (D045). One line of v2 changes, the quote's: it must state one
+substitution only, and include a codon the user names, because luria now asks when a quote
+holds more than one number or misses its codon. The schema and the user message are unchanged.
+
+System message:
+
+```
+You read one molecular-biology request and report what it asks for, as JSON. You do no biology yourself. Copy the user's words; never invent a value.
+
+Fields:
+- operation: "q5_residue_substitutions" if the user asks to change amino-acid residues of a protein-coding sequence into other amino acids; otherwise "other". Asking to design primers (Q5, SDM, site-directed mutagenesis) for those substitutions is part of this operation, never unsupported.
+- cds: the name of the coding sequence or gene exactly as the user wrote it, or null if the user named none. Never choose one from the CDS list yourself.
+- mutations: one object per amino-acid substitution the user asks for:
+  - token: original one-letter amino acid, residue number, new one-letter amino acid, e.g. "S12T". Use exactly the number the user wrote. If the user does not state the original residue, the number or the new residue, write "?" in that place only, e.g. "S?T" when no number is given. Never take a number or residue from these examples.
+  - quote: the exact words of the user's text that state this substitution and no other, copied character for character. If the user names a codon for it, the quote includes the codon.
+  - codon: a DNA codon the user names for this substitution, copied exactly, or null.
+- composition: "separate_variants" if the user wants the substitutions as separate, independent variants; "combined_construct" if they want them together in one construct; null if they did not say.
+- numbering: the user's exact words about how residues are numbered, or null if they said nothing about it.
+- unsupported: exact quotes of anything else the user asks for that these fields cannot hold, such as deletions, insertions, stop codons, DNA changes, tags or questions. An empty list if there is none.
+
+Every string except token must be copied verbatim from the user's text. Do not use the CDS list to fill in anything the user did not say. Reply with the JSON object only.
+```
+
+User message (catalogue, then the text):
+
+```
+CDS features in the template:
+- synA (gene synA; product synthetic protein A; 100 residues; + strand; usable)
+
+Request:
+<the user text>
+```
+
+`response_format.json_schema.schema`:
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "operation",
+    "cds",
+    "mutations",
+    "composition",
+    "numbering",
+    "unsupported"
+  ],
+  "properties": {
+    "operation": {
+      "type": "string",
+      "enum": [
+        "q5_residue_substitutions",
+        "other"
+      ]
+    },
+    "cds": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "mutations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "token",
+          "quote",
+          "codon"
+        ],
+        "properties": {
+          "token": {
+            "type": "string"
+          },
+          "quote": {
+            "type": "string"
+          },
+          "codon": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "composition": {
+      "enum": [
+        "separate_variants",
+        "combined_construct",
+        null
+      ]
+    },
+    "numbering": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "unsupported": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
+```
+
+Measured: see "Prompt v3 results" below.
+
+### Prompt v3 results
+
+Planner, 2026-10-20, after D045's rules and the v3 prompt were in the code:
+the same model, server and endpoint as v2 (`qwen3.8-flash-next-coder-iq1_m`
+at `http://127.0.0.1:8080/v1`), with the schema, through the shipped
+`OpenAiCompatible` and `interpret`, single runs.
+
+| Set | Result |
+| --- | --- |
+| Corpus (24), `live_corpus_report` | 18 end as the scripted replies do; the other 6 are the expected ones (`notation-deletion` asks `operation_unsupported`; `number-not-bounded` proposes A420G, the text's own number; `ungrounded-*` and `reply-*` propose A42G, correctly). By this note's yardstick: 23 correct, 1 correct-ish. |
+| Stress (14), planner scratch harness | 14 correct: every proposal the right one, every question where one is due. |
+
+No outcome was UNSAFE, and no D045 rule turned a correct proposal into a
+question. The changed line had its effect: in `codon-stated` and
+`lower-codon` the model put the codon inside the quote ("change W87 to
+alanine using the codon GCG."), so both are proposed. The corpus run took
+402 s.

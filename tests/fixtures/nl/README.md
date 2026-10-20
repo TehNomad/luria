@@ -87,7 +87,8 @@ three-letter form of the same edit, giving the same request
 (`three-letter`); the product brief's own two-variant example
 (`two-separate`); a combined construct, proposed faithfully so that core,
 not the adapter, refuses it (`two-combined`, M6-16); and a codon named in
-the text, so the profile needs none (`codon-stated`).
+the text, so the profile needs none (`codon-stated`). Its reply quotes the
+codon with its substitution, as D045 requires.
 
 **Needs clarification (15).** Everything the adapter must ask about rather
 than guess: an unstated composition; a CDS unnamed, not found, or unusable;

@@ -1,7 +1,8 @@
 # Review M6 B-7: a codon belongs to its own quote; prompt v3 (D045)
 
-Status: **Ready for the worker** (after `review-m6-b5-composition.md` is
-committed). Planner: Claude. Parent: `docs/tasks/review-post-m6.md` B-7.
+Status: **Implemented 2026-10-20** by the local worker; accepted on planner
+review. Prompt v3 measured live by the planner (research note, "Prompt v3
+results"). Planner: Claude. Parent: `docs/tasks/review-post-m6.md` B-7.
 Owner answer, 2026-10-20: "In its own quote, whole word", with the prompt
 bump and the `codon-stated` reply change approved.
 

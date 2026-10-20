@@ -69,6 +69,7 @@ fn the_question_table_lists_every_code_build_can_ask() {
         QuestionCode::SubstitutionDirectionUnclear,
         QuestionCode::MutationQuoteAmbiguous,
         QuestionCode::CodonUnstated,
+        QuestionCode::CodonNotInQuote,
         QuestionCode::CdsUnnamed,
         QuestionCode::CdsNotFound,
         QuestionCode::CdsUnusable,

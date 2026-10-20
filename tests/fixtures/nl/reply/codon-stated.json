@@ -4,7 +4,7 @@
   "mutations": [
     {
       "token": "W87A",
-      "quote": "W87 to alanine",
+      "quote": "W87 to alanine using the codon GCG",
       "codon": "GCG"
     }
   ],

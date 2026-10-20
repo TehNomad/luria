@@ -1,7 +1,10 @@
-//! The exact messages luria sends a model: prompt v2 of
-//! `docs/research/m6-local-model-extraction-2026-10-19.md`. That prompt is
-//! the measured one, 23/24 corpus outcomes exact and 14/14 stress
-//! paraphrases on the local IQ1_M model, with nothing unsafe invented;
+//! The exact messages luria sends a model: prompt v3 of
+//! `docs/research/m6-local-model-extraction-2026-10-19.md`: v2's schema and
+//! user message, with one line changed, the quote's (D045) - a quote must
+//! state one substitution only, and carry the codon the user names for it,
+//! because luria now asks when a quote holds more than one number or misses
+//! its codon. The note measures v3 in its "Prompt v3 results"; the scores it
+//! records there are v3's, and v2's own scores stay in the note above.
 //! `SYSTEM_PROMPT` and `EXTRACTION_SCHEMA` are copied out of the note
 //! character for character and `crates/nl/tests/prompt.rs` reads them back
 //! out of it. Shipping a different prompt from the measured one would make
@@ -25,9 +28,9 @@ use serde::Serialize;
 /// The prompt's version. Change it whenever `SYSTEM_PROMPT`,
 /// `EXTRACTION_SCHEMA` or the user message's layout changes, and measure the
 /// new prompt before shipping it (research note, "Recommendations").
-pub const PROMPT_VERSION: &str = "luria.q5-extraction-prompt/2";
+pub const PROMPT_VERSION: &str = "luria.q5-extraction-prompt/3";
 
-/// The system message: prompt v2 of
+/// The system message: prompt v3 of
 /// `docs/research/m6-local-model-extraction-2026-10-19.md`, verbatim.
 pub const SYSTEM_PROMPT: &str = r#"You read one molecular-biology request and report what it asks for, as JSON. You do no biology yourself. Copy the user's words; never invent a value.
 
@@ -36,7 +39,7 @@ Fields:
 - cds: the name of the coding sequence or gene exactly as the user wrote it, or null if the user named none. Never choose one from the CDS list yourself.
 - mutations: one object per amino-acid substitution the user asks for:
   - token: original one-letter amino acid, residue number, new one-letter amino acid, e.g. "S12T". Use exactly the number the user wrote. If the user does not state the original residue, the number or the new residue, write "?" in that place only, e.g. "S?T" when no number is given. Never take a number or residue from these examples.
-  - quote: the exact words of the user's text that state this substitution, copied character for character.
+  - quote: the exact words of the user's text that state this substitution and no other, copied character for character. If the user names a codon for it, the quote includes the codon.
   - codon: a DNA codon the user names for this substitution, copied exactly, or null.
 - composition: "separate_variants" if the user wants the substitutions as separate, independent variants; "combined_construct" if they want them together in one construct; null if they did not say.
 - numbering: the user's exact words about how residues are numbered, or null if they said nothing about it.
@@ -306,6 +309,6 @@ mod tests {
     #[test]
     fn the_prompt_is_deterministic_and_versioned() {
         assert_eq!(prompt("t", &[syna()]), prompt("t", &[syna()]));
-        assert_eq!(PROMPT_VERSION, "luria.q5-extraction-prompt/2");
+        assert_eq!(PROMPT_VERSION, "luria.q5-extraction-prompt/3");
     }
 }
