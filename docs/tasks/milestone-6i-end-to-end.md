@@ -313,3 +313,28 @@ Report the new file, the exact commands and their results, the §4.1
 results with each restore shown, and anything that did not match this
 contract. Quote command output for every claim; say plainly what you did
 not check.
+
+## 8. Live run by the planner, 2026-10-19
+
+`live_corpus_report` against the worker's local model
+(`qwen3.8-flash-next-coder-iq1_m`, IQ1_M, at `http://127.0.0.1:8080/v1`),
+through the shipped prompt and `OpenAiCompatible`: **18 of 24** cases ended
+as the corpus's scripted replies did. The six that differ are the expected
+ones:
+
+- `notation-deletion`: `operation_unsupported` instead of
+  `mutation_notation_unsupported`. Still a question; research note finding 6.
+- `number-not-bounded`: proposed **A420G**, quoting "change alanine 420 to
+  glycine": the correct reading of the text. (The corpus scripts a model that
+  misread it as A42G.)
+- `ungrounded-mutation`, `ungrounded-cds`, `reply-extra-field`,
+  `reply-wrong-type`: proposed A42G, correctly. The corpus scripts faulty
+  replies there on purpose; their texts are ordinary.
+
+No proposal was wrong. Then, through the `luria` binary, the example the
+6j section shows (`--text "In synA, design Q5 primers for A42G and W87A as
+separate variants. ..."`) proposed A42G and W87A as separate variants;
+`luria q5 design` on the written `proposal.json` exited 0, both members
+designed, and its document equals the one for the corpus's hand-written
+`variants-separate.json` once the request file's own digest is set aside.
+

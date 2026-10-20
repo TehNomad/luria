@@ -1,6 +1,7 @@
 # Milestone 6j: the documentation, and D044
 
-Status: **Waiting on 6h2, 2026-10-19.** Start only when 6h2 is committed.
+Status: **Ready for the worker, 2026-10-19** (6h2 is committed; the §10.3
+example was run against the local model by the planner, see 6i §8).
 Planner: Claude. Parent: `docs/tasks/milestone-6-nl.md` §6 (6j).
 
 ## 1. What and why
