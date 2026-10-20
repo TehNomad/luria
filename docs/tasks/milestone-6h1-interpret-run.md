@@ -1,6 +1,6 @@
 # Milestone 6h1: `interpret`, its document and exit status 8
 
-Status: **Waiting on 6f, 2026-10-19.** Start only when 6f is committed.
+Status: **Ready for the worker, 2026-10-19** (6f is committed).
 Planner: Claude. Parent: `docs/tasks/milestone-6-nl.md` §3, §5.5, §5.7,
 M6-7, M6-10, M6-14, §6 (6h, split into 6h1 and 6h2).
 
