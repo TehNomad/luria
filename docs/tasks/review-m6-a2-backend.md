@@ -77,14 +77,20 @@ sets environment variables; it holds one `#[test]`,
 `a_proxy_in_the_environment_is_not_used`:
 1. bind two `TcpListener`s on `127.0.0.1:0`: the real server and the
    "proxy";
-2. set `HTTP_PROXY`, `http_proxy`, `ALL_PROXY` and `all_proxy` to
-   `http://127.0.0.1:<proxy port>` with `std::env::set_var`;
-3. serve one complete chat completion from the real server on a thread
+2. on a thread, the proxy accepts one connection, sends `()` on a
+   `std::sync::mpsc` channel, and drops the connection at once (so a
+   client that did use the proxy fails fast instead of waiting for the
+   600 s timeout);
+3. set `HTTP_PROXY`, `http_proxy`, `ALL_PROXY` and `all_proxy` to
+   `http://127.0.0.1:<proxy port>` with `std::env::set_var` (edition 2021:
+   no `unsafe` needed);
+4. serve one complete chat completion from the real server on a thread
    (copy the stub style of `tests/openai.rs`; a helper may be duplicated);
-4. call `OpenAiCompatible::new(Endpoint::parse("http://127.0.0.1:<real port>/v1"), "m", None).complete(&prompt)`
+5. call `OpenAiCompatible::new(Endpoint::parse("http://127.0.0.1:<real port>/v1"), "m", None).complete(&prompt)`
    and assert it is `Ok`;
-5. set the proxy listener non-blocking and assert `accept()` gives
-   `ErrorKind::WouldBlock`: no connection reached it.
+6. assert the channel's `try_recv()` is `Err(TryRecvError::Empty)`: no
+   connection reached the proxy. Do not join the proxy thread: it stays
+   blocked in `accept` when nothing reaches it.
 
 **`crates/nl/tests/openai.rs`.**
 - `a_body_that_is_not_utf8_is_a_bad_response` (A-4): a stub answering
