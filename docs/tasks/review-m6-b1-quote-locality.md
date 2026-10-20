@@ -28,7 +28,7 @@ So:
 
 ```rust
 /// Every maximal run of ASCII digits in `quote`, as half-open char spans in
-/// order: `digit_runs("A37G and A42S")` is `[(1, 3), (9, 11)]`.
+/// order: `digit_runs("A37G and A42S")` is `[(1, 3), (10, 12)]`.
 pub fn digit_runs(quote: &str) -> Vec<(usize, usize)>
 ```
 
@@ -153,7 +153,7 @@ They use the existing `token` and `shows(number, original, target,
 in_order)` helpers.
 
 1. `digit_runs_are_maximal_and_in_order`: `digit_runs("A37G and A42S")` is
-   `[(1, 3), (9, 11)]`; `digit_runs("Q5 A42G")` is `[(1, 2), (4, 6)]`;
+   `[(1, 3), (10, 12)]`; `digit_runs("Q5 A42G")` is `[(1, 2), (4, 6)]`;
    `digit_runs("")` and `digit_runs("alanine")` are `[]`;
    `digit_runs("\u{e9}42")` is `[(1, 3)]`.
 2. `a_quote_with_two_numbers_shows_no_number`:

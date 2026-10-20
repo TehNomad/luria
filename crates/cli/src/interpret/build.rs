@@ -33,6 +33,7 @@
 
 use crate::interpret::catalogue::CatalogueEntry;
 use crate::interpret::catalogue::Usability;
+use crate::interpret::evidence::digit_runs;
 use crate::interpret::evidence::evidence;
 use crate::interpret::evidence::numbering_from_cds_start;
 use crate::interpret::notation::parse_substitution;
@@ -72,6 +73,7 @@ pub enum QuestionCode {
     OriginalResidueUnstated,
     TargetResidueUnstated,
     SubstitutionDirectionUnclear,
+    MutationQuoteAmbiguous,
     CodonUnstated,
     CdsUnnamed,
     CdsNotFound,
@@ -94,6 +96,7 @@ impl QuestionCode {
             QuestionCode::OriginalResidueUnstated => "original_residue_unstated",
             QuestionCode::TargetResidueUnstated => "target_residue_unstated",
             QuestionCode::SubstitutionDirectionUnclear => "substitution_direction_unclear",
+            QuestionCode::MutationQuoteAmbiguous => "mutation_quote_ambiguous",
             QuestionCode::CodonUnstated => "codon_unstated",
             QuestionCode::CdsUnnamed => "cds_unnamed",
             QuestionCode::CdsNotFound => "cds_not_found",
@@ -398,7 +401,10 @@ struct MutationRead {
 
 /// Step 3b: the questions one mutation earns, in the order of §3.4, and its
 /// substitution when its token is one luria reads (`None` when the questions
-/// say why it is not, which is what step 4's guard answers with).
+/// say why it is not, which is what step 4's guard answers with). A quote
+/// with more than one number is asked about as `mutation_quote_ambiguous`
+/// (D045), and its number, original, target and direction checks are skipped.
+/// The codon check runs in both cases.
 fn read_mutation(
     token: String,
     quote: String,
@@ -408,27 +414,41 @@ fn read_mutation(
     let mut asked: Vec<Question> = Vec::new();
     let read: Option<Substitution> = match parse_substitution(&token) {
         Ok(substitution) => {
-            // `shown` is `crate::interpret::evidence::Evidence`: what the
-            // quote shows of this substitution, under 6e1's rules unchanged.
-            let shown = evidence(&quote, &substitution);
-            if !shown.number {
-                asked.push(part_unstated(token.clone(), quote.clone(), Part::Number));
-            }
-            if !shown.original {
-                asked.push(part_unstated(token.clone(), quote.clone(), Part::Original));
-            }
-            if !shown.target {
-                asked.push(part_unstated(token.clone(), quote.clone(), Part::Target));
-            }
-            if shown.original && shown.target && !shown.in_order {
+            // D045 (B-1): a quote holding more than one digit run is asked
+            // about as one question, and its number, original, target and
+            // direction checks are skipped.
+            if digit_runs(&quote).len() >= 2 {
                 asked.push(Question {
-                    code: QuestionCode::SubstitutionDirectionUnclear,
+                    code: QuestionCode::MutationQuoteAmbiguous,
                     subject: token.clone(),
                     message: format!(
-                        "\"{}\" names both residues, but not the original before the target",
+                        "\"{}\" holds more than one number, so it does not show which is the residue number",
                         quote.clone(),
                     ),
                 });
+            } else {
+                // `shown` is `crate::interpret::evidence::Evidence`: what the
+                // quote shows of this substitution, under 6e1's rules.
+                let shown = evidence(&quote, &substitution);
+                if !shown.number {
+                    asked.push(part_unstated(token.clone(), quote.clone(), Part::Number));
+                }
+                if !shown.original {
+                    asked.push(part_unstated(token.clone(), quote.clone(), Part::Original));
+                }
+                if !shown.target {
+                    asked.push(part_unstated(token.clone(), quote.clone(), Part::Target));
+                }
+                if shown.original && shown.target && !shown.in_order {
+                    asked.push(Question {
+                        code: QuestionCode::SubstitutionDirectionUnclear,
+                        subject: token.clone(),
+                        message: format!(
+                            "\"{}\" does not name the original residue, then the number, then the target",
+                            quote.clone(),
+                        ),
+                    });
+                }
             }
             if codon.is_none() && profile_codon(profile).is_none() {
                 asked.push(codon_unstated(token.clone(), substitution.canonical()));
@@ -874,7 +894,95 @@ mod tests {
         );
         assert_eq!(
             messages(&built),
-            vec!["\"glycine 42 to alanine\" names both residues, but not the original before the target".to_string()]
+            vec![
+                "\"glycine 42 to alanine\" does not name the original residue, then the number, then the target"
+                    .to_string()
+            ]
+        );
+    }
+
+    // B-1 (D045): a quote holding two numbers shows no one of them as the
+    // residue number, so it is asked about and never proposed.
+    #[test]
+    fn a_quote_holding_two_substitutions_is_asked_about() {
+        let text: &str =
+            "In synA, make A37G and A42S as separate variants. Number residues from the beginning of the annotated CDS.";
+        let built: Built = build(
+            text,
+            &reply(
+                r#"{"operation":"q5_residue_substitutions","cds":"synA",
+                "mutations":[{"token":"A37S","quote":"A37G and A42S","codon":null}],
+                "composition":null,"numbering":"from the beginning of the annotated CDS","unsupported":[]}"#,
+            ),
+            &syna(),
+            Some(&profile(true, true)),
+            &facts(),
+        );
+        assert_eq!(
+            asked(&built),
+            vec![("mutation_quote_ambiguous", "A37S".to_string())]
+        );
+        assert_eq!(
+            messages(&built),
+            vec![
+                "\"A37G and A42S\" holds more than one number, so it does not show which is the residue number"
+                    .to_string()
+            ]
+        );
+    }
+
+    // B-2 (D045): the 42 in the CDS name ydj42 is part of the name, not the
+    // residue number, and the user stated no number.
+    #[test]
+    fn a_number_inside_a_cds_name_is_not_the_residue_number() {
+        let entries: Vec<CatalogueEntry> = vec![CatalogueEntry {
+            id: "ydj42".to_string(),
+            gene: Some("ydj42".to_string()),
+            product: None,
+            usability: Usability::Usable {
+                residues: 200,
+                strand: Strand::Plus,
+            },
+        }];
+        let text: &str =
+            "In ydj42, change the alanine to a glycine. Number residues from the CDS start.";
+        let built: Built = build(
+            text,
+            &reply(
+                r#"{"operation":"q5_residue_substitutions","cds":"ydj42",
+                "mutations":[{"token":"A42G","quote":"In ydj42, change the alanine to a glycine","codon":null}],
+                "composition":null,"numbering":"from the CDS start","unsupported":[]}"#,
+            ),
+            &entries,
+            Some(&profile(true, true)),
+            &facts(),
+        );
+        assert_eq!(
+            asked(&built),
+            vec![("residue_number_unstated", "A42G".to_string())]
+        );
+    }
+
+    // D045: the number must sit between the original and the target, so a
+    // quote whose number stands after both earns the direction question.
+    #[test]
+    fn a_number_after_both_residues_is_asked_about() {
+        let text: &str =
+            "In synA, change the alanine to a glycine; see figure 42. Numbering from the CDS start.";
+        let built: Built = build(
+            text,
+            &reply(
+                r#"{"operation":"q5_residue_substitutions","cds":"synA",
+                "mutations":[{"token":"A42G","quote":"change the alanine to a glycine; see figure 42","codon":null}],
+                "composition":null,"numbering":"Numbering from the CDS start","unsupported":[]}"#,
+            ),
+            &syna(),
+            Some(&profile(true, true)),
+            &facts(),
+        );
+        assert_eq!(
+            asked(&built),
+            vec![("substitution_direction_unclear", "A42G".to_string())]
         );
     }
 
@@ -1181,7 +1289,7 @@ mod tests {
 
     #[test]
     fn every_question_code_is_pinned() {
-        let codes: [(QuestionCode, &str); 15] = [
+        let codes: [(QuestionCode, &str); 16] = [
             (QuestionCode::OperationUnsupported, "operation_unsupported"),
             (QuestionCode::MutationUnstated, "mutation_unstated"),
             (
@@ -1203,6 +1311,10 @@ mod tests {
             (
                 QuestionCode::SubstitutionDirectionUnclear,
                 "substitution_direction_unclear",
+            ),
+            (
+                QuestionCode::MutationQuoteAmbiguous,
+                "mutation_quote_ambiguous",
             ),
             (QuestionCode::CodonUnstated, "codon_unstated"),
             (QuestionCode::CdsUnnamed, "cds_unnamed"),

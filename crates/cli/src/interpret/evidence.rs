@@ -7,10 +7,16 @@
 //! Every rule fails closed (D005): a doubtful case is *not* evidence, so
 //! luria asks rather than assuming. The rules, exactly:
 //!
-//! - A residue number is visible only as a maximal run of ASCII digits, a
-//!   run with no ASCII digit just before it and none just after it, equal
-//!   to the number's own text: `42` is not visible in `420` or `142`, and a
-//!   number below 1 is never visible.
+//! - `digit_runs` lists every maximal run of ASCII digits in a quote, in
+//!   order, as half-open char spans. A residue number is visible only when
+//!   the quote holds exactly one run, its text equals the number's own text,
+//!   and the run is joined to no ASCII letter except a residue's name: it
+//!   starts at the quote's start, after a non-letter, or where a naming of
+//!   the original ends (`A42G`, `Ala42Gly`), and it ends at the quote's end,
+//!   before a non-letter, or where a naming of the target starts. So `42` is
+//!   not visible in `420` or `142`, nor inside `ydj42` or `synA42`, and a
+//!   number below 1 is never visible. A quote with two or more runs shows no
+//!   number, and `build` asks `mutation_quote_ambiguous` about it (D045).
 //! - A residue is named in a quote three ways: by its one-letter code, as
 //!   an upper-case letter with no ASCII letter on either side and an ASCII
 //!   digit immediately before or after it (so the article "A" and the
@@ -19,10 +25,16 @@
 //!   and `pro` are English words; or by one of its English names, in any
 //!   ASCII case, bounded by non-letters. Mentions are half-open char spans,
 //!   sorted by start then end, with exact repeats removed.
-//! - The original is in order before the target when some mention of the
-//!   original ends at or before the start of some mention of the target, so
-//!   "glycine 42 to alanine" reported as `A42G` is refused; when both are
-//!   the same residue, one mention cannot serve as both.
+//! - When a number is visible, the original is in order only when a naming
+//!   of the original ends at or before that run's start and a naming of the
+//!   target starts at or after its end, so "residue 42: alanine to glycine"
+//!   is refused. Where the number is not visible — no run, or one run joined
+//!   to a name — the original is in order before the target when some
+//!   mention of the original ends at or before the start of some mention of
+//!   the target, so "glycine 42 to alanine" reported as `A42G` is refused;
+//!   when both are the same residue, one mention cannot serve as both. Two
+//!   or more runs are in order never, and `build` asks one question for such
+//!   a quote (D045).
 //! - The user's numbering words mean "from the start of the CDS" only when
 //!   their normalized form — ASCII lower case, every character that is not
 //!   an ASCII letter or digit treated as a space — holds one of
@@ -116,6 +128,24 @@ fn digit_alongside(chars: &[char], at: usize) -> bool {
         || (at + 1 < chars.len() && chars[at + 1].is_ascii_digit())
 }
 
+/// Every maximal run of ASCII digits in `quote`, as half-open char spans in
+/// order: `digit_runs("A37G and A42S")` is `[(1, 3), (10, 12)]` (D045).
+pub fn digit_runs(quote: &str) -> Vec<(usize, usize)> {
+    let chars: Vec<char> = quote.chars().collect();
+    let mut runs: Vec<(usize, usize)> = Vec::new();
+    let mut at: usize = 0;
+    while at < chars.len() {
+        if !chars[at].is_ascii_digit() {
+            at += 1;
+            continue;
+        }
+        let end: usize = digits_end(&chars, at);
+        runs.push((at, end));
+        at = end;
+    }
+    runs
+}
+
 /// Whether `number` is written in `quote` as a maximal run of ASCII digits
 /// (§3.3.1). Only whole runs are compared, so `42` is not visible in `420`
 /// or `142`; a `number` below 1 is never visible.
@@ -203,22 +233,62 @@ pub fn residue_mentions(quote: &str, residue: &Residue) -> Vec<(usize, usize)> {
     spans
 }
 
-/// What `quote` shows of `substitution` (§3.3.3): the number as a digit
-/// run, each residue as a naming, and the original named at or before the
-/// target.
-pub fn evidence(quote: &str, substitution: &Substitution) -> Evidence {
-    let originals: Vec<(usize, usize)> = residue_mentions(quote, &substitution.from);
-    let targets: Vec<(usize, usize)> = residue_mentions(quote, &substitution.to);
-    let mut in_order: bool = false;
+/// The order rule of plan §5.3a, used whenever the quote shows no number for
+/// the residues to sit around: some mention of the original ends at or
+/// before the start of some mention of the target.
+fn mentions_in_order(originals: &[(usize, usize)], targets: &[(usize, usize)]) -> bool {
     for original in originals.iter() {
         for target in targets.iter() {
             if original.1 <= target.0 {
-                in_order = true;
+                return true;
             }
         }
     }
+    false
+}
+
+/// What `quote` shows of `substitution` (§3.3.3, tightened by D045): the
+/// number as the quote's one digit run, joined to no letter but a residue's
+/// name, each residue as a naming, and the original named before that run
+/// and the target after it. A quote with two or more runs shows neither the
+/// number nor an order, so `build` asks which number is the residue number.
+pub fn evidence(quote: &str, substitution: &Substitution) -> Evidence {
+    let originals: Vec<(usize, usize)> = residue_mentions(quote, &substitution.from);
+    let targets: Vec<(usize, usize)> = residue_mentions(quote, &substitution.to);
+    let runs: Vec<(usize, usize)> = digit_runs(quote);
+    let chars: Vec<char> = quote.chars().collect();
+    let mut number: bool = false;
+    let mut in_order: bool = false;
+    match runs.len() {
+        0 => {
+            in_order = mentions_in_order(&originals, &targets);
+        }
+        1 => {
+            let (start, end): (usize, usize) = runs[0];
+            let run: String = chars[start..end].iter().collect();
+            let bounded_left: bool = start == 0
+                || !letter_just_before(&chars, start)
+                || originals.iter().any(|original| original.1 == start);
+            let bounded_right: bool = end == chars.len()
+                || !letter_at(&chars, end)
+                || targets.iter().any(|target| target.0 == end);
+            if number_visible(&run, substitution.number) && bounded_left && bounded_right {
+                number = true;
+                in_order = originals.iter().any(|original| original.1 <= start)
+                    && targets.iter().any(|target| target.0 >= end);
+            } else {
+                // The quote's only problem is how its number is written, so
+                // it earns the number question alone and keeps today's rule.
+                in_order = mentions_in_order(&originals, &targets);
+            }
+        }
+        _ => {
+            // D045: more than one run shows no number and no order; `build`
+            // asks which number is the residue number (`mutation_quote_ambiguous`).
+        }
+    }
     Evidence {
-        number: number_visible(quote, substitution.number),
+        number,
         original: !originals.is_empty(),
         target: !targets.is_empty(),
         in_order,
@@ -339,6 +409,21 @@ mod tests {
                 case.0,
                 case.1
             );
+        }
+    }
+
+    // D045 (B-1): the digit runs of a quote are the numbers it holds.
+    #[test]
+    fn digit_runs_are_maximal_and_in_order() {
+        let cases: [(&str, Vec<(usize, usize)>); 5] = [
+            ("A37G and A42S", vec![(1, 3), (10, 12)]),
+            ("Q5 A42G", vec![(1, 2), (4, 6)]),
+            ("", vec![]),
+            ("alanine", vec![]),
+            ("\u{e9}42", vec![(1, 3)]),
+        ];
+        for case in cases {
+            assert_eq!(digit_runs(case.0), case.1, "{:?}", case.0);
         }
     }
 
@@ -485,6 +570,50 @@ mod tests {
                 case.1
             );
         }
+    }
+
+    // B-1 (D045): a quote holding two numbers shows no residue number.
+    #[test]
+    fn a_quote_with_two_numbers_shows_no_number() {
+        assert_eq!(
+            evidence("A37G and A42S", &token("A37S")),
+            shows(false, true, true, false)
+        );
+    }
+
+    // B-2 (D045): a digit run joined to a name is not a residue number, and
+    // the run must be joined to the residues, not sit beside a name.
+    #[test]
+    fn a_number_joined_to_other_letters_is_not_the_residue_number() {
+        assert_eq!(
+            evidence("In ydj42, change the alanine to a glycine", &token("A42G")),
+            shows(false, true, true, true)
+        );
+        assert_eq!(
+            evidence("synA42 to glycine", &token("A42G")),
+            shows(false, false, true, false)
+        );
+        assert_eq!(
+            evidence("alanine 42nd to glycine", &token("A42G")),
+            shows(false, true, true, true)
+        );
+    }
+
+    // D045: with the number visible, the original is before it and the
+    // target after it; a quote that fails only this earns the number alone.
+    #[test]
+    fn the_original_is_before_the_number_and_the_target_after_it() {
+        assert_eq!(
+            evidence(
+                "change the alanine to a glycine; see figure 42",
+                &token("A42G")
+            ),
+            shows(true, true, true, false)
+        );
+        assert_eq!(
+            evidence("residue 42: alanine to glycine", &token("A42G")),
+            shows(true, true, true, false)
+        );
     }
 
     #[test]

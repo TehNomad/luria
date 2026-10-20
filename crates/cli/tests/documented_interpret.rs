@@ -67,6 +67,7 @@ fn the_question_table_lists_every_code_build_can_ask() {
         QuestionCode::OriginalResidueUnstated,
         QuestionCode::TargetResidueUnstated,
         QuestionCode::SubstitutionDirectionUnclear,
+        QuestionCode::MutationQuoteAmbiguous,
         QuestionCode::CodonUnstated,
         QuestionCode::CdsUnnamed,
         QuestionCode::CdsNotFound,
