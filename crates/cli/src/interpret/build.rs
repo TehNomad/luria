@@ -19,7 +19,9 @@
 //! The steps, in order (§3.4): grounding, then the operation question, then
 //! every other question, then the proposal. Nothing is defaulted (D028): a
 //! value neither the text nor the profile states is a question, and a CDS the
-//! text does not name is never chosen (M6-9). The evidence rules are 6e1's
+//! text does not name is never chosen (M6-9), and the composition of two or
+//! more substitutions is proposed only when the user's own words and the
+//! model agree on it (D045). The evidence rules are 6e1's
 //! and the notation rules are 6b's, called and never re-implemented; the
 //! catalogue's usability is core's, and a refusal is reported as its code.
 //!
@@ -33,9 +35,11 @@
 
 use crate::interpret::catalogue::CatalogueEntry;
 use crate::interpret::catalogue::Usability;
+use crate::interpret::evidence::composition_stated;
 use crate::interpret::evidence::digit_runs;
 use crate::interpret::evidence::evidence;
 use crate::interpret::evidence::numbering_stated_from_cds_start;
+use crate::interpret::evidence::CompositionReading;
 use crate::interpret::notation::parse_substitution;
 use crate::interpret::notation::NotationError;
 use crate::interpret::notation::Part;
@@ -79,6 +83,7 @@ pub enum QuestionCode {
     CdsNotFound,
     CdsUnusable,
     CompositionUnstated,
+    CompositionUnclear,
     NumberingUnstated,
     NumberingUnsupported,
     DesignUnstated,
@@ -102,6 +107,7 @@ impl QuestionCode {
             QuestionCode::CdsNotFound => "cds_not_found",
             QuestionCode::CdsUnusable => "cds_unusable",
             QuestionCode::CompositionUnstated => "composition_unstated",
+            QuestionCode::CompositionUnclear => "composition_unclear",
             QuestionCode::NumberingUnstated => "numbering_unstated",
             QuestionCode::NumberingUnsupported => "numbering_unsupported",
             QuestionCode::DesignUnstated => "design_unstated",
@@ -367,6 +373,17 @@ fn composition_unstated() -> Question {
         code: QuestionCode::CompositionUnstated,
         subject: "composition".to_string(),
         message: "the text does not say whether the substitutions are separate variants or one combined construct".to_string(),
+    }
+}
+
+/// Step 3d: the text's own words state a composition, but not the one the
+/// model read, or they say both or negate it: luria cannot tell (§3.4 step
+/// 3d, D045).
+fn composition_unclear() -> Question {
+    Question {
+        code: QuestionCode::CompositionUnclear,
+        subject: "composition".to_string(),
+        message: "luria cannot tell from the text whether the substitutions are separate variants or one combined construct".to_string(),
     }
 }
 
@@ -671,9 +688,30 @@ pub fn build(
         }
     }
 
-    // 3d: two or more substitutions and no statement of the composition.
-    if extraction.mutations.len() >= 2 && extraction.composition.is_none() {
-        asked.push(composition_unstated());
+    // 3d: two or more substitutions, and the composition read from the
+    // user's own words (D045): nothing the text states is asked about,
+    // whatever the model said; words that say both or negate it are asked
+    // about; and so is a model that reads a stated composition differently,
+    // or not at all. Only an agreement with the text passes.
+    if extraction.mutations.len() >= 2 {
+        match composition_stated(text) {
+            CompositionReading::Unstated => {
+                asked.push(composition_unstated());
+            }
+            CompositionReading::Unclear => {
+                asked.push(composition_unclear());
+            }
+            CompositionReading::Separate => {
+                if extraction.composition != Some(Composition::SeparateVariants) {
+                    asked.push(composition_unclear());
+                }
+            }
+            CompositionReading::Combined => {
+                if extraction.composition != Some(Composition::CombinedConstruct) {
+                    asked.push(composition_unclear());
+                }
+            }
+        }
     }
 
     // 3e: the numbering - the text first, the profile second (§5.5). The
@@ -1425,9 +1463,127 @@ mod tests {
         }
     }
 
+    // B-5 (D045): the composition is read from the user's text, so a model's
+    // value alone never decides it.
+    #[test]
+    fn a_composition_the_text_does_not_state_is_asked_about() {
+        let text: &str =
+            "Using synA, design Q5 SDM primers for A42G and W87A. Number residues from the beginning of the annotated CDS.";
+        let stated: [&str; 2] = ["separate_variants", "combined_construct"];
+        for each in stated {
+            let built: Built = build(
+                text,
+                &reply(&format!(
+                    r#"{{"operation":"q5_residue_substitutions","cds":"synA",
+                    "mutations":[{{"token":"A42G","quote":"A42G","codon":null}},
+                                 {{"token":"W87A","quote":"W87A","codon":null}}],
+                    "composition":"{}","numbering":"from the beginning of the annotated CDS","unsupported":[]}}"#,
+                    each,
+                )),
+                &syna(),
+                Some(&profile(true, true)),
+                &facts(),
+            );
+            assert_eq!(
+                asked(&built),
+                vec![("composition_unstated", "composition".to_string())],
+                "{}",
+                each
+            );
+        }
+    }
+
+    // B-5 (D045): the model reads a composition the text states differently,
+    // or states none at all, so luria asks rather than follow the model.
+    #[test]
+    fn a_composition_the_model_reads_differently_is_asked_about() {
+        let text: &str =
+            "Using synA, design Q5 SDM primers for A42G and W87A as separate variants. Number residues from the beginning of the annotated CDS.";
+        let values: [&str; 2] = [r#""combined_construct""#, "null"];
+        for value in values {
+            let built: Built = build(
+                text,
+                &reply(&format!(
+                    r#"{{"operation":"q5_residue_substitutions","cds":"synA",
+                    "mutations":[{{"token":"A42G","quote":"A42G","codon":null}},
+                                 {{"token":"W87A","quote":"W87A","codon":null}}],
+                    "composition":{},"numbering":"from the beginning of the annotated CDS","unsupported":[]}}"#,
+                    value,
+                )),
+                &syna(),
+                Some(&profile(true, true)),
+                &facts(),
+            );
+            assert_eq!(
+                asked(&built),
+                vec![("composition_unclear", "composition".to_string())],
+                "{}",
+                value
+            );
+        }
+    }
+
+    // B-5 (D045): text and model agree, so the variant set is proposed.
+    #[test]
+    fn a_composition_both_read_is_proposed() {
+        let text: &str =
+            "Using synA, design Q5 SDM primers for A42G and W87A as separate variants. Number residues from the beginning of the annotated CDS.";
+        let built: Built = build(
+            text,
+            &reply(
+                r#"{"operation":"q5_residue_substitutions","cds":"synA",
+                "mutations":[{"token":"A42G","quote":"A42G","codon":null},
+                             {"token":"W87A","quote":"W87A","codon":null}],
+                "composition":"separate_variants","numbering":"from the beginning of the annotated CDS","unsupported":[]}"#,
+            ),
+            &syna(),
+            Some(&profile(true, true)),
+            &facts(),
+        );
+        match built {
+            Built::Proposed { request, .. } => match request.operation {
+                OperationSpec::Variants {
+                    composition,
+                    members,
+                } => {
+                    assert_eq!(composition, CompositionSpec::SeparateVariants, "{}", text);
+                    assert_eq!(
+                        members,
+                        vec![
+                            MemberSpec {
+                                name: "A42G".to_string(),
+                                edit: EditSpec::Residue {
+                                    cds: Some("synA".to_string()),
+                                    number: 42,
+                                    from: "A".to_string(),
+                                    to: "G".to_string(),
+                                    codon: CodonSpec::Default,
+                                },
+                            },
+                            MemberSpec {
+                                name: "W87A".to_string(),
+                                edit: EditSpec::Residue {
+                                    cds: Some("synA".to_string()),
+                                    number: 87,
+                                    from: "W".to_string(),
+                                    to: "A".to_string(),
+                                    codon: CodonSpec::Default,
+                                },
+                            },
+                        ],
+                        "{}",
+                        text
+                    );
+                }
+                other => panic!("expected a variants set, got {:?}", other),
+            },
+            other => panic!("expected a proposal, got {:?}", other),
+        }
+    }
+
     #[test]
     fn every_question_code_is_pinned() {
-        let codes: [(QuestionCode, &str); 16] = [
+        let codes: [(QuestionCode, &str); 17] = [
             (QuestionCode::OperationUnsupported, "operation_unsupported"),
             (QuestionCode::MutationUnstated, "mutation_unstated"),
             (
@@ -1459,6 +1615,7 @@ mod tests {
             (QuestionCode::CdsNotFound, "cds_not_found"),
             (QuestionCode::CdsUnusable, "cds_unusable"),
             (QuestionCode::CompositionUnstated, "composition_unstated"),
+            (QuestionCode::CompositionUnclear, "composition_unclear"),
             (QuestionCode::NumberingUnstated, "numbering_unstated"),
             (QuestionCode::NumberingUnsupported, "numbering_unsupported"),
             (QuestionCode::DesignUnstated, "design_unstated"),

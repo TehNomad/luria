@@ -1,7 +1,7 @@
 # Review M6 B-5: the composition is read from the text by Rust (D045)
 
-Status: **Ready for the worker** (after `review-m6-b4-cds-name.md` is
-committed). Planner: Claude. Parent: `docs/tasks/review-post-m6.md` B-5.
+Status: **Implemented 2026-10-20** by the local worker; accepted on planner
+review. Planner: Claude. Parent: `docs/tasks/review-post-m6.md` B-5.
 Owner answer, 2026-10-20: "Rust phrase list, must agree".
 
 Files (no others):

@@ -48,6 +48,16 @@
 //!   `.` `;` `!` `?` or newline before an occurrence of the words to the
 //!   first such boundary at or after the occurrence's end, and every
 //!   occurrence has its own sentence.
+//! - What the user's text states about composition (D045, B-5): the text
+//!   runs in sentences, split at the boundary chars `.` `;` `!` `?` and
+//!   newline, which belong to no sentence, and each sentence's normalized
+//!   words are matched against every phrase of `SEPARATE_PHRASES` and
+//!   `COMBINED_PHRASES` as consecutive words. A sentence holding a phrase
+//!   of either list and a word of `NUMBERING_NEGATION` states nothing clear
+//!   — neither does a text holding phrases of both lists: the answer is
+//!   `CompositionReading::Unclear`. One list alone answers `Separate` or
+//!   `Combined`, no phrase of either answers `Unstated`, and `build` asks
+//!   about every answer but the one the model read the same way (D045).
 //!
 //! All positions are char indices, as in `notation.rs`: nothing indexes a
 //! `&str` by byte, and no input panics, non-ASCII characters included.
@@ -103,6 +113,29 @@ pub const NUMBERING_SCHEMES: [&str; 6] = [
     "uniprot",
     "pdb",
     "structure",
+];
+
+/// Phrases, in normalized form, that state separate variants.
+pub const SEPARATE_PHRASES: [&str; 8] = [
+    "separate variants",
+    "separate constructs",
+    "separate mutants",
+    "separately",
+    "individually",
+    "individual variants",
+    "individual mutants",
+    "each on its own",
+];
+
+/// Phrases, in normalized form, that state one combined construct.
+pub const COMBINED_PHRASES: [&str; 7] = [
+    "combined",
+    "together",
+    "in combination",
+    "single construct",
+    "one construct",
+    "same construct",
+    "double mutant",
 ];
 
 /// The end of the run of ASCII digits starting at `at`.
@@ -438,6 +471,66 @@ pub fn numbering_stated_from_cds_start(text: &str, words: &str) -> bool {
         at += 1;
     }
     stated
+}
+
+/// What the user's text states about composition (D045).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CompositionReading {
+    /// No phrase of either list.
+    Unstated,
+    Separate,
+    Combined,
+    /// Phrases of both lists, or a phrase in a sentence with a negation.
+    Unclear,
+}
+
+/// What the user's `text` states about composition (D045, B-5): the text
+/// runs in sentences, split at the chars of `sentence_boundary`, which
+/// belong to no sentence, and each sentence's normalized words are matched
+/// against both phrase lists as consecutive words. A sentence holding a
+/// phrase of either list and a word of `NUMBERING_NEGATION` states nothing
+/// clear, and neither does a text holding phrases of both lists: either is
+/// `Unclear`. One list alone answers `Separate` or `Combined`, and no
+/// phrase of either list anywhere answers `Unstated`.
+pub fn composition_stated(text: &str) -> CompositionReading {
+    let chars: Vec<char> = text.chars().collect();
+    let mut separate: bool = false;
+    let mut combined: bool = false;
+    let mut at: usize = 0;
+    loop {
+        let mut end: usize = at;
+        while end < chars.len() && !sentence_boundary(chars[end]) {
+            end += 1;
+        }
+        let sentence: String = chars[at..end].iter().collect();
+        let words: Vec<String> = normalized_words(&sentence);
+        let holds_separate: bool = SEPARATE_PHRASES
+            .iter()
+            .any(|phrase| phrase_present(&words, &phrase_words(phrase)));
+        let holds_combined: bool = COMBINED_PHRASES
+            .iter()
+            .any(|phrase| phrase_present(&words, &phrase_words(phrase)));
+        if holds_separate || holds_combined {
+            if NUMBERING_NEGATION
+                .iter()
+                .any(|veto| words.iter().any(|word| word == veto))
+            {
+                return CompositionReading::Unclear;
+            }
+            separate = separate || holds_separate;
+            combined = combined || holds_combined;
+        }
+        if end == chars.len() {
+            break;
+        }
+        at = end + 1;
+    }
+    match (separate, combined) {
+        (true, true) => CompositionReading::Unclear,
+        (true, false) => CompositionReading::Separate,
+        (false, true) => CompositionReading::Combined,
+        (false, false) => CompositionReading::Unstated,
+    }
 }
 
 #[cfg(test)]
@@ -935,6 +1028,117 @@ mod tests {
                 case.0,
                 case.1
             );
+        }
+    }
+
+    // B-5 (D045): the phrase lists are pinned, so no phrase can be dropped
+    // or added without a test failing.
+    #[test]
+    fn the_composition_phrases_are_pinned() {
+        let separate: [&str; 8] = [
+            "separate variants",
+            "separate constructs",
+            "separate mutants",
+            "separately",
+            "individually",
+            "individual variants",
+            "individual mutants",
+            "each on its own",
+        ];
+        let combined: [&str; 7] = [
+            "combined",
+            "together",
+            "in combination",
+            "single construct",
+            "one construct",
+            "same construct",
+            "double mutant",
+        ];
+        assert_eq!(SEPARATE_PHRASES, separate);
+        assert_eq!(COMBINED_PHRASES, combined);
+    }
+
+    // B-5 (D045): every phrase states its composition in a sentence on its
+    // own, written here literally so a list cannot lose it unnoticed.
+    #[test]
+    fn every_composition_phrase_is_read() {
+        let separate: [&str; 8] = [
+            "separate variants",
+            "separate constructs",
+            "separate mutants",
+            "separately",
+            "individually",
+            "individual variants",
+            "individual mutants",
+            "each on its own",
+        ];
+        let combined: [&str; 7] = [
+            "combined",
+            "together",
+            "in combination",
+            "single construct",
+            "one construct",
+            "same construct",
+            "double mutant",
+        ];
+        for phrase in separate {
+            let text: String = format!("Make A42G and W87A {}.", phrase);
+            assert_eq!(
+                composition_stated(&text),
+                CompositionReading::Separate,
+                "{:?}",
+                phrase
+            );
+        }
+        for phrase in combined {
+            let text: String = format!("Make A42G and W87A {}.", phrase);
+            assert_eq!(
+                composition_stated(&text),
+                CompositionReading::Combined,
+                "{:?}",
+                phrase
+            );
+        }
+    }
+
+    // B-5 (D045): what the user's text states about composition, sentence by
+    // sentence, and how a negation or both lists together make it doubtful.
+    #[test]
+    fn what_the_text_states_about_composition() {
+        let cases: [(&str, CompositionReading); 9] = [
+            ("Make A42G and W87A.", CompositionReading::Unstated),
+            (
+                "Make A42G and W87A as separate variants.",
+                CompositionReading::Separate,
+            ),
+            (
+                "In synA, make both A42G and W87A in a single construct.",
+                CompositionReading::Combined,
+            ),
+            (
+                "Make A42G and W87A separately, then combined.",
+                CompositionReading::Unclear,
+            ),
+            (
+                "Make A42G and W87A, but not separately.",
+                CompositionReading::Unclear,
+            ),
+            (
+                "Not now. Make A42G and W87A individually.",
+                CompositionReading::Separate,
+            ),
+            ("INDIVIDUALLY!", CompositionReading::Separate),
+            (
+                "\u{e9}. Make A42G and W87A together.",
+                CompositionReading::Combined,
+            ),
+            (
+                "For synA, make A42G and W87A, each on its own.",
+                CompositionReading::Separate,
+            ),
+        ];
+        for case in cases {
+            assert_eq!(composition_stated(case.0), case.1, "{:?}", case.0);
         }
     }
 

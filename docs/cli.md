@@ -735,6 +735,7 @@ an existing file.
 | `cds_not_found` | The record has no CDS of that name (matched exactly). |
 | `cds_unusable` | The record has it, but luria refuses to import it; the message gives core's code. |
 | `composition_unstated` | Two or more substitutions, and not said whether separate or combined. |
+| `composition_unclear` | Your words say both, or negate it, or the model's reading differs from luria's. |
 | `numbering_unstated` | Neither the text nor the profile says how residues are numbered. |
 | `numbering_unsupported` | The text gives a numbering other than from the start of the CDS. |
 | `design_unstated` | No profile states the primer design. |
