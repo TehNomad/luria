@@ -1,7 +1,6 @@
 # Milestone 6h2: the `luria q5 interpret` command
 
-Status: **Waiting on 6g1 and 6h1, 2026-10-19.** Start only when both are
-committed.
+Status: **Ready for the worker, 2026-10-19** (6g1 and 6h1 are committed).
 Planner: Claude. Parent: `docs/tasks/milestone-6-nl.md` §3 ("Cloud use is
 explicit"), §5.6, §5.7, M6-17, M6-18, §6 (6h).
 
