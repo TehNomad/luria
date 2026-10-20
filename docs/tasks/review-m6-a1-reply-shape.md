@@ -1,6 +1,6 @@
 # Review M6 A-1, A-3: a reply is an object, and its error is one line
 
-Status: **Ready for the worker.** Planner: Claude. Parent:
+Status: **Implemented 2026-10-20** by the local worker; accepted on planner review. Planner: Claude. Parent:
 `docs/tasks/review-post-m6.md` A-1, A-3. Owner, 2026-10-20: "Go ahead and
 fix them" (the review recommends refusing an array-form reply).
 

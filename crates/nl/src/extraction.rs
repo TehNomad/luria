@@ -13,6 +13,10 @@
 //! - a missing field, the nullable members included: `null` is present, an
 //!   absent member is not;
 //! - a wrong type;
+//! - an array where an object is required, at the reply level or as a
+//!   `mutations` element: serde's derived deserializer reads a sequence
+//!   into a struct by position, which skips the field names and their
+//!   `deny_unknown_fields` along with them;
 //! - an unknown enum value;
 //! - a duplicate key;
 //! - trailing text after the document.
@@ -29,9 +33,16 @@ use serde::Serialize;
 /// 6h confirms the number against the other input caps.
 pub const MAX_REPLY_BYTES: usize = 64 * 1024;
 
-/// A reply luria will not read. `message` is one line, no trailing
-/// newline. The CLI reports every one of these as `model_output_invalid`;
-/// this type carries no code of its own.
+/// The most characters a refusal message may hold: serde's own text quotes
+/// the model's strings, which are as long and as broken up as the model
+/// likes.
+const MAX_MESSAGE_CHARS: usize = 300;
+
+/// A reply luria will not read. `message` is one line of at most
+/// `MAX_MESSAGE_CHARS` (300) chars, no trailing newline: each control char
+/// is a space, and a longer message is cut at 297 chars to end with `...`.
+/// The CLI reports every one of these as `model_output_invalid`; this type
+/// carries no code of its own.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ExtractionError {
     pub message: String,
@@ -105,23 +116,71 @@ where
     Option::<T>::deserialize(deserializer)
 }
 
+/// One line of at most `MAX_MESSAGE_CHARS` chars: each control char is a
+/// space, and a longer message is cut and ends with `...`.
+fn one_line(message: String) -> String {
+    let line: String = message
+        .chars()
+        .map(|c| if c.is_control() { ' ' } else { c })
+        .collect();
+    if line.chars().count() <= MAX_MESSAGE_CHARS {
+        return line;
+    }
+    // The cut keeps the first 297 chars, so with `...` the line is 300.
+    let head: String = line.chars().take(MAX_MESSAGE_CHARS - "...".len()).collect();
+    head + "..."
+}
+
+/// The reply's shape, read as plain JSON after the typed parse has
+/// accepted its values. A sequence where an object is required parses
+/// either way through the derived deserializer, which takes the values by
+/// position and skips the field names and their `deny_unknown_fields`
+/// along with them; the reply itself is an object, and so is each
+/// `mutations` element (plan §3 step 1: a wrong type is a failure, not a
+/// repair). Failing to read `text` as a value after the typed parse
+/// succeeded cannot happen; if it does, its own text is the message.
+fn check_shape(text: &str) -> Result<(), String> {
+    let value: serde_json::Value = match serde_json::from_str::<serde_json::Value>(text) {
+        Err(error) => return Err(error.to_string()),
+        Ok(value) => value,
+    };
+    if !value.is_object() {
+        return Err("the reply is not a JSON object".to_string());
+    }
+    // The typed parse has read `mutations` as a list, so an element that
+    // is not an object is the only shape left to refuse.
+    if let Some(list) = value.get("mutations").and_then(|member| member.as_array()) {
+        for (index, element) in list.iter().enumerate() {
+            if !element.is_object() {
+                return Err(format!("mutations[{}] is not a JSON object", index));
+            }
+        }
+    }
+    Ok(())
+}
+
 /// Parse one model reply. Nothing is repaired: see the module doc for
 /// everything this refuses.
 pub fn parse_extraction(text: &str) -> Result<Extraction, ExtractionError> {
     if text.len() > MAX_REPLY_BYTES {
         return Err(ExtractionError {
-            message: format!(
+            message: one_line(format!(
                 "the reply is {} bytes, above the {} the schema allows",
                 text.len(),
                 MAX_REPLY_BYTES,
-            ),
+            )),
         });
     }
     match serde_json::from_str::<Extraction>(text) {
-        Ok(extraction) => Ok(extraction),
         Err(error) => Err(ExtractionError {
-            message: error.to_string(),
+            message: one_line(error.to_string()),
         }),
+        Ok(extraction) => match check_shape(text) {
+            Err(message) => Err(ExtractionError {
+                message: one_line(message),
+            }),
+            Ok(()) => Ok(extraction),
+        },
     }
 }
 
@@ -296,6 +355,52 @@ mod tests {
                 message
             );
         }
+    }
+
+    // serde's derived deserializer reads a JSON sequence into a struct,
+    // skipping the field names and `deny_unknown_fields` along with them,
+    // so an array is not the reply this type documents (plan §3 step 1).
+    #[test]
+    fn an_array_is_refused_where_an_object_is_required() {
+        let array: &str =
+            r#"["q5_residue_substitutions","synA",[["A42G","A42G",null]],null,null,[]]"#;
+        assert_eq!(refusal(array), "the reply is not a JSON object");
+        let mutation: &str = r#"{"operation":"q5_residue_substitutions","cds":"synA","mutations":[["A42G","A42G","GGT"]],"composition":null,"numbering":null,"unsupported":[]}"#;
+        assert_eq!(refusal(mutation), "mutations[0] is not a JSON object");
+        let later: &str = r#"{"operation":"q5_residue_substitutions","cds":"synA","mutations":[{"token":"A42G","quote":"A42G","codon":null},["W87A","W87A",null]],"composition":null,"numbering":null,"unsupported":[]}"#;
+        assert_eq!(refusal(later), "mutations[1] is not a JSON object");
+    }
+
+    #[test]
+    fn an_error_message_is_one_line() {
+        // The newlines are JSON escapes, so the document itself is valid
+        // JSON; only the model's own text carries the control chars.
+        let reply: &str = r#"{"operation":"a\nb\nINJECTED","cds":null,"mutations":[],
+            "composition":null,"numbering":null,"unsupported":[]}"#;
+        let message: String = refusal(reply);
+        assert!(
+            message.chars().all(|c| !c.is_control()),
+            "the reply {:?} was refused with a message that holds a control char: {:?}",
+            reply,
+            message
+        );
+    }
+
+    #[test]
+    fn a_long_error_message_is_cut() {
+        let reply: String = format!(
+            "{{\"operation\":\"{}\",\"cds\":null,\"mutations\":[],\"composition\":null,\"numbering\":null,\"unsupported\":[]}}",
+            "x".repeat(1000)
+        );
+        let message: String = refusal(&reply);
+        assert_eq!(
+            message.chars().count(),
+            300,
+            "the reply {:?} was refused with {:?} chars, not 300",
+            reply,
+            message.chars().count()
+        );
+        assert!(message.ends_with("..."), "{:?}", message);
     }
 
     #[test]
