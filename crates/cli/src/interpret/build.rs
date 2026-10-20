@@ -35,7 +35,7 @@ use crate::interpret::catalogue::CatalogueEntry;
 use crate::interpret::catalogue::Usability;
 use crate::interpret::evidence::digit_runs;
 use crate::interpret::evidence::evidence;
-use crate::interpret::evidence::numbering_from_cds_start;
+use crate::interpret::evidence::numbering_stated_from_cds_start;
 use crate::interpret::notation::parse_substitution;
 use crate::interpret::notation::NotationError;
 use crate::interpret::notation::Part;
@@ -616,11 +616,13 @@ pub fn build(
         asked.push(composition_unstated());
     }
 
-    // 3e: the numbering - the text first, the profile second (§5.5).
+    // 3e: the numbering - the text first, the profile second (§5.5). The
+    // user's own sentence and text are read, not only the model's words
+    // (D045).
     let numbering_words: Option<String> = extraction.numbering.clone();
     match numbering_words {
         Some(words) => {
-            if !numbering_from_cds_start(words.as_str()) {
+            if !numbering_stated_from_cds_start(text, words.as_str()) {
                 asked.push(Question {
                     code: QuestionCode::NumberingUnsupported,
                     subject: words.clone(),
@@ -983,6 +985,82 @@ mod tests {
         assert_eq!(
             asked(&built),
             vec![("substitution_direction_unclear", "A42G".to_string())]
+        );
+    }
+
+    // B-3 (D045): the user's own sentence is read, not only the model's
+    // words, so a negated numbering sentence is not a statement of the CDS
+    // start.
+    #[test]
+    fn a_negated_numbering_sentence_is_not_from_the_cds_start() {
+        let text: &str = "In synA, change A42G. Do not number residues from the start of the CDS.";
+        let built: Built = build(
+            text,
+            &reply(
+                r#"{"operation":"q5_residue_substitutions","cds":"synA",
+                "mutations":[{"token":"A42G","quote":"A42G","codon":null}],
+                "composition":null,"numbering":"from the start of the CDS","unsupported":[]}"#,
+            ),
+            &syna(),
+            Some(&profile(true, true)),
+            &facts(),
+        );
+        assert_eq!(
+            asked(&built),
+            vec![(
+                "numbering_unsupported",
+                "from the start of the CDS".to_string()
+            )]
+        );
+    }
+
+    // B-3 (D045): another numbering scheme anywhere in the text is asked
+    // about, even when the numbering words themselves are on the list.
+    #[test]
+    fn another_numbering_scheme_anywhere_is_asked_about() {
+        let text: &str =
+            "In synA, change A42G, numbering from the CDS start. The residue numbers follow UniProt.";
+        let built: Built = build(
+            text,
+            &reply(
+                r#"{"operation":"q5_residue_substitutions","cds":"synA",
+                "mutations":[{"token":"A42G","quote":"A42G","codon":null}],
+                "composition":null,"numbering":"numbering from the CDS start","unsupported":[]}"#,
+            ),
+            &syna(),
+            Some(&profile(true, true)),
+            &facts(),
+        );
+        assert_eq!(
+            asked(&built),
+            vec![(
+                "numbering_unsupported",
+                "numbering from the CDS start".to_string()
+            )]
+        );
+    }
+
+    // B-3 (D045): a negation and an ordinary noun in other sentences do not
+    // refuse the numbering words.
+    #[test]
+    fn a_negation_elsewhere_still_proposes() {
+        let text: &str =
+            "In synA, change A42G in the plasmid. Do not change anything else. Numbering from the CDS start.";
+        let built: Built = build(
+            text,
+            &reply(
+                r#"{"operation":"q5_residue_substitutions","cds":"synA",
+                "mutations":[{"token":"A42G","quote":"A42G","codon":null}],
+                "composition":null,"numbering":"Numbering from the CDS start","unsupported":[]}"#,
+            ),
+            &syna(),
+            Some(&profile(true, true)),
+            &facts(),
+        );
+        assert!(
+            matches!(built, Built::Proposed { .. }),
+            "expected a proposal, got {:?}",
+            built
         );
     }
 

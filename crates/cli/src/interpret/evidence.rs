@@ -39,7 +39,15 @@
 //!   their normalized form — ASCII lower case, every character that is not
 //!   an ASCII letter or digit treated as a space — holds one of
 //!   `ORIGIN_PHRASES` as consecutive words and holds no word of
-//!   `NUMBERING_VETO`, a negation, a contrast or another origin.
+//!   `NUMBERING_NEGATION`, `NUMBERING_NOUNS` or `NUMBERING_SCHEMES`: a
+//!   negation, a contrast, an ordinary noun or another origin. In
+//!   `numbering_stated_from_cds_start`, a scheme word of `NUMBERING_SCHEMES`
+//!   anywhere in the user's text refuses the words, and a word of
+//!   `NUMBERING_NEGATION` or `NUMBERING_NOUNS` refuses them in any sentence
+//!   of the text that holds them. A sentence runs from just after the last
+//!   `.` `;` `!` `?` or newline before an occurrence of the words to the
+//!   first such boundary at or after the occurrence's end, and every
+//!   occurrence has its own sentence.
 //!
 //! All positions are char indices, as in `notation.rs`: nothing indexes a
 //! `&str` by byte, and no input panics, non-ASCII characters included.
@@ -76,25 +84,22 @@ pub const ORIGIN_PHRASES: [&str; 9] = [
     "from the start codon",
 ];
 
-/// Words that, anywhere in the numbering words, make them doubtful: a
-/// negation, a contrast, or another origin. `t` is the end of a
-/// contraction such as "isn't" once normalized.
-pub const NUMBERING_VETO: [&str; 18] = [
-    "not",
-    "never",
-    "no",
-    "t",
-    "except",
-    "instead",
-    "rather",
-    "but",
+/// Negation and contrast: a veto in the sentence that holds the numbering
+/// words. `t` is the end of a contraction such as "isn't" once normalized.
+pub const NUMBERING_NEGATION: [&str; 8] = [
+    "not", "never", "no", "t", "except", "instead", "rather", "but",
+];
+
+/// Things a residue can be numbered along that are also ordinary nouns
+/// ("in a single construct", "a His tag"): a veto in the sentence that
+/// holds the numbering words only.
+pub const NUMBERING_NOUNS: [&str; 4] = ["plasmid", "construct", "vector", "tag"];
+
+/// Other numbering schemes: a veto anywhere in the text.
+pub const NUMBERING_SCHEMES: [&str; 6] = [
     "mature",
     "precursor",
     "signal",
-    "tag",
-    "plasmid",
-    "construct",
-    "vector",
     "uniprot",
     "pdb",
     "structure",
@@ -342,16 +347,26 @@ fn phrase_present(list: &[String], phrase: &[String]) -> bool {
     false
 }
 
+/// Whether the char ends a sentence: `.` `;` `!` `?` or a newline (D045).
+fn sentence_boundary(c: char) -> bool {
+    c == '.' || c == ';' || c == '!' || c == '?' || c == '\n'
+}
+
 /// Whether the user's numbering words state numbering from the start of the
 /// CDS (M6-11, §3.3.4): only a phrase of `ORIGIN_PHRASES`, as consecutive
-/// normalized words, and no word of `NUMBERING_VETO`. Anything off the
-/// lists is refused, so luria asks.
+/// normalized words, and no word of `NUMBERING_NEGATION`, `NUMBERING_NOUNS`
+/// or `NUMBERING_SCHEMES`. Anything off the lists is refused, so luria
+/// asks.
 pub fn numbering_from_cds_start(words: &str) -> bool {
     let list: Vec<String> = normalized_words(words);
     if list.is_empty() {
         return false;
     }
-    for veto in NUMBERING_VETO.iter() {
+    for veto in NUMBERING_NEGATION
+        .iter()
+        .chain(NUMBERING_NOUNS.iter())
+        .chain(NUMBERING_SCHEMES.iter())
+    {
         if list.iter().any(|word| word == veto) {
             return false;
         }
@@ -362,6 +377,67 @@ pub fn numbering_from_cds_start(words: &str) -> bool {
         }
     }
     false
+}
+
+/// Whether the user's `text` states numbering from the start of the CDS
+/// through its numbering `words` (D045, B-3): `numbering_from_cds_start(words)`
+/// is true, `text` holds no word of `NUMBERING_SCHEMES` anywhere, and no
+/// sentence of `text` that holds `words` holds a word of
+/// `NUMBERING_NEGATION` or `NUMBERING_NOUNS`. Positions are characters. The
+/// sentence of an occurrence runs from just after the last boundary before
+/// it to the first boundary at or after the occurrence's end, so a boundary
+/// inside the words stays inside the sentence, and every occurrence, the
+/// overlapping ones included, has its own sentence. Words that are nowhere
+/// in `text` are refused, so the function is total and fails closed.
+pub fn numbering_stated_from_cds_start(text: &str, words: &str) -> bool {
+    if !numbering_from_cds_start(words) {
+        return false;
+    }
+    let chars: Vec<char> = text.chars().collect();
+    let wanted: Vec<char> = words.chars().collect();
+    if wanted.is_empty() || wanted.len() > chars.len() {
+        return false;
+    }
+    let list: Vec<String> = normalized_words(text);
+    for scheme in NUMBERING_SCHEMES.iter() {
+        if list.iter().any(|word| word == scheme) {
+            return false;
+        }
+    }
+    let mut stated: bool = false;
+    let mut at: usize = 0;
+    while at + wanted.len() <= chars.len() {
+        if chars[at..at + wanted.len()] == wanted[..] {
+            stated = true;
+            let mut start: usize = 0;
+            let mut back: usize = at;
+            while back > 0 {
+                if sentence_boundary(chars[back - 1]) {
+                    start = back;
+                    break;
+                }
+                back -= 1;
+            }
+            let mut end: usize = chars.len();
+            let mut forward: usize = at + wanted.len();
+            while forward < chars.len() {
+                if sentence_boundary(chars[forward]) {
+                    end = forward;
+                    break;
+                }
+                forward += 1;
+            }
+            let sentence: String = chars[start..end].iter().collect();
+            let sentence_words: Vec<String> = normalized_words(&sentence);
+            for veto in NUMBERING_NEGATION.iter().chain(NUMBERING_NOUNS.iter()) {
+                if sentence_words.iter().any(|word| word == veto) {
+                    return false;
+                }
+            }
+        }
+        at += 1;
+    }
+    stated
 }
 
 #[cfg(test)]
@@ -651,6 +727,214 @@ mod tests {
         ];
         for words in refused {
             assert!(!numbering_from_cds_start(words), "{:?} was accepted", words);
+        }
+    }
+
+    // B-9 (D045): the three lists are pinned, so no word can be deleted
+    // without a test failing.
+    #[test]
+    fn the_numbering_lists_are_pinned() {
+        let negation: [&str; 8] = [
+            "not", "never", "no", "t", "except", "instead", "rather", "but",
+        ];
+        let nouns: [&str; 4] = ["plasmid", "construct", "vector", "tag"];
+        let schemes: [&str; 6] = [
+            "mature",
+            "precursor",
+            "signal",
+            "uniprot",
+            "pdb",
+            "structure",
+        ];
+        let origins: [&str; 9] = [
+            "from the start of the cds",
+            "from the start of the annotated cds",
+            "from the start of the coding sequence",
+            "from the beginning of the cds",
+            "from the beginning of the annotated cds",
+            "from the beginning of the coding sequence",
+            "from the cds start",
+            "from the first codon of the cds",
+            "from the start codon",
+        ];
+        assert_eq!(NUMBERING_NEGATION, negation);
+        assert_eq!(NUMBERING_NOUNS, nouns);
+        assert_eq!(NUMBERING_SCHEMES, schemes);
+        assert_eq!(ORIGIN_PHRASES, origins);
+    }
+
+    // B-9 (D045): every origin phrase is accepted on its own.
+    #[test]
+    fn every_origin_phrase_is_accepted() {
+        let phrases: [&str; 9] = [
+            "from the start of the cds",
+            "from the start of the annotated cds",
+            "from the start of the coding sequence",
+            "from the beginning of the cds",
+            "from the beginning of the annotated cds",
+            "from the beginning of the coding sequence",
+            "from the cds start",
+            "from the first codon of the cds",
+            "from the start codon",
+        ];
+        for phrase in phrases {
+            let words: String = format!("Residues are numbered {}.", phrase);
+            assert!(numbering_from_cds_start(&words), "{:?} was refused", phrase);
+        }
+    }
+
+    // B-9 (D045): every veto word refuses the numbering words it sits in.
+    #[test]
+    fn every_veto_word_refuses_the_words_themselves() {
+        let words: [&str; 18] = [
+            "not",
+            "never",
+            "no",
+            "t",
+            "except",
+            "instead",
+            "rather",
+            "but",
+            "mature",
+            "precursor",
+            "signal",
+            "tag",
+            "plasmid",
+            "construct",
+            "vector",
+            "uniprot",
+            "pdb",
+            "structure",
+        ];
+        for word in words {
+            let stated: String = format!("from the start of the CDS {}", word);
+            assert!(
+                !numbering_from_cds_start(&stated),
+                "{:?} was accepted",
+                word
+            );
+        }
+    }
+
+    // B-3 (D045): a negation, a contrast or an ordinary noun in the
+    // sentence that holds the numbering words refuses them.
+    #[test]
+    fn a_negation_or_noun_in_the_numbering_sentence_refuses_it() {
+        let twelve: [&str; 12] = [
+            "not",
+            "never",
+            "no",
+            "t",
+            "except",
+            "instead",
+            "rather",
+            "but",
+            "plasmid",
+            "construct",
+            "vector",
+            "tag",
+        ];
+        for word in twelve {
+            let text: String = format!("Change A42G. Numbering from the CDS start, {} here.", word);
+            assert!(
+                !numbering_stated_from_cds_start(&text, "Numbering from the CDS start"),
+                "{:?} was accepted",
+                word
+            );
+        }
+    }
+
+    // B-3 (D045): the same word in another sentence does not refuse them.
+    #[test]
+    fn a_negation_or_noun_in_another_sentence_does_not() {
+        let twelve: [&str; 12] = [
+            "not",
+            "never",
+            "no",
+            "t",
+            "except",
+            "instead",
+            "rather",
+            "but",
+            "plasmid",
+            "construct",
+            "vector",
+            "tag",
+        ];
+        for word in twelve {
+            let text: String = format!("Change A42G, {} here. Numbering from the CDS start.", word);
+            assert!(
+                numbering_stated_from_cds_start(&text, "Numbering from the CDS start"),
+                "{:?} was refused",
+                word
+            );
+        }
+    }
+
+    // B-3 (D045): another numbering scheme is a veto anywhere in the text.
+    #[test]
+    fn a_scheme_word_anywhere_refuses_it() {
+        let schemes: [&str; 6] = [
+            "mature",
+            "precursor",
+            "signal",
+            "uniprot",
+            "pdb",
+            "structure",
+        ];
+        for scheme in schemes {
+            let text: String = format!(
+                "Change A42G, {} here. Numbering from the CDS start.",
+                scheme
+            );
+            assert!(
+                !numbering_stated_from_cds_start(&text, "Numbering from the CDS start"),
+                "{:?} was accepted",
+                scheme
+            );
+        }
+    }
+
+    // B-3 (D045): every occurrence of the words has its own sentence, and
+    // the sentence is found in characters, not bytes.
+    #[test]
+    fn the_sentence_is_found_around_every_occurrence() {
+        let cases: [(&str, &str, bool); 6] = [
+            (
+                "Use numbering from the CDS start. Do not use numbering from the CDS start; never.",
+                "numbering from the CDS start",
+                false,
+            ),
+            (
+                "Change A42G, but only A42G; numbering from the CDS start.",
+                "numbering from the CDS start",
+                true,
+            ),
+            (
+                "Change A42G; but numbering from the CDS start.",
+                "numbering from the CDS start",
+                false,
+            ),
+            (
+                "Change A42G. Numbering from the CDS start.",
+                "Numbering from the CDS start.",
+                true,
+            ),
+            ("Change A42G.", "from the CDS start", false),
+            (
+                "\u{e9}. Numbering from the CDS start.",
+                "Numbering from the CDS start",
+                true,
+            ),
+        ];
+        for case in cases {
+            assert_eq!(
+                numbering_stated_from_cds_start(case.0, case.1),
+                case.2,
+                "{:?} {:?}",
+                case.0,
+                case.1
+            );
         }
     }
 

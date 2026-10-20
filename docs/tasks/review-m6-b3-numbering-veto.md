@@ -1,7 +1,7 @@
 # Review M6 B-3, B-9: the numbering veto reads the user's sentence (D045)
 
-Status: **Ready for the worker** (after `review-m6-b1-quote-locality.md` is
-committed). Planner: Claude. Parent: `docs/tasks/review-post-m6.md` B-3,
+Status: **Implemented 2026-10-20** by the local worker; accepted on planner review.
+Planner: Claude. Parent: `docs/tasks/review-post-m6.md` B-3,
 B-9. Owner answers, 2026-10-20: "Split by word kind", then "Split the
 origin list" (see the decisions table there).
 
