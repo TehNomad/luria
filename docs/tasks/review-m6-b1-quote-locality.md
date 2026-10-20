@@ -1,6 +1,6 @@
 # Review M6 B-1, B-2: one number per quote, in order (D045)
 
-Status: **Ready for the worker.** Planner: Claude. Parent:
+Status: **Implemented 2026-10-20** by the local worker; accepted on planner review (`aeb5add`). Planner: Claude. Parent:
 `docs/tasks/review-post-m6.md` B-1, B-2. Owner answer, 2026-10-20: "One
 number, in order". Records D045 for the whole review.
 

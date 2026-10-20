@@ -173,7 +173,7 @@ codons only; 6e2 fixed that list. Both: plan wording, no change.
 | # | Question | Answer |
 | --- | --- | --- |
 | B-1, B-2 | How strict a mutation's quote is | **One number, in order.** The quote holds exactly one maximal ASCII digit run; some mention of the original ends at or before its start and some mention of the target starts at or after its end. Otherwise ask; a quote with more than one digit run gets a new question code. All 24 corpus quotes already satisfy it. |
-| B-3 | Where the numbering veto applies | **By word kind.** Negation and contrast words in the sentence that holds the numbering quote (split on `.` `;` `!` `?` and newline); other-origin words anywhere in the text. |
+| B-3 | Where the numbering veto applies | **By word kind.** Negation and contrast words in the sentence that holds the numbering quote (split on `.` `;` `!` `?` and newline); other-origin words anywhere in the text. *Corrected the same day* (the planner's list had lumped in common nouns): numbering-scheme words (`mature`, `precursor`, `signal`, `uniprot`, `pdb`, `structure`) anywhere; `plasmid`, `construct`, `vector`, `tag` only in the numbering words' sentence, so "in a single construct" (`two-combined`) is unaffected. |
 | B-5 | How composition is decided | **Rust phrase list; the model must agree.** Rust finds a fixed composition phrase in the text, as for numbering. None → `composition_unstated`; disagreement with the model's value → ask. No schema or prompt change. |
 | B-7 | How a codon is grounded | **In its own mutation's quote, as a whole word** (bounded by non-letters). The prompt says so (version bump); the `codon-stated` reply's quote becomes `W87 to alanine using the codon GCG`, which the owner approves. |
 | B-6 | A dropped mutation | **Scan for notation tokens.** Ask (new code) when the text holds a bounded `A42G`, `Ala42Gly` or `p.`-prefixed token that no mutation's quote covers. A dropped prose mutation stays the user's review; the docs say so. |
@@ -185,20 +185,27 @@ B-4 (CDS name bounded by characters that cannot be part of a name) is
 fail-closed and needs no decision. These answers, with B-4, become D045
 in the first fix contract.
 
-## Phase 2: fix contracts (planned)
+## Phase 2: fix contracts
 
 Tests first in each; every new rule names the test that fails with the
-rule disabled.
+rule disabled. Run in this order, one commit each.
 
 | Contract | Items |
 | --- | --- |
-| `review-m6-b1-quote-locality.md` | B-1, B-2, B-10 (direction case in the corpus, ordered codes), D045 |
+| `review-m6-b1-quote-locality.md` | B-1, B-2, D045 |
 | `review-m6-b3-numbering-veto.md` | B-3, B-9 |
 | `review-m6-b4-cds-name.md` | B-4 |
 | `review-m6-b5-composition.md` | B-5 |
-| `review-m6-b7-codon.md` | B-7, with the prompt bump and the `codon-stated` reply |
+| `review-m6-b7-codon.md` | B-7, prompt v3, the `codon-stated` reply; the planner measures v3 live before the commit |
 | `review-m6-b6-coverage.md` | B-6, B-8 |
 | `review-m6-a1-reply-shape.md` | A-1, A-3 |
-| `review-m6-a2-backend.md` | A-2, A-4, A-5, A-6 (doc), A-7, A-8, and the key-over-HTTP refusal |
+| `review-m6-a2-backend.md` | A-2, A-4, A-5, A-6, A-7, A-8 |
+| `review-m6-a3-remote-key.md` | the key-over-HTTP refusal |
 | `review-m6-c1-command.md` | C-1, C-2, C-3, C-6, C-8 |
-| `review-m6-c4-docs.md` | C-4, C-5, C-9, and `docs/cli.md` for every rule above |
+| `review-m6-c4-docs.md` | C-4, C-5, C-9 |
+
+Recorded, no change: **B-10.** `tests/fixtures/nl/README.md` deliberately
+compares `codes` as a set ("the plan fixes no order for questions, so the
+fixture must not pin one"); question order is pinned by `build`'s own
+`every_unstated_value_is_asked_about_at_once_in_order`, and the direction
+question by `a_swapped_token_is_asked_about_not_proposed`.
