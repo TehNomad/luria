@@ -203,14 +203,74 @@ fn stated_codon_in(text: &str, codon: &str) -> bool {
             .contains(&codon.to_ascii_lowercase())
 }
 
+/// Whether the text names the CDS `name` as a whole name (D045): `name` is
+/// not blank, and at some occurrence of it in `text` both hold: the char
+/// just before it and the char just after it are each absent, or not an
+/// ASCII letter, ASCII digit, `_` or `-`; and no catalogue id longer than
+/// `name` occurs in `text` at a span that contains this occurrence, so
+/// `bla` in "bla.1" is not `bla` when the record has a CDS `bla.1`. Every
+/// occurrence, the overlapping ones included, is checked, in characters.
+fn names_cds(text: &str, name: &str, catalogue: &[CatalogueEntry]) -> bool {
+    if name.trim().is_empty() {
+        return false;
+    }
+    let chars: Vec<char> = text.chars().collect();
+    let wanted: Vec<char> = name.chars().collect();
+    if wanted.is_empty() || wanted.len() > chars.len() {
+        return false;
+    }
+    // The catalogue ids longer than `name`, as characters: one of them that
+    // covers an occurrence means the text named that longer id, not `name`.
+    let longer: Vec<Vec<char>> = catalogue
+        .iter()
+        .map(|entry| entry.id.clone())
+        .filter(|id| id.chars().count() > wanted.len())
+        .map(|id| id.chars().collect())
+        .collect();
+    // A char that would join `name` to more of a name on the side next to it.
+    let joiner = |c: char| -> bool { c.is_ascii_alphanumeric() || c == '_' || c == '-' };
+    let mut at: usize = 0;
+    while at + wanted.len() <= chars.len() {
+        if chars[at..at + wanted.len()] == wanted[..] {
+            let end: usize = at + wanted.len();
+            let before: bool = at == 0 || !joiner(chars[at - 1]);
+            let after: bool = end == chars.len() || !joiner(chars[end]);
+            if before && after {
+                let covered: bool = longer.iter().any(|id| {
+                    let width: usize = id.len();
+                    let mut from: usize = 0;
+                    while from + width <= chars.len() {
+                        if chars[from..from + width] == id[..] && from <= at && end <= from + width
+                        {
+                            return true;
+                        }
+                        from += 1;
+                    }
+                    false
+                });
+                if !covered {
+                    return true;
+                }
+            }
+        }
+        at += 1;
+    }
+    false
+}
+
 /// Step 1: the first string the model reported that the text does not hold,
 /// in the order of §3.4 step 1, named by its place in the extraction and
 /// given as the model gave it. A mutation's `token` is not grounded here:
-/// it is checked against its quote through 6e1's `evidence` instead.
-fn first_ungrounded(text: &str, extraction: &Extraction) -> Option<Ungrounded> {
+/// it is checked against its quote through 6e1's `evidence` instead. The
+/// CDS name is grounded as a whole name (D045), not as a bare substring.
+fn first_ungrounded(
+    text: &str,
+    extraction: &Extraction,
+    catalogue: &[CatalogueEntry],
+) -> Option<Ungrounded> {
     let named: Option<String> = extraction.cds.clone();
     if let Some(cds) = named {
-        if !stated_in(text, cds.as_str()) {
+        if !names_cds(text, cds.as_str(), catalogue) {
             return Some(Ungrounded {
                 field: "cds".to_string(),
                 value: cds.clone(),
@@ -489,7 +549,7 @@ pub fn build(
     template: &TemplateFacts,
 ) -> Built {
     // Step 1: grounding, before every question (§3.4 step 1).
-    if let Some(problem) = first_ungrounded(text, extraction) {
+    if let Some(problem) = first_ungrounded(text, extraction, catalogue) {
         return Built::Ungrounded(problem.clone());
     }
 
@@ -1405,6 +1465,148 @@ mod tests {
         ];
         for pair in codes {
             assert_eq!(pair.0.code(), pair.1);
+        }
+    }
+
+    // B-4 (D045): the CDS name is grounded as a whole name, not as a bare
+    // substring. A CDS luria can use, named `name`.
+    fn cds_entry(name: &str) -> CatalogueEntry {
+        CatalogueEntry {
+            id: name.to_string(),
+            gene: Some(name.to_string()),
+            product: None,
+            usability: Usability::Usable {
+                residues: 286,
+                strand: Strand::Plus,
+            },
+        }
+    }
+
+    #[test]
+    fn a_cds_name_inside_a_longer_word_is_ungrounded() {
+        let entries: Vec<CatalogueEntry> = vec![cds_entry("bla"), cds_entry("blaB")];
+        let text: &str = "In blaB, change A42G, numbering from the CDS start.";
+        let built: Built = build(
+            text,
+            &reply(
+                r#"{"operation":"q5_residue_substitutions","cds":"bla",
+                "mutations":[{"token":"A42G","quote":"A42G","codon":null}],
+                "composition":null,"numbering":"numbering from the CDS start","unsupported":[]}"#,
+            ),
+            &entries,
+            Some(&profile(true, true)),
+            &facts(),
+        );
+        assert_eq!(
+            built,
+            Built::Ungrounded(Ungrounded {
+                field: "cds".to_string(),
+                value: "bla".to_string(),
+            }),
+            "{}",
+            text,
+        );
+    }
+
+    #[test]
+    fn a_cds_name_inside_a_longer_catalogue_id_is_ungrounded() {
+        let entries: Vec<CatalogueEntry> = vec![cds_entry("bla"), cds_entry("bla.1")];
+        let text: &str = "In bla.1, change A42G, numbering from the CDS start.";
+        let built: Built = build(
+            text,
+            &reply(
+                r#"{"operation":"q5_residue_substitutions","cds":"bla",
+                "mutations":[{"token":"A42G","quote":"A42G","codon":null}],
+                "composition":null,"numbering":"numbering from the CDS start","unsupported":[]}"#,
+            ),
+            &entries,
+            Some(&profile(true, true)),
+            &facts(),
+        );
+        assert_eq!(
+            built,
+            Built::Ungrounded(Ungrounded {
+                field: "cds".to_string(),
+                value: "bla".to_string(),
+            }),
+            "{}",
+            text,
+        );
+    }
+
+    #[test]
+    fn a_whole_cds_name_is_grounded() {
+        let entries: Vec<CatalogueEntry> = vec![cds_entry("bla"), cds_entry("blaB")];
+        let cases: [(&str, &str); 4] = [
+            (
+                "In bla, change A42G, numbering from the CDS start.",
+                "numbering from the CDS start",
+            ),
+            (
+                "Change A42G in bla. Numbering from the CDS start.",
+                "Numbering from the CDS start",
+            ),
+            (
+                "In (bla) change A42G, numbering from the CDS start.",
+                "numbering from the CDS start",
+            ),
+            (
+                "In blaB and then bla, change A42G, numbering from the CDS start.",
+                "numbering from the CDS start",
+            ),
+        ];
+        for pair in cases {
+            let text: &str = pair.0;
+            let words: String = pair.1.to_string();
+            let built: Built = build(
+                text,
+                &reply(&format!(
+                    r#"{{"operation":"q5_residue_substitutions","cds":"bla",
+                    "mutations":[{{"token":"A42G","quote":"A42G","codon":null}}],
+                    "composition":null,"numbering":"{}","unsupported":[]}}"#,
+                    words.clone(),
+                )),
+                &entries,
+                Some(&profile(true, true)),
+                &facts(),
+            );
+            match built {
+                Built::Proposed { request, .. } => {
+                    assert_eq!(request.scope, Some("bla".to_string()), "{}", text);
+                }
+                other => panic!("expected a proposal, got {:?}", other),
+            }
+        }
+    }
+
+    #[test]
+    fn a_name_joined_by_a_hyphen_or_underscore_is_not_whole() {
+        let entries: Vec<CatalogueEntry> = vec![cds_entry("bla")];
+        let texts: [&str; 2] = [
+            "In bla-2, change A42G, numbering from the CDS start.",
+            "In my_bla, change A42G, numbering from the CDS start.",
+        ];
+        for text in texts.iter() {
+            let built: Built = build(
+                text,
+                &reply(
+                    r#"{"operation":"q5_residue_substitutions","cds":"bla",
+                "mutations":[{"token":"A42G","quote":"A42G","codon":null}],
+                "composition":null,"numbering":"numbering from the CDS start","unsupported":[]}"#,
+                ),
+                &entries,
+                Some(&profile(true, true)),
+                &facts(),
+            );
+            assert_eq!(
+                built,
+                Built::Ungrounded(Ungrounded {
+                    field: "cds".to_string(),
+                    value: "bla".to_string(),
+                }),
+                "{}",
+                text,
+            );
         }
     }
 }

@@ -1493,8 +1493,9 @@ Decision:
 * **Numbering in context** (B-3). A negation or contrast word in the
   sentence holding the user's numbering words, or another numbering
   origin anywhere in the text, makes the numbering doubtful.
-* **A CDS name is a whole name** (B-4). It must occur in the text bounded
-  by characters that cannot be part of a name.
+* **A CDS name is a whole name** (B-4). It must occur in the text with no
+  letter, digit, `_` or `-` on either side, and not inside a longer CDS id
+  the record has.
 * **Composition is read by Rust** (B-5), from a fixed list of phrasings in
   the text. None is `composition_unstated`; a model's value that disagrees
   is asked about.

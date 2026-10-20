@@ -1,7 +1,8 @@
 # Review M6 B-4: a CDS name is grounded as a whole name (D045)
 
-Status: **Ready for the worker** (after `review-m6-b3-numbering-veto.md` is
-committed). Planner: Claude. Parent: `docs/tasks/review-post-m6.md` B-4.
+Status: **Implemented 2026-10-20** by the local worker; accepted on planner
+review. Test 3 is a guard against over-refusing and passes before the
+change too, as it should. Planner: Claude. Parent: `docs/tasks/review-post-m6.md` B-4.
 Fail-closed; no owner decision needed.
 
 Files (no others):
