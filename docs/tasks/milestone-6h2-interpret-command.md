@@ -1,6 +1,10 @@
 # Milestone 6h2: the `luria q5 interpret` command
 
-Status: **Ready for the worker, 2026-10-19** (6g1 and 6h1 are committed).
+Status: **Implemented 2026-10-19** by the local worker; accepted on the first
+review. Notes: the "gate before `interpret`" proof fails through the
+stdout-is-empty assertion, not the exit status; a duplicated option is
+reported before a missing value, as `--write-edited` already is; an empty
+`--backend` or `--endpoint` is refused by the later rules.
 Planner: Claude. Parent: `docs/tasks/milestone-6-nl.md` §3 ("Cloud use is
 explicit"), §5.6, §5.7, M6-17, M6-18, §6 (6h).
 

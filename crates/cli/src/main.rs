@@ -7,11 +7,14 @@ use std::io::{stderr, stdout, Write};
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-use luria_cli::args::{parse, utf8_arguments, Command, UsageError, USAGE};
+use luria_cli::args::{checked_endpoint, parse, utf8_arguments, Command, UsageError, USAGE};
 use luria_cli::exit::ExitStatus;
+use luria_cli::interpret::document::render_interpretation;
+use luria_cli::interpret::run::{interpret, InterpretInput, InterpretOutcome, TextSource};
 use luria_cli::result::render;
 use luria_cli::run::{run_with_output, Outcome};
 use luria_cli::version::render_version;
+use luria_nl::openai::OpenAiCompatible;
 
 /// Write `text` on stdout; false when the write or the flush failed (plan
 /// §3.7: a document that cannot be written is an internal error, exit 1).
@@ -68,6 +71,49 @@ fn emit_design(request: PathBuf, write_edited: Option<PathBuf>) -> ExitStatus {
     outcome.status
 }
 
+/// `luria q5 interpret`: the endpoint is gated before anything is read or
+/// sent, so a refused endpoint is a usage error with no file read and nothing
+/// sent (plan §3, M6-18). The bearer key is read here, from
+/// `LURIA_OPENAI_API_KEY` and nowhere else; it is handed to the backend and
+/// never written to a document, a message or stderr. One JSON document goes to
+/// stdout, `interpret`'s note to stderr when it has one, and `interpret`'s
+/// status is the exit status (plan §5.7); a document that cannot be written is
+/// an internal error, because the status is the report.
+fn emit_interpret(
+    template: PathBuf,
+    text: TextSource,
+    design: Option<PathBuf>,
+    endpoint: String,
+    model: String,
+    allow_remote: bool,
+    write_request: Option<PathBuf>,
+) -> ExitStatus {
+    match checked_endpoint(&endpoint, allow_remote) {
+        Err(problem) => report_usage(problem),
+        Ok(endpoint) => {
+            let key: Option<String> = env::var("LURIA_OPENAI_API_KEY").ok();
+            let mut backend: OpenAiCompatible = OpenAiCompatible::new(endpoint, &model, key);
+            let input: InterpretInput = InterpretInput {
+                template,
+                text,
+                profile: design,
+                write_request,
+            };
+            let outcome: InterpretOutcome = interpret(&input, &mut backend);
+
+            if !write_out(render_interpretation(&outcome.document).as_str()) {
+                return ExitStatus::Internal;
+            }
+
+            if let Some(text) = outcome.note {
+                write_err(format!("luria: {}\n", text).as_str());
+            }
+
+            outcome.status
+        }
+    }
+}
+
 /// Report a usage error on stderr, with the usage text repeated (plan §3.7,
 /// exit code 2: text on stderr, nothing on stdout).
 fn report_usage(problem: UsageError) -> ExitStatus {
@@ -88,6 +134,23 @@ fn main() -> ExitCode {
                 request,
                 write_edited,
             }) => emit_design(request, write_edited),
+            Ok(Command::Q5Interpret {
+                template,
+                text,
+                design,
+                endpoint,
+                model,
+                allow_remote,
+                write_request,
+            }) => emit_interpret(
+                template,
+                text,
+                design,
+                endpoint,
+                model,
+                allow_remote,
+                write_request,
+            ),
             Err(problem) => report_usage(problem),
         },
     };
