@@ -5,5 +5,7 @@
 
 pub mod build;
 pub mod catalogue;
+pub mod document;
 pub mod evidence;
 pub mod notation;
+pub mod run;

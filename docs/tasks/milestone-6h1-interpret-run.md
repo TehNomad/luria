@@ -1,6 +1,15 @@
 # Milestone 6h1: `interpret`, its document and exit status 8
 
-Status: **Ready for the worker, 2026-10-19** (6f is committed).
+Status: **Implemented 2026-10-19** by the local worker, accepted after one
+review round. Review notes:
+- **Planner defect in §4.1, fixed:** the `create_new` row could not fail,
+  because step 4 refuses a dangling link before the write; `create_new` only
+  guards a file appearing between steps 4 and 8, which no integration test
+  can stage. The round added the unit test `a_write_never_replaces_a_file`,
+  which the worker proved fails with `create(true).truncate(true)`.
+- **Fixed:** `read_capped` allocated the whole cap (32 MiB for a template)
+  and failed on an interrupted read; it now uses `take(cap + 1)` and
+  `read_to_end`.
 Planner: Claude. Parent: `docs/tasks/milestone-6-nl.md` §3, §5.5, §5.7,
 M6-7, M6-10, M6-14, §6 (6h, split into 6h1 and 6h2).
 

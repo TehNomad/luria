@@ -1,7 +1,6 @@
 # Milestone 6i: the corpus end to end
 
-Status: **Waiting on 6h1, 2026-10-19.** Start only when 6h1 is committed
-(6h2 is not needed).
+Status: **Ready for the worker, 2026-10-19** (6h1 is committed).
 Planner: Claude. Parent: `docs/tasks/milestone-6-nl.md` §1 ("The milestone
 succeeds when..."), §8, §6 (6i); the product brief's "Definition of
 success": *natural language can produce the same typed operation and
