@@ -1405,3 +1405,73 @@ Decision:
 Reversibility:
 
 Changing a limit changes which requests are accepted and needs approval.
+
+## D044: Natural-language interpretation (Milestone 6)
+
+Status: approved by the owner, 2026-10-19 (`docs/tasks/milestone-6-nl.md`
+§4, answers M6-1 to M6-18). Applies D004, D005, D016, D021, D023, D028 and
+D034. Amends D041's dependency rule.
+
+Decision:
+
+* **Two steps** (M6-3). `luria q5 interpret` turns a request in words into
+  a proposed `luria.q5-request/1` request, or into questions, and writes
+  it as one `luria.q5-interpretation/1` document. The user reviews it and
+  runs `luria q5 design` on it, unchanged. Removing the model changes no
+  scientific calculation (D004).
+* **The model extracts; Rust decides** (M6-5, M6-15). The model returns a
+  narrow extraction: the operation, the CDS name, each substitution as a
+  canonical token with a verbatim quote of the user's words, the
+  composition and the user's words about numbering. Rust grounds every
+  string against the user's text; checks each token against its quote (the
+  number written there, both residues named there, the original before the
+  target); reads the notation; checks the CDS against the record; and
+  builds the request itself. The model writes no request field, no
+  coordinate, no sequence and no primer. A string the text does not
+  contain fails the run (`ungrounded_extraction`); a quote that does not
+  support its token is a question.
+* **What leaves the machine** (M6-4). The user's text, and per CDS its id,
+  `/gene`, `/product`, residue count, strand and whether luria can use it.
+  Never the sequence, never a coordinate. The document records the
+  messages sent. An endpoint that is not loopback needs `--allow-remote`
+  (D023), checked before anything is read or sent.
+* **Backend** (M6-1, M6-2, M6-17, M6-18). One backend, an OpenAI-compatible
+  `/chat/completions` endpoint over plain HTTP, through `ureq` with its
+  default features off: temperature 0, a fixed seed, the extraction schema
+  as `response_format`, no thinking or token-limit setting. HTTPS and the
+  Anthropic API are deferred, because the TLS stack's C build needs paths
+  the development sandbox denies (`docs/tasks/later-tls-and-anthropic.md`).
+* **Templates** (M6-7): GenBank only, so CDSs come from the record. FASTA
+  is refused (`interpret_fasta_unsupported`).
+* **Notation** (M6-8): residue substitutions only, one-letter (`A42G`) and
+  three-letter (`Ala42Gly`), optionally `p.`-prefixed; `?` marks a part the
+  user did not state, and is asked about.
+* **No silent choices** (D005). A CDS the text does not name is always
+  asked about, whatever the record holds (M6-9). Two or more substitutions
+  with no stated composition are asked about. Numbering is taken from the
+  text, from a fixed list of phrasings, or from the profile; otherwise
+  asked about (M6-11).
+* **The design profile** (M6-6). Values the text does not state — the
+  design, a codon policy, the numbering origin — come from a user-owned
+  `luria.q5-design-profile/1` file, read with the request parser's own
+  `design` rules. An absent value is a question; luria defaults nothing
+  (D028).
+* **The template id** is the record's LOCUS name, reported as an
+  assumption (M6-10).
+* **A combined construct is proposed as asked** (M6-16), and core refuses
+  it at design: the adapter does not duplicate a scope rule core owns
+  (D003).
+* **Exit 8** is a refused model reply (M6-14). `luria q5 design`'s result
+  schema is unchanged (M6-12).
+* **Dependencies.** `luria-nl` holds model I/O only and may depend on
+  `serde`, `serde_json` and `ureq` (default features off). `luria-cli` may
+  depend on `luria-nl`. `luria-core` stays dependency-free.
+* **Measured, not assumed.** The prompt shipped is the one measured on a
+  small local model (`docs/research/m6-local-model-extraction-2026-10-19.md`)
+  and is pinned to that record by test.
+
+Reversibility:
+
+Adding a backend, a TLS stack, a notation, a template format, a default
+for any value, or a field the model may fill needs approval. So does
+sending the model anything more of the record.

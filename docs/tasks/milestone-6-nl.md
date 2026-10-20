@@ -1,7 +1,9 @@
 # Milestone 6 plan: natural-language interpretation
 
-Status: **Plan approved by the owner, 2026-10-19; every question in §4 and
-§9 is answered.** In progress; see the per-contract files `milestone-6*.md`. Planner: Claude. Decision: D034 (Milestone 6 is "an LLM adapter
+Status: **Implemented 2026-10-19.** Plan approved by the owner the same day;
+every question in §4 and §9 is answered (M6-1 to M6-18), and recorded as
+D044. Every contract of §6 is implemented except 6g2, deferred by the owner
+(M6-18). See the per-contract files `milestone-6*.md`. Planner: Claude. Decision: D034 (Milestone 6 is "an LLM adapter
 that turns user requests into typed operations and clarification
 requests"). Branch: `feat/milestone-6`.
 

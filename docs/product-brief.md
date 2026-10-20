@@ -329,6 +329,10 @@ Milestone 6: Natural-language interpretation
 Add an LLM adapter that converts user requests into typed operations and
 clarification requests.
 
+Implemented: luria q5 interpret, the luria.q5-interpretation/1 and
+luria.q5-design-profile/1 schemas, a local OpenAI-compatible backend, and
+docs/cli.md section 10 (D044).
+
 Milestone 7: Review-oriented user interface
 
 Build the TUI around the same application capabilities and typed operations.
