@@ -27,9 +27,11 @@
 //!
 //! What is not judged here, by design (D003): whether the residue at the
 //! number really is the stated original, whether a codon encodes the target
-//! or is a codon at all, whether two members repeat, and whether the LOCUS
-//! name is a valid identifier. `luria q5 design` checks all of them on the
-//! proposal. Nothing here touches a model, a file, the network, the
+//! or is a codon at all, and whether the LOCUS name is a valid identifier.
+//! `luria q5 design` checks all of them on the proposal. Repeats and
+//! substitution words the reply does not quote are asked about here instead
+//! (D045), while a substitution written only in prose that the reply drops is
+//! not detected. Nothing here touches a model, a file, the network, the
 //! environment or the clock, and the same inputs give the same `Built`
 //! (D012).
 
@@ -78,6 +80,8 @@ pub enum QuestionCode {
     TargetResidueUnstated,
     SubstitutionDirectionUnclear,
     MutationQuoteAmbiguous,
+    MutationRepeated,
+    MutationNotExtracted,
     CodonUnstated,
     CodonNotInQuote,
     CdsUnnamed,
@@ -103,6 +107,8 @@ impl QuestionCode {
             QuestionCode::TargetResidueUnstated => "target_residue_unstated",
             QuestionCode::SubstitutionDirectionUnclear => "substitution_direction_unclear",
             QuestionCode::MutationQuoteAmbiguous => "mutation_quote_ambiguous",
+            QuestionCode::MutationRepeated => "mutation_repeated",
+            QuestionCode::MutationNotExtracted => "mutation_not_extracted",
             QuestionCode::CodonUnstated => "codon_unstated",
             QuestionCode::CodonNotInQuote => "codon_not_in_quote",
             QuestionCode::CdsUnnamed => "cds_unnamed",
@@ -239,6 +245,80 @@ fn codon_in_quote(quote: &str, codon: &str) -> bool {
         at += 1;
     }
     false
+}
+
+/// Whether `quote` holds `word` as a whole word (D045): the word's chars,
+/// exactly as written, at some position of `quote` with no ASCII letter,
+/// ASCII digit or `.` just before or just after. A `.` just after is allowed
+/// when it is the last char of `quote`, or when the char after it is not an
+/// ASCII letter or digit, so the period that ends a sentence still shows
+/// `A42G` in `A42G.` while `A42G.x` shows no `A42G`. A blank word is never
+/// held.
+fn quote_holds_word(quote: &str, word: &str) -> bool {
+    if word.trim().is_empty() {
+        return false;
+    }
+    let chars: Vec<char> = quote.chars().collect();
+    let wanted: Vec<char> = word.chars().collect();
+    if wanted.is_empty() || wanted.len() > chars.len() {
+        return false;
+    }
+    // A letter, digit or `.` on either side would make `word` part of a
+    // longer token.
+    let joiner = |c: char| -> bool { c.is_ascii_alphanumeric() || c == '.' };
+    let mut at: usize = 0;
+    while at + wanted.len() <= chars.len() {
+        if chars[at..at + wanted.len()] == wanted[..] {
+            let end: usize = at + wanted.len();
+            let before: bool = at == 0 || !joiner(chars[at - 1]);
+            let after: bool = if end == chars.len() {
+                true
+            } else if chars[end] == '.' {
+                end + 1 == chars.len() || !chars[end + 1].is_ascii_alphanumeric()
+            } else {
+                !joiner(chars[end])
+            };
+            if before && after {
+                return true;
+            }
+        }
+        at += 1;
+    }
+    false
+}
+
+/// The words of `text` that 6b's notation reads as a substitution, in text
+/// order, each once (D045). A word is a maximal run of ASCII letters, ASCII
+/// digits and `.`, with any `.` at its end removed; it counts when
+/// `parse_substitution` reads it (`Ok`). Chars, never bytes.
+fn substitution_words(text: &str) -> Vec<String> {
+    let chars: Vec<char> = text.chars().collect();
+    // What a token is made of: letters, digits, and the `.` of a `p.` prefix
+    // or of a sentence period.
+    let token_char = |c: char| -> bool { c.is_ascii_alphanumeric() || c == '.' };
+    let mut words: Vec<String> = Vec::new();
+    let mut at: usize = 0;
+    while at < chars.len() {
+        if !token_char(chars[at]) {
+            at += 1;
+            continue;
+        }
+        let mut end: usize = at;
+        while end < chars.len() && token_char(chars[end]) {
+            end += 1;
+        }
+        // A `.` at the run's end ends a sentence: it is not part of the word.
+        let mut stop: usize = end;
+        while stop > at && chars[stop - 1] == '.' {
+            stop -= 1;
+        }
+        let word: String = chars[at..stop].iter().collect();
+        if parse_substitution(&word).is_ok() && !words.contains(&word) {
+            words.push(word.clone());
+        }
+        at = end;
+    }
+    words
 }
 
 /// Whether the text names the CDS `name` as a whole name (D045): `name` is
@@ -651,7 +731,9 @@ pub fn build(
     }
 
     // Step 3: every other question, collected in the order of §3.4, and what
-    // step 4 needs of each mutation.
+    // step 4 needs of each mutation. Two of these read the text itself, not
+    // only the model's words (D045): a substitution the reply lists twice,
+    // and a substitution token the text writes that no quote covers.
     let mut asked: Vec<Question> = Vec::new();
     let mut reads: Vec<MutationRead> = Vec::new();
 
@@ -685,6 +767,49 @@ pub fn build(
         );
         asked.extend(reading.questions.clone());
         reads.push(reading.clone());
+    }
+
+    // 3b's two checks of D045 (B-8 and B-6), in this order: a substitution the
+    // reply lists more than once is asked about, and so is one the text writes
+    // as a token that no mutation's quote covers. Both run with no mutations
+    // too, after 3a's `mutation_unstated`.
+
+    // Repeats: each canonical name two or more reads share, asked about once,
+    // at its first appearance in extraction order.
+    let names: Vec<String> = reads
+        .iter()
+        .filter_map(|read| read.substitution.clone().map(|each| each.canonical()))
+        .collect();
+    let mut once: Vec<String> = Vec::new();
+    for name in names.iter() {
+        let times: usize = names.iter().filter(|other| *other == name).count();
+        if times >= 2 && !once.contains(name) {
+            once.push(name.clone());
+            asked.push(Question {
+                code: QuestionCode::MutationRepeated,
+                subject: name.clone(),
+                message: format!("{} is listed more than once", name.clone()),
+            });
+        }
+    }
+
+    // Not extracted: every substitution word of the user's own text that no
+    // mutation's quote holds as a whole word.
+    for word in substitution_words(text).iter() {
+        let covered: bool = extraction
+            .mutations
+            .iter()
+            .any(|mutation| quote_holds_word(mutation.quote.as_str(), word.as_str()));
+        if !covered {
+            asked.push(Question {
+                code: QuestionCode::MutationNotExtracted,
+                subject: word.clone(),
+                message: format!(
+                    "the text names {}, but the reply lists no substitution quoting it",
+                    word.clone(),
+                ),
+            });
+        }
     }
 
     // 3c: the CDS, matched exactly against the catalogue: never one the
@@ -1631,7 +1756,7 @@ mod tests {
 
     #[test]
     fn every_question_code_is_pinned() {
-        let codes: [(QuestionCode, &str); 18] = [
+        let codes: [(QuestionCode, &str); 20] = [
             (QuestionCode::OperationUnsupported, "operation_unsupported"),
             (QuestionCode::MutationUnstated, "mutation_unstated"),
             (
@@ -1658,6 +1783,8 @@ mod tests {
                 QuestionCode::MutationQuoteAmbiguous,
                 "mutation_quote_ambiguous",
             ),
+            (QuestionCode::MutationRepeated, "mutation_repeated"),
+            (QuestionCode::MutationNotExtracted, "mutation_not_extracted"),
             (QuestionCode::CodonUnstated, "codon_unstated"),
             (QuestionCode::CodonNotInQuote, "codon_not_in_quote"),
             (QuestionCode::CdsUnnamed, "cds_unnamed"),
@@ -1929,5 +2056,117 @@ mod tests {
             }
             other => panic!("expected a proposal, got {:?}", other),
         }
+    }
+
+    // D045 (B-6): the text writes two substitution tokens, the reply lists
+    // one, so the variant the user asked for and the reply dropped is asked
+    // about, not silently left out of the proposal.
+    #[test]
+    fn a_substitution_the_reply_drops_is_asked_about() {
+        let text: &str =
+            "Using synA, design Q5 SDM primers for A42G and W87A as separate variants. Number residues from the beginning of the annotated CDS.";
+        let built: Built = build(
+            text,
+            &reply(
+                r#"{"operation":"q5_residue_substitutions","cds":"synA",
+                "mutations":[{"token":"A42G","quote":"A42G","codon":null}],
+                "composition":"separate_variants","numbering":"from the beginning of the annotated CDS","unsupported":[]}"#,
+            ),
+            &syna(),
+            Some(&profile(true, true)),
+            &facts(),
+        );
+        assert_eq!(
+            asked(&built),
+            vec![("mutation_not_extracted", "W87A".to_string())],
+            "{}",
+            text,
+        );
+    }
+
+    // D045: the words 6b reads are found in every notation it accepts, and
+    // each word is asked about once.
+    #[test]
+    fn every_written_form_is_found() {
+        let text: &str = "In synA, make p.A42G, ala87gly and W87A. Numbering from the CDS start.";
+        let built: Built = build(
+            text,
+            &reply(
+                r#"{"operation":"q5_residue_substitutions","cds":"synA","mutations":[],
+                "composition":null,"numbering":"Numbering from the CDS start","unsupported":[]}"#,
+            ),
+            &syna(),
+            Some(&profile(true, true)),
+            &facts(),
+        );
+        assert_eq!(
+            asked(&built),
+            vec![
+                ("mutation_unstated", "mutations".to_string()),
+                ("mutation_not_extracted", "p.A42G".to_string()),
+                ("mutation_not_extracted", "ala87gly".to_string()),
+                ("mutation_not_extracted", "W87A".to_string()),
+            ],
+            "{}",
+            text,
+        );
+    }
+
+    // D045: only what 6b's notation reads counts as a substitution word: `Q5`
+    // is the operation, `K12` and `W87` name no target and `HbA1c` is a
+    // buffer, so an unrelated quote in the prose asks for nothing.
+    #[test]
+    fn words_that_are_not_substitutions_are_not_asked_about() {
+        let text: &str =
+            "In synA with Q5, delete K12 and change W87 to alanine in HbA1c-free buffer. Numbering from the CDS start.";
+        let built: Built = build(
+            text,
+            &reply(
+                r#"{"operation":"q5_residue_substitutions","cds":"synA",
+                "mutations":[{"token":"W87A","quote":"W87 to alanine","codon":null}],
+                "composition":null,"numbering":"Numbering from the CDS start","unsupported":[]}"#,
+            ),
+            &syna(),
+            Some(&profile(true, true)),
+            &facts(),
+        );
+        assert!(
+            matches!(built, Built::Proposed { .. }),
+            "expected a proposal, got {:?}",
+            built
+        );
+    }
+
+    // D045 (B-8): the reply lists the same substitution twice, in two
+    // notations, so the variant it would name twice is asked about before
+    // `luria q5 design` would refuse the duplicate name.
+    #[test]
+    fn a_repeated_substitution_is_asked_about() {
+        let text: &str =
+            "In synA, make A42G and Ala42Gly as separate variants. Numbering from the CDS start.";
+        let built: Built = build(
+            text,
+            &reply(
+                r#"{"operation":"q5_residue_substitutions","cds":"synA",
+                "mutations":[{"token":"A42G","quote":"A42G","codon":null},
+                             {"token":"A42G","quote":"Ala42Gly","codon":null}],
+                "composition":"separate_variants","numbering":"Numbering from the CDS start","unsupported":[]}"#,
+            ),
+            &syna(),
+            Some(&profile(true, true)),
+            &facts(),
+        );
+        assert_eq!(
+            asked(&built),
+            vec![("mutation_repeated", "A42G".to_string())],
+            "{}",
+            text,
+        );
+        assert_eq!(
+            messages(&built),
+            vec!["A42G is listed more than once".to_string()],
+            "{}",
+            text,
+        );
     }
 }

@@ -730,6 +730,8 @@ an existing file.
 | `target_residue_unstated` | Your words do not state the residue to put there. |
 | `substitution_direction_unclear` | Your words do not name the residue there now, then the number, then the residue to put there. |
 | `mutation_quote_ambiguous` | The words given for one substitution hold more than one number. |
+| `mutation_repeated` | The same substitution is listed twice. |
+| `mutation_not_extracted` | Your text holds a substitution such as `A42G` that the reply does not list. |
 | `codon_unstated` | No codon in the text and no codon policy in the profile. |
 | `codon_not_in_quote` | A codon is in the text, but not in the words given for its substitution. |
 | `cds_unnamed` | The text names no CDS. luria never picks one, even when the record has one. |
@@ -744,6 +746,11 @@ an existing file.
 All the questions are asked at once. A combined construct is proposed as
 asked; `luria q5 design` then refuses it (`unsupported_composition`), as it
 would a hand-written one.
+
+luria checks that every substitution written as a token (`A42G`,
+`Ala42Gly`, `p.A42G`) is in the reply. It cannot check that for one
+written only in words ("alanine 42 to glycine"): read the proposal's
+members before you run it.
 
 ### 10.7 Errors and exit codes
 

@@ -1,7 +1,7 @@
 # Review M6 B-6, B-8: nothing dropped, nothing repeated (D045)
 
-Status: **Ready for the worker** (after `review-m6-b7-codon.md` is
-committed). Planner: Claude. Parent: `docs/tasks/review-post-m6.md` B-6,
+Status: **Implemented 2026-10-20** by the local worker; accepted on planner
+review. Planner: Claude. Parent: `docs/tasks/review-post-m6.md` B-6,
 B-8. Owner answers, 2026-10-20: "Scan for notation tokens" and "Ask in
 interpret".
 
