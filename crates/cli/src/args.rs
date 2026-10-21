@@ -20,6 +20,9 @@ pub enum Command {
         allow_remote: bool,
         write_request: Option<PathBuf>,
     },
+    Review {
+        request: PathBuf,
+    },
 }
 
 /// A command line luria can't act on. `message` is one line, no trailing
@@ -35,13 +38,15 @@ pub const USAGE: &str = "usage:
   luria q5 interpret --template FILE.gb (--text TEXT | --text-file FILE)
       --backend openai-compatible --endpoint URL --model NAME
       [--design PROFILE.json] [--allow-remote] [--write-request FILE.json]
+  luria review REQUEST.json
   luria version
   luria help
 
 'q5 design' reads a Q5 site-directed mutagenesis request (JSON), runs the
 workflow and writes one JSON result document to stdout. 'q5 interpret'
 asks a language model what a request in words means and writes the
-proposed request, or its questions, as one JSON document. See docs/cli.md.
+proposed request, or its questions, as one JSON document. 'review' runs a
+request and shows its result in the terminal. See docs/cli.md.
 ";
 
 /// The reason `word` gives, as a `UsageError`.
@@ -92,6 +97,9 @@ pub fn parse(arguments: &[String]) -> Result<Command, UsageError> {
     }
     if word == "q5" {
         return parse_q5(rest);
+    }
+    if word == "review" {
+        return parse_review(rest);
     }
     reject(format!("unknown command '{}'", word))
 }
@@ -182,6 +190,56 @@ fn parse_design(words: &[String]) -> Result<Command, UsageError> {
             write_edited,
         }),
         None => reject("'q5 design' needs a request file".to_string()),
+    }
+}
+
+/// Read `review`'s arguments left to right: one request path. A word exactly
+/// `--`, the first time, ends the options, so every later word is the request
+/// path, even one that starts with `-`, and `--` itself is not a path. Before
+/// `--`, a word starting with `-` is an unknown option. The first error found
+/// is the one reported (milestone 7a).
+fn parse_review(words: &[String]) -> Result<Command, UsageError> {
+    let mut request: Option<String> = None;
+    let mut options_end: bool = false;
+    let last: usize = words.len();
+    let mut index: usize = 0;
+
+    while index < last {
+        let word: &str = &words[index];
+
+        if word == "--" && !options_end {
+            options_end = true;
+            index += 1;
+            continue;
+        }
+
+        if !options_end && word.starts_with("-") {
+            return reject(format!("unknown option '{}'", word));
+        }
+
+        match request {
+            Some(_) => {
+                return reject(format!(
+                    "'review' takes one request file, got a second: '{}'",
+                    word
+                ))
+            }
+            None => {
+                if word.is_empty() {
+                    return reject("an empty path is not a file".to_string());
+                }
+                request = Some(word.to_string());
+            }
+        }
+
+        index += 1;
+    }
+
+    match request {
+        Some(path) => Ok(Command::Review {
+            request: PathBuf::from(path),
+        }),
+        None => reject("'review' needs a request file".to_string()),
     }
 }
 
@@ -520,6 +578,39 @@ mod tests {
                 write_edited: None,
             })
         );
+    }
+
+    #[test]
+    fn review_takes_one_request_file() {
+        assert_eq!(
+            parse_words(&["review", "r.json"]),
+            Ok(Command::Review {
+                request: PathBuf::from("r.json")
+            })
+        );
+        // The word after -- is the request path, whatever it is, and -- is not
+        // a path.
+        assert_eq!(
+            parse_words(&["review", "--", "-r.json"]),
+            Ok(Command::Review {
+                request: PathBuf::from("-r.json")
+            })
+        );
+        let cases: [(&[&str], &str); 4] = [
+            (&["review"], "'review' needs a request file"),
+            (
+                &["review", "a.json", "b.json"],
+                "'review' takes one request file, got a second: 'b.json'",
+            ),
+            (
+                &["review", "--write-edited", "d", "a.json"],
+                "unknown option '--write-edited'",
+            ),
+            (&["review", ""], "an empty path is not a file"),
+        ];
+        for (words, message) in cases {
+            assert_eq!(usage(words), message, "{:?}", words);
+        }
     }
 
     /// One usage case: the words, and the message they must give.

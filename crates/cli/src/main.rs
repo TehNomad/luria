@@ -3,7 +3,7 @@
 
 use std::env;
 use std::ffi::OsString;
-use std::io::{stderr, stdout, Write};
+use std::io::{stderr, stdin, stdout, IsTerminal, Write};
 use std::path::PathBuf;
 use std::process::ExitCode;
 
@@ -14,6 +14,8 @@ use luria_cli::exit::ExitStatus;
 use luria_cli::interpret::document::render_interpretation;
 use luria_cli::interpret::run::{interpret, InterpretInput, InterpretOutcome, TextSource};
 use luria_cli::result::render;
+use luria_cli::review;
+use luria_cli::review::app::App;
 use luria_cli::run::{run_with_output, Outcome};
 use luria_cli::version::render_version;
 use luria_nl::openai::OpenAiCompatible;
@@ -122,6 +124,29 @@ fn emit_interpret(
     }
 }
 
+/// `luria review`: the screen needs a terminal on both streams, so that is
+/// decided before the request is read (plan §3 rule 7), and a refusal is a
+/// usage error with nothing read and nothing on stdout (§3.7, exit 2). The
+/// request then runs exactly as `q5 design` runs it, and the document it
+/// produced is the screen's content: the run's `note` is ignored, because
+/// `review` writes nothing (plan §9). The exit status is 0 whatever the
+/// result's state, and 1 when the terminal itself failed.
+fn emit_review(request: PathBuf) -> ExitStatus {
+    match review::terminal_problem(stdin().is_terminal(), stdout().is_terminal()) {
+        Some(problem) => report_usage(problem),
+        None => {
+            let outcome: Outcome = run_with_output(&request, None);
+            match review::terminal::run(App::new(outcome.document)) {
+                Ok(()) => ExitStatus::Success,
+                Err(problem) => {
+                    write_err(format!("luria: the terminal failed: {}\n", problem).as_str());
+                    ExitStatus::Internal
+                }
+            }
+        }
+    }
+}
+
 /// Report a usage error on stderr, with the usage text repeated (plan §3.7,
 /// exit code 2: text on stderr, nothing on stdout).
 fn report_usage(problem: UsageError) -> ExitStatus {
@@ -159,6 +184,7 @@ fn main() -> ExitCode {
                 allow_remote,
                 write_request,
             ),
+            Ok(Command::Review { request }) => emit_review(request),
             Err(problem) => report_usage(problem),
         },
     };

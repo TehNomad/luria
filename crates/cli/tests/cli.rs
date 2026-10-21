@@ -6,7 +6,7 @@ use luria_core::primer::{PRIMER_DESIGN_NAME, PRIMER_DESIGN_VERSION};
 use luria_core::primer_design::{NATIVE_DESIGN_ALGORITHM_NAME, NATIVE_DESIGN_ALGORITHM_VERSION};
 use luria_core::q5::{Q5_WORKFLOW_NAME, Q5_WORKFLOW_VERSION};
 use luria_core::tm::{TM_FUNCTION_NAME, TM_FUNCTION_VERSION};
-use std::process::{Command, Output};
+use std::process::{Command, Output, Stdio};
 
 fn luria(arguments: &[&str]) -> Output {
     Command::new(env!("CARGO_BIN_EXE_luria"))
@@ -94,6 +94,30 @@ fn a_usage_error_exits_2_with_text_on_stderr_and_nothing_on_stdout() {
             arguments
         );
     }
+}
+
+// Milestone 7a: `review` opens a full screen, so both streams must be
+// terminals, and `missing.json` is not a file: the usage error proves the check
+// runs before the request is read (plan §3 rule 7, §3.7).
+#[test]
+fn review_without_a_terminal_is_a_usage_error() {
+    let output = Command::new(env!("CARGO_BIN_EXE_luria"))
+        .args(["review", "missing.json"])
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .output()
+        .expect("the luria executable runs");
+
+    assert_eq!(output.status.code(), Some(2));
+    assert!(output.stdout.is_empty());
+    assert_eq!(
+        String::from_utf8(output.stderr).unwrap(),
+        format!(
+            "luria: 'review' needs a terminal on stdin and stdout; 'q5 design' writes the same result as JSON\n\n{}",
+            luria_cli::args::USAGE
+        )
+    );
 }
 
 // Added in review: a command-line word that isn't valid UTF-8 cannot be
