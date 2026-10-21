@@ -341,6 +341,24 @@ Proposed rules:
 - HTTPS, the Anthropic backend, annotated sites (the two `later-*` files).
 - Mouse support, themes, configuration files.
 
+## 8a. Planner choices made during implementation, to be confirmed
+
+- **`--request FILE.json` is required in the interpret form of `luria
+  review`** (7f2, drafted 2026-10-21). §1's command line names no place
+  for the approved request; §3 rule 4 needs the path shown before
+  approval and checked under `--write-request`'s rules. Making it a
+  required option states it before the model is called and lets it be
+  checked first. The alternative is a fixed name beside the template.
+- **Export goes to `--export DIR`, given on the command line** (7g1,
+  drafted 2026-10-21), as `<request stem>.result.json`, `<request
+  stem>.order.tsv` and `<member>.fa`; nothing is written if any of them
+  exists. The edited constructs come from running the request file again
+  through `--write-edited`'s own code, after checking that the run gives
+  the result on screen.
+- **A member with no design has no sequence context** (7d0, §5.3).
+- **The context fixtures use SID-1 designs, not the linear GenBank
+  record** (7d0, §5.3).
+
 ## 9. Questions for the owner
 
 All answered, as M7-1 to M7-15 (§4).

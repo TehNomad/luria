@@ -1,25 +1,38 @@
-//! The text of four result screens (milestone 7c1, 7c2): the overview, the member
-//! screen, the problem screen and the provenance screen (plan §5.2 screens 2, 3,
-//! 5 and 6). Each screen
+//! The text of the proposal screen (milestone 7e) and of the four result
+//! screens (milestone 7c1, 7c2): the overview, the member
+//! screen, the problem screen and the provenance screen (plan §5.2 screens 1, 2,
+//! 3, 5 and 6). Each screen
 //! is a list of plain text lines, one string per line, none holding a `\n`.
 //!
 //! Pure: no I/O and no `ratatui` or `crossterm` types, so every line is testable
 //! as a string (plan §5.1). Every value on a line is one field of the
-//! `ResultDocument`, written with `{}` (plan §3 rule 1): no coordinate, Tm,
-//! codon or translation is computed, no float is rounded, and a digest is
-//! shortened nowhere. The only formatting is intervals as `[start, end)`, a
-//! float with `{}` (the same digits the JSON holds) and a code written as the
-//! serde tag's variant name in snake case. An error, a clarification, a design
-//! failure and a warning are always listed (plan §3 rule 3).
+//! `ResultDocument` or the `InterpretationDocument`, written with `{}` (plan §3
+//! rule 1): no coordinate, Tm, codon or translation is computed, no float is
+//! rounded, and a digest is shortened nowhere. The only formatting is intervals
+//! as `[start, end)`, a float with `{}` (the same digits the JSON holds) and a
+//! code written as the serde tag's variant name in snake case. An error, a
+//! clarification, a design failure and a warning are always listed (plan §3
+//! rule 3); on the proposal screen the questions and an error come first, the
+//! proposed request is shown as the exact bytes `--write-request` writes (plan
+//! §3 rule 2), and the messages sent to the model are shown (plan §3 rule 6).
 //!
 //! Lines hold ASCII only: `->` for an arrow, no `→` or `°`. `view` draws these
 //! lines (7c3). The state and the experimental validation are not here, because
 //! 7a's banner draws them on every screen.
 
+use crate::interpret::document::{
+    AssumptionView, InterpretErrorView, InterpretationDocument, OriginView, TemplateFileView,
+    UngroundedView,
+};
 use crate::result::{
     DesignView, DetailValue, Details, EditWarningView, MemberView, MutationView, ObstacleView,
-    OperationWarning, PrimerView, PrimerWarningView, Provenance, ResultDocument, SourceView,
+    OperationWarning, PrimerView, PrimerWarningView, Provenance, RequestEcho, ResultDocument,
+    SourceView,
 };
+use luria_nl::backend::BackendInfo;
+use luria_nl::extraction::{Composition, Extraction, Operation};
+use luria_nl::prompt::Prompt;
+use serde_json::to_string_pretty;
 use std::collections::BTreeMap;
 
 /// One interval as `[start, end)`.
@@ -655,6 +668,251 @@ pub fn context(document: &ResultDocument, index: usize, template: Option<&[char]
     lines
 }
 
+/// The code of the operation the model reported: its serde tag, the variant
+/// name in snake case, written as a `match` rather than found by serializing.
+fn operation_code(operation: &Operation) -> &'static str {
+    match operation {
+        Operation::Q5ResidueSubstitutions => "q5_residue_substitutions",
+        Operation::Other => "other",
+    }
+}
+
+/// The code of the composition the model reported: its serde tag, the variant
+/// name in snake case.
+fn composition_code(composition: &Composition) -> &'static str {
+    match composition {
+        Composition::SeparateVariants => "separate_variants",
+        Composition::CombinedConstruct => "combined_construct",
+    }
+}
+
+/// The questions a run is asking, first on the screen and never summarised away
+/// (plan §3 rule 3): `questions:`, then one line per question, `  <code>
+/// (<subject>): <message>`, each part the question's own.
+fn question_lines(document: &InterpretationDocument) -> Vec<String> {
+    let mut lines: Vec<String> = vec!["questions:".to_string()];
+    for question in &document.questions {
+        lines.push(format!(
+            "  {} ({}): {}",
+            question.code, question.subject, question.message
+        ));
+    }
+    lines
+}
+
+/// Why a run ended, first on the screen (plan §3 rule 3): `error: <code>`, the
+/// rule when the refusal names one, then its own message on one line; and, when
+/// the reply holds a string the user's text does not, that string by its place in
+/// the extraction and its own text, so a fabrication is named and not hidden.
+fn error_lines(error: &InterpretErrorView, ungrounded: Option<&UngroundedView>) -> Vec<String> {
+    let mut lines: Vec<String> = vec![format!("error: {}", error.code)];
+    if let Some(rule) = &error.rule {
+        lines.push(format!("  rule: {}", rule));
+    }
+    lines.push(format!("  {}", error.message));
+    if let Some(problem) = ungrounded {
+        lines.push(format!(
+            "  not in your text: {} \"{}\"",
+            problem.field, problem.value
+        ));
+    }
+    lines
+}
+
+/// The proposed request, shown as exactly the bytes `--write-request` writes
+/// (plan §3 rule 2): the header, then the request echo through
+/// `serde_json::to_string_pretty`, line by line, two spaces in, so what the user
+/// approves is what the file holds. A request that cannot be serialized says so
+/// on one line; the echo of a parsed request always serializes, so this never
+/// panics.
+fn request_lines(request: &RequestEcho) -> Vec<String> {
+    let mut lines: Vec<String> =
+        vec!["proposed request, written exactly so when you approve it:".to_string()];
+    match to_string_pretty(request) {
+        Err(_) => lines.push("  the request cannot be shown".to_string()),
+        Ok(pretty) => {
+            for line in pretty.lines() {
+                lines.push(format!("  {}", line));
+            }
+        }
+    }
+    lines
+}
+
+/// Where each value of a proposed request came from: `where each value came
+/// from:`, then one line per value, `  <value>: <source>`, `source` being the
+/// document's own `text` or `profile`.
+fn origin_lines(origins: &[OriginView]) -> Vec<String> {
+    let mut lines: Vec<String> = vec!["where each value came from:".to_string()];
+    for origin in origins {
+        lines.push(format!("  {}: {}", origin.value, origin.source));
+    }
+    lines
+}
+
+/// What a proposal took as given, for the user to check: `assumptions:`, then one
+/// line per assumption, `  <code>: <message>`.
+fn assumption_lines(assumptions: &[AssumptionView]) -> Vec<String> {
+    let mut lines: Vec<String> = vec!["assumptions:".to_string()];
+    for assumption in assumptions {
+        lines.push(format!("  {}: {}", assumption.code, assumption.message));
+    }
+    lines
+}
+
+/// The model's reading of the user's text, as the reply wrote it, quoted so the
+/// screen shows what the model claimed and not what luria made of it (plan §3
+/// rule 1, D021): the operation, the CDS name as the user wrote it, one row per
+/// mutation with the words that say so and the codon when the user named one, the
+/// composition, the numbering, and every quote no field can hold.
+fn evidence_lines(extraction: &Extraction) -> Vec<String> {
+    let mut lines: Vec<String> = vec![
+        "the model's reading, checked against your text:".to_string(),
+        format!("  operation: {}", operation_code(&extraction.operation)),
+    ];
+    match &extraction.cds {
+        Some(cds) => lines.push(format!("  cds: \"{}\"", cds)),
+        None => lines.push("  cds: none".to_string()),
+    }
+    for mutation in &extraction.mutations {
+        lines.push(format!(
+            "  {}  quote \"{}\"",
+            mutation.token, mutation.quote
+        ));
+        if let Some(codon) = &mutation.codon {
+            lines.push(format!("  codon {}", codon));
+        }
+    }
+    match &extraction.composition {
+        Some(composition) => {
+            lines.push(format!("  composition: {}", composition_code(composition)))
+        }
+        None => lines.push("  composition: none".to_string()),
+    }
+    match &extraction.numbering {
+        Some(numbering) => lines.push(format!("  numbering: \"{}\"", numbering)),
+        None => lines.push("  numbering: none".to_string()),
+    }
+    for entry in &extraction.unsupported {
+        lines.push(format!("  unsupported: \"{}\"", entry));
+    }
+    lines
+}
+
+/// The template the run read, always named on the screen: its file name alone
+/// (D012), the record's LOCUS name and the digest of its sequence, written in
+/// full. A run that read no template says so.
+fn template_lines(template: Option<&TemplateFileView>) -> Vec<String> {
+    match template {
+        Some(found) => vec![format!(
+            "template: {}, LOCUS {}, sha256 {}",
+            found.file, found.locus_name, found.sha256
+        )],
+        None => vec!["template: not read".to_string()],
+    }
+}
+
+/// The model that was called and the prompt it was sent, always named on the
+/// screen (plan §3 rule 6): the backend's kind, its model, the endpoint it calls
+/// or `no endpoint`, and the prompt's version. Never a key: `describe` keeps
+/// credentials out of the document (D003).
+fn model_lines(backend: &BackendInfo, prompt_version: &str) -> Vec<String> {
+    vec![format!(
+        "model: {} {} at {}, prompt {}",
+        backend.kind,
+        backend.model,
+        backend.endpoint.as_deref().unwrap_or("no endpoint"),
+        prompt_version
+    )]
+}
+
+/// What was sent to the model, from the document (plan §3 rule 6, D023), always
+/// on the screen: the system prompt by its line count alone, it being luria's own
+/// text, then the user message in full, line by line, four spaces in. A run that
+/// sent nothing says so.
+fn sent_lines(messages: Option<&Prompt>) -> Vec<String> {
+    match messages {
+        Some(sent) => {
+            let mut lines: Vec<String> = vec![
+                "sent to the model:".to_string(),
+                format!(
+                    "  system prompt: {} lines, not shown",
+                    sent.system.lines().count()
+                ),
+                "  user message:".to_string(),
+            ];
+            for line in sent.user.lines() {
+                lines.push(format!("    {}", line));
+            }
+            lines
+        }
+        None => vec!["nothing was sent to the model".to_string()],
+    }
+}
+
+/// The model's words exactly as they came back, two spaces in, line by line: the
+/// reply itself, kept apart from the request it became (D021).
+fn reply_lines(reply: &str) -> Vec<String> {
+    let mut lines: Vec<String> = vec!["the model's reply, as received:".to_string()];
+    for line in reply.lines() {
+        lines.push(format!("  {}", line));
+    }
+    lines
+}
+
+/// The proposal screen (plan §5.2 screen 1, 7e): the questions, the error, the
+/// proposed request, each value's origin, the assumptions, the model's reading,
+/// the template, the model called, the messages sent and the raw reply. Groups in
+/// this order, one blank line between them, each shown only when it has content,
+/// except `template`, `model` and `sent`, which are always there. Nothing is
+/// parsed out of a message, re-derived or summarised (plan §3 rule 1); questions
+/// and an error come before anything else (plan §3 rule 3); the request shown is
+/// byte for byte the file approving writes (plan §3 rule 2); and the screen shows
+/// what was sent to the model (plan §3 rule 6). The state is not here: 7a's
+/// banner draws it on every screen, and a proposal is labelled as a proposal. The
+/// lines are drawn by `view` (7f).
+pub fn proposal(document: &InterpretationDocument) -> Vec<String> {
+    let mut groups: Vec<Vec<String>> = Vec::new();
+    if !document.questions.is_empty() {
+        groups.push(question_lines(document));
+    }
+    if let Some(error) = &document.error {
+        groups.push(error_lines(
+            error,
+            document.interpretation.ungrounded.as_ref(),
+        ));
+    }
+    if let Some(request) = &document.request {
+        groups.push(request_lines(request));
+    }
+    if !document.origins.is_empty() {
+        groups.push(origin_lines(&document.origins));
+    }
+    if !document.assumptions.is_empty() {
+        groups.push(assumption_lines(&document.assumptions));
+    }
+    if let Some(extraction) = &document.interpretation.extraction {
+        groups.push(evidence_lines(extraction));
+    }
+    groups.push(template_lines(document.template.as_ref()));
+    groups.push(model_lines(
+        &document.interpretation.backend,
+        document.interpretation.prompt_version,
+    ));
+    groups.push(sent_lines(document.interpretation.messages.as_ref()));
+    if let Some(reply) = &document.interpretation.reply {
+        groups.push(reply_lines(reply));
+    }
+    let mut lines: Vec<String> = Vec::new();
+    for group in groups {
+        if !lines.is_empty() {
+            lines.push(String::new());
+        }
+        lines.extend(group);
+    }
+    lines
+}
+
 /// The overview (plan §5.2 screen 2): the template, the target, the operation,
 /// the operation's warnings, one row per member with the member at `selected`
 /// marked `> `, then the keys that open the screens below. `member` rows keep
@@ -885,12 +1143,16 @@ pub fn provenance(document: &ResultDocument) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::interpret::document::{InterpretationDocument, InterpretationView};
     use crate::result::{
         AlgorithmRef, AnnealingView, BufferView, DesignView, EditedView, GenBankView, MemberView,
         PackageView, PairView, PartView, PrimerView, PrimerWarningView, RefusalView, TailView,
         TemplateView, TmView, UnusedFeatureView,
     };
     use crate::review::text;
+    use luria_nl::backend::BackendInfo;
+    use luria_nl::extraction::{Extraction, Mutation, Operation};
+    use luria_nl::prompt::PROMPT_VERSION;
 
     /// The provenance a hand-built document needs: the package that ran, and
     /// nothing else, so a test sets the one field it is about.
@@ -1490,5 +1752,115 @@ mod tests {
                 index
             );
         }
+    }
+
+    /// The interpretation record a proposal document needs: a scripted backend, the
+    /// prompt's own version, and nothing sent, said, read or refused, so a test
+    /// sets the one field it is about.
+    fn an_interpretation() -> InterpretationView {
+        InterpretationView {
+            backend: BackendInfo {
+                kind: "scripted".to_string(),
+                endpoint: None,
+                model: "scripted-corpus".to_string(),
+            },
+            prompt_version: PROMPT_VERSION,
+            messages: None,
+            reply: None,
+            extraction: None,
+            ungrounded: None,
+        }
+    }
+
+    /// A proposal document, for the lines to be built from: no request, no
+    /// question, no origin, no assumption, no error and no template read, so the
+    /// groups a test checks are the ones its own field makes.
+    fn a_proposal_document() -> InterpretationDocument {
+        InterpretationDocument {
+            schema: crate::INTERPRETATION_SCHEMA,
+            state: "proposed",
+            package: PackageView {
+                name: env!("CARGO_PKG_NAME"),
+                version: env!("CARGO_PKG_VERSION"),
+            },
+            request: None,
+            questions: Vec::new(),
+            origins: Vec::new(),
+            assumptions: Vec::new(),
+            error: None,
+            template: None,
+            interpretation: an_interpretation(),
+        }
+    }
+
+    /// An extraction with one mutation, `token` quoted by `quote` and the codon
+    /// `codon` when the user named one, every other member unstated, so the rows a
+    /// test reads are the ones this mutation gives.
+    fn an_extraction(token: &str, quote: &str, codon: Option<&str>) -> Extraction {
+        Extraction {
+            operation: Operation::Q5ResidueSubstitutions,
+            cds: None,
+            mutations: vec![Mutation {
+                token: token.to_string(),
+                quote: quote.to_string(),
+                codon: codon.map(|codon| codon.to_string()),
+            }],
+            composition: None,
+            numbering: None,
+            unsupported: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn a_stated_codon_is_shown_beside_its_quote() {
+        let mut document: InterpretationDocument = a_proposal_document();
+        document.interpretation.extraction = Some(an_extraction("A42G", "A42G", Some("GGC")));
+        let lines: Vec<String> = proposal(&document);
+        assert_eq!(
+            count(&lines, "  A42G  quote \"A42G\""),
+            1,
+            "the quote the model gave sits beside its token: {:?}",
+            lines
+        );
+        assert_eq!(
+            count(&lines, "  codon GGC"),
+            1,
+            "the codon the user named is a line of its own after its quote: {:?}",
+            lines
+        );
+        let at: usize = lines
+            .iter()
+            .position(|line| *line == "  A42G  quote \"A42G\"")
+            .expect("the mutation row");
+        assert_eq!(
+            lines[at + 1],
+            "  codon GGC".to_string(),
+            "the codon is shown beside its quote, not in another group"
+        );
+        let mut unstated: InterpretationDocument = a_proposal_document();
+        unstated.interpretation.extraction = Some(an_extraction("A42G", "A42G", None));
+        let lines: Vec<String> = proposal(&unstated);
+        assert!(
+            !lines.iter().any(|line| line.starts_with("  codon "))
+                && !lines.iter().any(|line| line.contains("GGC")),
+            "a mutation with no codon states none: {:?}",
+            lines
+        );
+    }
+
+    #[test]
+    fn nothing_sent_says_so() {
+        let lines: Vec<String> = proposal(&a_proposal_document());
+        assert_eq!(
+            count(&lines, "nothing was sent to the model"),
+            1,
+            "a run that sent nothing says it (plan §3 rule 6): {:?}",
+            lines
+        );
+        assert!(
+            !lines.iter().any(|line| line.contains("user message")),
+            "no user message is shown when none was sent: {:?}",
+            lines
+        );
     }
 }
