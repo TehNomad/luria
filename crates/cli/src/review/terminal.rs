@@ -37,6 +37,10 @@ pub fn run(mut app: App) -> std::io::Result<()> {
             Ok(Event::Key(key)) if key.kind == KeyEventKind::Press => {
                 let key: Key = match key.code {
                     KeyCode::Char(c) => Key::Char(c),
+                    KeyCode::Up => Key::Up,
+                    KeyCode::Down => Key::Down,
+                    KeyCode::Enter => Key::Enter,
+                    KeyCode::Backspace => Key::Backspace,
                     KeyCode::Esc => Key::Esc,
                     _ => Key::Other,
                 };
