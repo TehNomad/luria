@@ -20,7 +20,7 @@ use luria_cli::review;
 use luria_cli::review::app::App;
 use luria_cli::review::export::{export_plan, write_export, ExportPlan};
 use luria_cli::review::proposal::ProposalApp;
-use luria_cli::run::{run_with_output, Outcome};
+use luria_cli::run::{run_with_constructs, run_with_output, Outcome};
 use luria_cli::version::render_version;
 use luria_nl::openai::OpenAiCompatible;
 
@@ -133,7 +133,10 @@ fn emit_interpret(
 /// usage error with nothing read and nothing on stdout (§3.7, exit 2). The
 /// request then runs exactly as `q5 design` runs it, and the document it
 /// produced is the screen's content: the run's `note` is ignored, because
-/// `review` writes nothing (plan §9). The `--export` directory, when the command
+/// `review` writes nothing (plan §9). The constructs core made for the run's
+/// members are kept beside it, so the member screen shows the protein core read
+/// on each member's own edited construct, not a translation of the screen's own
+/// (7i2, plan §5.3a, M7-21). The `--export` directory, when the command
 /// line gave one, is the plan the export screen lists, built from the document
 /// on screen, so what `y` writes is what the user reviewed; the write itself is
 /// done by the terminal, on `y` only. The exit status is 0 whatever the
@@ -142,14 +145,26 @@ fn emit_review(request: PathBuf, export: Option<PathBuf>) -> ExitStatus {
     match review::terminal_problem(stdin().is_terminal(), stdout().is_terminal()) {
         Some(problem) => report_usage(problem),
         None => {
-            let outcome: Outcome = run_with_output(&request, None);
+            let (outcome, constructs): (Outcome, Vec<(String, luria_core::sequence::Sequence)>) =
+                run_with_constructs(&request);
             // The template's bases are read again, and accepted only when their
             // digest is the document's, so the context screen draws the sequence
-            // the result was computed on and no other (7d, D005).
-            let letters: Option<Vec<char>> = match luria_cli::prepare::prepare(&request) {
-                Ok(prepared) => review::matching_template(&outcome.document, &prepared.template),
-                Err(_problem) => None,
-            };
+            // the result was computed on and no other (7d, D005). The same
+            // prepared request gives the template's own annotations, which the
+            // frame is read on for its coordinates and strand alone (7i2).
+            let (letters, frames): (Option<Vec<char>>, Vec<review::MemberFrame>) =
+                match luria_cli::prepare::prepare(&request) {
+                    Ok(prepared) => (
+                        review::matching_template(&outcome.document, &prepared.template),
+                        review::member_frames(
+                            &outcome.document,
+                            &prepared.template,
+                            &prepared.annotations,
+                            &constructs,
+                        ),
+                    ),
+                    Err(_problem) => (None, Vec::new()),
+                };
             // The plan the export screen lists, from the document on screen and
             // the `--export` directory given, if any (7g1).
             let plan: Option<ExportPlan> = export
@@ -158,6 +173,7 @@ fn emit_review(request: PathBuf, export: Option<PathBuf>) -> ExitStatus {
             match review::terminal::run(
                 App::new(outcome.document)
                     .with_template(letters)
+                    .with_frames(frames)
                     .with_export(plan),
                 &mut |app: &App| match app.export_plan() {
                     Some(plan) => write_export(plan, app.document()),
@@ -253,6 +269,7 @@ fn emit_review_interpret(
                                 match review::terminal::run(
                                     App::new(approved.document)
                                         .with_template(approved.template)
+                                        .with_frames(approved.frames)
                                         .with_export(plan),
                                     &mut |app: &App| match app.export_plan() {
                                         Some(plan) => write_export(plan, app.document()),

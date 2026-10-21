@@ -405,6 +405,26 @@ fn write_outcome(
     }
 }
 
+/// The operation of a prepared request, run through core, with the edited
+/// constructs core made for it, in `document.results` order: the one path every
+/// `luria q5 design` run takes, so a run that writes its constructs and a run
+/// that only reports them are the same run (plan §3.2, §5.3a).
+fn operation_runs(prepared: &Prepared) -> (Outcome, Artifacts) {
+    match prepared.operation.clone() {
+        Operation::Single { request, name } => single_edit(prepared, *request, name),
+        Operation::Set(set) => variant_set(prepared, set, vec![]),
+        Operation::Degenerate(expansion) => variant_set(
+            prepared,
+            expansion.set(),
+            expansion
+                .warnings()
+                .iter()
+                .map(operation_warning_view)
+                .collect(),
+        ),
+    }
+}
+
 /// Run one request file through core and report it, writing each edited
 /// construct into `write_edited` when one was given (plan §3.2, G8).
 ///
@@ -415,22 +435,26 @@ pub fn run_with_output(request_path: &Path, write_edited: Option<&Path>) -> Outc
     match prepare(request_path) {
         Err(problem) => unprepared(&problem).0,
         Ok(prepared) => {
-            let (outcome, artifacts): (Outcome, Artifacts) = match prepared.operation.clone() {
-                Operation::Single { request, name } => single_edit(&prepared, *request, name),
-                Operation::Set(set) => variant_set(&prepared, set, vec![]),
-                Operation::Degenerate(expansion) => variant_set(
-                    &prepared,
-                    expansion.set(),
-                    expansion
-                        .warnings()
-                        .iter()
-                        .map(operation_warning_view)
-                        .collect(),
-                ),
-            };
+            let (outcome, artifacts): (Outcome, Artifacts) = operation_runs(&prepared);
             write_outcome(&prepared, outcome, &artifacts, write_edited)
         }
     }
+}
+
+/// The run `run` makes, with each member's edited construct as core made
+/// it, in `document.results` order, keyed by member name (plan §5.3a). Nothing
+/// is written: the constructs are returned beside the document, so a run that
+/// shows them needs no file, and `run_with_output` writes the same ones.
+pub fn run_with_constructs(request_path: &Path) -> (Outcome, Vec<(String, Sequence)>) {
+    let (outcome, artifacts): (Outcome, Artifacts) = match prepare(request_path) {
+        Err(problem) => unprepared(&problem),
+        Ok(prepared) => operation_runs(&prepared),
+    };
+    let constructs: Vec<(String, Sequence)> = artifacts
+        .into_iter()
+        .map(|(name, sequence)| (name.value().to_string(), sequence))
+        .collect();
+    (outcome, constructs)
 }
 
 /// Run one request file through core and report it, writing nothing.

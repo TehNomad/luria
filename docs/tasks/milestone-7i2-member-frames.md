@@ -1,6 +1,6 @@
 # Milestone 7i2: each member's mutant protein, for the review
 
-Status: **Ready for the worker, 2026-10-21.** Planner: Claude. Parent:
+Status: **Implemented 2026-10-21.** Proofs 1-3 failed as required (proof 2 through the added test 8 and fixture row `syn-ins-minus`). Rules 2, 3, 5 and the empty-coordinates case are implemented but untested. Planner: Claude. Parent:
 `docs/tasks/milestone-7-tui.md` §5.3a (M7-18, M7-21). Builds on 7i1
 (`luria_core::frame::mutant_residues`, committed). Next: 7i3 (the
 member-screen text) uses what this contract returns.
@@ -134,13 +134,19 @@ parsed as 7i1's test does (`number:symbol:middle`), never pasted.
    changed): `Err` with rule 4's text.
 7. `no_target_gives_no_frame`: native-01's document with `target` set
    to `None`: `Err` with rule 1's text.
+8. `an_insertion_before_a_minus_strand_start_moves_it` (added in review):
+   the synthetic template of row `ins-04`, CDS `[[0, 99]]` strand `-`,
+   insertion at 50 of `GATTACA` (before and after the template bases at
+   49 and 50); equal to row `syn-ins-minus` of `frame.tsv` within its
+   window. The CDS's first base (template 98) lies past the insertion,
+   so it moves by 7; proof 2 must fail this test.
 
 ### 3.2 Rules that must be proven
 
 Disable each once, run, restore; report the failing test.
 
 1. Rule 4 (digest of the construct): test 6 fails.
-2. Rule 6's insertion `start = end = point`: test 3 fails.
+2. Rule 6's insertion `start = end = point` (try `written_length: 0`): test 8 fails. (Test 3 cannot fail: SID-1's CDS starts before the insertion; found by w7i2.)
 3. Using `run_with_constructs`' construct rather than the template
    (pass the template as the construct): tests 1 to 3 fail.
 

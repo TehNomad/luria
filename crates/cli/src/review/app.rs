@@ -10,6 +10,7 @@
 
 use crate::result::ResultDocument;
 use crate::review::export::ExportPlan;
+use crate::review::MemberFrame;
 
 /// A key, as the app sees it. `terminal` maps crossterm's events to it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -47,7 +48,9 @@ pub enum Screen {
 }
 
 /// The screen's state: the result document to show, the open screen, the member
-/// highlighted on the overview, and how far the open screen is scrolled.
+/// highlighted on the overview, how far the open screen is scrolled, the
+/// template's bases and every member's mutant protein as core read it. The
+/// frames are set once when the screen opens, as the template's bases are.
 #[derive(Clone, Debug, PartialEq)]
 pub struct App {
     document: ResultDocument,
@@ -55,6 +58,7 @@ pub struct App {
     selected: usize,
     scroll: usize,
     template: Option<Vec<char>>,
+    frames: Vec<MemberFrame>,
     export: Option<ExportPlan>,
     export_message: Option<String>,
 }
@@ -74,9 +78,23 @@ impl App {
             scroll: 0,
             document,
             template: None,
+            frames: Vec::new(),
             export: None,
             export_message: None,
         }
+    }
+
+    /// Every member's mutant protein, in `document.results` order, set once
+    /// when the screen opens: core read each one, and a member whose frame
+    /// cannot be read carries the reason (7i2, plan §5.3a).
+    pub fn with_frames(self, frames: Vec<MemberFrame>) -> App {
+        App { frames, ..self }
+    }
+
+    /// One member's frame, or `None` when there is no such member. Nothing is
+    /// read from the frame here: `view` draws what it holds (7i3).
+    pub fn frame(&self, index: usize) -> Option<&MemberFrame> {
+        self.frames.get(index)
     }
 
     /// The template's bases the sequence-context screen draws, set once when the

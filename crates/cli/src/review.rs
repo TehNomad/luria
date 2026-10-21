@@ -12,8 +12,14 @@ use crate::args::UsageError;
 use crate::interpret::document::InterpretationDocument;
 use crate::interpret::run::{request_location_problem, request_text, write_request_file};
 use crate::prepare::prepare;
-use crate::result::{RequestEcho, ResultDocument, TemplateView};
-use crate::run::{run_with_output, Outcome};
+use crate::result::{
+    CdsView, EditedView, MemberView, MutationView, RequestEcho, ResultDocument, TemplateView,
+};
+use crate::run::{run_with_constructs, Outcome};
+use luria_core::cds::Cds;
+use luria_core::frame::mutant_residues;
+use luria_core::frame::EditSpan;
+use luria_core::frame::FrameResidue;
 use luria_core::sequence::Sequence;
 
 use std::path::Path;
@@ -33,6 +39,10 @@ pub mod view;
 pub struct Approved {
     pub document: ResultDocument,
     pub template: Option<Vec<char>>,
+    /// Every member's mutant protein, in `document.results` order (7i2, plan
+    /// §5.3a): one entry per member, each the residues core read, or the reason
+    /// they cannot be read.
+    pub frames: Vec<MemberFrame>,
 }
 
 /// Write the proposed request at `request` and run it, as `luria q5 design`
@@ -77,16 +87,156 @@ pub fn approve(
 
     // The design runs from the file just written, and the template is read
     // again, so the context screen draws the sequence this result was computed
-    // on and no other (7d, D005) - the same as `emit_review` does.
-    let outcome: Outcome = run_with_output(request, None);
-    let letters: Option<Vec<char>> = match prepare(request) {
-        Ok(prepared) => matching_template(&outcome.document, &prepared.template),
-        Err(_problem) => None,
+    // on and no other (7d, D005) - the same as `emit_review` does. The run's
+    // own edited constructs are kept beside it, so the member screen shows the
+    // protein core made for each member and not a translation of its own
+    // (7i2, plan §5.3a, M7-21).
+    let (outcome, constructs): (Outcome, Vec<(String, Sequence)>) = run_with_constructs(request);
+    let (letters, frames): (Option<Vec<char>>, Vec<MemberFrame>) = match prepare(request) {
+        Ok(prepared) => (
+            matching_template(&outcome.document, &prepared.template),
+            member_frames(
+                &outcome.document,
+                &prepared.template,
+                &prepared.annotations,
+                &constructs,
+            ),
+        ),
+        Err(_problem) => (None, Vec::new()),
     };
     Ok(Approved {
         document: outcome.document,
         template: letters,
+        frames,
     })
+}
+
+/// One member's mutant protein: each residue core read, from
+/// `frame::mutant_residues` over the whole edited construct (plan §5.3a,
+/// M7-18, M7-21). The `Err` is the reason the frame cannot be read, in one
+/// line for the screen.
+pub type MemberFrame = Result<Vec<FrameResidue>, String>;
+
+/// The `edited` block of a member's mutation: every `MutationView` variant
+/// carries it, so this is the digest rule applied to a member of any kind.
+fn edited_of(mutation: &MutationView) -> &EditedView {
+    match mutation {
+        MutationView::Substitution { edited, .. }
+        | MutationView::Residue { edited, .. }
+        | MutationView::Deletion { edited, .. }
+        | MutationView::Insertion { edited, .. }
+        | MutationView::Replacement { edited, .. } => edited,
+    }
+}
+
+/// The edit, in template coordinates, as the member's mutation states it
+/// (rule 6 of §2.2): an interval `[start, end)` with its written length, an
+/// insertion as the point with its written length, and a residue substitution
+/// as the width of its coordinates, which keeps the length (D040).
+fn edit_span(mutation: &MutationView) -> Result<EditSpan, String> {
+    let span: EditSpan = match mutation {
+        MutationView::Substitution {
+            interval, written, ..
+        }
+        | MutationView::Replacement {
+            interval, written, ..
+        } => EditSpan {
+            start: interval.0,
+            end: interval.1,
+            written_length: written.len() as u64,
+        },
+        MutationView::Deletion { interval, .. } => EditSpan {
+            start: interval.0,
+            end: interval.1,
+            written_length: 0,
+        },
+        MutationView::Insertion { point, written, .. } => EditSpan {
+            start: *point,
+            end: *point,
+            written_length: written.len() as u64,
+        },
+        MutationView::Residue { coordinates, .. } => {
+            if coordinates.is_empty() {
+                return Err("no edit coordinates".to_string());
+            }
+            // `coordinates` are template positions in D040's order, so the
+            // edited region is the least of them to one past the greatest.
+            let start: u64 = *coordinates
+                .iter()
+                .min()
+                .expect("a non-empty list has a least");
+            let end: u64 = *coordinates
+                .iter()
+                .max()
+                .expect("a non-empty list has a greatest")
+                + 1;
+            EditSpan {
+                start,
+                end,
+                written_length: end - start,
+            }
+        }
+    };
+    Ok(span)
+}
+
+/// One member's mutant protein, by the rules of §2.2, in order: the first that
+/// applies gives `Err` with its own line. The construct core made for this
+/// member is read, and only when its digest is the one the result reports and
+/// the template's digest is the one the result was computed on (D005, fail
+/// closed): the CDS is taken from the template's annotations for its
+/// coordinates and strand alone.
+fn member_frame(
+    document: &ResultDocument,
+    template: &Sequence,
+    annotations: &[Cds],
+    member: &MemberView,
+    constructs: &[(String, Sequence)],
+) -> MemberFrame {
+    let target: &CdsView = document
+        .target
+        .as_ref()
+        .ok_or_else(|| "no target CDS, so no protein".to_string())?;
+    let cds: &Cds = annotations
+        .iter()
+        .find(|annotated| annotated.id().value() == target.id)
+        .ok_or_else(|| "the target CDS is not among the template's annotations".to_string())?;
+    let construct: &Sequence = constructs
+        .iter()
+        .find(|(name, _)| name == &member.name)
+        .map(|(_, sequence)| sequence)
+        .ok_or_else(|| "no edited construct".to_string())?;
+    if construct.content_hash().hex_digest() != edited_of(&member.mutation).sha256 {
+        return Err("the edited construct differs from the one this result reports".to_string());
+    }
+    let named: &TemplateView = document.provenance.template.as_ref().ok_or_else(|| {
+        "the template differs from the one this result was computed on".to_string()
+    })?;
+    if named.sha256 != template.content_hash().hex_digest() {
+        return Err("the template differs from the one this result was computed on".to_string());
+    }
+    let span: EditSpan = edit_span(&member.mutation)?;
+    match mutant_residues(construct, cds, span, 0, construct.length()) {
+        Ok(residues) => Ok(residues),
+        Err(error) => Err(error.message()),
+    }
+}
+
+/// Every member's mutant protein, in `document.results` order (plan §5.3a).
+/// Nothing is translated here: each frame is core's `frame::mutant_residues`
+/// over the construct core produced for that member, read over the whole
+/// construct (M7-21). No codon, no translation, no column is computed.
+pub fn member_frames(
+    document: &ResultDocument,
+    template: &Sequence,
+    annotations: &[Cds],
+    constructs: &[(String, Sequence)],
+) -> Vec<MemberFrame> {
+    document
+        .results
+        .iter()
+        .map(|member| member_frame(document, template, annotations, member, constructs))
+        .collect()
 }
 
 /// The template's bases when `sequence` is the one the result was computed on:
