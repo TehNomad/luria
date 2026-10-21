@@ -136,7 +136,14 @@ fn emit_review(request: PathBuf) -> ExitStatus {
         Some(problem) => report_usage(problem),
         None => {
             let outcome: Outcome = run_with_output(&request, None);
-            match review::terminal::run(App::new(outcome.document)) {
+            // The template's bases are read again, and accepted only when their
+            // digest is the document's, so the context screen draws the sequence
+            // the result was computed on and no other (7d, D005).
+            let letters: Option<Vec<char>> = match luria_cli::prepare::prepare(&request) {
+                Ok(prepared) => review::matching_template(&outcome.document, &prepared.template),
+                Err(_problem) => None,
+            };
+            match review::terminal::run(App::new(outcome.document).with_template(letters)) {
                 Ok(()) => ExitStatus::Success,
                 Err(problem) => {
                     write_err(format!("luria: the terminal failed: {}\n", problem).as_str());

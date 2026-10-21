@@ -17,9 +17,10 @@
 //! 7a's banner draws them on every screen.
 
 use crate::result::{
-    DetailValue, Details, EditWarningView, MemberView, MutationView, ObstacleView,
+    DesignView, DetailValue, Details, EditWarningView, MemberView, MutationView, ObstacleView,
     OperationWarning, PrimerView, PrimerWarningView, Provenance, ResultDocument, SourceView,
 };
+use std::collections::BTreeMap;
 
 /// One interval as `[start, end)`.
 pub(crate) fn interval(interval: (u64, u64)) -> String {
@@ -434,6 +435,223 @@ pub fn member(document: &ResultDocument, index: usize) -> Vec<String> {
         lines.push("c context".to_string());
     }
     lines.push("esc back".to_string());
+    lines
+}
+
+/// A sequence-context block's width, in template columns.
+const CONTEXT_WIDTH: usize = 60;
+/// The width of a context row's label.
+const CONTEXT_LABEL: usize = 10;
+/// The line the screen says when the template's bases are not there to draw
+/// (D005).
+const CONTEXT_UNAVAILABLE: &str = "sequence context unavailable: the template could not be read \
+                                   again, or it differs from the one this result was computed on";
+
+/// One primer's bases, by template column: the character to show in each column
+/// its parts fill, and nothing for the columns it leaves empty.
+type ContextColumns = BTreeMap<usize, char>;
+
+/// One primer's parts written into `columns`, the template columns it fills, in
+/// `template_len`'s bounds; `notes` collects the lines a part that cannot be
+/// written in its own span gives. `reverse` is the reverse primer, whose text
+/// reads 3'->5' on the screen: its bases are written in the reverse of the order
+/// they sit in the primer, so each base stands in the column of the template
+/// base it pairs with, and its 5' tail starts at the column just right of its
+/// last spanned column. A part with a span whose base count differs from the
+/// span's width, as an unequal replacement's does, is `*` in every one of its
+/// columns and named after the blocks; a tail reaching outside the template is
+/// not drawn and is named there too. The bases are the part's own text, upper
+/// case when it anneals and lower case when it does not: nothing is complemented
+/// (plan §3 rule 1).
+fn place(
+    primer: &PrimerView,
+    reverse: bool,
+    template_len: usize,
+    columns: &mut ContextColumns,
+    notes: &mut Vec<String>,
+) {
+    // The columns the primer's spanned parts fix: an unspanned tail sits beside
+    // them, so the tail's own columns are counted from them.
+    let spans: Vec<(u64, u64)> = primer.parts.iter().filter_map(|part| part.span).collect();
+    let first: i64 = spans.iter().map(|span| span.0 as i64).min().unwrap_or(0);
+    let last: i64 = spans.iter().map(|span| span.1 as i64).max().unwrap_or(0);
+
+    for part in &primer.parts {
+        let shown: Vec<char> = if part.annealing {
+            part.sequence.to_uppercase().chars().collect()
+        } else {
+            part.sequence.to_lowercase().chars().collect()
+        };
+        // The reverse primer's bases read 3'->5', so they are written in the
+        // reverse of the order they sit in the primer.
+        let written: Vec<char> = if reverse {
+            shown.iter().rev().copied().collect()
+        } else {
+            shown
+        };
+        match part.span {
+            Some((start, end)) => {
+                if part.sequence.len() != (end - start) as usize {
+                    for column in start..end {
+                        columns.insert(column as usize, '*');
+                    }
+                    notes.push(format!(
+                        "{} {}: {} at {}",
+                        primer.role,
+                        part.role,
+                        part.sequence,
+                        interval((start, end))
+                    ));
+                    continue;
+                }
+                for (offset, base) in written.iter().enumerate() {
+                    columns.insert(start as usize + offset, *base);
+                }
+            }
+            None => {
+                // Signed arithmetic throughout, so a tail past the template's
+                // start is skipped instead of underflowing.
+                let from: i64 = if reverse {
+                    last
+                } else {
+                    first - written.len() as i64
+                };
+                let mut outside: bool = false;
+                for (offset, base) in written.iter().enumerate() {
+                    let column: i64 = from + offset as i64;
+                    if column < 0 || column as usize >= template_len {
+                        outside = true;
+                        continue;
+                    }
+                    columns.insert(column as usize, *base);
+                }
+                if outside {
+                    notes.push(format!(
+                        "{} tail: {} extends past the template",
+                        primer.role, part.sequence
+                    ));
+                }
+            }
+        }
+    }
+}
+
+/// The sequence-context screen (plan §5.2 screen 4, 7d): a designed primer pair
+/// laid out against the template, 60 template columns a block, the forward
+/// primer 5'->3' above the top strand and the reverse primer 3'->5' below it,
+/// each base in the template column the document's span puts it in, `^` under
+/// every base of the design's edit span and `+` at an insertion point. The
+/// window runs from five bases before the leftmost primer column to five after
+/// the rightmost, tails included, within the template.
+///
+/// `index` is `document.results`' index, out of range the screen is `no such
+/// member`; a member with no design says so; when `template` is `None`, so the
+/// template's bases are not the ones this result was computed on, the screen
+/// says it is unavailable and draws no sequence (D005). `template` is what
+/// `matching_template` accepts. Nothing is complemented, and no Tm, coordinate,
+/// pairing or overlap is computed (plan §3 rule 1): the bases are placed by the
+/// spans the document reports. The layout of the three designs the fixtures
+/// record is checked by `tests/fixtures/review/reference/context.py`, not here.
+pub fn context(document: &ResultDocument, index: usize, template: Option<&[char]>) -> Vec<String> {
+    if index >= document.results.len() {
+        return vec!["no such member".to_string()];
+    }
+    let member: &MemberView = &document.results[index];
+    let design: &DesignView = match &member.design {
+        Some(design) => design,
+        None => return vec!["no design, so no sequence context".to_string()],
+    };
+    let letters: &[char] = match template {
+        Some(letters) => letters,
+        None => return vec![CONTEXT_UNAVAILABLE.to_string()],
+    };
+
+    let mut forward: ContextColumns = BTreeMap::new();
+    let mut reverse: ContextColumns = BTreeMap::new();
+    let mut notes: Vec<String> = Vec::new();
+    place(
+        &design.forward,
+        false,
+        letters.len(),
+        &mut forward,
+        &mut notes,
+    );
+    place(
+        &design.reverse,
+        true,
+        letters.len(),
+        &mut reverse,
+        &mut notes,
+    );
+
+    // The edit row: `^` under every base of the design's own edit span, and `+`
+    // at the point an insertion names.
+    let mut edit: ContextColumns = BTreeMap::new();
+    for column in design.edit_span.0..design.edit_span.1 {
+        edit.insert(column as usize, '^');
+    }
+    if let MutationView::Insertion { point, .. } = &member.mutation {
+        edit.insert(*point as usize, '+');
+    }
+
+    // The window, from the columns the two primers are written in, within the
+    // template. A design whose parts name no template column has none to lay
+    // out, so no block is drawn.
+    let used: Vec<usize> = forward.keys().chain(reverse.keys()).copied().collect();
+    let (lo, hi): (usize, usize) = match (used.iter().min().copied(), used.iter().max().copied()) {
+        (Some(first), Some(last)) => (
+            first.saturating_sub(5),
+            letters.len().min(last.saturating_add(6)),
+        ),
+        _ => (0, 0),
+    };
+
+    let template_id: &str = match &document.provenance.template {
+        Some(template) => template.id.as_str(),
+        None => "none",
+    };
+    let mut lines: Vec<String> = vec![
+        format!(
+            "sequence context: {}, {} of {}",
+            member.name,
+            interval((lo as u64, hi as u64)),
+            template_id
+        ),
+        "top strand 5'->3'; forward 5'->3' above it, reverse 3'->5' below it".to_string(),
+        "upper case anneals, lower case does not; ^ base edited or removed, + insertion point"
+            .to_string(),
+    ];
+
+    let mut start: usize = lo;
+    while start < hi {
+        let end: usize = (start + CONTEXT_WIDTH).min(hi);
+        lines.push(String::new());
+        lines.push(format!("bases {}", interval((start as u64, end as u64))));
+        for (label, cells) in [
+            ("template", None),
+            ("forward", Some(&forward)),
+            ("reverse", Some(&reverse)),
+            ("edit", Some(&edit)),
+        ] {
+            let body: String = match cells {
+                None => letters[start..end].iter().collect(),
+                Some(columns) => (start..end)
+                    .map(|column| *columns.get(&column).unwrap_or(&' '))
+                    .collect(),
+            };
+            // The label padded to `CONTEXT_LABEL`, then one character per column,
+            // a column the row does not fill as a space, and the trailing spaces
+            // cut: a row that fills nothing is the label alone.
+            let row: String = format!("{:width$}{}", label, body, width = CONTEXT_LABEL);
+            lines.push(row.trim_end().to_string());
+        }
+        start = end;
+    }
+
+    if !notes.is_empty() {
+        lines.push(String::new());
+        lines.extend(notes);
+    }
     lines
 }
 
@@ -1142,6 +1360,121 @@ mod tests {
             ),
             1,
             "the code is the serde tag in snake case, with core's own message: {:?}",
+            lines
+        );
+    }
+
+    /// A part of a primer, written by hand, with `role`: annealing or not, its
+    /// own `sequence`, sitting at the template `span` (`None` is a tail), from
+    /// the primer index `primer_start`.
+    fn role_part(
+        role: &str,
+        annealing: bool,
+        text: &str,
+        span: Option<(u64, u64)>,
+        primer_start: u64,
+    ) -> PartView {
+        PartView {
+            role: role.to_string(),
+            annealing,
+            sequence: text.to_string(),
+            span,
+            primer_start,
+            primer_end: primer_start + text.len() as u64,
+        }
+    }
+
+    /// The template's bases `context` lays a hand-built design out on: 40
+    /// letters, so the window of these parts fits inside it.
+    fn template(text: &str) -> Vec<char> {
+        text.chars().collect()
+    }
+
+    /// The row of `label` in `lines`, which its padded label makes identifiable.
+    fn context_row(lines: &[String], label: &str) -> String {
+        lines
+            .iter()
+            .find(|line| line.starts_with(&format!("{:width$}", label, width = CONTEXT_LABEL)))
+            .expect("a row with the label")
+            .clone()
+    }
+
+    #[test]
+    fn an_unequal_part_is_starred_and_noted() {
+        // A forward primer whose mutation part writes 6 bases over a span 3
+        // columns wide: the span's columns are starred, and the part's own text
+        // is named in a line after the blocks.
+        let mut forward: PrimerView = primer("forward", "ACGAAAAAA");
+        forward.parts = vec![
+            part("ACG", true, (0, 3), 0),
+            role_part("mutation", false, "AAAAAA", Some((3, 6)), 3),
+        ];
+        let mut document: ResultDocument =
+            design_document(Some(design(forward, primer("reverse", "GTCGCAT"))));
+        document.provenance.template = Some(TemplateView {
+            id: "sid-1".to_string(),
+            sha256: "0".to_string(),
+            length: 40,
+            topology: "linear".to_string(),
+            source: SourceView::Fasta {
+                path: "sid-1_cDNA.fa".to_string(),
+                header: "a template".to_string(),
+            },
+            genbank: None,
+        });
+        let letters: Vec<char> = template("ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT");
+        let lines: Vec<String> = context(&document, 0, Some(&letters));
+        assert_eq!(
+            context_row(&lines, "forward"),
+            "forward   ACG***".to_string(),
+            "the span's three columns are `*`, the rest of the row is the primer's \
+             own bases: {:?}",
+            lines
+        );
+        let note: String = "forward mutation: AAAAAA at [3, 6)".to_string();
+        assert_eq!(count(&lines, &note), 1, "{:?}", lines);
+        let at: usize = lines
+            .iter()
+            .position(|line| *line == note)
+            .expect("the note");
+        assert_eq!(
+            lines[at - 1],
+            "".to_string(),
+            "a blank line runs before the notes"
+        );
+    }
+
+    #[test]
+    fn a_tail_past_the_start_is_noted() {
+        // A forward primer whose 5' tail is longer than the column its first
+        // spanned part starts at: the part reaches left of the template's start,
+        // so those columns are not drawn, and the tail is named after the blocks.
+        let mut forward: PrimerView = primer("forward", "AAAACGT");
+        forward.parts = vec![
+            role_part("tail", false, "AAA", None, 0),
+            role_part("context", true, "ACGT", Some((2, 6)), 3),
+        ];
+        let document: ResultDocument =
+            design_document(Some(design(forward, primer("reverse", "GTCGCAT"))));
+        let letters: Vec<char> = template("ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT");
+        let lines: Vec<String> = context(&document, 0, Some(&letters));
+        let row: String = context_row(&lines, "forward");
+        assert_eq!(
+            row,
+            "forward   aaACGT".to_string(),
+            "only the tail's two columns inside the template are drawn, lower case \
+             because the tail does not anneal: {:?}",
+            lines
+        );
+        assert_eq!(
+            row[CONTEXT_LABEL..].chars().filter(|ch| *ch == 'a').count(),
+            2,
+            "only two of the tail's three bases are drawn"
+        );
+        assert_eq!(
+            count(&lines, "forward tail: AAA extends past the template"),
+            1,
+            "{:?}",
             lines
         );
     }

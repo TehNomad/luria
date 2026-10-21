@@ -53,8 +53,9 @@ pub fn draw(frame: &mut Frame, app: &App) {
     let lines: Vec<String> = match app.screen() {
         Screen::Overview => text::overview(document, app.selected()),
         Screen::Member(index) => text::member(document, index),
-        // 7d draws the sequence context; until then the screen says so.
-        Screen::Context(_) => vec!["sequence context: not yet available (7d)".to_string()],
+        // 7d draws the sequence context, from the document's primer parts and
+        // the template `app` holds.
+        Screen::Context(index) => text::context(document, index, app.template()),
         Screen::Provenance => text::provenance(document),
         Screen::Problem => text::problem(document),
     };

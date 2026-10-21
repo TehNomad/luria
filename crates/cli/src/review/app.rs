@@ -51,6 +51,7 @@ pub struct App {
     screen: Screen,
     selected: usize,
     scroll: usize,
+    template: Option<Vec<char>>,
 }
 
 impl App {
@@ -67,7 +68,23 @@ impl App {
             selected: 0,
             scroll: 0,
             document,
+            template: None,
         }
+    }
+
+    /// The template's bases the sequence-context screen draws, set once when the
+    /// screen opens: `None` when the template could not be read again, or its
+    /// digest is not the one the document reports (7d, D005).
+    pub fn with_template(self, letters: Option<Vec<char>>) -> App {
+        App {
+            template: letters,
+            ..self
+        }
+    }
+
+    /// The template's bases, or `None` when there are none to draw.
+    pub fn template(&self) -> Option<&[char]> {
+        self.template.as_deref()
     }
 
     pub fn document(&self) -> &ResultDocument {
