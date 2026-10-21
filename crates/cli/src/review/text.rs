@@ -1,5 +1,6 @@
-//! The text of three result screens (milestone 7c1): the overview, the problem
-//! screen and the provenance screen (plan §5.2 screens 2, 5 and 6). Each screen
+//! The text of four result screens (milestone 7c1, 7c2): the overview, the member
+//! screen, the problem screen and the provenance screen (plan §5.2 screens 2, 3,
+//! 5 and 6). Each screen
 //! is a list of plain text lines, one string per line, none holding a `\n`.
 //!
 //! Pure: no I/O and no `ratatui` or `crossterm` types, so every line is testable
@@ -16,8 +17,8 @@
 //! 7a's banner draws them on every screen.
 
 use crate::result::{
-    DetailValue, Details, MutationView, ObstacleView, OperationWarning, Provenance, ResultDocument,
-    SourceView,
+    DetailValue, Details, EditWarningView, MemberView, MutationView, ObstacleView,
+    OperationWarning, PrimerView, PrimerWarningView, Provenance, ResultDocument, SourceView,
 };
 
 /// One interval as `[start, end)`.
@@ -59,6 +60,52 @@ fn obstacle_code(obstacle: &ObstacleView) -> &'static str {
         ObstacleView::AmbiguousTemplateBase { .. } => "ambiguous_template_base",
         ObstacleView::FivePrimeTmFloorUnreachable { .. } => "five_prime_tm_floor_unreachable",
         ObstacleView::ThreePrimeTmFloorUnreachable { .. } => "three_prime_tm_floor_unreachable",
+    }
+}
+
+/// The code of a warning about one member's edit: its serde tag, the variant
+/// name in snake case, written as a `match` rather than found by serializing.
+pub(crate) fn edit_warning_code(warning: &EditWarningView) -> &'static str {
+    match warning {
+        EditWarningView::Frameshift { .. } => "frameshift",
+        EditWarningView::InsertionFrameshift { .. } => "insertion_frameshift",
+        EditWarningView::ReplacementFrameshift { .. } => "replacement_frameshift",
+        EditWarningView::PrematureStop { .. } => "premature_stop",
+    }
+}
+
+/// A warning about one member's edit's own message.
+fn edit_warning_message(warning: &EditWarningView) -> &str {
+    match warning {
+        EditWarningView::Frameshift { message, .. } => message.as_str(),
+        EditWarningView::InsertionFrameshift { message, .. } => message.as_str(),
+        EditWarningView::ReplacementFrameshift { message, .. } => message.as_str(),
+        EditWarningView::PrematureStop { message, .. } => message.as_str(),
+    }
+}
+
+/// The code of a warning about one primer: its serde tag, the variant name in
+/// snake case, written as a `match` rather than found by serializing.
+pub(crate) fn primer_warning_code(warning: &PrimerWarningView) -> &'static str {
+    match warning {
+        PrimerWarningView::GcContentOutsideBand { .. } => "gc_content_outside_band",
+        PrimerWarningView::SingleBaseRun { .. } => "single_base_run",
+        PrimerWarningView::DinucleotideRepeat { .. } => "dinucleotide_repeat",
+        PrimerWarningView::ThreePrimeGcRun { .. } => "three_prime_gc_run",
+        PrimerWarningView::LengthOutsideGuideline { .. } => "length_outside_guideline",
+        PrimerWarningView::AboveOrderingLimit { .. } => "above_ordering_limit",
+    }
+}
+
+/// A warning about one primer's own message.
+fn primer_warning_message(warning: &PrimerWarningView) -> &str {
+    match warning {
+        PrimerWarningView::GcContentOutsideBand { message, .. } => message.as_str(),
+        PrimerWarningView::SingleBaseRun { message, .. } => message.as_str(),
+        PrimerWarningView::DinucleotideRepeat { message, .. } => message.as_str(),
+        PrimerWarningView::ThreePrimeGcRun { message, .. } => message.as_str(),
+        PrimerWarningView::LengthOutsideGuideline { message, .. } => message.as_str(),
+        PrimerWarningView::AboveOrderingLimit { message, .. } => message.as_str(),
     }
 }
 
@@ -137,6 +184,256 @@ pub(crate) fn details_lines(details: &Details, indent: &str) -> Vec<String> {
             }
         }
     }
+    lines
+}
+
+/// A list of numbers, joined with `, `.
+fn numbers(numbers: &[u64]) -> String {
+    numbers
+        .iter()
+        .map(|one| one.to_string())
+        .collect::<Vec<String>>()
+        .join(", ")
+}
+
+/// The mutation's own fields, each `  <label>: <value>`: for every kind its
+/// `state`, the coordinates it recorded, and the edited construct; for a
+/// residue its CDS, its residue number, its codon policy and, when the document
+/// states one, the source of that policy; for an insertion the bases on each
+/// side of the point. The letters and the interval are on the summary line
+/// above, so they are not repeated here.
+fn mutation_lines(mutation: &MutationView) -> Vec<String> {
+    let (state, coordinates, edited) = match mutation {
+        MutationView::Residue {
+            state,
+            coordinates,
+            edited,
+            ..
+        }
+        | MutationView::Substitution {
+            state,
+            coordinates,
+            edited,
+            ..
+        }
+        | MutationView::Deletion {
+            state,
+            coordinates,
+            edited,
+            ..
+        }
+        | MutationView::Insertion {
+            state,
+            coordinates,
+            edited,
+            ..
+        }
+        | MutationView::Replacement {
+            state,
+            coordinates,
+            edited,
+            ..
+        } => (state, coordinates, edited),
+    };
+    let mut lines: Vec<String> = vec![
+        format!("  state: {}", state),
+        format!("  coordinates: {}", numbers(coordinates)),
+        format!(
+            "  edited: {}, {} bp, sha256 {}",
+            edited.id, edited.length, edited.sha256
+        ),
+    ];
+    match mutation {
+        MutationView::Residue {
+            cds,
+            residue,
+            codon_policy,
+            codon_policy_source,
+            ..
+        } => {
+            lines.push(format!("  cds: {}", cds));
+            lines.push(format!("  residue: {}", residue));
+            lines.push(format!("  codon policy: {}", codon_policy));
+            if let Some(source) = codon_policy_source {
+                lines.push(format!("  codon source: {}", source));
+            }
+        }
+        MutationView::Insertion { before, after, .. } => {
+            lines.push(format!("  before: {}", before));
+            lines.push(format!("  after: {}", after));
+        }
+        _ => {}
+    }
+    lines
+}
+
+/// One primer as it is to be typed, written 5'->3' as the document holds it, in
+/// the order the parts sit in the primer: its text, length and span, then the
+/// edited span when it has one, its 5' tail, its parts in primer order, its
+/// annealing portion, its Tm and why that basis was substituted, its whole
+/// primer Tm, and its sequence guideline warnings. The enthalpy and the entropy
+/// are not on this screen: they stay in the JSON export.
+fn primer_lines(primer: &PrimerView) -> Vec<String> {
+    let mut lines: Vec<String> = Vec::new();
+
+    let mut head: String = format!(
+        "{} 5'-{}-3'  {} nt  span {}",
+        primer.role,
+        primer.sequence,
+        primer.length,
+        interval(primer.span)
+    );
+    if let Some(edited_span) = primer.edited_span {
+        head.push_str(&format!("  edited span {}", interval(edited_span)));
+    }
+    lines.push(head);
+
+    if let Some(tail) = &primer.tail {
+        lines.push(format!("  tail: {} ({})", tail.sequence, tail.reason));
+    }
+
+    lines.push("  parts:".to_string());
+    for part in &primer.parts {
+        let mut line: String = format!(
+            "    {}-{}  {} {}  {}",
+            part.primer_start,
+            part.primer_end,
+            part.role,
+            if part.annealing {
+                "annealing"
+            } else {
+                "not annealing"
+            },
+            part.sequence
+        );
+        if let Some(span) = part.span {
+            line.push_str(&format!("  {}", interval(span)));
+        }
+        lines.push(line);
+    }
+
+    lines.push(format!(
+        "  annealing: {}, {} nt, overlap {}, spans {}",
+        primer.annealing.sequence,
+        primer.annealing.length,
+        primer.annealing.overlap,
+        intervals(&primer.annealing.spans)
+    ));
+
+    lines.push(format!(
+        "  tm: {} C, {}",
+        primer.tm.celsius, primer.tm.basis
+    ));
+    if let Some(because) = &primer.tm.substituted_because {
+        lines.push(format!("  tm substituted because: {}", because));
+    }
+
+    if let Some(whole) = &primer.whole_primer_tm {
+        lines.push(format!(
+            "  whole primer tm: {} C, {}",
+            whole.celsius, whole.basis
+        ));
+    }
+
+    if !primer.warnings.is_empty() {
+        lines.push("  warnings:".to_string());
+        for warning in &primer.warnings {
+            lines.push(format!(
+                "    {}: {}",
+                primer_warning_code(warning),
+                primer_warning_message(warning)
+            ));
+        }
+    }
+    lines
+}
+
+/// The member screen (plan §5.2 screen 3): the member's name, the mutation it
+/// performed and its fields, the member's own warnings, then the primer pair
+/// with its geometry, Tms, warnings and unresolved inputs, or the reason no
+/// pair was designed. `index` is `document.results`' index; out of range the
+/// screen is the single line `no such member`. A failure is listed as a failure
+/// (plan §3 rule 3), and nothing on the screen is computed, rounded, reversed
+/// or complemented (plan §3 rule 1). `c context` opens the sequence context, so
+/// it is offered only where a design gives spans to read, and `esc back` is
+/// offered on every member screen.
+pub fn member(document: &ResultDocument, index: usize) -> Vec<String> {
+    if index >= document.results.len() {
+        return vec!["no such member".to_string()];
+    }
+    let member: &MemberView = &document.results[index];
+    let mut lines: Vec<String> = Vec::new();
+
+    lines.push(format!("member: {}", member.name));
+    lines.push(format!("mutation: {}", mutation_summary(&member.mutation)));
+    lines.extend(mutation_lines(&member.mutation));
+
+    if !member.warnings.is_empty() {
+        lines.push("warnings:".to_string());
+        for warning in &member.warnings {
+            lines.push(format!(
+                "  {}: {}",
+                edit_warning_code(warning),
+                edit_warning_message(warning)
+            ));
+        }
+    }
+
+    if let Some(failure) = &member.design_failure {
+        lines.push(format!("design failed: {}", failure.code));
+        lines.push(format!("  {}", failure.message));
+        if !failure.details.0.is_empty() {
+            lines.extend(details_lines(&failure.details, "  "));
+        }
+    }
+
+    if let Some(design) = &member.design {
+        lines.push(format!(
+            "design: {}, {}, {} {}",
+            design.policy, design.style, design.algorithm.name, design.algorithm.version
+        ));
+        lines.push(format!("  placement: {}", design.placement));
+        lines.push(format!(
+            "  min annealing overlap: {}",
+            design.min_annealing_overlap
+        ));
+        lines.push(format!("  edit span: {}", interval(design.edit_span)));
+        lines.push(format!(
+            "  annealing temperature: {} C",
+            design.annealing_temperature
+        ));
+        lines.push(format!(
+            "  tm balance met: {}",
+            if design.tm_balance_met { "yes" } else { "no" }
+        ));
+        let mut pair: String = format!(
+            "  pair: {}, separation {}, deleted width {}",
+            design.pair.relationship, design.pair.separation, design.pair.deleted_width
+        );
+        if let Some(boundary) = design.pair.boundary {
+            pair.push_str(&format!(", boundary {}", boundary));
+        }
+        if design.pair.abuts {
+            pair.push_str(", abuts");
+        }
+        lines.push(pair);
+
+        lines.extend(primer_lines(&design.forward));
+        lines.extend(primer_lines(&design.reverse));
+
+        if !design.unresolved.is_empty() {
+            lines.push("unresolved:".to_string());
+            for entry in &design.unresolved {
+                lines.push(format!("  {}: {}", entry.input, entry.effect));
+            }
+        }
+    }
+
+    lines.push(String::new());
+    if member.design.is_some() {
+        lines.push("c context".to_string());
+    }
+    lines.push("esc back".to_string());
     lines
 }
 
@@ -371,9 +668,11 @@ pub fn provenance(document: &ResultDocument) -> Vec<String> {
 mod tests {
     use super::*;
     use crate::result::{
-        BufferView, EditedView, GenBankView, MemberView, PackageView, RefusalView, TemplateView,
-        UnusedFeatureView,
+        AlgorithmRef, AnnealingView, BufferView, DesignView, EditedView, GenBankView, MemberView,
+        PackageView, PairView, PartView, PrimerView, PrimerWarningView, RefusalView, TailView,
+        TemplateView, TmView, UnusedFeatureView,
     };
+    use crate::review::text;
 
     /// The provenance a hand-built document needs: the package that ran, and
     /// nothing else, so a test sets the one field it is about.
@@ -463,6 +762,105 @@ mod tests {
             }),
         });
         document
+    }
+
+    /// A Tm, written by hand: no basis substitution, so a test sets the one
+    /// field it is about.
+    fn tm() -> TmView {
+        TmView {
+            celsius: 60.0,
+            basis: "matched_complement".to_string(),
+            substituted_because: None,
+            enthalpy_kcal: 0.0,
+            entropy_cal: 0.0,
+        }
+    }
+
+    /// An annealing portion written by hand, covering `span`.
+    fn annealing(text: &str, span: (u64, u64)) -> AnnealingView {
+        AnnealingView {
+            sequence: text.to_string(),
+            length: text.len() as u64,
+            overlap: text.len() as u64,
+            spans: vec![span],
+        }
+    }
+
+    /// One part of a primer, written by hand: the `text` at the primer indices
+    /// from `primer_start`, annealing or not, sitting at the template `span`.
+    fn part(text: &str, annealing: bool, span: (u64, u64), primer_start: u64) -> PartView {
+        PartView {
+            role: "context".to_string(),
+            annealing,
+            sequence: text.to_string(),
+            span: Some(span),
+            primer_start,
+            primer_end: primer_start + text.len() as u64,
+        }
+    }
+
+    /// A primer, written by hand: no tail, no whole-primer Tm and no warning, so
+    /// a test sets the one field it is about. Nothing here is a scientific
+    /// value, as the primers a test builds are not core's.
+    fn primer(role: &str, text: &str) -> PrimerView {
+        let span: (u64, u64) = (0, text.len() as u64);
+        PrimerView {
+            role: role.to_string(),
+            sequence: text.to_string(),
+            length: text.len() as u64,
+            span,
+            edited_span: None,
+            tail: None,
+            parts: vec![part(text, true, span, 0)],
+            annealing: annealing(text, span),
+            tm: tm(),
+            whole_primer_tm: None,
+            warnings: Vec::new(),
+        }
+    }
+
+    /// A design carrying these two primers, with the geometry of a hand-built
+    /// pair: no boundary, not abutting, nothing unresolved.
+    fn design(forward: PrimerView, reverse: PrimerView) -> DesignView {
+        DesignView {
+            policy: "luriaNative".to_string(),
+            style: "q5_polymerase".to_string(),
+            algorithm: AlgorithmRef {
+                name: "luria-core-primer-design-native",
+                version: "0.7.0",
+            },
+            min_annealing_overlap: 15,
+            placement: "inline".to_string(),
+            edit_span: (0, 3),
+            forward,
+            reverse,
+            annealing_temperature: 60.0,
+            tm_balance_met: true,
+            pair: PairView {
+                deleted_width: 0,
+                separation: 0,
+                boundary: None,
+                abuts: false,
+                relationship: "hand-built pair".to_string(),
+            },
+            unresolved: Vec::new(),
+        }
+    }
+
+    /// The one-member document whose member carries `design` and no failure, so
+    /// the member screen's lines are the ones to check.
+    fn design_document(design: Option<DesignView>) -> ResultDocument {
+        let mut document: ResultDocument = document();
+        let mut member: MemberView = member("m");
+        member.design = design;
+        document.results = vec![member];
+        document
+    }
+
+    /// How many times `expected` appears in `lines`, so "one line per entry" is
+    /// tested as one, not at least one.
+    fn count(lines: &[String], expected: &str) -> usize {
+        lines.iter().filter(|line| *line == expected).count()
     }
 
     /// The row of member `index` in `lines`, which the marker and the name make
@@ -607,5 +1005,157 @@ mod tests {
             ),
             "key, line, id and refusal's code on one line"
         );
+    }
+
+    #[test]
+    fn an_insertion_shows_before_and_after() {
+        let mutation: MutationView = MutationView::Insertion {
+            state: "verified".to_string(),
+            point: 168,
+            before: "AA".to_string(),
+            after: "CC".to_string(),
+            written: "G".to_string(),
+            coordinates: vec![168],
+            edited: EditedView {
+                id: "ins-G".to_string(),
+                sha256: "0".to_string(),
+                length: 394,
+            },
+        };
+        let mut document: ResultDocument = design_document(None);
+        document.results[0].mutation = mutation.clone();
+        let lines: Vec<String> = text::member(&document, 0);
+        match &mutation {
+            MutationView::Insertion { before, after, .. } => {
+                assert_eq!(
+                    count(&lines, &format!("  before: {}", before)),
+                    1,
+                    "{:?}",
+                    lines
+                );
+                assert_eq!(
+                    count(&lines, &format!("  after: {}", after)),
+                    1,
+                    "{:?}",
+                    lines
+                );
+                assert_eq!(
+                    count(
+                        &lines,
+                        &format!("mutation: {}", mutation_summary(&mutation))
+                    ),
+                    1,
+                    "the summary names the insertion the member made: {:?}",
+                    lines
+                );
+            }
+            other => panic!("an insertion: {:?}", other),
+        }
+        let lines: Vec<String> = text::member(&design_document(None), 0);
+        assert!(
+            !lines
+                .iter()
+                .any(|line| line.starts_with("  before: ") || line.starts_with("  after: ")),
+            "a mutation that is not an insertion shows neither: {:?}",
+            lines
+        );
+    }
+
+    #[test]
+    fn a_tail_is_shown_with_its_reason() {
+        let mut forward: PrimerView = primer("forward", "CTACGGTAAG");
+        let tail: TailView = TailView {
+            sequence: "GATG".to_string(),
+            reason: "the inserted bases are written past the annealing portion".to_string(),
+        };
+        forward.tail = Some(tail.clone());
+        let lines: Vec<String> = text::member(
+            &design_document(Some(design(forward, primer("reverse", "GTCGCAT")))),
+            0,
+        );
+        assert_eq!(
+            count(
+                &lines,
+                &format!("  tail: {} ({})", tail.sequence, tail.reason)
+            ),
+            1,
+            "the tail is the primer's own text and core's own reason: {:?}",
+            lines
+        );
+        assert_eq!(
+            lines
+                .iter()
+                .filter(|line| line.starts_with("  tail: "))
+                .count(),
+            1,
+            "the primer with no tail shows no tail line: {:?}",
+            lines
+        );
+    }
+
+    #[test]
+    fn a_primer_warning_is_listed() {
+        let mut reverse: PrimerView = primer("reverse", "GTCGCAT");
+        let warning: PrimerWarningView = PrimerWarningView::SingleBaseRun {
+            base: "G".to_string(),
+            length: 5,
+            start: 0,
+            message: "a run of 5 G at position 0".to_string(),
+        };
+        reverse.warnings = vec![warning.clone()];
+        let lines: Vec<String> = text::member(
+            &design_document(Some(design(primer("forward", "CTACGGTAAG"), reverse))),
+            0,
+        );
+        assert_eq!(count(&lines, "  warnings:"), 1, "{:?}", lines);
+        assert_eq!(
+            count(
+                &lines,
+                &format!(
+                    "    {}: {}",
+                    "single_base_run",
+                    primer_warning_message(&warning)
+                )
+            ),
+            1,
+            "the code is the serde tag in snake case, with core's own message: {:?}",
+            lines
+        );
+    }
+
+    #[test]
+    fn a_member_edit_warning_is_listed() {
+        let warning: EditWarningView = EditWarningView::Frameshift {
+            cds: "synA".to_string(),
+            coding_bases_removed: 1,
+            wholly_inside: true,
+            message: "removing 1 coding base from synA shifts its reading frame".to_string(),
+        };
+        let mut document: ResultDocument = design_document(None);
+        document.results[0].warnings = vec![warning.clone()];
+        let lines: Vec<String> = text::member(&document, 0);
+        assert_eq!(count(&lines, "warnings:"), 1, "{:?}", lines);
+        assert_eq!(
+            count(
+                &lines,
+                &format!("  {}: {}", "frameshift", edit_warning_message(&warning))
+            ),
+            1,
+            "the code is the serde tag in snake case, with core's own message: {:?}",
+            lines
+        );
+    }
+
+    #[test]
+    fn out_of_range_is_no_such_member() {
+        for index in 0..2 {
+            assert_eq!(
+                text::member(&document_with(index), index),
+                ["no such member".to_string()],
+                "index {} of {} members is out of range",
+                index,
+                index
+            );
+        }
     }
 }

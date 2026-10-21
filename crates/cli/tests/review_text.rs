@@ -1,7 +1,7 @@
-//! The text of `luria review`'s three result screens (milestone 7c1): the
-//! overview, the problem screen and the provenance screen, as the lines
-//! `luria_cli::review::text` builds from the result document (plan §5.2 screens
-//! 2, 5 and 6).
+//! The text of `luria review`'s result screens (milestone 7c1, 7c2): the
+//! overview, the member screen, the problem screen and the provenance screen, as
+//! the lines `luria_cli::review::text` builds from the result document (plan
+//! §5.2 screens 2, 3, 5 and 6).
 //!
 //! Every expected line is built from the document's own field, or is a fact
 //! recorded in an independently verified fixture table:
@@ -14,9 +14,13 @@
 //! with codon `GCA`, residue 87 is `W` with codon `TGG`),
 //! `tests/fixtures/genbank/pbr322-cds.tsv` (`tet` and `bla`) and
 //! `tests/fixtures/genbank/pbr322-record.tsv` (the digest below). No value is
-//! copied from running the code: the documents' primer values are not
-//! independently verified for `synthetic-linear.gb`, so no line of a design is
-//! asserted here, and every other expected string names a fixture fact.
+//! copied from running the code: a line of a design is asserted only against the
+//! document's own field (its primer text, length, span, parts, annealing, Tm and
+//! basis as the document holds them), because the documents' primer values are
+//! not independently verified for `synthetic-linear.gb`, and every other expected
+//! string names a fixture fact. Every value the screen shows is one the document
+//! holds, so no line asserts a Tm, coordinate, codon, translation, reverse
+//! complement or rounding the code did not compute.
 //!
 //! The documents are `luria_cli::run::run` on a request in a directory under
 //! `CARGO_TARGET_TMPDIR`, as `tests/review_view.rs` does: the two-variant set of
@@ -28,7 +32,7 @@
 
 use serde_json::{json, Value};
 
-use luria_cli::result::{MutationView, ResultDocument};
+use luria_cli::result::{DesignView, DetailValue, EditedView, MutationView, ResultDocument};
 use luria_cli::review::text;
 use luria_cli::run::run;
 use std::fs;
@@ -179,6 +183,17 @@ fn written_codon(mutation: &MutationView) -> String {
     }
 }
 
+/// The edited construct a mutation carries, which every kind has.
+fn edited_of(mutation: &MutationView) -> &EditedView {
+    match mutation {
+        MutationView::Residue { edited, .. }
+        | MutationView::Substitution { edited, .. }
+        | MutationView::Deletion { edited, .. }
+        | MutationView::Insertion { edited, .. }
+        | MutationView::Replacement { edited, .. } => edited,
+    }
+}
+
 /// A member's `designFailure` code, as the document holds it.
 fn design_failure_code(document: &ResultDocument) -> &'static str {
     document.results[0]
@@ -186,6 +201,17 @@ fn design_failure_code(document: &ResultDocument) -> &'static str {
         .as_ref()
         .expect("a design failure")
         .code
+}
+
+/// The half-open interval `[start, end)` the screen writes for `span`, built
+/// from the span the document holds, so an expected line names it.
+fn span_text(span: (u64, u64)) -> String {
+    format!("[{}, {})", span.0, span.1)
+}
+
+/// The design of member 0, which the set's members have.
+fn design_of(document: &ResultDocument) -> &DesignView {
+    document.results[0].design.as_ref().expect("a design")
 }
 
 /// The member rows: the marker (`> ` or `  `) is the only thing that makes a row
@@ -394,4 +420,249 @@ fn the_provenance_screen_shows_the_record() {
         );
     }
     assert_eq!(count(&lines, "algorithms:"), 1);
+}
+
+#[test]
+fn the_member_screen_names_the_edit() {
+    let document = set("member_screen");
+    let member = &document.results[0];
+    let lines = text::member(&document, 0);
+
+    assert_eq!(
+        count(&lines, &format!("member: {}", member.name)),
+        1,
+        "the screen names the member: {:?}",
+        lines
+    );
+    // `synA`, residue 42 being `A` and its codon `GCA` are facts of
+    // `tests/fixtures/genbank/synthetic-linear-cds.tsv` and
+    // `synthetic-linear-residues.tsv`; the written codon and the edited
+    // construct are the document's own fields.
+    assert_eq!(
+        count(
+            &lines,
+            &format!(
+                "mutation: synA A42G GCA->{}",
+                written_codon(&member.mutation)
+            )
+        ),
+        1,
+        "the mutation line is the member's own edit: {:?}",
+        lines
+    );
+    let edited = edited_of(&member.mutation);
+    for expected in [
+        "  state: verified".to_string(),
+        "  cds: synA".to_string(),
+        "  residue: 42".to_string(),
+        // codon 42 is the half-open interval [165, 168) of the residues table.
+        "  coordinates: 165, 166, 167".to_string(),
+        format!(
+            "  edited: {}, {} bp, sha256 {}",
+            edited.id, edited.length, edited.sha256
+        ),
+    ] {
+        assert_eq!(
+            count(&lines, &expected),
+            1,
+            "{} is on the screen once",
+            expected
+        );
+    }
+
+    // The design the document carries is what makes `c context` worth offering.
+    assert!(member.design.is_some(), "the set's member 0 has a design");
+    assert_eq!(count(&lines, "c context"), 1, "{:?}", lines);
+}
+
+#[test]
+fn each_primer_is_written_five_to_three() {
+    let document = set("primer_written");
+    let design = design_of(&document);
+    let lines = text::member(&document, 0);
+    assert_eq!(
+        (design.forward.role.as_str(), design.reverse.role.as_str()),
+        ("forward", "reverse"),
+        "the document names the two primers"
+    );
+
+    for primer in [&design.forward, &design.reverse] {
+        let mut expected = format!(
+            "{} 5'-{}-3'  {} nt  span {}",
+            primer.role,
+            primer.sequence,
+            primer.length,
+            span_text(primer.span)
+        );
+        if let Some(edited_span) = primer.edited_span {
+            expected.push_str(&format!("  edited span {}", span_text(edited_span)));
+        }
+        assert_eq!(
+            count(&lines, &expected),
+            1,
+            "one line, holding the primer's own text, written 5' to 3', with its own length and span: {:?}",
+            lines
+        );
+    }
+}
+
+#[test]
+fn each_part_is_listed_in_primer_order() {
+    let document = set("parts_order");
+    let design = design_of(&document);
+    let lines = text::member(&document, 0);
+    assert!(
+        !design.forward.parts.is_empty() && !design.reverse.parts.is_empty(),
+        "both primers carry parts in the document"
+    );
+    assert_eq!(
+        count(&lines, "  parts:"),
+        2,
+        "one header per primer: {:?}",
+        lines
+    );
+
+    let mut positions: Vec<usize> = Vec::new();
+    for part in &design.forward.parts {
+        let mut expected = format!(
+            "    {}-{}  {} {}  {}",
+            part.primer_start,
+            part.primer_end,
+            part.role,
+            if part.annealing {
+                "annealing"
+            } else {
+                "not annealing"
+            },
+            part.sequence
+        );
+        if let Some(span) = part.span {
+            expected.push_str(&format!("  {}", span_text(span)));
+        }
+        let position = lines
+            .iter()
+            .position(|line| *line == expected)
+            .unwrap_or_else(|| {
+                panic!(
+                    "the part's own line is listed: {:?} vs {:?}",
+                    expected, lines
+                )
+            });
+        assert_eq!(
+            count(&lines, &expected),
+            1,
+            "one line per part: {:?}",
+            lines
+        );
+        positions.push(position);
+    }
+    for pair in positions.windows(2) {
+        assert!(
+            pair[0] < pair[1],
+            "the forward primer's parts come in the order the document holds them: {:?}",
+            lines
+        );
+    }
+}
+
+#[test]
+fn the_tm_and_its_basis_are_shown() {
+    let document = set("tm_shown");
+    let forward = &design_of(&document).forward;
+    let lines = text::member(&document, 0);
+
+    let tm_line = format!("  tm: {} C, {}", forward.tm.celsius, forward.tm.basis);
+    let position = lines
+        .iter()
+        .position(|line| *line == tm_line)
+        .unwrap_or_else(|| {
+            panic!(
+                "the Tm line holds the document's own value and basis: {:?}",
+                lines
+            )
+        });
+    assert_eq!(count(&lines, &tm_line), 1, "{:?}", lines);
+
+    // Checked in the document, not assumed: the set's forward Tm of member 0 is
+    // a substituted basis (a tandem mismatch), so its reason must be shown.
+    assert!(
+        forward.tm.substituted_because.is_some(),
+        "the forward Tm states why its basis was substituted: {:?}",
+        forward.tm
+    );
+    assert_eq!(
+        lines[position + 1],
+        format!(
+            "  tm substituted because: {}",
+            forward
+                .tm
+                .substituted_because
+                .as_ref()
+                .expect("a substituted basis")
+        ),
+        "the line after the Tm shows why: {:?}",
+        lines
+    );
+}
+
+#[test]
+fn a_design_failure_replaces_the_pair() {
+    let document = design_failure("failure_screen");
+    let failure = document.results[0]
+        .design_failure
+        .as_ref()
+        .expect("a design failure");
+    let lines = text::member(&document, 0);
+
+    assert_eq!(
+        count(&lines, &format!("design failed: {}", failure.code)),
+        1,
+        "the failure is named by the document's own code: {:?}",
+        lines
+    );
+    assert_eq!(
+        count(&lines, &format!("  {}", failure.message)),
+        1,
+        "with the document's own message: {:?}",
+        lines
+    );
+    for (key, value) in &failure.details.0 {
+        match value {
+            DetailValue::Text(text) => assert_eq!(
+                count(&lines, &format!("  {}: {}", key, text)),
+                1,
+                "the details are listed, one line per pair: {:?}",
+                lines
+            ),
+            other => panic!("this design failure's details are text: {:?}", other),
+        }
+    }
+
+    assert!(
+        !lines.iter().any(|line| line.starts_with("forward 5'-")),
+        "a member with no pair shows no primer: {:?}",
+        lines
+    );
+    assert!(
+        !lines.iter().any(|line| line.as_str() == "c context"),
+        "no context to read, so no `c context`: {:?}",
+        lines
+    );
+}
+
+#[test]
+fn back_is_always_offered() {
+    for (test, document) in [
+        ("the set", set("back_set")),
+        ("a design failure", design_failure("back_failure")),
+    ] {
+        let lines = text::member(&document, 0);
+        assert_eq!(
+            lines.last().map(String::as_str),
+            Some("esc back"),
+            "{} ends with `esc back`: {:?}",
+            test,
+            lines
+        );
+    }
 }
