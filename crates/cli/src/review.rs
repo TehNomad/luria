@@ -13,6 +13,7 @@ use crate::result::{ResultDocument, TemplateView};
 use luria_core::sequence::Sequence;
 
 pub mod app;
+pub mod order;
 pub mod terminal;
 pub mod text;
 pub mod view;
