@@ -84,6 +84,13 @@ sequences, primer designs, coordinates, or experimental results.
   copying its output. Expectations need independent verification, recorded
   in `tests/fixtures/README.md`.
 
+## Temporary files
+- Under the nono sandbox, `/tmp` is write-only: files can be created there
+  but not read back. Do not use it.
+- Put scratch files in `target/tmp/` (gitignored, readable and writable).
+  Create it with `mkdir -p target/tmp`.
+- For other permission errors, run `nono why` before trying workarounds.
+
 ## Git
 - Read-only commands are fine (`git status`, `git diff`, `git log`).
 - The user creates each milestone branch. Commit only on the current
