@@ -1,0 +1,14 @@
+{
+  "operation": "q5_residue_substitutions",
+  "cds": "alt11",
+  "mutations": [
+    {
+      "token": "V1A",
+      "quote": "valine 1 to alanine",
+      "codon": null
+    }
+  ],
+  "composition": null,
+  "numbering": "from the CDS start",
+  "unsupported": []
+}

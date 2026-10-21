@@ -1,0 +1,30 @@
+{
+  "schema": "luria.q5-request/1",
+  "coordinates": "zero-based-half-open",
+  "template": {
+    "id": "synlin",
+    "genbank": "synthetic-linear.gb",
+    "sha256": "a8b4ddcfa617179143d428dc103aabb7b13cf27f7b323407d11db8a01105bbd7",
+    "cds": [
+      "synA"
+    ]
+  },
+  "scope": "synA",
+  "edit": {
+    "name": "W87A",
+    "residue": {
+      "cds": "synA",
+      "number": 87,
+      "from": "W",
+      "to": "A",
+      "codon": "GCG"
+    }
+  },
+  "design": {
+    "policy": "luriaNative",
+    "style": "q5_polymerase",
+    "minAnnealingOverlap": 15,
+    "placement": "inline",
+    "buffer": "q5_reaction"
+  }
+}

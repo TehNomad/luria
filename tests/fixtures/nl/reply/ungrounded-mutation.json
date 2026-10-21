@@ -1,0 +1,19 @@
+{
+  "operation": "q5_residue_substitutions",
+  "cds": "synA",
+  "mutations": [
+    {
+      "token": "A42G",
+      "quote": "alanine 42 to glycine",
+      "codon": null
+    },
+    {
+      "token": "W87A",
+      "quote": "tryptophan 87 to alanine",
+      "codon": null
+    }
+  ],
+  "composition": "separate_variants",
+  "numbering": "from the CDS start",
+  "unsupported": []
+}

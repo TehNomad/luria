@@ -1,0 +1,14 @@
+{
+  "operation": "q5_residue_substitutions",
+  "cds": "synA",
+  "mutations": [
+    {
+      "token": "A42G",
+      "quote": "alanine 420 to glycine",
+      "codon": null
+    }
+  ],
+  "composition": null,
+  "numbering": "from the CDS start",
+  "unsupported": []
+}

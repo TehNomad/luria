@@ -2,7 +2,9 @@
 //! import in `crates/core/src/genbank_cds.rs` (5c3) against
 //! `tests/fixtures/genbank/`: pBR322 (NCBI J01749.1) as Biopython reads it,
 //! and a hand-written synthetic record with one CDS per accepted location
-//! form and per refusal (D041 G1, G2, G3, G5; D006, D036).
+//! form and per refusal (D041 G1, G2, G3, G5; D006, D036), and a hand-written
+//! linear record with one designable CDS, for the natural-language milestone
+//! (M6-13); `reference/verify_synthetic_linear.py` re-derives its tables.
 //!
 //! `reference/pbr322.py` reads the public record with Biopython 1.88 and
 //! `reference/verify_synthetic.py` re-derives every biological column of the
@@ -48,6 +50,8 @@ const EXPECTED_HEADER: &str =
 const UNUSED_HEADER: &str = "index\tkey\tid\trefusal";
 const PBR322_FILE: &str = "raw/J01749.1.gb";
 const SYNTHETIC_FILE: &str = "synthetic.gb";
+const LINEAR_FILE: &str = "synthetic-linear.gb";
+const RESIDUE_HEADER: &str = "number\tresidue\tcodon\tstart\tend";
 
 /// The rows of a fixture TSV past its header row, refusing a header row it
 /// does not have.
@@ -117,6 +121,17 @@ fn synthetic() -> GenBankRecord {
         panic!(
             "{}: read_genbank refused it: {:?}",
             SYNTHETIC_FILE,
+            error.message()
+        )
+    })
+}
+
+/// The linear record, read from `synthetic-linear.gb`.
+fn linear() -> GenBankRecord {
+    read_genbank(name(LINEAR_FILE), read_input(LINEAR_FILE)).unwrap_or_else(|error| {
+        panic!(
+            "{}: read_genbank refused it: {:?}",
+            LINEAR_FILE,
             error.message()
         )
     })
@@ -963,4 +978,365 @@ fn origin_joins_are_refused_on_a_linear_copy() {
         "the imported CDS references topology {:?}, expected linear",
         import.cds()[0].cds().reference().topology().name()
     );
+}
+
+#[test]
+fn the_linear_record_reads_as_written() {
+    let record: GenBankRecord = linear();
+    let rows: Vec<Vec<String>> = table("synthetic-linear-record.tsv", RECORD_HEADER);
+    assert!(
+        rows.len() == 1,
+        "{}: {} rows, expected 1",
+        "synthetic-linear-record.tsv",
+        rows.len()
+    );
+    let row: Vec<String> = rows[0].clone();
+    assert!(
+        record.locus_name() == row[0],
+        "the reader gives locus name {:?}, the fixture records {:?}",
+        record.locus_name(),
+        row[0]
+    );
+    assert!(
+        or_dash(record.accession()) == row[1],
+        "the reader gives accession {}, the fixture records {}",
+        or_dash(record.accession()),
+        row[1]
+    );
+    assert!(
+        or_dash(record.version()) == row[2],
+        "the reader gives version {}, the fixture records {}",
+        or_dash(record.version()),
+        row[2]
+    );
+    assert!(
+        record.sequence().length().to_string() == row[3],
+        "the reader gives length {}, the fixture records {}",
+        record.sequence().length(),
+        row[3]
+    );
+    assert!(
+        record.sequence().topology().name() == row[4],
+        "the reader gives topology {:?}, the fixture records {:?}",
+        record.sequence().topology().name(),
+        row[4]
+    );
+    assert!(
+        record.sequence().content_hash().hex_digest() == row[5],
+        "the reader gives digest {:?}, the fixture records {:?}",
+        record.sequence().content_hash().hex_digest(),
+        row[5]
+    );
+    let features: Vec<GenBankFeature> = record.features();
+    assert!(
+        features.len().to_string() == row[6],
+        "the reader gives {} features, the fixture records {}",
+        features.len(),
+        row[6]
+    );
+    let keys: Vec<String> = features.iter().map(|feature| feature.key()).collect();
+    let written_keys: Vec<String> =
+        vec!["source".to_string(), "gene".to_string(), "CDS".to_string()];
+    assert!(
+        keys == written_keys,
+        "{}: the reader gives the feature keys {:?} in order, the record as written gives {:?}",
+        "synthetic-linear-record.tsv",
+        keys,
+        written_keys
+    );
+}
+
+#[test]
+fn the_linear_record_imports_syna_as_written() {
+    let record: GenBankRecord = linear();
+    let wanted: Vec<String> = vec!["synA".to_string()];
+    let import: GenBankImport =
+        import_cds(&record, &request(wanted.clone())).unwrap_or_else(|error| {
+            panic!(
+                "{}: the import refused it: {:?}",
+                LINEAR_FILE,
+                error.message()
+            )
+        });
+    assert!(
+        import.cds().len() == wanted.len(),
+        "the import gives {} CDSs, expected {}",
+        import.cds().len(),
+        wanted.len()
+    );
+    let rows: Vec<Vec<String>> = table("synthetic-linear-cds.tsv", CDS_HEADER);
+    assert!(
+        rows.len() == 1,
+        "{}: {} rows, expected 1",
+        "synthetic-linear-cds.tsv",
+        rows.len()
+    );
+    let position: usize = 0;
+    let row: Vec<String> = rows[position].clone();
+    let name: String = wanted[position].clone();
+    let imported = import.cds()[position].clone();
+    assert!(
+        imported.index().to_string() == row[0],
+        "{}: the CDS {} is imported at feature index {}, the fixture records {}",
+        "synthetic-linear-cds.tsv",
+        name,
+        imported.index(),
+        row[0]
+    );
+    let intervals: OrderedIntervals = imported.cds().intervals();
+    assert!(
+        intervals.len() == 1,
+        "the CDS {} has {} intervals, expected 1",
+        name,
+        intervals.len()
+    );
+    assert!(
+        intervals[0].start().to_string() == row[3] && intervals[0].end().to_string() == row[4],
+        "the CDS {} runs [{}, {}), the fixture records [{}, {})",
+        name,
+        intervals[0].start(),
+        intervals[0].end(),
+        row[3],
+        row[4]
+    );
+    let fixture_strand: String = if row[5] == "+" {
+        "plus".to_string()
+    } else {
+        "minus".to_string()
+    };
+    assert!(
+        strand_text(&imported.cds()) == fixture_strand,
+        "the CDS {} is on strand {}, the fixture records {:?}",
+        name,
+        strand_text(&imported.cds()),
+        row[5]
+    );
+    assert!(
+        imported.id_qualifier().name() == row[2],
+        "{}: the CDS {} takes its id from {}, the fixture records {}",
+        "synthetic-linear-cds.tsv",
+        name,
+        imported.id_qualifier().name(),
+        row[2]
+    );
+    assert!(
+        or_dash(imported.transl_table()) == row[7],
+        "{}: the CDS {} keeps /transl_table {}, the fixture records {}",
+        "synthetic-linear-cds.tsv",
+        name,
+        or_dash(imported.transl_table()),
+        row[7]
+    );
+    let count: usize = translate(&record.sequence(), &imported.cds())
+        .unwrap_or_else(|error| panic!("cannot translate the CDS: {:?}", error))
+        .residue_count();
+    assert!(
+        count.to_string() == row[9],
+        "{}: the CDS {} reads {} residues, the fixture records {}",
+        "synthetic-linear-cds.tsv",
+        name,
+        count,
+        row[9]
+    );
+    let feature: GenBankFeature = record.features()[imported.index()].clone();
+    let codon_start: String = first_qualifier(feature.clone(), "codon_start".to_string());
+    assert!(
+        codon_start == row[6],
+        "{}: the CDS {} reads /codon_start {}, the fixture records {}",
+        "synthetic-linear-cds.tsv",
+        name,
+        codon_start,
+        row[6]
+    );
+    let coding: String = extract_cds(&record.sequence(), &imported.cds())
+        .unwrap_or_else(|error| panic!("cannot extract the CDS: {:?}", error));
+    let first_codon: String = coding.chars().take(3).collect();
+    assert!(
+        first_codon == row[8],
+        "{}: the CDS {} starts its coding text with {}, the fixture records {}",
+        "synthetic-linear-cds.tsv",
+        name,
+        first_codon,
+        row[8]
+    );
+    assert!(
+        row[10] == "yes",
+        "{}: the imported CDS {} has translation_matches {}, the only value an imported CDS can have is yes",
+        "synthetic-linear-cds.tsv",
+        name,
+        row[10]
+    );
+    let states_translation: bool = feature
+        .qualifiers()
+        .iter()
+        .any(|each| each.name() == "translation");
+    assert!(
+        states_translation,
+        "{}: the CDS {} is imported with translation_matches {}; its record feature states no /translation",
+        "synthetic-linear-cds.tsv",
+        name,
+        row[10]
+    );
+}
+
+#[test]
+fn the_linear_record_lists_source_and_gene_as_unused() {
+    let record: GenBankRecord = linear();
+    let import: GenBankImport = import_cds(&record, &request(vec!["synA".to_string()]))
+        .unwrap_or_else(|error| {
+            panic!(
+                "{}: the import refused it: {:?}",
+                LINEAR_FILE,
+                error.message()
+            )
+        });
+    assert!(
+        import.cds().len() == 1,
+        "the import gives {} CDSs, expected 1",
+        import.cds().len()
+    );
+    let unused: Vec<UnusedFeature> = import.unused();
+    assert!(
+        unused.len() == 2,
+        "{}: the unused list has {} features, expected 2: the record's {} features less the one imported CDS",
+        LINEAR_FILE,
+        unused.len(),
+        record.features().len()
+    );
+    let written: Vec<Vec<String>> = vec![
+        vec!["0".to_string(), "source".to_string()],
+        vec!["1".to_string(), "gene".to_string()],
+    ];
+    for pair in written.iter().enumerate() {
+        let position: usize = pair.0;
+        let row: Vec<String> = pair.1.clone();
+        let feature: UnusedFeature = unused[position].clone();
+        assert!(
+            feature.index().to_string() == row[0],
+            "the unused feature at list position {} has index {}, expected {}",
+            position,
+            feature.index(),
+            row[0]
+        );
+        assert!(
+            feature.key() == row[1],
+            "the unused feature at index {} has key {:?}, expected {:?}",
+            feature.index(),
+            feature.key(),
+            row[1]
+        );
+        assert!(
+            feature.id().is_none(),
+            "the unused non-CDS {:?} at index {} gives id {:?}, expected none: only a CDS has an id (D041 G2)",
+            feature.key(),
+            feature.index(),
+            feature.id()
+        );
+        assert!(
+            feature.refusal().is_none(),
+            "the unused non-CDS {:?} at index {} gives refusal {:?}, expected none: it was not used, not refused",
+            feature.key(),
+            feature.index(),
+            feature.refusal()
+        );
+    }
+}
+
+#[test]
+fn the_linear_record_residues_sit_where_the_fixture_says() {
+    let record: GenBankRecord = linear();
+    let import: GenBankImport = import_cds(&record, &request(vec!["synA".to_string()]))
+        .unwrap_or_else(|error| {
+            panic!(
+                "{}: the import refused it: {:?}",
+                LINEAR_FILE,
+                error.message()
+            )
+        });
+    assert!(
+        import.cds().len() == 1,
+        "the import gives {} CDSs, expected 1",
+        import.cds().len()
+    );
+    let imported = import.cds()[0].clone();
+    let residues: String = translate(&record.sequence(), &imported.cds())
+        .unwrap_or_else(|error| panic!("cannot translate the CDS: {:?}", error))
+        .residues_text();
+    let coding: String = extract_cds(&record.sequence(), &imported.cds())
+        .unwrap_or_else(|error| panic!("cannot extract the CDS: {:?}", error));
+    let template: String = record.sequence().canonical_text();
+    let rows: Vec<Vec<String>> = table("synthetic-linear-residues.tsv", RESIDUE_HEADER);
+    assert!(
+        rows.len() == 4,
+        "{}: {} rows, expected 4",
+        "synthetic-linear-residues.tsv",
+        rows.len()
+    );
+    for row in rows.iter() {
+        let number: usize = row[0].parse::<usize>().unwrap_or_else(|_| {
+            panic!(
+                "{}: row {:?} has no residue number",
+                "synthetic-linear-residues.tsv", row
+            )
+        });
+        assert!(
+            number >= 1usize,
+            "{}: row {:?} numbers residue {}, expected 1 or more as residues are numbered from 1",
+            "synthetic-linear-residues.tsv",
+            row,
+            number
+        );
+        let residue_letter: String = residues.chars().skip(number - 1usize).take(1).collect();
+        assert!(
+            residue_letter == row[1],
+            "{}: residue {} reads {}, the fixture records {:?}",
+            "synthetic-linear-residues.tsv",
+            number,
+            residue_letter,
+            row[1]
+        );
+        let start: usize = row[3].parse::<usize>().unwrap_or_else(|_| {
+            panic!(
+                "{}: row {:?} has no codon start",
+                "synthetic-linear-residues.tsv", row
+            )
+        });
+        let end: usize = row[4].parse::<usize>().unwrap_or_else(|_| {
+            panic!(
+                "{}: row {:?} has no codon end",
+                "synthetic-linear-residues.tsv", row
+            )
+        });
+        assert!(
+            end > start,
+            "{}: row {:?} gives the codon interval [{}, {}), expected a codon of at least one character",
+            "synthetic-linear-residues.tsv",
+            row,
+            start,
+            end
+        );
+        let on_template: String = template.chars().skip(start).take(end - start).collect();
+        assert!(
+            on_template == row[2],
+            "{}: residue {}'s codon reads {} at the template characters [{}, {}), the fixture records {:?}",
+            "synthetic-linear-residues.tsv",
+            number,
+            on_template,
+            start,
+            end,
+            row[2]
+        );
+        let offset: usize = 3usize * (number - 1usize);
+        let in_coding: String = coding.chars().skip(offset).take(3usize).collect();
+        assert!(
+            in_coding == row[2],
+            "{}: residue {} sits at the CDS characters [{}, {}), read {}, the fixture records the codon {:?}",
+            "synthetic-linear-residues.tsv",
+            number,
+            offset,
+            offset + 3usize,
+            in_coding,
+            row[2]
+        );
+    }
 }

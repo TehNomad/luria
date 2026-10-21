@@ -1,0 +1,19 @@
+{
+  "operation": "q5_residue_substitutions",
+  "cds": "synA",
+  "mutations": [
+    {
+      "token": "A42G",
+      "quote": "A42G",
+      "codon": null
+    },
+    {
+      "token": "W87A",
+      "quote": "W87A",
+      "codon": null
+    }
+  ],
+  "composition": "combined_construct",
+  "numbering": "from the CDS start",
+  "unsupported": []
+}

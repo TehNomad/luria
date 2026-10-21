@@ -1,0 +1,1 @@
+In synA, change alanine 42 to glycine, and also add a His tag at the C terminus. Numbering from the CDS start.

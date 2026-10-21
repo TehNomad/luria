@@ -3,6 +3,8 @@
 This page describes `luria-cli` 0.1.0, which reads requests in schema
 `luria.q5-request/1` and writes results in schema `luria.q5-result/1`.
 The decisions behind it are D041 and D034 in `docs/decisions.md`.
+`luria q5 interpret`, which turns a request in words into a proposed
+request, is §10 (D044).
 
 `luria` runs one workflow, Q5 site-directed mutagenesis. It reads a request
 and the sequence file the request names, applies the edit, verifies it,
@@ -12,6 +14,9 @@ designs a primer pair and prints one JSON document on stdout.
 
 ```
 luria q5 design REQUEST.json [--write-edited DIR]
+luria q5 interpret --template FILE.gb (--text TEXT | --text-file FILE)
+    --backend openai-compatible --endpoint URL --model NAME
+    [--design PROFILE.json] [--allow-remote] [--write-request FILE.json]
 luria version
 luria help
 ```
@@ -20,6 +25,7 @@ luria help
 | --- | --- |
 | `q5 design REQUEST.json` | Runs the request and prints one result document. |
 | `--write-edited DIR` | Also writes each edited construct to `DIR/<member name>.fa`. `DIR` is created if needed. An existing file is never overwritten. The file's header is the result name, and it records no topology. |
+| `q5 interpret ...` | Asks a language model what a request in words means and prints the proposed request, or luria's questions, as one document. It runs nothing (§10). |
 | `version`, `--version` | Prints the package version, every algorithm's name and version, and the two schema names (§4). |
 | `help`, `--help`, `-h` | Prints the usage text. |
 
@@ -471,14 +477,15 @@ Every result repeats these algorithm names and versions in its
 
 | Code | Meaning |
 | --- | --- |
-| 0 | `verified`, and every member designed |
-| 1 | An internal error, or a failure to write the output: stdout or a `--write-edited` file |
+| 0 | `verified`, and every member designed; for `luria q5 interpret`, `proposed` |
+| 1 | An internal error, or a failure to write the output: stdout, a `--write-edited` file or a `--write-request` file; for `luria q5 interpret`, also a model server that could not be reached or answered badly (§10.7) |
 | 2 | Usage error: bad arguments. Text on stderr, no JSON |
 | 3 | `needs_clarification` |
 | 4 | `failed`, category `malformed_input` |
 | 5 | `failed`, category `biological_validation` |
 | 6 | `failed`, category `unsupported` |
 | 7 | Verified, but at least one member could not be designed |
+| 8 | `failed`, from `luria q5 interpret`: the model's reply was refused (§10.7) |
 
 Exit 7 is the plasmid case of §2, and also a single edit whose design
 failed: the edit stands, and `designFailure` says why there are no
@@ -488,12 +495,12 @@ An unreadable file is not exit 1. A request file that cannot be read is
 `request_unreadable`, and a template file the request names is
 `template_unreadable`; both are `malformed_input` and exit 4 (§6). Exit 1 is
 an internal error, or a write that failed — stdout, or a file `--write-edited`
-asked for. Unless stdout itself is what failed, the document still goes to
-stdout. When the run has a reason outside the document, it goes to stderr as
-one line, `luria: ` then the reason; for a failed write that reason is the
-operating system's message. A failed `--write-edited` write takes exit 1 in
-place of the status the run had reached, 7 included: the document still shows
-each member's `design` or its `designFailure`.
+or `--write-request` asked for. Unless stdout itself is what failed, the
+document still goes to stdout. When the run has a reason outside the document,
+it goes to stderr as one line, `luria: ` then the reason; for a failed write
+that reason is the operating system's message. A failed `--write-edited` write
+takes exit 1 in place of the status the run had reached, 7 included: the
+document still shows each member's `design` or its `designFailure`.
 
 ## 6. Error codes
 
@@ -505,7 +512,7 @@ A `failed` document's `error`, and a member's `designFailure`, carry:
 | `rule` | The specific rule broken, for the six codes that carry one: `invalid_mutation_request`, `invalid_primer_candidate`, `malformed_fasta`, `unusable_genbank_location`, `malformed_genbank` and `unusable_genbank_cds`. Null otherwise. |
 | `category` | `malformed_input`, `biological_validation` or `unsupported`, which chooses the exit code. |
 | `message` | The human-readable reason. |
-| `path` | The JSON path in the request, for an error found while the request is read and prepared; null otherwise, an error raised while the edit runs included — `expected_residue_mismatch` gives a path of null. Mapping those errors to request fields is planned for Milestone 6. |
+| `path` | The JSON path in the request, for an error found while the request is read and prepared; null otherwise, an error raised while the edit runs included — `expected_residue_mismatch` gives a path of null. Milestone 6 left this as it is (M6-12). |
 | `details` | The error's own fields, such as the coordinates or residues involved. Four fields that hold nothing but interval text are left out: `primer_text_at_span_mismatch` loses its span, and `primer_pair_coverage` has empty `details`, so those intervals appear in `message` only. A refused GenBank CDS location gives `cds` and `line` as well, null when no named feature caused it. Of the CLI codes, `output_exists` gives `file` and `output_name_unusable` gives `name`; the other four give empty `details`. |
 
 Match on `code` and `rule`, never on `message`. Six codes are the CLI's own;
@@ -578,3 +585,197 @@ every request field in detail, every result field in detail, and every
 error code with its `details` — is not written yet. Until it is,
 `docs/tasks/milestone-5-cli.md` §3.3 to §3.5 is the authority, and
 `luria_core::error` is the authority on codes.
+
+## 10. Natural language: `luria q5 interpret`
+
+`luria q5 interpret` asks a language model what a request in words
+means, and writes the **proposed** `luria.q5-request/1` request, or the
+questions luria needs answered first, as one JSON document. It does not
+run the request. You read the proposal, and if it says what you meant,
+you run it with `luria q5 design`, unchanged. The decisions behind it are
+D044 and `docs/tasks/milestone-6-nl.md`.
+
+```
+luria q5 interpret --template FILE.gb (--text TEXT | --text-file FILE)
+    --backend openai-compatible --endpoint URL --model NAME
+    [--design PROFILE.json] [--allow-remote] [--write-request FILE.json]
+```
+
+### 10.1 What the model may and may not do
+
+The model **extracts**; luria **decides**. The model returns a small JSON
+document saying what you asked for, in your own words: the CDS you named,
+each substitution as a token such as `A42G` with the words of yours that
+say so, whether the variants are separate or combined, and what you said
+about numbering. Then luria, with no model involved:
+
+- **grounds** every string the model returned against your text. A CDS
+  name, a quote, a codon or anything else that is not in what you wrote
+  ends the run, `failed` with `ungrounded_extraction`;
+- **checks each token against its quote**: the number must be written
+  there, and both residues named there (one-letter code beside a digit,
+  three-letter code, or English name), the original before the target.
+  If your words do not show it, luria asks rather than assume;
+- **reads the notation**, the CDS and your design profile, and builds the
+  request itself. The model never writes a request field, a coordinate, a
+  sequence or a primer.
+
+So a model that invents a mutation, swaps a direction or borrows a number
+cannot turn that into a request: the worst it can do is make luria ask, or
+refuse. The proposal then goes through `luria q5 design`, which checks the
+original residue against the CDS as for any request.
+
+### 10.2 What leaves your machine
+
+Your text, and for each CDS of the record: its id, `/gene`, `/product`,
+length in residues, strand, and whether luria can use it. **Never the
+sequence, and never a coordinate.** The document records the exact
+messages sent (`interpretation.messages`), so you can check.
+
+An endpoint whose host is not this machine (`localhost`, `127.x.x.x` or
+`[::1]`) is refused unless you add `--allow-remote`, before any file is
+read or anything is sent. This build speaks plain HTTP only: an
+`https://` endpoint is refused, and HTTP to another machine is
+unencrypted. HTTPS and the Anthropic API are deferred
+(`docs/tasks/later-tls-and-anthropic.md`).
+
+### 10.3 Setting it up
+
+The backend is any server with an OpenAI-compatible `/chat/completions`
+endpoint, such as llama.cpp's `llama-server`, Ollama or vLLM. Give its
+base URL and the model's name; luria has no defaults for either:
+
+```
+luria q5 interpret --template synthetic-linear.gb --design profile.json \
+    --text "In synA, design Q5 primers for A42G and W87A as separate variants. Number residues from the start of the CDS." \
+    --backend openai-compatible --endpoint http://127.0.0.1:8080/v1 \
+    --model qwen3.8-flash-next-coder-iq1_m --write-request proposal.json
+luria q5 design proposal.json
+```
+
+If the server wants a key, put it in the environment variable
+`LURIA_OPENAI_API_KEY`; it is sent as a bearer token and appears in no
+document or message. luria refuses to send it to an endpoint that is not
+this machine, because this build has no HTTPS. luria sends temperature 0, a
+fixed seed, and the extraction's JSON schema as `response_format`, so a
+server that supports it constrains the reply. It sends no thinking or
+token-limit setting: the server's own configuration decides. On the small
+local model luria was measured with, thinking made extraction four times
+slower and no better (`docs/research/m6-local-model-extraction-2026-10-19.md`).
+
+**Templates are GenBank only**, so the CDSs come from the record. A FASTA
+template is refused (`interpret_fasta_unsupported`); write that request by
+hand. Primer design still covers linear templates only (§2).
+
+### 10.4 The design profile
+
+Words rarely state a primer design, a buffer or a codon, and luria never
+defaults them. You keep them in a file of your own,
+`luria.q5-design-profile/1`, and pass it with `--design`:
+
+```json
+{
+  "schema": "luria.q5-design-profile/1",
+  "design": {
+    "policy": "luriaNative",
+    "style": "q5_polymerase",
+    "minAnnealingOverlap": 15,
+    "placement": "inline",
+    "buffer": "q5_reaction"
+  },
+  "codon": "default",
+  "numbering": "from-cds-start"
+}
+```
+
+`design` has exactly the shape of a request's `design` (§7) and is checked
+by the same rules. `codon` is used for a substitution whose text names no
+codon; `numbering` when the text says nothing about numbering. Each member
+is optional: one that is absent, and that the request needs, is asked
+about. Your words win over the profile, and the document's `origins` say
+which values came from where.
+
+### 10.5 The document at a glance
+
+One document for every outcome, every key always present, `null` or `[]`
+where it does not apply, deterministic for the same reply.
+
+| Field | What it holds |
+| --- | --- |
+| `schema` | `"luria.q5-interpretation/1"`. |
+| `state` | `proposed`, `needs_clarification` or `failed`. |
+| `package` | `luria-cli` and its version. |
+| `request` | The proposed request, exactly as `--write-request` writes it; null otherwise. |
+| `questions` | Each with a stable `code`, its `subject` and a `message`. |
+| `origins` | For each value of the proposal, `text` or `profile`. |
+| `assumptions` | What luria took as given: the template's id is the record's LOCUS name. |
+| `error` | `code`, `rule` and `message` when `state` is `failed`. |
+| `template` | The template's file name, LOCUS name and sequence digest. |
+| `interpretation` | The backend, the prompt version, the messages sent, the reply exactly as received, the extraction as parsed, and the first ungrounded string if any. Kept apart from the request (D021). |
+
+`--write-request FILE` writes the bare request too, only when the state
+is `proposed`. The file must be in the template's directory, because a
+request names its template relative to itself, and luria never replaces
+an existing file.
+
+### 10.6 Questions
+
+<!-- luria:question-codes -->
+| Code | Asked when |
+| --- | --- |
+| `operation_unsupported` | The text asks for something other than amino-acid substitutions, or something besides them. |
+| `mutation_unstated` | The text names no substitution. |
+| `mutation_notation_unsupported` | A token is not a one- or three-letter substitution (a deletion, a stop, a DNA change). |
+| `residue_number_unstated` | Your words for a substitution do not state its residue number. |
+| `original_residue_unstated` | Your words do not state the residue there now, which luria checks rather than assume. |
+| `target_residue_unstated` | Your words do not state the residue to put there. |
+| `substitution_direction_unclear` | Your words do not name the residue there now, then the number, then the residue to put there. |
+| `mutation_quote_ambiguous` | The words given for one substitution hold more than one number. |
+| `mutation_repeated` | The same substitution is listed twice. |
+| `mutation_not_extracted` | Your text holds a substitution such as `A42G` that the reply does not list. |
+| `codon_unstated` | No codon in the text and no codon policy in the profile. |
+| `codon_not_in_quote` | A codon is in the text, but not in the words given for its substitution. |
+| `cds_unnamed` | The text names no CDS. luria never picks one, even when the record has one. |
+| `cds_not_found` | The record has no CDS of that name (matched exactly). |
+| `cds_unusable` | The record has it, but luria refuses to import it; the message gives core's code. |
+| `composition_unstated` | Two or more substitutions, and not said whether separate or combined. |
+| `composition_unclear` | Your words say both, or negate it, or the model's reading differs from luria's. |
+| `numbering_unstated` | Neither the text nor the profile says how residues are numbered. |
+| `numbering_unsupported` | The text gives a numbering other than from the start of the CDS. |
+| `design_unstated` | No profile states the primer design. |
+
+All the questions are asked at once. A combined construct is proposed as
+asked; `luria q5 design` then refuses it (`unsupported_composition`), as it
+would a hand-written one.
+
+luria checks that every substitution written as a token (`A42G`,
+`Ala42Gly`, `p.A42G`) is in the reply. It cannot check that for one
+written only in words ("alanine 42 to glycine"): read the proposal's
+members before you run it.
+
+### 10.7 Errors and exit codes
+
+Exit codes are those of §5: **0** is `proposed`, **3** is
+`needs_clarification`, and **8** is a model reply that was refused.
+
+| Code | Exit | When |
+| --- | --- | --- |
+| `text_unreadable`, `text_empty` | 4 | The text file cannot be read, is not UTF-8, or the text is empty. |
+| `profile_unreadable`, `profile_invalid` | 4 | The profile cannot be read, or breaks its schema; the message gives the JSON path. |
+| `template_unreadable` | 4 | The template cannot be read, or is not UTF-8. A malformed record gives core's code, such as `malformed_genbank`. |
+| `interpret_fasta_unsupported` | 6 | The template is FASTA. |
+| `input_too_large` | 4 | The text is over 8 KiB, the profile over 64 KiB, or the template over 32 MiB. |
+| `request_location_unusable` | 4 | `--write-request` is not in the template's directory. |
+| `output_exists` | 4 | The `--write-request` file already exists, a dangling link included. |
+| `backend_unreachable`, `backend_status`, `backend_response` | 1 | The server could not be reached, answered with an error status, or answered in a shape that is not a chat completion. |
+| `model_output_invalid` | 8 | The reply is not an extraction: wrong JSON, an unknown or missing field, or over 64 KiB. A whole response over 1 MiB is `backend_response`. |
+| `ungrounded_extraction` | 8 | The reply holds a string your text does not contain. |
+| `internal_request_round_trip` | 1 | A bug in luria: the proposal does not read back as itself. |
+
+Every local input is checked before anything is sent, so a missing file or
+a bad profile never costs a model call. A usage error, the remote gate and
+an `https://` endpoint included, exits 2 with nothing on stdout.
+
+When the `--write-request` file cannot be written, the `proposed`
+document still goes to stdout, the reason goes to stderr as `luria:
+could not write <name>: <reason>`, and the exit is 1.

@@ -1,0 +1,1 @@
+In bla, change alanine 42 to glycine, numbering from the CDS start.

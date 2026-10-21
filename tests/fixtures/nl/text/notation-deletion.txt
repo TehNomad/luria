@@ -1,0 +1,1 @@
+In synA, delete K12. Numbering from the CDS start.

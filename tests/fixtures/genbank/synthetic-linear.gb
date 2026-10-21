@@ -1,0 +1,29 @@
+LOCUS       synlin                   393 bp    DNA     linear   SYN 19-OCT-2026
+DEFINITION  Hand-written linear record for luria's natural-language milestone
+            (6i0).
+ACCESSION   SYN0002
+VERSION     SYN0002.1
+KEYWORDS    .
+SOURCE      synthetic construct
+  ORGANISM  synthetic construct
+FEATURES             Location/Qualifiers
+     source          1..393
+                     /organism="synthetic construct"
+                     /mol_type="other DNA"
+     gene            43..345
+                     /gene="synA"
+     CDS             43..345
+                     /gene="synA"
+                     /codon_start=1
+                     /product="synthetic protein A"
+                     /translation="MSKGEELFTGVVPILVELDGDVNGHKFSVSGEGEGDATYGKATLKF
+                     ICTTGKLPVPWPTLVTTFSYGVQCFSRYPDHMKQHDFFKSWMPEGYVQERTISF"
+ORIGIN
+        1 acgtctgcag tcgactagtg catccaggag gtaatacgaa ccatgagcaa aggtgaagag
+       61 ctgttcaccg gcgtggttcc gattctggtc gaactggatg gcgacgtaaa cggccacaaa
+      121 ttcagcgtgt ctggcgaagg tgagggcgat gcgacctacg gtaaggcaac cctgaaattt
+      181 atctgcacca ctggtaaact gccggttcca tggccgaccc tggtcacgac cttcagctat
+      241 ggcgttcagt gcttctcccg ttacccggat cacatgaaac agcatgactt ctttaagagc
+      301 tggatgccgg aaggctacgt gcaggaacgc accatttctt tctaaggatc cgagctcggt
+      361 accaagcttg cggccgcact cgagcaccac tga
+//

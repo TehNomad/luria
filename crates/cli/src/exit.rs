@@ -19,6 +19,9 @@ pub enum ExitStatus {
     Unsupported,
     /// 7: verified, but at least one member, of a set or a single edit, could not be designed.
     PartialDesign,
+    /// 8: `failed`, because the model's reply was refused: not an extraction,
+    /// or not grounded in the user's text (milestone 6, M6-14).
+    ModelOutputRefused,
 }
 
 impl ExitStatus {
@@ -33,6 +36,7 @@ impl ExitStatus {
             ExitStatus::BiologicalValidation => 5,
             ExitStatus::Unsupported => 6,
             ExitStatus::PartialDesign => 7,
+            ExitStatus::ModelOutputRefused => 8,
         }
     }
 

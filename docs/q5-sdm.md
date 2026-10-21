@@ -346,7 +346,8 @@ and by `DomainError` variant and `category()` (error.rs).
 ## 7. Workflow states and their invariants
 
 `Q5WorkflowState` is the workflow-level subset of D020's lifecycle reachable
-today: `NeedsClarification`, `Validated`. `proposed` is Milestone 6;
+today: `NeedsClarification`, `Validated`. `proposed` is the state of a
+`luria q5 interpret` document (Milestone 6, D044);
 `calculated` and `verified` are M2's `MutationState`; `failed` is carried by
 a `DomainError`. **impl.**
 

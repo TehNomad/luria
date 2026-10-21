@@ -1,0 +1,1 @@
+Using synA, design Q5 SDM primers for A42G and W87A as separate variants. Number residues from the beginning of the annotated CDS.

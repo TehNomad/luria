@@ -1,0 +1,1 @@
+In synA, make both A42G and W87A in a single construct. Residues are numbered from the CDS start.

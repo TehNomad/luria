@@ -1,0 +1,1 @@
+In synA, change alanine 420 to glycine, numbering from the CDS start.
