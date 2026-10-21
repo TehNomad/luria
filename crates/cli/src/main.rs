@@ -7,7 +7,9 @@ use std::io::{stderr, stdout, Write};
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-use luria_cli::args::{checked_endpoint, parse, utf8_arguments, Command, UsageError, USAGE};
+use luria_cli::args::{
+    checked_endpoint, checked_key, parse, utf8_arguments, Command, UsageError, USAGE,
+};
 use luria_cli::exit::ExitStatus;
 use luria_cli::interpret::document::render_interpretation;
 use luria_cli::interpret::run::{interpret, InterpretInput, InterpretOutcome, TextSource};
@@ -73,7 +75,11 @@ fn emit_design(request: PathBuf, write_edited: Option<PathBuf>) -> ExitStatus {
 
 /// `luria q5 interpret`: the endpoint is gated before anything is read or
 /// sent, so a refused endpoint is a usage error with no file read and nothing
-/// sent (plan §3, M6-18). The bearer key is read here, from
+/// sent (plan §3, M6-18). A key set for an endpoint that is not this machine
+/// is refused here as a usage error too, before anything is read or sent:
+/// this build has no HTTPS, and a bearer key sent over plain HTTP to another
+/// machine crosses the network unencrypted (D045, M6-18). The bearer key is
+/// read here, from
 /// `LURIA_OPENAI_API_KEY` and nowhere else; it is handed to the backend and
 /// never written to a document, a message or stderr. One JSON document goes to
 /// stdout, `interpret`'s note to stderr when it has one, and `interpret`'s
@@ -90,27 +96,29 @@ fn emit_interpret(
 ) -> ExitStatus {
     match checked_endpoint(&endpoint, allow_remote) {
         Err(problem) => report_usage(problem),
-        Ok(endpoint) => {
-            let key: Option<String> = env::var("LURIA_OPENAI_API_KEY").ok();
-            let mut backend: OpenAiCompatible = OpenAiCompatible::new(endpoint, &model, key);
-            let input: InterpretInput = InterpretInput {
-                template,
-                text,
-                profile: design,
-                write_request,
-            };
-            let outcome: InterpretOutcome = interpret(&input, &mut backend);
+        Ok(endpoint) => match checked_key(&endpoint, env::var("LURIA_OPENAI_API_KEY").ok()) {
+            Err(problem) => report_usage(problem),
+            Ok(key) => {
+                let mut backend: OpenAiCompatible = OpenAiCompatible::new(endpoint, &model, key);
+                let input: InterpretInput = InterpretInput {
+                    template,
+                    text,
+                    profile: design,
+                    write_request,
+                };
+                let outcome: InterpretOutcome = interpret(&input, &mut backend);
 
-            if !write_out(render_interpretation(&outcome.document).as_str()) {
-                return ExitStatus::Internal;
+                if !write_out(render_interpretation(&outcome.document).as_str()) {
+                    return ExitStatus::Internal;
+                }
+
+                if let Some(text) = outcome.note {
+                    write_err(format!("luria: {}\n", text).as_str());
+                }
+
+                outcome.status
             }
-
-            if let Some(text) = outcome.note {
-                write_err(format!("luria: {}\n", text).as_str());
-            }
-
-            outcome.status
-        }
+        },
     }
 }
 

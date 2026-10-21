@@ -1,6 +1,7 @@
 # Review M6: no API key to a remote endpoint over plain HTTP (D045)
 
-Status: **Ready for the worker.** Planner: Claude. Parent:
+Status: **Implemented 2026-10-21** by the local worker; accepted on planner
+review. Planner: Claude. Parent:
 `docs/tasks/review-post-m6.md`, reviewer A's question. Owner answer,
 2026-10-20: "Refuse key + remote".
 

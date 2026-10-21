@@ -328,6 +328,29 @@ pub fn checked_endpoint(url: &str, allow_remote: bool) -> Result<Endpoint, Usage
     Ok(endpoint)
 }
 
+/// The bearer key to send (D045): `key` unchanged, unless it is non-empty
+/// and the endpoint is not loopback, which is refused, because this build
+/// speaks plain HTTP only (M6-18) and the key would cross the network
+/// unencrypted. An empty or absent key is never refused.
+pub fn checked_key(endpoint: &Endpoint, key: Option<String>) -> Result<Option<String>, UsageError> {
+    match key {
+        None => Ok(None),
+        Some(value) => {
+            if value.is_empty() || endpoint.is_loopback() {
+                return Ok(Some(value));
+            }
+            Err(
+                UsageError {
+                    message: format!(
+                        "LURIA_OPENAI_API_KEY is set, and the endpoint {} is not on this machine; luria does not send a key over plain HTTP to another machine (D045)",
+                        endpoint.url()
+                    ),
+                },
+            )
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -679,6 +702,43 @@ mod tests {
         assert_eq!(
             checked_endpoint("https://api.example.com/v1", true).map_err(|error| error.message),
             Err("the endpoint is not usable: https endpoints are not supported in this build; use http:// (M6-18)".to_string())
+        );
+    }
+
+    /// The endpoint a command line may call, with `--allow-remote`.
+    fn allowed_endpoint(url: &str) -> Endpoint {
+        match checked_endpoint(url, true) {
+            Err(problem) => panic!("{:?}: {}", url, problem.message),
+            Ok(endpoint) => endpoint,
+        }
+    }
+
+    #[test]
+    fn a_key_is_sent_to_this_machine_only() {
+        assert_eq!(
+            checked_key(
+                &allowed_endpoint("http://127.0.0.1:8080/v1"),
+                Some("sk-1".to_string())
+            ),
+            Ok(Some("sk-1".to_string()))
+        );
+        assert_eq!(
+            checked_key(&allowed_endpoint("http://gpu.lan:8080/v1"), None),
+            Ok(None)
+        );
+        assert_eq!(
+            checked_key(
+                &allowed_endpoint("http://gpu.lan:8080/v1"),
+                Some("".to_string())
+            ),
+            Ok(Some("".to_string()))
+        );
+        assert_eq!(
+            checked_key(&allowed_endpoint("http://gpu.lan:8080/v1"), Some("sk-1".to_string()))
+                .map_err(|problem| problem.message),
+            Err(
+                "LURIA_OPENAI_API_KEY is set, and the endpoint http://gpu.lan:8080/v1 is not on this machine; luria does not send a key over plain HTTP to another machine (D045)".to_string()
+            )
         );
     }
 }

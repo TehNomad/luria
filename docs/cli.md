@@ -655,12 +655,13 @@ luria q5 design proposal.json
 
 If the server wants a key, put it in the environment variable
 `LURIA_OPENAI_API_KEY`; it is sent as a bearer token and appears in no
-document or message. luria sends temperature 0, a fixed seed, and the
-extraction's JSON schema as `response_format`, so a server that supports
-it constrains the reply. It sends no thinking or token-limit setting: the
-server's own configuration decides. On the small local model luria was
-measured with, thinking made extraction four times slower and no better
-(`docs/research/m6-local-model-extraction-2026-10-19.md`).
+document or message. luria refuses to send it to an endpoint that is not
+this machine, because this build has no HTTPS. luria sends temperature 0, a
+fixed seed, and the extraction's JSON schema as `response_format`, so a
+server that supports it constrains the reply. It sends no thinking or
+token-limit setting: the server's own configuration decides. On the small
+local model luria was measured with, thinking made extraction four times
+slower and no better (`docs/research/m6-local-model-extraction-2026-10-19.md`).
 
 **Templates are GenBank only**, so the CDSs come from the record. A FASTA
 template is refused (`interpret_fasta_unsupported`); write that request by
