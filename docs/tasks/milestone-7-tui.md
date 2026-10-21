@@ -226,7 +226,7 @@ screens 2 to 4 and §5.3's layout. Answers:
 | M7-18 | Which protein | **Mutant only**, from the edited construct, each residue letter over the middle base of its codon in the CDS's own frame. |
 | M7-19 | Indels | **Deletions** show the template with the deleted bases in lower case and a gap in the protein row; downstream residues sit over their own codons. **Insertions** of up to 30 bp are drawn inline between their flanks; longer ones collapse to `[+N bp FIRST10...LAST10]`, and `i` expands them into the sequence, scrolled like the rest; they start collapsed each time the screen opens. |
 | M7-20 | Frames and stops | **Shifted frame** downstream of a frameshift. At the first stop codon, `*`, and **nothing after it**. Only **whole codons** get a letter. |
-| M7-21 | Who computes it | **luria-core**: a function returns, for a window, each mutant residue's number, letter and the edited-construct position of its middle base, and core maps edited positions back to template columns. The TUI only places letters. Amends §3 rule 1. |
+| M7-21 | Who computes it | **luria-core** (`frame::mutant_residues`, 7i1) reads the codons of the edited construct core produced, and returns each mutant residue's number, letter and the edited-construct position of its middle base. The TUI only lays those positions out as screen columns (the same placement arithmetic as 7d), never translating. The edited construct is accepted only when its digest is the member's `mutation.edited.sha256` (D005). Amends §3 rule 1. |
 | M7-22 | The overview | **Members only**: the template, the target, one row per member. Warnings and provenance behind keys. |
 
 Fixtures: `tests/fixtures/review/` is rewritten in the new layout by its

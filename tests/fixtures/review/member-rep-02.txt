@@ -1,0 +1,9 @@
+rep-02  [50, 53) ATC->TT  on syn [20, 68)
+forward 5'->3' above, reverse 3'->5' below; the protein is the mutant's
+lower case: edited bases, and primer bases that do not anneal
+
+forward                       ATGGCTTGGAtt AGCAGCAGCC
+template  GCCGAGCGGCTCGCGGACGCATGGCTTGGAatcAGCAGCAGCCGAGCG
+protein     P  S  G  S  R  T  H  G  L  D   *
+bottom    CGGCTCGCCGAGCGCCTGCGTACCGAACCTtagTCGTCGTCGGCTCGC
+reverse        CGCCGAGCGCCTGCG

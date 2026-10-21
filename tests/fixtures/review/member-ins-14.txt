@@ -1,4 +1,4 @@
-ins-14  on sid-1 [1189, 1229)
+ins-14  ins GAT at 1209  on sid-1 [1189, 1229)
 forward 5'->3' above, reverse 3'->5' below; the protein is the mutant's
 lower case: edited bases, and primer bases that do not anneal
 

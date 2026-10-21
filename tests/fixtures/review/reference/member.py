@@ -40,7 +40,12 @@ The layout, in display columns:
 
 Lines:
 
-    <member>  on <template id> [<template start>, <template end>)
+    <member>  <summary>  on <template id> [<template start>, <template end>)
+
+where <summary> is the edit as requested (the overview's summary): `[s, e)
+X->Y` for a substitution or replacement, `[s, e) del X` for a deletion,
+`ins X at p` for an insertion, each base text longer than 30 written as
+`<N> bp`.
     forward 5'->3' above, reverse 3'->5' below; the protein is the mutant's
     lower case: edited bases, and primer bases that do not anneal
     (blank)
@@ -147,6 +152,24 @@ def insertion(case_id, cds):
     return case_id, (tid, t), cds, (point, point, r["inserted"]), forward, reverse
 
 
+def replacement_inline(case_id, cds):
+    r = row_of("native-replacement.tsv", case_id)
+    assert r["path"] == "inline"
+    tid, t = template_of(r["template"])
+    s, e, original = r["region"].split(":")
+    s, e = int(s), int(e)
+    assert t[s:e] == original
+    f0, f1 = span(r["forward_span"])
+    r0, r1 = span(r["reverse_span"])
+    written = r["replacement"]
+    forward = [("context", True, t[f0:s], (f0, s)), ("mutation", False, written, (s, e)),
+               ("context", True, t[e:f1], (e, f1))]
+    reverse = [("context", True, revcomp(t[r0:r1]), (r0, r1))]
+    assert "".join(p[2] for p in forward) == r["forward"], "".join(p[2] for p in forward)
+    assert reverse[0][2] == r["reverse"]
+    return case_id, (tid, t), cds, (s, e, written), forward, reverse
+
+
 def replacement_tails(case_id, cds):
     r = row_of("native-replacement.tsv", case_id)
     assert r["path"] == "tails"
@@ -170,6 +193,18 @@ SYN_CDS = (0, 99, "+")
 
 def marker(written):
     return "[+%d bp %s...%s]" % (len(written), written[:10].lower(), written[-10:].lower())
+
+
+def bases_text(bases):
+    return "%d bp" % len(bases) if len(bases) > INLINE_LIMIT else bases
+
+
+def summary(t, s, e, written):
+    if s == e:
+        return "ins %s at %d" % (bases_text(written), s)
+    if not written:
+        return "[%d, %d) del %s" % (s, e, bases_text(t[s:e]))
+    return "[%d, %d) %s->%s" % (s, e, bases_text(t[s:e]), bases_text(written))
 
 
 def screen(design, expanded):
@@ -270,7 +305,7 @@ def screen(design, expanded):
         return e + (c - s - region)
 
     lines = [
-        "%s  on %s [%d, %d)" % (name, tid, template_position(lo, False),
+        "%s  %s  on %s [%d, %d)" % (name, summary(t, s, e, w_bases), tid, template_position(lo, False),
                                  template_position(hi, True)),
         "forward 5'->3' above, reverse 3'->5' below; the protein is the mutant's",
         "lower case: edited bases, and primer bases that do not anneal",
@@ -325,6 +360,7 @@ def main():
         ("member-del-02.txt", deletion("del-02", SYN_CDS), False),
         ("member-ins-14.txt", insertion("ins-14", SID_CDS), False),
         ("member-ins-04.txt", insertion("ins-04", SYN_CDS), False),
+        ("member-rep-02.txt", replacement_inline("rep-02", SYN_CDS), False),
         ("member-rep-06.txt", replacement_tails("rep-06", SYN_CDS), False),
         ("member-ins-13.txt", insertion("ins-13", SYN_CDS), False),
         ("member-ins-13-expanded.txt", insertion("ins-13", SYN_CDS), True),

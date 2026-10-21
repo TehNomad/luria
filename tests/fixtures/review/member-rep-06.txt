@@ -1,4 +1,4 @@
-rep-06  on syn [29, 73)
+rep-06  [50, 53) ATC->TTTTTTT  on syn [29, 73)
 forward 5'->3' above, reverse 3'->5' below; the protein is the mutant's
 lower case: edited bases, and primer bases that do not anneal
 

@@ -1,4 +1,4 @@
-del-11  on sid-1 [1185, 1232)
+del-11  [1209, 1212) del GAT  on sid-1 [1185, 1232)
 forward 5'->3' above, reverse 3'->5' below; the protein is the mutant's
 lower case: edited bases, and primer bases that do not anneal
 

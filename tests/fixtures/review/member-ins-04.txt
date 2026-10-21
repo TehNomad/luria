@@ -1,4 +1,4 @@
-ins-04  on syn [30, 70)
+ins-04  ins GATTACA at 50  on syn [30, 70)
 forward 5'->3' above, reverse 3'->5' below; the protein is the mutant's
 lower case: edited bases, and primer bases that do not anneal
 
