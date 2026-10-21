@@ -12,6 +12,7 @@ use crate::args::UsageError;
 
 pub mod app;
 pub mod terminal;
+pub mod text;
 pub mod view;
 
 /// Why `luria review` cannot open its screen here, or `None` when it can
