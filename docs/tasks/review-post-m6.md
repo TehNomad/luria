@@ -1,8 +1,18 @@
 # Post-Milestone-6 code review: findings
 
-Status: Phase 1 (read-only review) complete, 2026-10-20. Phase 2 (fixes)
-waits on the owner decisions below. Branch: `feat/milestone-6`, at
-`86ea936`. Planner: Claude.
+Status: Phase 1 (read-only review) and Phase 2 (fixes) complete,
+2026-10-21. All eleven contracts are done; items recorded with no change
+are listed under each section. Branch: `feat/milestone-6`; the review
+started at `86ea936`. Planner: Claude.
+
+After Phase 2 (`f6e67c8`): `cargo fmt --check` clean, 905 tests pass and 1
+is ignored (the opt-in live test), `cargo clippy -D warnings` clean,
+`python -I tests/fixtures/verify.py` 13 of 13 pass. `cargo test` passes
+under the nono sandbox with `TMPDIR=$PWD/target/tmp`. Reviewer B's
+eleven attack replies, re-run against the final tree, each end in a
+question or `ungrounded_extraction`; none is proposed. Prompt v3 was
+measured live on the local model: corpus 18/24 as scripted (the six
+expected differences), stress 14/14, nothing unsafe.
 
 Baseline at review start (`86ea936`): `cargo fmt --check` clean, `cargo
 clippy -D warnings` clean, `git diff --check` clean, `python -I
