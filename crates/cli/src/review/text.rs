@@ -29,7 +29,11 @@ use crate::result::{
     OperationWarning, PrimerView, PrimerWarningView, Provenance, RequestEcho, ResultDocument,
     SourceView,
 };
+use crate::review::edit_span;
 use crate::review::export::ExportPlan;
+use crate::review::MemberFrame;
+use luria_core::frame::EditSpan;
+use luria_core::sequence::complement_letter;
 use luria_nl::backend::BackendInfo;
 use luria_nl::extraction::{Composition, Extraction, Operation};
 use luria_nl::prompt::Prompt;
@@ -165,13 +169,20 @@ pub(crate) fn mutation_summary(mutation: &MutationView) -> String {
             original,
             written,
             ..
-        } => format!("{} {}->{}", interval(*span), original, written),
+        } => format!(
+            "{} {}->{}",
+            interval(*span),
+            bases_text(original),
+            bases_text(written)
+        ),
         MutationView::Deletion {
             interval: span,
             original,
             ..
-        } => format!("{} del {}", interval(*span), original),
-        MutationView::Insertion { point, written, .. } => format!("ins {} at {}", written, point),
+        } => format!("{} del {}", interval(*span), bases_text(original)),
+        MutationView::Insertion { point, written, .. } => {
+            format!("ins {} at {}", bases_text(written), point)
+        }
     }
 }
 
@@ -662,6 +673,423 @@ pub fn context(document: &ResultDocument, index: usize, template: Option<&[char]
         start = end;
     }
 
+    if !notes.is_empty() {
+        lines.push(String::new());
+        lines.extend(notes);
+    }
+    lines
+}
+
+/// The base count past which the heading and the overview write a base text as
+/// its length, and past which an insertion that is not expanded is collapsed
+/// (`member.py`'s inline limit, plan §5.3a).
+const MEMBER_INLINE_LIMIT: usize = 30;
+
+/// A base text as the heading and the overview state it: the bases themselves,
+/// or `<N> bp` when there are more than `MEMBER_INLINE_LIMIT` of them.
+fn bases_text(bases: &str) -> String {
+    let count: usize = bases.chars().count();
+    if count > MEMBER_INLINE_LIMIT {
+        format!("{} bp", count)
+    } else {
+        bases.to_string()
+    }
+}
+
+/// A collapsed insertion's marker: `[+N bp <first 10>...<last 10>]`, its bases
+/// lower case and three ASCII dots between the two halves.
+fn marker(written: &[char]) -> String {
+    let head: String = written.iter().take(10).collect::<String>().to_lowercase();
+    let tail: String = written[written.len().saturating_sub(10)..]
+        .iter()
+        .collect::<String>()
+        .to_lowercase();
+    format!("[+{} bp {}...{}]", written.len(), head, tail)
+}
+
+/// The bottom row's character for a template-row character: `complement_letter`
+/// of it, lower when the base is lower, and the character itself when it has no
+/// complement, as `-` and a marker's punctuation. No complement table (plan §3
+/// rule 1).
+fn bottom_letter(ch: char) -> char {
+    match complement_letter(ch.to_ascii_uppercase()) {
+        Some(complement) => {
+            if ch.is_ascii_lowercase() {
+                complement.to_ascii_lowercase()
+            } else {
+                complement
+            }
+        }
+        None => ch,
+    }
+}
+
+/// The sequence block's geometry: the edit, the region it takes, and the number
+/// of display columns the block runs over. Nothing is computed but display
+/// columns (plan §3 rule 1).
+struct MemberLayout {
+    /// The edit's start: a template position and, on its own, a display column.
+    start: usize,
+    /// The edit's end: a template position.
+    end: usize,
+    /// The region's width: the greater of the bases removed and the bases
+    /// written, or the width of a collapsed insertion's marker.
+    region: usize,
+    /// The whole display, in columns: the template, less the bases removed,
+    /// plus the region.
+    total: usize,
+    /// An insertion of more than `MEMBER_INLINE_LIMIT` bases, not expanded.
+    collapsed: bool,
+}
+
+impl MemberLayout {
+    /// A template position as a display column: positions before the edit keep
+    /// their own, positions inside it stand in the region from its start, and
+    /// positions at or past its end follow the region.
+    fn col(&self, position: usize) -> usize {
+        if position < self.start {
+            position
+        } else if position < self.end {
+            self.start + (position - self.start)
+        } else {
+            self.start + self.region + (position - self.end)
+        }
+    }
+
+    /// A display column as a template position: a column inside the region is the
+    /// region's start, and its end when `at_end`, because the window's end is
+    /// exclusive and maps to the position after the last drawn base.
+    fn template_position(&self, column: usize, at_end: bool) -> u64 {
+        let position: usize =
+            if column <= self.start && !(at_end && column == self.start && self.start < self.end) {
+                column
+            } else if column < self.start + self.region {
+                if at_end {
+                    self.end
+                } else {
+                    self.start
+                }
+            } else {
+                self.end + (column - self.start - self.region)
+            };
+        position as u64
+    }
+}
+
+/// One primer's parts written into `cells`, the display columns of the sequence
+/// block. The forward primer reads 5'->3' and the reverse 3'->5', so a reverse
+/// part's text is reversed: each base stands in the column of the template base
+/// it pairs with. A spanned context part stands at `col(p)` for every `p` of its
+/// span; a mutation part's written bases from the edit's start; an unspanned
+/// tail just left of the forward primer's first spanned column, and, for the
+/// reverse primer, reversed just right of its last. A part's bases are upper case
+/// when it anneals and lower case when it does not. Inside a collapsed insertion
+/// a tail is hidden whole, and any base the marker covers is hidden; both are
+/// named in `notes` with the `i` key that expands. A context part whose base
+/// count differs from its span is `*` over its span and named, as `place` writes
+/// it; columns outside the display are not drawn.
+fn member_place(
+    primer: &PrimerView,
+    reverse: bool,
+    layout: &MemberLayout,
+    cells: &mut ContextColumns,
+    notes: &mut Vec<String>,
+) {
+    // The columns the primer's spanned parts fix: an unspanned tail sits beside
+    // them, so its own columns are counted from them.
+    let spans: Vec<(u64, u64)> = primer.parts.iter().filter_map(|part| part.span).collect();
+    let first: i64 = spans
+        .iter()
+        .map(|span| layout.col(span.0 as usize) as i64)
+        .min()
+        .unwrap_or(0);
+    let last: i64 = spans
+        .iter()
+        .map(|span| layout.col((span.1 - 1) as usize) as i64 + 1)
+        .max()
+        .unwrap_or(0);
+
+    for part in &primer.parts {
+        let shown: Vec<char> = if part.annealing {
+            part.sequence.to_uppercase().chars().collect()
+        } else {
+            part.sequence.to_lowercase().chars().collect()
+        };
+        // The reverse primer's bases read 3'->5', so they are written in the
+        // reverse of the order they sit in the primer.
+        let written: Vec<char> = if reverse {
+            shown.iter().rev().copied().collect()
+        } else {
+            shown
+        };
+        let count: usize = part.sequence.chars().count();
+        let cols: Vec<i64> = match part.span {
+            None => {
+                if layout.collapsed {
+                    // A tail is inserted bases: inside a collapsed insertion all
+                    // of it is hidden.
+                    notes.push(format!(
+                        "{} tail: {} nt inside the insertion, i to expand",
+                        primer.role, count
+                    ));
+                    continue;
+                }
+                let from: i64 = if reverse {
+                    last
+                } else {
+                    first - written.len() as i64
+                };
+                (from..from + written.len() as i64).collect()
+            }
+            Some((start, end)) => {
+                if part.role == "mutation" {
+                    (layout.start as i64..layout.start as i64 + written.len() as i64).collect()
+                } else if count != (end - start) as usize {
+                    for position in start..end {
+                        cells.insert(layout.col(position as usize), '*');
+                    }
+                    notes.push(format!(
+                        "{} {}: {} at {}",
+                        primer.role,
+                        part.role,
+                        part.sequence,
+                        interval((start, end))
+                    ));
+                    continue;
+                } else {
+                    (start..end)
+                        .map(|position| layout.col(position as usize) as i64)
+                        .collect()
+                }
+            }
+        };
+
+        let mut hidden: bool = false;
+        for (column, base) in cols.into_iter().zip(written.iter()) {
+            if layout.collapsed
+                && column >= layout.start as i64
+                && column < layout.start as i64 + layout.region as i64
+            {
+                hidden = true;
+                continue;
+            }
+            if column >= 0 && (column as usize) < layout.total {
+                cells.insert(column as usize, *base);
+            }
+        }
+        if hidden {
+            notes.push(format!(
+                "{} {}: {} nt inside the insertion, i to expand",
+                primer.role, part.role, count
+            ));
+        }
+    }
+}
+
+/// The redesigned member screen's sequence block (plan §5.3a), as
+/// `tests/fixtures/review/reference/member.py` lays it out: the forward primer
+/// above the top strand, the mutant protein between the strands, the bottom
+/// strand, and the reverse primer below it, in blocks of `CONTEXT_WIDTH` display
+/// columns. `index` is `document.results`' index, out of range the block is the
+/// single line `no such member`; a member with no design says so; when `template`
+/// is `None`, so the template's bases are not the ones this result was computed
+/// on, the block says it is unavailable and draws no sequence (D005). `template`
+/// is what `matching_template` accepts, and `frame` is `App::frame(index)`, this
+/// member's mutant protein: a frame error, or no frame, draws the `protein` label
+/// alone and names the reason as the last note. `expanded` asks for a long
+/// insertion to be written out, so its marker, its hidden tails and the protein
+/// inside it are drawn.
+///
+/// Nothing is computed but display columns (plan §3 rule 1): the bases are the
+/// document's own, the protein is the one core read, and the bottom row is
+/// `complement_letter` of the template row.
+pub fn member_sequence(
+    document: &ResultDocument,
+    index: usize,
+    template: Option<&[char]>,
+    frame: Option<&MemberFrame>,
+    expanded: bool,
+) -> Vec<String> {
+    if index >= document.results.len() {
+        return vec!["no such member".to_string()];
+    }
+    let member: &MemberView = &document.results[index];
+    let design: &DesignView = match &member.design {
+        Some(design) => design,
+        None => return vec!["no design, so no sequence".to_string()],
+    };
+    let letters: &[char] = match template {
+        Some(letters) => letters,
+        None => return vec![CONTEXT_UNAVAILABLE.to_string()],
+    };
+
+    // The edit: the span 7i2's `edit_span` maps from the mutation, and the bases
+    // the variant names as written, which is that span's written length.
+    let span: EditSpan = match edit_span(&member.mutation) {
+        Ok(span) => span,
+        Err(reason) => return vec![format!("the edit span cannot be read: {}", reason)],
+    };
+    let written: Vec<char> = match &member.mutation {
+        MutationView::Substitution { written, .. }
+        | MutationView::Replacement { written, .. }
+        | MutationView::Insertion { written, .. } => written.chars().collect(),
+        MutationView::Residue { written_codon, .. } => written_codon.chars().collect(),
+        MutationView::Deletion { .. } => Vec::new(),
+    };
+    let (s, e): (usize, usize) = (span.start as usize, span.end as usize);
+    let collapsed: bool = s == e && written.len() > MEMBER_INLINE_LIMIT && !expanded;
+    let region: usize = if collapsed {
+        marker(&written).chars().count()
+    } else {
+        (e - s).max(written.len())
+    };
+    let layout: MemberLayout = MemberLayout {
+        start: s,
+        end: e,
+        region,
+        total: letters.len() - (e - s) + region,
+        collapsed,
+    };
+
+    // The template row: its bases outside the edit, at their own columns, and the
+    // region's columns from the edit's start, holding the bases removed in lower
+    // case (for an insertion, the bases written), then `-` past them, or the
+    // collapsed marker.
+    let mut template_row: ContextColumns = BTreeMap::new();
+    for (position, base) in letters.iter().enumerate() {
+        if position < layout.start || position >= layout.end {
+            template_row.insert(layout.col(position), *base);
+        }
+    }
+    if layout.collapsed {
+        for (offset, ch) in marker(&written).chars().enumerate() {
+            template_row.insert(layout.start + offset, ch);
+        }
+    } else {
+        let shown: Vec<char> = if layout.start == layout.end {
+            written
+                .iter()
+                .collect::<String>()
+                .to_lowercase()
+                .chars()
+                .collect()
+        } else {
+            letters[layout.start..layout.end]
+                .iter()
+                .map(|ch| ch.to_ascii_lowercase())
+                .collect()
+        };
+        for offset in 0..layout.region {
+            let ch: char = if offset < shown.len() {
+                shown[offset]
+            } else {
+                '-'
+            };
+            template_row.insert(layout.start + offset, ch);
+        }
+    }
+
+    // The bottom row: the complement of every template-row character, none under
+    // a collapsed marker.
+    let mut bottom_row: ContextColumns = BTreeMap::new();
+    for (column, ch) in &template_row {
+        if layout.collapsed && *column >= layout.start && *column < layout.start + layout.region {
+            continue;
+        }
+        bottom_row.insert(*column, bottom_letter(*ch));
+    }
+
+    // The two primer rows.
+    let mut notes: Vec<String> = Vec::new();
+    let mut forward: ContextColumns = BTreeMap::new();
+    let mut reverse: ContextColumns = BTreeMap::new();
+    member_place(&design.forward, false, &layout, &mut forward, &mut notes);
+    member_place(&design.reverse, true, &layout, &mut reverse, &mut notes);
+
+    // The protein: each residue core read over the edited construct, at the
+    // display column of its codon's middle base; none inside a collapsed marker.
+    let mut protein: ContextColumns = BTreeMap::new();
+    if let Some(Ok(residues)) = frame {
+        for residue in residues {
+            let middle: usize = residue.middle as usize;
+            let column: usize = if middle < layout.start {
+                middle
+            } else if middle < layout.start + written.len() {
+                if layout.collapsed {
+                    continue;
+                }
+                layout.start + (middle - layout.start)
+            } else {
+                layout.start + layout.region + (middle - layout.start - written.len())
+            };
+            protein.insert(column, residue.symbol);
+        }
+    }
+
+    // The window: five columns on each side of the columns the two primers are
+    // drawn in, within the display.
+    let used: Vec<usize> = forward.keys().chain(reverse.keys()).copied().collect();
+    let (lo, hi): (usize, usize) = match (used.iter().min().copied(), used.iter().max().copied()) {
+        (Some(first), Some(last)) => (first.saturating_sub(5), layout.total.min(last + 6)),
+        _ => (0, 0),
+    };
+
+    let template_id: &str = match &document.provenance.template {
+        Some(named) => named.id.as_str(),
+        None => "none",
+    };
+    let mut lines: Vec<String> = vec![
+        format!(
+            "{}  {}  on {} [{}, {})",
+            member.name,
+            mutation_summary(&member.mutation),
+            template_id,
+            layout.template_position(lo, false),
+            layout.template_position(hi, true)
+        ),
+        "forward 5'->3' above, reverse 3'->5' below; the protein is the mutant's".to_string(),
+        "lower case: edited bases, and primer bases that do not anneal".to_string(),
+    ];
+
+    // Blocks of `CONTEXT_WIDTH` columns; a block never splits a collapsed marker,
+    // so it ends where the marker starts and the next block starts at it.
+    let mut start: usize = lo;
+    while start < hi {
+        let mut end: usize = (start + CONTEXT_WIDTH).min(hi);
+        if layout.collapsed
+            && start < layout.start
+            && layout.start < end
+            && end < layout.start + layout.region
+        {
+            end = layout.start;
+        }
+        lines.push(String::new());
+        for (label, cells) in [
+            ("forward", &forward),
+            ("template", &template_row),
+            ("protein", &protein),
+            ("bottom", &bottom_row),
+            ("reverse", &reverse),
+        ] {
+            let body: String = (start..end)
+                .map(|column| *cells.get(&column).unwrap_or(&' '))
+                .collect();
+            let row: String = format!("{:width$}{}", label, body, width = CONTEXT_LABEL);
+            lines.push(row.trim_end().to_string());
+        }
+        start = end;
+    }
+
+    if layout.collapsed {
+        notes.insert(0, format!("insertion: {} bp, i to expand", written.len()));
+    }
+    // A frame that cannot be read, or none at all, is said as the last note; the
+    // `protein` row is then the bare label in every block.
+    if let Some(Err(reason)) = frame {
+        notes.push(format!("protein: {}", reason));
+    } else if frame.is_none() {
+        notes.push("protein: not available".to_string());
+    }
     if !notes.is_empty() {
         lines.push(String::new());
         lines.extend(notes);

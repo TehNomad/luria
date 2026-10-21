@@ -133,7 +133,7 @@ fn edited_of(mutation: &MutationView) -> &EditedView {
 /// (rule 6 of §2.2): an interval `[start, end)` with its written length, an
 /// insertion as the point with its written length, and a residue substitution
 /// as the width of its coordinates, which keeps the length (D040).
-fn edit_span(mutation: &MutationView) -> Result<EditSpan, String> {
+pub(crate) fn edit_span(mutation: &MutationView) -> Result<EditSpan, String> {
     let span: EditSpan = match mutation {
         MutationView::Substitution {
             interval, written, ..

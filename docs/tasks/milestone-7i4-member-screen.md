@@ -1,6 +1,6 @@
 # Milestone 7i4: the redesigned member screen, its keys, and the trimmed overview
 
-Status: **Draft, waits for 7i3.** Planner: Claude. Parent:
+Status: **Ready for the worker, 2026-10-21.** Planner: Claude. Parent:
 `docs/tasks/milestone-7-tui.md` §5.3a (owner answers M7-16, M7-17,
 M7-19, M7-22). Builds on 7i2 (`App::frame`) and 7i3
 (`text::member_sequence`).
@@ -41,8 +41,8 @@ The owner found the review screens too full. After this contract:
   back starts collapsed too.
 - `pub fn expandable(document: &ResultDocument, index: usize) -> bool`:
   the member exists, has a design, and its mutation is `Insertion` with
-  `written.len() > 30` (the same 30 as 7i3; use one shared constant,
-  `pub(crate)` in `text.rs`).
+  `written.len() > 30` (7i3's `MEMBER_INLINE_LIMIT` in `text.rs`; make it
+  `pub(crate)` and use it).
 
 ### 2.2 `crates/cli/src/review/text.rs`
 

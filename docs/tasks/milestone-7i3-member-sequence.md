@@ -1,6 +1,12 @@
 # Milestone 7i3: the text of the redesigned member screen's sequence block
 
-Status: **Ready for the worker, 2026-10-21.** Planner: Claude. Parent:
+Status: **Implemented 2026-10-21.** All nine fixtures match byte for
+byte. Proofs 2-4 failed as required; proof 1 failed tests 1, 3 and 5-9
+but not test 2, which cannot fail it: a deletion writes no bases, so
+`m - s - 0 == m - s` (planner error in §3.1, found by w7i3; test 6
+proves the rule). Added by the worker and accepted: a `Residue` with no
+coordinates gives the single line `the edit span cannot be read:
+<reason>` (untested; core never reports one). Planner: Claude. Parent:
 `docs/tasks/milestone-7-tui.md` §5.3a (owner answers M7-16 to M7-21).
 The specification is `tests/fixtures/review/reference/member.py`: read its
 docstring and `screen` function first. Its outputs,
