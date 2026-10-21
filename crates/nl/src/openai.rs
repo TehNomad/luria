@@ -205,7 +205,7 @@ impl Backend for OpenAiCompatible {
                     .body_mut()
                     .with_config()
                     .limit(MAX_RESPONSE_BYTES)
-                    .read_to_string()
+                    .read_to_vec()
                 {
                     Err(error) => match error {
                         Error::BodyExceedsLimit(_) => Err(BackendError {
@@ -220,9 +220,19 @@ impl Backend for OpenAiCompatible {
                             message: format!("the response broke off: {}", error),
                         }),
                     },
-                    Ok(text) => match status {
-                        200..=299 => completion_of(text),
-                        _ => Err(status_error(status, text)),
+                    // The bytes are read first and turned into text second: a
+                    // server that answered, but with a body that is not UTF-8,
+                    // gave a bad answer, which is `Response`, not the network
+                    // breaking off (review A-4).
+                    Ok(bytes) => match String::from_utf8(bytes) {
+                        Err(_) => Err(BackendError {
+                            kind: BackendErrorKind::Response,
+                            message: "the response is not UTF-8".to_string(),
+                        }),
+                        Ok(text) => match status {
+                            200..=299 => completion_of(text),
+                            _ => Err(status_error(status, text)),
+                        },
                     },
                 }
             }

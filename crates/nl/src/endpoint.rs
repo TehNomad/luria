@@ -2,9 +2,14 @@
 //!
 //! The command line (6h) decides what a call may do *before* it sends
 //! anything: `is_loopback` says whether the endpoint is this machine, and
-//! says it from the text of the URL alone. No name is resolved: asking a
-//! resolver would mean asking something off this machine what this machine
-//! is, and a name can be pointed at a remote address by whoever registers it.
+//! says it from the text of the URL alone. The one name that counts as this
+//! machine because of its text is `localhost`; its address is settled later,
+//! when the call is made, by the system's resolver (normally `/etc/hosts`),
+//! so whoever holds that file decides what `localhost` reaches. Every other
+//! name is remote, however a resolver would have read it. No resolver is
+//! asked before the decision is made: asking one would mean asking something
+//! off this machine what this machine is, and a name can be pointed at a
+//! remote address by whoever registers it.
 //! `https://` gets its own refusal (M6-18): this build links no TLS and
 //! cannot speak it, and quietly calling the same address over `http://`
 //! would send the prompt somewhere other than the place the user named.
@@ -69,6 +74,13 @@ impl Endpoint {
         if path.chars().any(|ch| ch.is_whitespace() || ch.is_control()) {
             return Err(path_refusal());
         }
+        // A path character that a URL cannot carry is refused here, before the
+        // host is read: left alone, it surfaces at send time as a backend that
+        // cannot be reached, which blames the wrong part of the text (review
+        // A-5).
+        if path_refuses_char(path) {
+            return Err(path_char_refusal());
+        }
         let host: String;
         let port_text: Option<String>;
         match host_and_port(authority) {
@@ -95,8 +107,10 @@ impl Endpoint {
         &self.host
     }
 
-    /// Whether the host is this machine, decided from the text alone: no
-    /// name is resolved.
+    /// Whether the host is this machine, decided from the text of the URL
+    /// alone: `localhost` counts by its name, and its address is settled only
+    /// later, when the call is made, by the system's resolver (normally
+    /// `/etc/hosts`). Every other name is remote.
     pub fn is_loopback(&self) -> bool {
         local(&self.host)
     }
@@ -169,6 +183,64 @@ fn path_refusal() -> EndpointError {
     EndpointError {
         message: "an endpoint path may not hold spaces or control characters".to_string(),
     }
+}
+
+/// Why the path holds a character a URL path cannot carry.
+fn path_char_refusal() -> EndpointError {
+    EndpointError {
+        message: "an endpoint path may hold only the characters a URL path allows".to_string(),
+    }
+}
+
+/// Whether the path holds a character a URL path cannot carry, or a `%` that
+/// escapes nothing. The path is read one character at a time, never as bytes:
+/// a character outside ASCII is seen as one character and refused as such, not
+/// as the bytes of its UTF-8 encoding.
+fn path_refuses_char(path: &str) -> bool {
+    let chars: Vec<char> = path.chars().collect();
+    let mut at: usize = 0;
+    while at < chars.len() {
+        if chars[at] == '%' {
+            // A `%` starts an escape, which needs two ASCII hex digits after
+            // it: `%`, `%4` and `%zz` name no character.
+            if at + 2 >= chars.len() {
+                return true;
+            }
+            if hex_digit(chars[at + 1]) && hex_digit(chars[at + 2]) {
+                at += 3;
+                continue;
+            }
+            return true;
+        }
+        if path_carriable_char(chars[at]) {
+            at += 1;
+            continue;
+        }
+        return true;
+    }
+    false
+}
+
+/// Whether `ch` is a character a URL path can carry: an ASCII letter, an ASCII
+/// digit, or one of `- . _ ~ ! $ & ' ( ) * + , ; = : @ / %`. Everything else
+/// is refused here: a space, a control character, `?`, `#`, `[`, `]`, `{`, `}`,
+/// `|`, `^`, `\`, `<`, `>`, a backtick, and any character outside ASCII.
+fn path_carriable_char(ch: char) -> bool {
+    if ch.is_ascii_alphanumeric() {
+        return true;
+    }
+    if "-._~!$&'()*+,;=:@/%".contains(ch) {
+        return true;
+    }
+    false
+}
+
+/// Whether `ch` is an ASCII hex digit: `0-9`, `a-f` or `A-F`.
+fn hex_digit(ch: char) -> bool {
+    if "0123456789abcdefABCDEF".contains(ch) {
+        return true;
+    }
+    false
 }
 
 /// Why the authority holds no host, or no usable one.
@@ -284,7 +356,10 @@ fn brackets_inside(host: &str) -> Option<String> {
 
 /// Whether the host text names this machine: `localhost`, any address in
 /// `127.0.0.0/8` and `::1`. Everything else is remote, `0.0.0.0`, a short
-/// form such as `127.1` and any other name included. Nothing is looked up.
+/// form such as `127.1` and any other name included. The text alone decides,
+/// and the one name it takes as this machine is `localhost`: which address
+/// that is comes later, from the system's resolver when the call is made
+/// (normally `/etc/hosts`). Nothing is looked up while the decision is made.
 fn local(host: &str) -> bool {
     if host == "localhost" {
         return true;
@@ -438,5 +513,71 @@ mod tests {
             refusal("http://h\u{e9}te"),
             "the endpoint's host is not valid"
         );
+    }
+
+    // A path character that a URL cannot carry is refused as a usage error,
+    // with that reason (review A-5): left to reach the send, it shows up as a
+    // backend that cannot be reached, which is the wrong blame.
+    #[test]
+    fn a_path_char_a_url_cannot_carry_is_refused() {
+        let reason: &str = "an endpoint path may hold only the characters a URL path allows";
+        let bad: [&str; 10] = [
+            "http://127.0.0.1/v1{}",
+            "http://127.0.0.1/v1|x",
+            "http://127.0.0.1/v1^",
+            r"http://127.0.0.1/v1\x",
+            "http://127.0.0.1/v\"1",
+            "http://127.0.0.1/v<1>",
+            "http://127.0.0.1/v\u{e9}",
+            "http://127.0.0.1/v1%",
+            "http://127.0.0.1/v1%4",
+            "http://127.0.0.1/v1%zz",
+        ];
+        for url in bad {
+            assert_eq!(refusal(url), reason, "{:?}", url);
+        }
+        // The characters a path may carry stay accepted: the new refusal
+        // takes nothing that a working endpoint already had.
+        let good: [&str; 4] = [
+            "http://127.0.0.1/v1",
+            "http://127.0.0.1/a-b.c_d~e",
+            "http://127.0.0.1/v1/%41",
+            "http://127.0.0.1/x!$&'()*+,;=:@",
+        ];
+        for url in good {
+            let endpoint: Endpoint = parsed(url);
+            assert_eq!(endpoint.url(), url, "{:?}", url);
+        }
+    }
+
+    // Hosts that are dressed up to look like this machine stay remote, or are
+    // refused outright: nothing disguised becomes loopback (review A-7).
+    #[test]
+    fn no_disguised_host_is_loopback() {
+        let disguised: [&str; 11] = [
+            "127.0.0.1.evil.com",
+            "localhost.",
+            "[::ffff:127.0.0.1]",
+            "127.0.0.1\\@evil.com",
+            "evil.com@127.0.0.1",
+            "2130706433",
+            "0177.0.0.1",
+            "0x7f.0.0.1",
+            "[fe80::1%25eth0]",
+            "0.0.0.0",
+            "127.1",
+        ];
+        for host in disguised {
+            let url: String = format!("http://{:}/v1", host);
+            let local: bool = match Endpoint::parse(&url) {
+                Err(_) => false,
+                Ok(endpoint) => endpoint.is_loopback(),
+            };
+            assert!(
+                !local,
+                "{:} is not this machine, and is read as loopback",
+                host
+            );
+        }
     }
 }

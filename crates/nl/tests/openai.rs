@@ -72,6 +72,92 @@ fn stub(response: String) -> (String, JoinHandle<Captured>) {
     (format!("http://127.0.0.1:{}/v1", port), handle)
 }
 
+/// A server on a free local port that answers one request with the ASCII
+/// `head` followed by the raw `body` bytes: a reply whose body is not UTF-8
+/// cannot be written as a `String`, so the bytes are written as they are.
+/// Returns the endpoint URL, `/v1` included, and the server's thread.
+fn stub_raw(head: &str, body: &[u8]) -> (String, JoinHandle<()>) {
+    let listener: TcpListener = TcpListener::bind("127.0.0.1:0").expect("a free port");
+    let port: u16 = listener.local_addr().expect("an address").port();
+    let mut response: Vec<u8> = head.as_bytes().to_vec();
+    response.extend(body);
+    let handle: JoinHandle<()> = std::thread::spawn(move || {
+        let (stream, _) = listener.accept().expect("one connection");
+        let mut reader = BufReader::new(stream.try_clone().expect("a second handle"));
+        let mut request_line: String = String::new();
+        reader.read_line(&mut request_line).expect("a request line");
+        let mut length: usize = 0;
+        loop {
+            let mut line: String = String::new();
+            reader.read_line(&mut line).expect("a header line");
+            if line == "\r\n" || line.is_empty() {
+                break;
+            }
+            let (name, value) = line.split_once(':').expect("a header");
+            if name.trim().eq_ignore_ascii_case("content-length") {
+                length = value.trim().parse().expect("a length");
+            }
+        }
+        let mut body_sent: Vec<u8> = vec![0; length];
+        reader.read_exact(&mut body_sent).expect("the body");
+        let mut writer = stream;
+        let _ = writer.write_all(&response);
+    });
+    (format!("http://127.0.0.1:{}/v1", port), handle)
+}
+
+/// A server that answers `200` with a `Transfer-Encoding: chunked` body that
+/// never ends: 64 KiB chunks, written one after another until a write fails.
+/// A write fails once the client stopped reading (it hit its size limit and
+/// closed the connection), which is what the test is about. The thread is
+/// detached and never joined: the test finishing at all is the proof, and
+/// joining would wait for a writer that may still be writing.
+fn endless_chunked_stub() -> String {
+    let listener: TcpListener = TcpListener::bind("127.0.0.1:0").expect("a free port");
+    let port: u16 = listener.local_addr().expect("an address").port();
+    std::thread::spawn(move || {
+        let (stream, _) = listener.accept().expect("one connection");
+        let mut reader = BufReader::new(stream.try_clone().expect("a second handle"));
+        let mut request_line: String = String::new();
+        reader.read_line(&mut request_line).expect("a request line");
+        let mut length: usize = 0;
+        loop {
+            let mut line: String = String::new();
+            reader.read_line(&mut line).expect("a header line");
+            if line == "\r\n" || line.is_empty() {
+                break;
+            }
+            let (name, value) = line.split_once(':').expect("a header");
+            if name.trim().eq_ignore_ascii_case("content-length") {
+                length = value.trim().parse().expect("a length");
+            }
+        }
+        let mut body_sent: Vec<u8> = vec![0; length];
+        reader.read_exact(&mut body_sent).expect("the body");
+        let mut writer = stream;
+        let head: &str =
+            "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n";
+        let _ = writer.write_all(head.as_bytes());
+        // One chunk of 0x10000 (65536) bytes, framed as chunked transfer: the
+        // size line, the data, then CRLF, round after round. The stream never
+        // gets the final `0` chunk, so the body never ends.
+        let size: &str = "10000\r\n";
+        let data: String = "x".repeat(65536);
+        loop {
+            if writer.write_all(size.as_bytes()).is_err() {
+                break;
+            }
+            if writer.write_all(data.as_bytes()).is_err() {
+                break;
+            }
+            if writer.write_all("\r\n".as_bytes()).is_err() {
+                break;
+            }
+        }
+    });
+    format!("http://127.0.0.1:{}", port)
+}
+
 fn http(status: &str, body: &str) -> String {
     format!(
         "HTTP/1.1 {}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
@@ -299,5 +385,45 @@ fn a_server_that_is_not_there_is_unreachable() {
             assert!(!error.message.contains("sk-secret"));
         }
         Ok(found) => panic!("a closed port answered {:?}", found),
+    }
+}
+
+// A server that answered, but with a body that is not text: the answer is
+// bad, it is not a network failure (review A-4).
+#[test]
+fn a_body_that_is_not_utf8_is_a_bad_response() {
+    let (url, server) = stub_raw(
+        "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 4\r\nConnection: close\r\n\r\n",
+        &[0xff, 0xfe, 0x41, 0x42],
+    );
+    let reply = backend(&url, None).complete(&asked());
+    server.join().expect("the stub ran");
+    assert_eq!(
+        reply,
+        Err(BackendError {
+            kind: BackendErrorKind::Response,
+            message: "the response is not UTF-8".to_string(),
+        }),
+    );
+}
+
+// The size limit cuts the body off while it is read, not after: an endless
+// body is refused, and the call returns (review A-8). The stub's thread is
+// not joined: it may still be writing when the assertion is made.
+#[test]
+fn an_endless_body_is_cut_off_while_it_is_read() {
+    let url: String = endless_chunked_stub();
+    let reply = backend(&url, None).complete(&asked());
+    match reply {
+        Err(error) => {
+            assert_eq!(
+                error.kind,
+                BackendErrorKind::Response,
+                "endless body: {:}",
+                error.message
+            );
+            assert!(error.message.contains("larger than"), "{:}", error.message);
+        }
+        Ok(found) => panic!("an endless body gave {:?}", found),
     }
 }
