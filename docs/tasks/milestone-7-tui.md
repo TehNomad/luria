@@ -214,6 +214,25 @@ Changed by the planner in 7d0 (2026-10-21), to be confirmed by the owner:
   while the linear record's primers are not. They are in
   `tests/fixtures/review/`, written by `reference/context.py`.
 
+### 5.3a The redesigned member screen (owner, 2026-10-21, M7-16 to M7-22)
+
+After using the TUI, the owner found it showed too much. Replaces §5.2
+screens 2 to 4 and §5.3's layout. Answers:
+
+| # | Question | Answer |
+| --- | --- | --- |
+| M7-16 | What `enter` on a member opens | **The context screen directly**, as the main member view. The technical lines (7c2's member text, provenance) go behind `t`. |
+| M7-17 | The context layout | Forward primer above the top strand, the **mutant protein between the strands**, the bottom strand, the reverse primer below it; then one short line per primer (5'->3', length, Tm) and the annealing temperature. No `^` row: lower case marks the edit. The heading is the request as written. |
+| M7-18 | Which protein | **Mutant only**, from the edited construct, each residue letter over the middle base of its codon in the CDS's own frame. |
+| M7-19 | Indels | **Deletions** show the template with the deleted bases in lower case and a gap in the protein row; downstream residues sit over their own codons. **Insertions** of up to 30 bp are drawn inline between their flanks; longer ones collapse to `[+N bp FIRST10...LAST10]`, and `i` expands them into the sequence, scrolled like the rest; they start collapsed each time the screen opens. |
+| M7-20 | Frames and stops | **Shifted frame** downstream of a frameshift. At the first stop codon, `*`, and **nothing after it**. Only **whole codons** get a letter. |
+| M7-21 | Who computes it | **luria-core**: a function returns, for a window, each mutant residue's number, letter and the edited-construct position of its middle base, and core maps edited positions back to template columns. The TUI only places letters. Amends §3 rule 1. |
+| M7-22 | The overview | **Members only**: the template, the target, one row per member. Warnings and provenance behind keys. |
+
+Fixtures: `tests/fixtures/review/` is rewritten in the new layout by its
+script, which translates the edited construct independently with its own
+codon table.
+
 ### 5.4 The primer table (M7-4)
 
 What IDT documents (its Japanese ordering guide,

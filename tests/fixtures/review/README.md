@@ -51,6 +51,21 @@ The planner also checked each layout by eye against the template: every
 upper-case reverse base is the complement of the base above it, and the
 forward primer's lower-case bases are exactly the written edit or tail.
 
+## The mutant reading frames
+
+`reference/frame.py` writes `frame.tsv`: for nine cases, the mutant
+protein's residues whose codon's middle base lies in a window of the
+edited construct, each as `number:symbol:middle`. It splices the edit into
+the template and reads codons with its own standard-code table and
+complement map, sharing nothing with `crates/` (plan §5.3a, M7-18 to
+M7-21). The cases cover a codon change, an in-frame deletion and
+insertion (SID-1, from `native-01`, `del-11`, `ins-14`), a one-base
+deletion that shifts the frame, a seven-base insertion, a replacement
+that shifts the frame into a stop, an early stop, a minus-strand CDS, and
+an edit upstream of the CDS that moves its start. The planner checked
+`native-01`'s residue 404 by hand: `AAC` at `[1209, 1212)` is `N`, over
+base 1210.
+
 ## The order table
 
 `reference/order.py` writes the table by the rules of
@@ -65,6 +80,7 @@ same two edits on SID-1 at bound 15 gives these four primers.
 ```
 python3 -I tests/fixtures/review/reference/context.py --check
 python3 -I tests/fixtures/review/reference/order.py --check
+python3 -I tests/fixtures/review/reference/frame.py --check
 ```
 
 print `OK` for each file, and are part of `tests/fixtures/verify.py`. They
