@@ -1,6 +1,13 @@
 # Milestone 7i4: the redesigned member screen, its keys, and the trimmed overview
 
-Status: **Ready for the worker, 2026-10-21.** Planner: Claude. Parent:
+Status: **Implemented 2026-10-21.** Three worker runs: w7i4 and w7i4b
+failed in model execution, w7i4c finished. The §4 tests in
+`review_view.rs` were lost from the tree when the planner's own
+scratch test was reverted with `git checkout`; the planner restored them
+by replaying the workers' recorded successful edits in order, with
+`cargo fmt` where they ran it, then re-ran every check and proof 1.
+Proofs 1-3 failed as required. The design-failure lines of
+`member_screen` are implemented but untested. Planner: Claude. Parent:
 `docs/tasks/milestone-7-tui.md` §5.3a (owner answers M7-16, M7-17,
 M7-19, M7-22). Builds on 7i2 (`App::frame`) and 7i3
 (`text::member_sequence`).
@@ -105,6 +112,11 @@ Only these, each to the new behaviour; report each one you change:
   `the_problem_line_appears_only_with_a_problem` is replaced by a test
   that the overview body never holds `e problem` (the key line offers it:
   `the_key_line_offers_problem_only_with_a_problem` stays as is).
+
+- `crates/cli/src/review/text.rs` unit test
+  `a_member_with_neither_design_nor_failure_says_no_design`: the row it
+  expects ends `no design` (no `  warnings: 0`). Added by the planner
+  after w7i4b's run; missed in the first list.
 
 If any other existing test fails, stop and report.
 

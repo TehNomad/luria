@@ -7,7 +7,7 @@
 //! and adds only the banner, the key line and the scroll position (plan §3 rule
 //! 1). Nothing is wrapped, so a primer's row never moves.
 
-use crate::review::app::{App, Screen};
+use crate::review::app::{expandable, App, Screen};
 use crate::review::proposal::{approvable, ProposalApp, ProposalScreen};
 use crate::review::text;
 use ratatui::layout::Rect;
@@ -53,10 +53,18 @@ pub fn draw(frame: &mut Frame, app: &App) {
     let rows: usize = body.height as usize;
     let lines: Vec<String> = match app.screen() {
         Screen::Overview => text::overview(document, app.selected()),
-        Screen::Member(index) => text::member(document, index),
-        // 7d draws the sequence context, from the document's primer parts and
-        // the template `app` holds.
-        Screen::Context(index) => text::context(document, index, app.template()),
+        // 7i4 (plan §5.3a): `enter` on a member opens its sequence screen, 7i3's
+        // block with the short primer lines under it, expanded when `i` asked for
+        // the insertion to be written out.
+        Screen::Member(index) => text::member_screen(
+            document,
+            index,
+            app.template(),
+            app.frame(index),
+            app.expanded(),
+        ),
+        // 7i4: the technical lines (7c2's member text) are behind `t`.
+        Screen::Technical(index) => text::member(document, index),
         Screen::Provenance => text::provenance(document),
         Screen::Problem => text::problem(document),
         // 7g1: the export screen's lines are the plan's names, the table's
@@ -77,8 +85,22 @@ pub fn draw(frame: &mut Frame, app: &App) {
 
     let mut keys: String = match app.screen() {
         Screen::Overview => "q quit  enter open  j/k move  p provenance  x export".to_string(),
-        Screen::Member(_) => "q quit  esc back  c context  j/k scroll".to_string(),
-        Screen::Context(_) => "q quit  esc back".to_string(),
+        Screen::Member(index) => {
+            // `i` is offered only where `i` expands, that is on a member whose
+            // design writes more than the inline limit, and it names the state the
+            // key brings about, so `expand` while collapsed and `collapse` while
+            // expanded (7i4).
+            let mut keys: String = "q quit  esc back  t technical  j/k scroll".to_string();
+            if expandable(document, index) {
+                keys.push_str(if app.expanded() {
+                    "  i collapse"
+                } else {
+                    "  i expand"
+                });
+            }
+            keys
+        }
+        Screen::Technical(_) => "q quit  esc back  j/k scroll".to_string(),
         Screen::Provenance | Screen::Problem => "q quit  esc back  j/k scroll".to_string(),
         // `y` is offered only where `y` writes, that is where a plan exists, so
         // the key line never offers an action that does nothing (7g1).

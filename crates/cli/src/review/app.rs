@@ -4,12 +4,15 @@
 //! and no terminal types are here, so the rule is testable without a terminal
 //! (plan §5.1); `terminal` maps crossterm's events to `Key` and carries out the
 //! `Action`. The screens themselves are drawn by `view` (7c, 7d), which reads
-//! `screen()`, `selected()` and `scroll()`. Nothing scientific is computed: the app reads
-//! only how many entries `results` has, whether `error` is `Some`, and whether
-//! `clarifications` is empty (plan §3 rule 1).
+//! `screen()`, `selected()`, `scroll()` and `expanded()`. Nothing scientific is
+//! computed: the app reads only how many entries `results` has, whether `error`
+//! is `Some`, whether `clarifications` is empty, and, for the `i` key, how many
+//! bases a member's mutation writes (plan §3 rule 1).
 
+use crate::result::MutationView;
 use crate::result::ResultDocument;
 use crate::review::export::ExportPlan;
+use crate::review::text::MEMBER_INLINE_LIMIT;
 use crate::review::MemberFrame;
 
 /// A key, as the app sees it. `terminal` maps crossterm's events to it.
@@ -40,8 +43,11 @@ pub enum Action {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Screen {
     Overview,
+    /// The sequence screen (7i4, plan §5.3a): `member_sequence`'s block with the
+    /// short primer lines under it, and the mutant protein between the strands.
     Member(usize),
-    Context(usize),
+    /// The technical lines (7c2's member text) behind `t` (7i4).
+    Technical(usize),
     Provenance,
     Problem,
     Export,
@@ -61,6 +67,7 @@ pub struct App {
     frames: Vec<MemberFrame>,
     export: Option<ExportPlan>,
     export_message: Option<String>,
+    expanded: bool,
 }
 
 impl App {
@@ -81,6 +88,8 @@ impl App {
             frames: Vec::new(),
             export: None,
             export_message: None,
+            // A long insertion starts collapsed every time the screen opens (7i4).
+            expanded: false,
         }
     }
 
@@ -110,6 +119,14 @@ impl App {
     /// The template's bases, or `None` when there are none to draw.
     pub fn template(&self) -> Option<&[char]> {
         self.template.as_deref()
+    }
+
+    /// Whether a long insertion on the sequence screen is written out (`true`) or
+    /// carried as its marker (`false`). `i` on a sequence screen switches it, and
+    /// every screen change starts it collapsed, so leaving to `t` and coming back
+    /// shows the marker again (7i4).
+    pub fn expanded(&self) -> bool {
+        self.expanded
     }
 
     /// The export the screen offers: the plan `main` built from the `--export`
@@ -218,27 +235,34 @@ impl App {
             // Below the overview there is no selection to move, so `j` `k` and
             // the arrows scroll as well.
             (
-                Screen::Member(_) | Screen::Context(_) | Screen::Provenance | Screen::Problem,
+                Screen::Member(_) | Screen::Technical(_) | Screen::Provenance | Screen::Problem,
                 Key::PageUp | Key::PageDown | Key::Home,
             ) => self.page(key),
             (
-                Screen::Member(_) | Screen::Context(_) | Screen::Provenance | Screen::Problem,
+                Screen::Member(_) | Screen::Technical(_) | Screen::Provenance | Screen::Problem,
                 Key::Down | Key::Char('j'),
             ) => {
                 self.scroll += 1;
             }
             (
-                Screen::Member(_) | Screen::Context(_) | Screen::Provenance | Screen::Problem,
+                Screen::Member(_) | Screen::Technical(_) | Screen::Provenance | Screen::Problem,
                 Key::Up | Key::Char('k'),
             ) => {
                 self.scroll = self.scroll.saturating_sub(1);
             }
-            (Screen::Member(i), Key::Char('c')) => self.screen = Screen::Context(i),
+            (Screen::Member(i), Key::Char('t')) => self.screen = Screen::Technical(i),
+            // `i` expands a long insertion, and only one that can be: on a short
+            // edit, and on a member with no design, `i` does nothing (7i4).
+            (Screen::Member(i), Key::Char('i')) => {
+                if expandable(&self.document, i) {
+                    self.expanded = !self.expanded;
+                }
+            }
             (Screen::Member(i), Key::Esc | Key::Backspace) => {
                 self.screen = Screen::Overview;
                 self.selected = i;
             }
-            (Screen::Context(i), Key::Esc | Key::Backspace) => self.screen = Screen::Member(i),
+            (Screen::Technical(i), Key::Esc | Key::Backspace) => self.screen = Screen::Member(i),
             (Screen::Provenance, Key::Esc | Key::Backspace) => self.screen = Screen::Overview,
             (Screen::Problem, Key::Esc | Key::Backspace) => self.screen = Screen::Overview,
             (Screen::Problem, Key::Char('p')) => self.screen = Screen::Provenance,
@@ -254,9 +278,12 @@ impl App {
             }
             _ => {}
         }
-        // A screen change starts at the top of the new screen (7c3 §3.1 rule 4).
+        // A screen change starts at the top of the new screen (7c3 §3.1 rule 4)
+        // and collapses an expanded insertion, so `t` and back both start the
+        // screen with its marker (7i4).
         if self.screen != opened {
             self.scroll = 0;
+            self.expanded = false;
         }
         Action::Continue
     }
@@ -270,6 +297,25 @@ impl App {
             Key::Home => 0,
             _ => self.scroll,
         };
+    }
+}
+
+/// Whether the sequence screen of member `index` can be asked to write its
+/// insertion out: the member exists, has a design, and its mutation is an
+/// insertion of more than `MEMBER_INLINE_LIMIT` written bases, the length 7i3's
+/// block collapses to a marker (7i4, plan §5.3a M7-19). Nothing is computed: only
+/// the count of the bases the document names is read (plan §3 rule 1).
+pub fn expandable(document: &ResultDocument, index: usize) -> bool {
+    match document.results.get(index) {
+        Some(member) => {
+            member.design.is_some()
+                && matches!(
+                    &member.mutation,
+                    MutationView::Insertion { written, .. }
+                        if written.chars().count() > MEMBER_INLINE_LIMIT
+                )
+        }
+        None => false,
     }
 }
 
@@ -440,8 +486,8 @@ mod tests {
         app.handle(Key::Down);
         assert_eq!(app.handle(Key::Enter), Action::Continue);
         assert_eq!(app.screen(), Screen::Member(1));
-        assert_eq!(app.handle(Key::Char('c')), Action::Continue);
-        assert_eq!(app.screen(), Screen::Context(1));
+        assert_eq!(app.handle(Key::Char('t')), Action::Continue);
+        assert_eq!(app.screen(), Screen::Technical(1));
         assert_eq!(app.handle(Key::Esc), Action::Continue);
         assert_eq!(app.screen(), Screen::Member(1));
         assert_eq!(app.handle(Key::Backspace), Action::Continue);
@@ -483,7 +529,7 @@ mod tests {
         let screens: Vec<(ResultDocument, Vec<Key>)> = vec![
             (document_with(2), Vec::new()),
             (document_with(2), vec![Key::Enter]),
-            (document_with(2), vec![Key::Enter, Key::Char('c')]),
+            (document_with(2), vec![Key::Enter, Key::Char('t')]),
             (document_with(2), vec![Key::Char('p')]),
             (document_with_error(), Vec::new()),
             (document_with_error(), vec![Key::Esc, Key::Char('e')]),
@@ -506,8 +552,8 @@ mod tests {
 
         let mut app: App = App::new(document_with(2));
         app.handle(Key::Enter);
-        app.handle(Key::Char('c'));
-        assert_eq!(app.screen(), Screen::Context(0));
+        app.handle(Key::Char('t'));
+        assert_eq!(app.screen(), Screen::Technical(0));
         assert_eq!(app.handle(Key::Esc), Action::Continue);
 
         let mut app: App = App::new(document_with(2));
@@ -555,8 +601,8 @@ mod tests {
             app.handle(Key::Char('j'));
         }
         assert_eq!(app.scroll(), 3);
-        assert_eq!(app.handle(Key::Char('c')), Action::Continue);
-        assert_eq!(app.screen(), Screen::Context(0));
+        assert_eq!(app.handle(Key::Char('t')), Action::Continue);
+        assert_eq!(app.screen(), Screen::Technical(0));
         assert_eq!(app.scroll(), 0, "the new screen opens at its top");
         app.handle(Key::PageDown);
         assert_eq!(app.handle(Key::Esc), Action::Continue);

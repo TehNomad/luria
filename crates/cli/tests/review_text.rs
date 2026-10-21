@@ -235,7 +235,9 @@ fn the_overview_names_the_template_and_target() {
     let lines = text::overview(&set("overview"), 0);
     assert_eq!(lines[0], "template: synlin, linear, 393 bp");
     assert_eq!(lines[1], "target: synA, +, [42, 345)");
-    assert_eq!(lines[2], "operation: variants");
+    // 7i4 (plan §5.3a M7-22): the operation is not on the overview, which names
+    // the template, the target and the members only.
+    assert_eq!(lines[2], "members: 2");
 }
 
 #[test]
@@ -260,8 +262,8 @@ fn each_member_has_one_row_and_one_marker() {
         rows[0]
     );
     assert!(
-        rows[0].ends_with("designed  warnings: 0"),
-        "the row ends with its outcome and its own warning count: {:?}",
+        rows[0].ends_with("designed"),
+        "the row ends with its outcome, and its warnings are not counted on the row: {:?}",
         rows[0]
     );
     assert!(
@@ -292,26 +294,28 @@ fn a_design_failure_is_on_the_overview_row() {
 }
 
 #[test]
-fn the_problem_line_appears_only_with_a_problem() {
-    let lines = text::overview(&set("problem_line_set"), 0);
-    assert!(
-        !lines.iter().any(|line| line.as_str() == "e problem"),
-        "a verified run with no clarification offers no problem screen: {:?}",
-        lines
-    );
+fn the_overview_body_never_holds_the_problem_line() {
+    // 7i4 (plan §5.3a M7-22): warnings and provenance are behind keys, so the
+    // overview's body carries neither the problem line nor the provenance line,
+    // with a problem or without one. `the_key_line_offers_problem_only_with_a_problem`
+    // (7c3) is where the key that opens the problem screen is shown.
     for (test, lines) in [
+        ("set", text::overview(&set("overview_body_set"), 0)),
         (
-            "problem_line_clarification",
-            text::overview(&clarification("problem_line_clarification"), 0),
+            "clarification",
+            text::overview(&clarification("overview_body_clarification"), 0),
         ),
-        (
-            "problem_line_failed",
-            text::overview(&failed("problem_line_failed"), 0),
-        ),
+        ("failed", text::overview(&failed("overview_body_failed"), 0)),
     ] {
         assert!(
-            lines.iter().any(|line| line.as_str() == "e problem"),
-            "{} has a problem, so the line is there: {:?}",
+            !lines.iter().any(|line| line.as_str() == "e problem"),
+            "{}: the overview body holds no problem line: {:?}",
+            test,
+            lines
+        );
+        assert!(
+            !lines.iter().any(|line| line.as_str() == "p provenance"),
+            "{}: the overview body holds no provenance line: {:?}",
             test,
             lines
         );

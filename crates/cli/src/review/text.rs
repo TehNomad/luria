@@ -8,7 +8,9 @@
 //! as a string (plan §5.1). Every value on a line is one field of the
 //! `ResultDocument` or the `InterpretationDocument`, written with `{}` (plan §3
 //! rule 1): no coordinate, Tm, codon or translation is computed, no float is
-//! rounded, and a digest is shortened nowhere. The only formatting is intervals
+//! rounded, and a digest is shortened nowhere. The one approved rounding is the
+//! sequence screen's `Tm` line, shown with `{:.1}` (7i4, plan §5.3a); the full
+//! value stays on the technical screen. The only formatting is intervals
 //! as `[start, end)`, a float with `{}` (the same digits the JSON holds) and a
 //! code written as the serde tag's variant name in snake case. An error, a
 //! clarification, a design failure and a warning are always listed (plan §3
@@ -683,7 +685,7 @@ pub fn context(document: &ResultDocument, index: usize, template: Option<&[char]
 /// The base count past which the heading and the overview write a base text as
 /// its length, and past which an insertion that is not expanded is collapsed
 /// (`member.py`'s inline limit, plan §5.3a).
-const MEMBER_INLINE_LIMIT: usize = 30;
+pub(crate) const MEMBER_INLINE_LIMIT: usize = 30;
 
 /// A base text as the heading and the overview state it: the bases themselves,
 /// or `<N> bp` when there are more than `MEMBER_INLINE_LIMIT` of them.
@@ -1097,6 +1099,74 @@ pub fn member_sequence(
     lines
 }
 
+/// One primer's short line on the sequence screen: its label padded to the
+/// context label's width as 7i3's rows are, then the primer's own text, its
+/// length and its Tm, with two spaces between the fields (plan §5.3a).
+fn primer_screen_line(label: &str, primer: &PrimerView) -> String {
+    format!(
+        "{:width$}5'-{}-3'  {} nt  Tm {:.1} C",
+        label,
+        primer.sequence,
+        primer.length,
+        primer.tm.celsius,
+        width = CONTEXT_LABEL
+    )
+}
+
+/// The sequence screen (`enter` on a member, plan §5.3a, 7i4): 7i3's block, then,
+/// when the member has a design, the two short primer lines and the annealing
+/// temperature, then every warning by its code, and a design failure as its code
+/// and message. The full Tm and the messages stay on the technical screen (7c2's
+/// `member`). `index` is `document.results`' index; out of range the screen is
+/// 7i3's single line. Every value is one field of the document (plan §3 rule 1),
+/// and warnings and failures are listed, never summarised away (plan §3 rule 3).
+pub fn member_screen(
+    document: &ResultDocument,
+    index: usize,
+    template: Option<&[char]>,
+    frame: Option<&MemberFrame>,
+    expanded: bool,
+) -> Vec<String> {
+    let mut lines: Vec<String> = member_sequence(document, index, template, frame, expanded);
+    let member: &MemberView = match document.results.get(index) {
+        Some(member) => member,
+        None => return lines,
+    };
+
+    if let Some(design) = &member.design {
+        lines.push(String::new());
+        lines.push(primer_screen_line("forward", &design.forward));
+        lines.push(primer_screen_line("reverse", &design.reverse));
+        lines.push(format!("anneal at {} C", design.annealing_temperature));
+    }
+
+    // The codes, in the document's own order: the member's edit warnings, then
+    // the forward primer's, then the reverse primer's.
+    let mut warnings: Vec<String> = Vec::new();
+    for warning in &member.warnings {
+        warnings.push(format!("  {}", edit_warning_code(warning)));
+    }
+    if let Some(design) = &member.design {
+        for warning in &design.forward.warnings {
+            warnings.push(format!("  forward {}", primer_warning_code(warning)));
+        }
+        for warning in &design.reverse.warnings {
+            warnings.push(format!("  reverse {}", primer_warning_code(warning)));
+        }
+    }
+    if !warnings.is_empty() {
+        lines.push(String::new());
+        lines.push("warnings:".to_string());
+        lines.extend(warnings);
+    }
+
+    if let Some(failure) = &member.design_failure {
+        lines.push(format!("design failed: {}", failure.code));
+        lines.push(format!("  {}", failure.message));
+    }
+    lines
+}
+
 /// The code of the operation the model reported: its serde tag, the variant
 /// name in snake case, written as a `match` rather than found by serializing.
 fn operation_code(operation: &Operation) -> &'static str {
@@ -1342,12 +1412,13 @@ pub fn proposal(document: &InterpretationDocument) -> Vec<String> {
     lines
 }
 
-/// The overview (plan §5.2 screen 2): the template, the target, the operation,
-/// the operation's warnings, one row per member with the member at `selected`
-/// marked `> `, then the keys that open the screens below. `member` rows keep
-/// the order `results` holds. Nothing here is computed: a row's outcome is that
-/// member's `design` or the code of its `design_failure`, and `members` is the
-/// number of rows.
+/// The overview (plan §5.3a M7-22, 7i4): the template, the target, the operation's
+/// warnings, and one row per member with the member at `selected` marked `> `. No
+/// operation line, no warning count on a row, and no key line for the problem or
+/// provenance screen, because the screen's own key line offers both (7i4).
+/// `member` rows keep the order `results` holds. Nothing here is computed: a row's
+/// outcome is that member's `design` or the code of its `design_failure`, and
+/// `members` is the number of rows.
 pub fn overview(document: &ResultDocument, selected: usize) -> Vec<String> {
     let mut lines: Vec<String> = Vec::new();
 
@@ -1369,11 +1440,9 @@ pub fn overview(document: &ResultDocument, selected: usize) -> Vec<String> {
         None => lines.push("target: none".to_string()),
     }
 
-    match document.provenance.operation {
-        Some(operation) => lines.push(format!("operation: {}", operation)),
-        None => lines.push("operation: none".to_string()),
-    }
-
+    // 7i4 (plan §5.3a M7-22): the overview names the template, the target and the
+    // members only, so the operation is not here; the operation warnings are, as
+    // a warning is never hidden (plan §3 rule 3).
     if !document.warnings.is_empty() {
         lines.push("warnings:".to_string());
         for warning in &document.warnings {
@@ -1396,22 +1465,16 @@ pub fn overview(document: &ResultDocument, selected: usize) -> Vec<String> {
             (None, Some(problem)) => format!("design failed: {}", problem.code),
             (None, None) => "no design".to_string(),
         };
+        // The row ends with its outcome, and a member's own warnings are not
+        // counted here: they are on the member's screen (7i4, plan §5.3a M7-22).
         lines.push(format!(
-            "{}{}  {}  {}  warnings: {}",
+            "{}{}  {}  {}",
             marker,
             member.name,
             mutation_summary(&member.mutation),
-            outcome,
-            member.warnings.len()
+            outcome
         ));
     }
-
-    if document.error.is_some() || !document.clarifications.is_empty() {
-        lines.push(String::new());
-        lines.push("e problem".to_string());
-    }
-    lines.push(String::new());
-    lines.push("p provenance".to_string());
     lines
 }
 
@@ -1940,7 +2003,7 @@ mod tests {
         let lines: Vec<String> = overview(&document, 0);
         assert_eq!(
             row(&lines, 0),
-            format!("> {}  {}  no design  warnings: 0", name, summary),
+            format!("> {}  {}  no design", name, summary),
             "a member with neither states `no design`, never `designed`"
         );
         assert!(!lines.iter().any(|line| line.contains("designed")));
