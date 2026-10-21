@@ -53,7 +53,7 @@ forward primer's lower-case bases are exactly the written edit or tail.
 
 ## The mutant reading frames
 
-`reference/frame.py` writes `frame.tsv`: for nine cases, the mutant
+`reference/frame.py` writes `frame.tsv`: for ten cases, the mutant
 protein's residues whose codon's middle base lies in a window of the
 edited construct, each as `number:symbol:middle`. It splices the edit into
 the template and reads codons with its own standard-code table and
@@ -62,7 +62,9 @@ M7-21). The cases cover a codon change, an in-frame deletion and
 insertion (SID-1, from `native-01`, `del-11`, `ins-14`), a one-base
 deletion that shifts the frame, a seven-base insertion, a replacement
 that shifts the frame into a stop, an early stop, a minus-strand CDS, and
-an edit upstream of the CDS that moves its start. The planner checked
+an edit upstream of the CDS that moves its start, and an insertion
+before a minus-strand CDS's first base (its last template base), which
+moves where reading starts by the inserted length. The planner checked
 `native-01`'s residue 404 by hand: `AAC` at `[1209, 1212)` is `N`, over
 base 1210.
 
