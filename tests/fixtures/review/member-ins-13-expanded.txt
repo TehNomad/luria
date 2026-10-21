@@ -1,0 +1,33 @@
+ins-13  on syn [30, 70)
+forward 5'->3' above, reverse 3'->5' below; the protein is the mutant's
+lower case: edited bases, and primer bases that do not anneal
+
+forward
+template  TCGCGGACGCATGGCTTGGAgattacagattacagattacagattacagattacagatta
+protein    S  R  T  H  G  L  E  I  T  D  Y  R  L  Q  I  T  D  Y  R  L
+bottom    AGCGCCTGCGTACCGAACCTctaatgtctaatgtctaatgtctaatgtctaatgtctaat
+reverse        CTGCGTACCGAACCTctaatgtctaatgtctaatgtctaatgtctaatgtctaat
+
+forward
+template  cagattacagattacagattacagattacagattacagattacagattacagattacaga
+protein    Q  I  T  D  Y  R  L  Q  I  T  D  Y  R  L  Q  I  T  D  Y  R
+bottom    gtctaatgtctaatgtctaatgtctaatgtctaatgtctaatgtctaatgtctaatgtct
+reverse   gtctaatgtctaatgtctaatgtctaatgtctaatgtctaatgtctaatgtctaatgtct
+
+forward        gattacagattacagattacagattacagattacagattacagattacagattac
+template  ttacagattacagattacagattacagattacagattacagattacagattacagattac
+protein    L  Q  I  T  D  Y  R  L  Q  I  T  D  Y  R  L  Q  I  T  D  Y
+bottom    aatgtctaatgtctaatgtctaatgtctaatgtctaatgtctaatgtctaatgtctaatg
+reverse   aatgt
+
+forward   agattacagattacagattacagattacagattacagattacagattacaATCAGCAGCA
+template  agattacagattacagattacagattacagattacagattacagattacaATCAGCAGCA
+protein    R  L  Q  I  T  D  Y  R  L  Q  I  T  D  Y  R  L  Q  S  A  A
+bottom    tctaatgtctaatgtctaatgtctaatgtctaatgtctaatgtctaatgtTAGTCGTCGT
+reverse
+
+forward   GCCGA
+template  GCCGAGCGGC
+protein    A  E  R
+bottom    CGGCTCGCCG
+reverse

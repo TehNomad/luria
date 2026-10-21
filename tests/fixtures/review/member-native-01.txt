@@ -1,0 +1,9 @@
+native-01  on sid-1 [1175, 1227)
+forward 5'->3' above, reverse 3'->5' below; the protein is the mutant's
+lower case: edited bases, and primer bases that do not anneal
+
+forward                           CGTTGAGCAAaacTTCGGGGCGC
+template  TGACGGAAAACTGCTCAATCCGCTCGTTGAGCAAgatTTCGGGGCGCACAGA
+protein     D  G  K  L  L  N  P  L  V  E  Q  N  F  G  A  H  R
+bottom    ACTGCCTTTTGACGAGTTAGGCGAGCAACTCGTTctaAAGCCCCGCGTGTCT
+reverse        CTTTTGACGAGTTAGGCGA

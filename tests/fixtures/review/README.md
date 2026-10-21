@@ -66,6 +66,22 @@ an edit upstream of the CDS that moves its start. The planner checked
 `native-01`'s residue 404 by hand: `AAC` at `[1209, 1212)` is `N`, over
 base 1210.
 
+## The redesigned member screen
+
+`reference/member.py` writes `member-*.txt`, the sequence block the
+redesigned member screen draws (plan §5.3a, M7-16 to M7-20): the forward
+primer above the top strand, the mutant protein (from `frame.py`)
+between the strands, the bottom strand, and the reverse primer below,
+with edited bases and non-annealing primer bases in lower case. Its
+docstring is the layout's specification. The designs are `native-01`,
+`del-11` and `ins-14` on SID-1, and `del-02` (a frameshift), `ins-04`
+(tails on both primers), `rep-06` (a replacement that writes more than it
+removes, with tails) and `ins-13` (a 210-base insertion, collapsed and
+expanded) on the rows' own synthetic template, named `syn`. The planner
+checked each by eye: every upper-case primer base matches the template
+or bottom strand beside it, and each residue sits over its codon's middle
+base.
+
 ## The order table
 
 `reference/order.py` writes the table by the rules of
@@ -81,6 +97,7 @@ same two edits on SID-1 at bound 15 gives these four primers.
 python3 -I tests/fixtures/review/reference/context.py --check
 python3 -I tests/fixtures/review/reference/order.py --check
 python3 -I tests/fixtures/review/reference/frame.py --check
+python3 -I tests/fixtures/review/reference/member.py --check
 ```
 
 print `OK` for each file, and are part of `tests/fixtures/verify.py`. They

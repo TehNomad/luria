@@ -1,0 +1,19 @@
+ins-13  on syn [30, 70)
+forward 5'->3' above, reverse 3'->5' below; the protein is the mutant's
+lower case: edited bases, and primer bases that do not anneal
+
+forward                                                        ATCAGCA
+template  TCGCGGACGCATGGCTTGGA[+210 bp gattacagat...acagattaca]ATCAGCA
+protein    S  R  T  H  G  L  E                                   S  A
+bottom    AGCGCCTGCGTACCGAACCT                                 TAGTCGT
+reverse        CTGCGTACCGAACCT
+
+forward   GCAGCCGA
+template  GCAGCCGAGCGGC
+protein    A  A  E  R
+bottom    CGTCGGCTCGCCG
+reverse
+
+insertion: 210 bp, i to expand
+forward tail: 105 nt inside the insertion, i to expand
+reverse tail: 105 nt inside the insertion, i to expand

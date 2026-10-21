@@ -1,0 +1,9 @@
+del-02  on syn [25, 68)
+forward 5'->3' above, reverse 3'->5' below; the protein is the mutant's
+lower case: edited bases, and primer bases that do not anneal
+
+forward                        TGGAATCAGCAGCAGCC
+template  GCGGCTCGCGGACGCATGGCtTGGAATCAGCAGCAGCCGAGCG
+protein   S  G  S  R  T  H  G   W  N  Q  Q  Q  P  S
+bottom    CGCCGAGCGCCTGCGTACCGaACCTTAGTCGTCGTCGGCTCGC
+reverse        AGCGCCTGCGTACCG
