@@ -1,6 +1,6 @@
 # Milestone 7i3: the text of the redesigned member screen's sequence block
 
-Status: **Draft, waits for 7i2.** Planner: Claude. Parent:
+Status: **Ready for the worker, 2026-10-21.** Planner: Claude. Parent:
 `docs/tasks/milestone-7-tui.md` §5.3a (owner answers M7-16 to M7-21).
 The specification is `tests/fixtures/review/reference/member.py`: read its
 docstring and `screen` function first. Its outputs,
@@ -47,8 +47,8 @@ Exactly as `member.py`'s `screen`, with these sources (all from the
 document; nothing is computed but display columns, plan §3 rule 1):
 
 - **The edit** `(s, e, written)`: from `member.mutation`, the same
-  mapping 7i2's `member_frames` uses for its `EditSpan` (reuse that code;
-  make its helper `pub(crate)` if it is private). The written bases are
+  mapping 7i2's private `edit_span` in `crates/cli/src/review.rs` uses
+  (make it `pub(crate)` and reuse it; do not change its body). The written bases are
   the variant's `written` (`written_codon` for `Residue`; empty for
   `Deletion`). The removed bases are `template[s..e]`.
 - **Region width** `R`: `max(e - s, written.len())`, or for an insertion
