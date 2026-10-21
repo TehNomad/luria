@@ -10,8 +10,13 @@ independently verified tables, using only those tables and the template:
                            (replacement 1209:1212 GAT->AAC, bound 15)
     context-del-11.txt     ../q5-primer/native-deletion.tsv row del-11
     context-ins-14.txt     ../q5-primer/native-insertion.tsv row ins-14
+    context-ins-04.txt     ../q5-primer/native-insertion.tsv row ins-04,
+                           on its own synthetic template (the row's
+                           `seq:` column, named `syn`): the one design
+                           here with a tail on both primers
 
-The template is ../example-construct/input/sid-1_cDNA.fa. Nothing here reads
+The template is ../example-construct/input/sid-1_cDNA.fa, except for ins-04,
+whose template is in its row. Nothing here reads
 luria's output or shares code with crates/: the primers come from the tables'
 spans, sequences and tails, and the bottom strand is complemented here.
 
@@ -129,8 +134,8 @@ def del_11(t):
     return "del-11", (s, e), None, forward, reverse
 
 
-def ins_14(t):
-    r = row_of("native-insertion.tsv", "ins-14")
+def insertion(t, case_id):
+    r = row_of("native-insertion.tsv", case_id)
     point = int(r["point"])
     f0, f1 = span(r["forward_anneal_span"])
     r0, r1 = span(r["reverse_anneal_span"])
@@ -147,7 +152,18 @@ def ins_14(t):
         reverse.append(("tail", False, tail, None))
     reverse.append(("context", True, revcomp(t[r0:r1]), (r0, r1)))
     assert "".join(p[2] for p in reverse) == r["reverse"]
-    return "ins-14", (point, point), point, forward, reverse
+    return case_id, (point, point), point, forward, reverse
+
+
+def ins_14(t):
+    return "sid-1", t, insertion(t, "ins-14")
+
+
+def ins_04(_):
+    column = row_of("native-insertion.tsv", "ins-04")["template"]
+    assert column.startswith("seq:")
+    t = column[len("seq:"):]
+    return "syn", t, insertion(t, "ins-04")
 
 
 def place(parts, reverse, columns, notes, role):
@@ -178,7 +194,7 @@ def place(parts, reverse, columns, notes, role):
             columns[s + i] = base
 
 
-def screen(t, design):
+def screen(t, design, template_id="sid-1"):
     name, (es, ee), point, forward, reverse = design
     top = {}
     bottom = {}
@@ -194,7 +210,7 @@ def screen(t, design):
     if point is not None:
         edit[point] = "+"
     lines = [
-        "sequence context: %s, [%d, %d) of %s" % (name, lo, hi, "sid-1"),
+        "sequence context: %s, [%d, %d) of %s" % (name, lo, hi, template_id),
         "top strand 5'->3'; forward 5'->3' above it, reverse 3'->5' below it",
         "upper case anneals, lower case does not; ^ base edited or removed, + insertion point",
     ]
@@ -258,13 +274,14 @@ def main():
     t = load_template()
     ok = True
     for name, build in (
-        ("context-native-01.txt", native_01),
-        ("context-del-11.txt", del_11),
+        ("context-native-01.txt", lambda t: ("sid-1", t, native_01(t))),
+        ("context-del-11.txt", lambda t: ("sid-1", t, del_11(t))),
         ("context-ins-14.txt", ins_14),
+        ("context-ins-04.txt", ins_04),
     ):
-        design = build(t)
-        check_pairs(t, design)
-        ok = emit(name, screen(t, design)) and ok
+        template_id, template, design = build(t)
+        check_pairs(template, design)
+        ok = emit(name, screen(template, design, template_id)) and ok
     if not ok:
         sys.exit(1)
 

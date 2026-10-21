@@ -1,0 +1,9 @@
+sequence context: ins-04, [30, 70) of syn
+top strand 5'->3'; forward 5'->3' above it, reverse 3'->5' below it
+upper case anneals, lower case does not; ^ base edited or removed, + insertion point
+
+bases [30, 70)
+template  TCGCGGACGCATGGCTTGGAATCAGCAGCAGCCGAGCGGC
+forward                   tacaATCAGCAGCAGCCGA
+reverse        CTGCGTACCGAACCTcta
+edit                          +

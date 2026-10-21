@@ -11,12 +11,16 @@ wrote them in contract 7d0, on 2026-10-21.
 | `context-native-01.txt` | replacement `[1209, 1212)` `GAT`->`AAC`, bound 15 | `../q5-primer/native.tsv` row `native-01` |
 | `context-del-11.txt` | deletion `[1209, 1212)` `GAT`, bound 15 | `../q5-primer/native-deletion.tsv` row `del-11` |
 | `context-ins-14.txt` | insertion of `GAT` at 1209, bound 15 | `../q5-primer/native-insertion.tsv` row `ins-14` |
+| `context-ins-04.txt` | insertion of `GATTACA` at 50, bound 15, on the row's own synthetic template (named `syn`): a tail on both primers | `../q5-primer/native-insertion.tsv` row `ins-04` |
 | `reference/context.py` | writes the three files, and checks them with `--check` | |
 | `order-sid1-del11-ins14.tsv` | the IDT order table for a set of `del-11` and `ins-14` on `sid-1` (contract 7g2) | the rows' own `forward` and `reverse` columns |
 | `reference/order.py` | writes it, and checks it with `--check` | |
 
 The template is the SID-1 cDNA, `../example-construct/input/sid-1_cDNA.fa`,
-named `sid-1` in the request. Each design's member is named by its row's
+named `sid-1` in the request, except for `ins-04`, whose 99-base template is
+the `seq:` column of its row, named `syn`. `ins-04` was added after 7d's
+review, because no other design here has a reverse tail; the planner checked
+that a `q5 design` run of it gives the row's own two primers. Each design's member is named by its row's
 case id (`native-01`, `del-11`, `ins-14`).
 
 ## How the expectations were derived
