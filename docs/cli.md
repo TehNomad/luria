@@ -477,8 +477,8 @@ Every result repeats these algorithm names and versions in its
 
 | Code | Meaning |
 | --- | --- |
-| 0 | `verified`, and every member designed |
-| 1 | An internal error, or a failure to write the output: stdout or a `--write-edited` file |
+| 0 | `verified`, and every member designed; for `luria q5 interpret`, `proposed` |
+| 1 | An internal error, or a failure to write the output: stdout, a `--write-edited` file or a `--write-request` file; for `luria q5 interpret`, also a model server that could not be reached or answered badly (§10.7) |
 | 2 | Usage error: bad arguments. Text on stderr, no JSON |
 | 3 | `needs_clarification` |
 | 4 | `failed`, category `malformed_input` |
@@ -495,12 +495,12 @@ An unreadable file is not exit 1. A request file that cannot be read is
 `request_unreadable`, and a template file the request names is
 `template_unreadable`; both are `malformed_input` and exit 4 (§6). Exit 1 is
 an internal error, or a write that failed — stdout, or a file `--write-edited`
-asked for. Unless stdout itself is what failed, the document still goes to
-stdout. When the run has a reason outside the document, it goes to stderr as
-one line, `luria: ` then the reason; for a failed write that reason is the
-operating system's message. A failed `--write-edited` write takes exit 1 in
-place of the status the run had reached, 7 included: the document still shows
-each member's `design` or its `designFailure`.
+or `--write-request` asked for. Unless stdout itself is what failed, the
+document still goes to stdout. When the run has a reason outside the document,
+it goes to stderr as one line, `luria: ` then the reason; for a failed write
+that reason is the operating system's message. A failed `--write-edited` write
+takes exit 1 in place of the status the run had reached, 7 included: the
+document still shows each member's `design` or its `designFailure`.
 
 ## 6. Error codes
 
@@ -755,7 +755,8 @@ members before you run it.
 
 ### 10.7 Errors and exit codes
 
-Exit codes are those of §5, plus **8**: the model's reply was refused.
+Exit codes are those of §5: **0** is `proposed`, **3** is
+`needs_clarification`, and **8** is a model reply that was refused.
 
 | Code | Exit | When |
 | --- | --- | --- |
@@ -767,10 +768,14 @@ Exit codes are those of §5, plus **8**: the model's reply was refused.
 | `request_location_unusable` | 4 | `--write-request` is not in the template's directory. |
 | `output_exists` | 4 | The `--write-request` file already exists, a dangling link included. |
 | `backend_unreachable`, `backend_status`, `backend_response` | 1 | The server could not be reached, answered with an error status, or answered in a shape that is not a chat completion. |
-| `model_output_invalid` | 8 | The reply is not an extraction: wrong JSON, an unknown or missing field, or over 64 KiB. |
+| `model_output_invalid` | 8 | The reply is not an extraction: wrong JSON, an unknown or missing field, or over 64 KiB. A whole response over 1 MiB is `backend_response`. |
 | `ungrounded_extraction` | 8 | The reply holds a string your text does not contain. |
 | `internal_request_round_trip` | 1 | A bug in luria: the proposal does not read back as itself. |
 
 Every local input is checked before anything is sent, so a missing file or
 a bad profile never costs a model call. A usage error, the remote gate and
 an `https://` endpoint included, exits 2 with nothing on stdout.
+
+When the `--write-request` file cannot be written, the `proposed`
+document still goes to stdout, the reason goes to stderr as `luria:
+could not write <name>: <reason>`, and the exit is 1.

@@ -1,7 +1,8 @@
 # Review M6 C-4, C-5, C-9: exit codes and a fixture note
 
-Status: **Ready for the worker** (last of the review-m6 contracts, after
-the others are committed). Planner: Claude. Parent:
+Status: **Implemented 2026-10-21** by the local worker; accepted on planner
+review, with one more phrase in §5's prose (`--write-request`), which the
+worker flagged. Planner: Claude. Parent:
 `docs/tasks/review-post-m6.md` C-4, C-5, C-9. Owner, 2026-10-20: "Go
 ahead and fix them". Docs and one fixture note; no code.
 

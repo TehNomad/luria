@@ -2,7 +2,7 @@ case_id	template	text_file	reply_file	profile	state	codes	request_file	design_ex
 one-sub-prose	synthetic-linear.gb	one-sub-prose.txt	one-sub-prose.json	full.json	proposed	-	edit-a42g.json	0	prose with no token; one mutation is an edit, not a one-member set
 three-letter	synthetic-linear.gb	three-letter.txt	three-letter.json	full.json	proposed	-	edit-a42g.json	0	three-letter notation gives the same request as one-sub-prose
 two-separate	synthetic-linear.gb	two-separate.txt	two-separate.json	full.json	proposed	-	variants-separate.json	0	the product brief's own example request
-two-combined	synthetic-linear.gb	two-combined.txt	two-combined.json	full.json	proposed	-	variants-combined.json	6	a combined construct is never assumed from separate variants
+two-combined	synthetic-linear.gb	two-combined.txt	two-combined.json	full.json	proposed	-	variants-combined.json	6	combined stated in the text: proposed as asked, and core refuses it at design (M6-16)
 codon-stated	synthetic-linear.gb	codon-stated.txt	codon-stated.json	no-codon.json	proposed	-	edit-w87a-gcg.json	0	a codon in the text is used, so the profile needs none
 composition-unstated	synthetic-linear.gb	composition-unstated.txt	composition-unstated.json	full.json	needs_clarification	composition_unstated	-	-	two mutations and no statement: separate or combined is never assumed
 cds-unnamed	synthetic-linear.gb	cds-unnamed.txt	cds-unnamed.json	full.json	needs_clarification	cds_unnamed	-	-	M6-9: always ask, even though this record has one usable CDS
