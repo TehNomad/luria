@@ -276,14 +276,82 @@ fn ungrounded_view(problem: &Ungrounded) -> UngroundedView {
     }
 }
 
-/// Write `body` at `path` as a new file only: `create_new` refuses a path
-/// something already holds, a symlink a dangling one included, atomically with
-/// creating it, so a file that appeared after the check above is still never
-/// replaced (C-1). The `String` is the operating system's reason.
-fn write_new(path: &Path, body: &String) -> Result<(), String> {
+/// Why the request cannot be written at `path` for a template at
+/// `template`, as (code, message), or `None` when it can (plan §5.7, C-1).
+/// Decided from the file system without writing anything.
+pub fn request_location_problem(template: &Path, path: &Path) -> Option<(String, String)> {
+    let found_request: Option<PathBuf> = canonicalize(directory_of(path)).ok();
+    let found_template: Option<PathBuf> = canonicalize(directory_of(template)).ok();
+    let same: bool = match found_request {
+        None => false,
+        Some(one) => match found_template {
+            None => false,
+            Some(other) => one == other,
+        },
+    };
+    let request_name: Option<String> = name_of(path);
+    // The piece the path ends with must be the name itself: `new.json/`
+    // and `new.json/.` name no file, and step 8's write would fail only
+    // after the model had been sent (6h1: nothing is sent until every
+    // local input is valid).
+    let names_a_file: bool = match path.to_str() {
+        None => false,
+        Some(text) => match text.rsplit(std::path::is_separator).next() {
+            None => false,
+            Some(piece) => match request_name.as_ref() {
+                None => false,
+                Some(found) => piece == found,
+            },
+        },
+    };
+    if !same || !names_a_file {
+        return Some((
+            "request_location_unusable".to_string(),
+            "the request must be written in the template's directory, because a request names its template relative to itself".to_string(),
+        ));
+    }
+    match symlink_metadata(path) {
+        Ok(_found) => Some((
+            "output_exists".to_string(),
+            format!(
+                "the file {} already exists; luria never replaces a file",
+                request_name.expect("a file name"),
+            ),
+        )),
+        Err(problem) => match problem.kind() {
+            // Only a name nothing holds is free, as `write.rs`'s check
+            // is: any other failure is the operating system's own, and
+            // the write below would not have told it apart.
+            ErrorKind::NotFound => None,
+            _ => Some((
+                "request_location_unusable".to_string(),
+                format!(
+                    "cannot check whether {} already exists: {}",
+                    request_name.expect("a file name"),
+                    problem,
+                ),
+            )),
+        },
+    }
+}
+
+/// The request as `--write-request` writes it: `to_string_pretty` of the
+/// echo and one `\n`.
+pub fn request_text(echo: &RequestEcho) -> String {
+    match to_string_pretty(echo) {
+        Err(problem) => panic!("the proposed request always serializes: {}", problem),
+        Ok(found) => found + "\n",
+    }
+}
+
+/// Write `text` at `path` as a new file, never replacing one, atomically with
+/// creating it: `create_new` refuses a path something already holds, a symlink
+/// a dangling one included, so a file that appeared after the check above is
+/// still never replaced (C-1). The `String` is the operating system's reason.
+pub fn write_request_file(path: &Path, text: &str) -> Result<(), String> {
     match OpenOptions::new().write(true).create_new(true).open(path) {
         Err(problem) => Err(problem.to_string()),
-        Ok(mut handle) => match handle.write_all(body.as_bytes()) {
+        Ok(mut handle) => match handle.write_all(text.as_bytes()) {
             Err(problem) => Err(problem.to_string()),
             Ok(_) => Ok(()),
         },
@@ -510,74 +578,12 @@ pub fn interpret(input: &InterpretInput, backend: &mut dyn Backend) -> Interpret
     // sent: it sits beside the template, and its name is free.
     let request: Option<PathBuf> = match &input.write_request {
         None => None,
-        Some(written) => {
-            let found_request: Option<PathBuf> = canonicalize(directory_of(written)).ok();
-            let found_template: Option<PathBuf> = canonicalize(directory_of(&input.template)).ok();
-            let same: bool = match found_request {
-                None => false,
-                Some(one) => match found_template {
-                    None => false,
-                    Some(other) => one == other,
-                },
-            };
-            let request_name: Option<String> = name_of(written);
-            // The piece the path ends with must be the name itself: `new.json/`
-            // and `new.json/.` name no file, and step 8's write would fail only
-            // after the model had been sent (6h1: nothing is sent until every
-            // local input is valid).
-            let names_a_file: bool = match written.to_str() {
-                None => false,
-                Some(text) => match text.rsplit(std::path::is_separator).next() {
-                    None => false,
-                    Some(piece) => match request_name.as_ref() {
-                        None => false,
-                        Some(found) => piece == found,
-                    },
-                },
-            };
-            if !same || !names_a_file {
-                return refused(
-                    &answered,
-                    "request_location_unusable".to_string(),
-                    None,
-                    "the request must be written in the template's directory, because a request names its template relative to itself".to_string(),
-                    ExitStatus::MalformedInput,
-                );
+        Some(written) => match request_location_problem(&input.template, written) {
+            Some((code, message)) => {
+                return refused(&answered, code, None, message, ExitStatus::MalformedInput);
             }
-            match symlink_metadata(written) {
-                Ok(_found) => {
-                    return refused(
-                        &answered,
-                        "output_exists".to_string(),
-                        None,
-                        format!(
-                            "the file {} already exists; luria never replaces a file",
-                            request_name.expect("a file name"),
-                        ),
-                        ExitStatus::MalformedInput,
-                    );
-                }
-                Err(problem) => match problem.kind() {
-                    // Only a name nothing holds is free, as `write.rs`'s check
-                    // is: any other failure is the operating system's own, and
-                    // the write below would not have told it apart.
-                    ErrorKind::NotFound => Some(written.clone()),
-                    _ => {
-                        return refused(
-                            &answered,
-                            "request_location_unusable".to_string(),
-                            None,
-                            format!(
-                                "cannot check whether {} already exists: {}",
-                                request_name.expect("a file name"),
-                                problem,
-                            ),
-                            ExitStatus::MalformedInput,
-                        )
-                    }
-                },
-            }
-        }
+            None => Some(written.clone()),
+        },
     };
 
     // Step 5: the prompt the model is given, and the one call. `messages` is
@@ -670,13 +676,10 @@ pub fn interpret(input: &InterpretInput, backend: &mut dyn Backend) -> Interpret
             // Step 8: the request, beside the template, as a new file only. A
             // failure keeps the document as it is and leaves one line for
             // stderr: the document is still the run's answer.
-            let pretty: String = match to_string_pretty(&echo) {
-                Err(problem) => panic!("the proposed request always serializes: {}", problem),
-                Ok(found) => found + "\n",
-            };
+            let pretty: String = request_text(&echo);
             match request {
                 None => outcome(&answered, ExitStatus::Success),
-                Some(written) => match write_new(&written, &pretty) {
+                Some(written) => match write_request_file(&written, &pretty) {
                     Err(reason) => InterpretOutcome {
                         document: answered.clone(),
                         status: ExitStatus::Internal,
@@ -708,14 +711,14 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).expect("a directory");
         let path: PathBuf = dir.join("request.json");
-        assert_eq!(write_new(&path, &"first".to_string()), Ok(()));
-        assert!(write_new(&path, &"second".to_string()).is_err());
+        assert_eq!(write_request_file(&path, "first"), Ok(()));
+        assert!(write_request_file(&path, "second").is_err());
         assert_eq!(std::fs::read_to_string(&path).expect("readable"), "first");
         #[cfg(unix)]
         {
             let link: PathBuf = dir.join("link.json");
             std::os::unix::fs::symlink(dir.join("nowhere.json"), &link).expect("a link");
-            assert!(write_new(&link, &"x".to_string()).is_err());
+            assert!(write_request_file(&link, "x").is_err());
             assert!(!dir.join("nowhere.json").exists());
         }
         let _ = std::fs::remove_dir_all(&dir);
