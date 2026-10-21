@@ -1,6 +1,6 @@
 # Milestone 7i1: the mutant reading frame, in luria-core
 
-Status: **Ready for the worker, 2026-10-21.** Planner: Claude. Parent:
+Status: **Implemented 2026-10-21.** Proofs 1-4 failed as required. Refusals: split CDS `UnsupportedFeatureStructure`; first base in the edit `MutationVerificationFailure`; reversed edit or window `ReversedInterval`. The `?` rule is implemented but no fixture row exercises it. Planner: Claude. Parent:
 `docs/tasks/milestone-7-tui.md` §5.3a (owner answers M7-18, M7-20, M7-21).
 The expected values are in `tests/fixtures/review/frame.tsv`, written by
 `tests/fixtures/review/reference/frame.py` (read its docstring: it is the
