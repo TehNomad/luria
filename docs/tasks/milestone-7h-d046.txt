@@ -42,15 +42,19 @@ Decision:
   never submits an order.
 * **Dependencies** (M7-2, M7-5). `luria-cli` may depend on `ratatui` and
   `crossterm`. They are vendored by the owner outside the development
-  sandbox (`cargo vendor`, ignored in git, M7-9, M7-14). `luria-core` and
-  `luria-nl` are unchanged.
+  sandbox (`cargo vendor`, ignored in git, M7-9, M7-14). `luria-nl` is
+  unchanged; `luria-core` gains only `frame::mutant_residues` (M7-21),
+  with no dependency.
 * **Tested without a terminal.** State, text and drawing are pure and
   tested on a test backend; the terminal session is checked by the owner
-  by hand. The sequence-context layouts are fixed by
+  by hand. The member-screen layouts and mutant reading frames are fixed by
   `tests/fixtures/review/`, written from independently verified
-  `tests/fixtures/q5-primer/` rows.
+  `tests/fixtures/q5-primer/` rows by scripts that splice and translate
+  on their own.
 
 Reversibility:
 
 Adding an editing screen, a new export format or vendor, a default scale
 or purification, or any value the screens compute needs approval.
+The member screen's layout (M7-16 to M7-22) is the owner's, after using
+the first version.

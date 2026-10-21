@@ -82,7 +82,8 @@ After `Build the TUI around the same application capabilities and typed
 operations.` add a blank line and:
 
 ```
-Implemented: luria review, its result, proposal, context, provenance and
+Implemented: luria review, its result, proposal, member (sequence and
+mutant protein), technical, provenance and
 export screens, and an IDT order table, docs/cli.md section 11 (D046).
 ```
 

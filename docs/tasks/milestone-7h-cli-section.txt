@@ -26,15 +26,20 @@ are on the top two rows of every screen.
 
 | Screen | What it shows | Keys |
 | --- | --- | --- |
-| Overview | The template, the target CDS, the operation, its warnings, one row per member with its mutation and whether it was designed | `j`/`k` move, `enter` open, `p` provenance, `e` problem, `x` export |
-| Member | The edit, its warnings, and each primer 5'->3' with its parts, Tm and warnings; or why no pair was designed | `c` context, `j`/`k` scroll |
-| Context | The template around the primers, the forward primer above it, the reverse primer below it written 3'->5', annealing bases in upper case, `^` under edited bases and `+` at an insertion point | |
+| Overview | The template, the target CDS, any operation warnings, one row per member with its mutation and whether it was designed | `j`/`k` move, `enter` open, `p` provenance, `e` problem, `x` export |
+| Member | The forward primer above the top strand, the mutant protein between the strands, the bottom strand, the reverse primer below it written 3'->5'; edited bases and primer bases that do not anneal in lower case; then each primer 5'->3' with its length and Tm, the annealing temperature and any warnings by code | `t` technical, `i` expand or collapse a long insertion, `j`/`k` scroll |
+| Technical | The edit, its warnings, and each primer with its parts, Tm basis and warnings; or why no pair was designed | `j`/`k` scroll |
 | Provenance | The package, every algorithm and version, the request and template digests, what a GenBank record imported and did not, the buffer | `j`/`k` scroll |
 | Problem | The error and its details, or the clarifications and candidates | `p` provenance |
 
 `esc` goes back, and quits from the overview; `q` quits from anywhere;
-`PgUp`, `PgDn` and `Home` scroll. The context screen reads the template
+`PgUp`, `PgDn` and `Home` scroll. The member screen reads the template
 again and draws it only when its digest is the one the result reports.
+The protein is the one luria-core reads from the edited construct, in
+the CDS's frame, on past a frameshift, ending at the first stop codon;
+the construct is used only when its digest is the member's. An
+insertion longer than 30 bases is shown by its boundaries until `i`
+expands it, and starts collapsed each time the screen opens.
 
 ### 11.2 A request in words
 
