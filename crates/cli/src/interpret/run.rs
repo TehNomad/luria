@@ -40,7 +40,7 @@ use luria_nl::extraction::{parse_extraction, Extraction};
 use luria_nl::prompt::{prompt, CdsLine, CdsState, Prompt, PROMPT_VERSION};
 use serde_json::{to_string, to_string_pretty};
 use std::fs::{canonicalize, symlink_metadata, OpenOptions};
-use std::io::{Read, Write};
+use std::io::{ErrorKind, Read, Write};
 use std::path::{Path, PathBuf};
 
 /// The most bytes read of each input (plan §5.7, review item B-8).
@@ -414,17 +414,28 @@ pub fn interpret(input: &InterpretInput, backend: &mut dyn Backend) -> Interpret
 
     // Step 3: the template: its name alone, its bytes, its FASTA refusal, then
     // the record and its CDS catalogue.
-    let file: String = match name_of(&input.template) {
+    let file: String = match input.template.file_name() {
         None => {
             return refused(
                 &answered,
                 "template_unreadable".to_string(),
                 None,
-                "the template file's name is not UTF-8".to_string(),
+                "the template path names no file".to_string(),
                 ExitStatus::MalformedInput,
             );
         }
-        Some(found) => found.clone(),
+        Some(found) => match found.to_str() {
+            None => {
+                return refused(
+                    &answered,
+                    "template_unreadable".to_string(),
+                    None,
+                    "the template file's name is not UTF-8".to_string(),
+                    ExitStatus::MalformedInput,
+                );
+            }
+            Some(kept) => kept.to_string(),
+        },
     };
     let contents: String = match read_capped(&input.template, MAX_TEMPLATE_BYTES) {
         Err(ReadFailure::Io(reason)) => {
@@ -510,7 +521,21 @@ pub fn interpret(input: &InterpretInput, backend: &mut dyn Backend) -> Interpret
                 },
             };
             let request_name: Option<String> = name_of(written);
-            if !same || request_name.is_none() {
+            // The piece the path ends with must be the name itself: `new.json/`
+            // and `new.json/.` name no file, and step 8's write would fail only
+            // after the model had been sent (6h1: nothing is sent until every
+            // local input is valid).
+            let names_a_file: bool = match written.to_str() {
+                None => false,
+                Some(text) => match text.rsplit(std::path::is_separator).next() {
+                    None => false,
+                    Some(piece) => match request_name.as_ref() {
+                        None => false,
+                        Some(found) => piece == found,
+                    },
+                },
+            };
+            if !same || !names_a_file {
                 return refused(
                     &answered,
                     "request_location_unusable".to_string(),
@@ -532,7 +557,25 @@ pub fn interpret(input: &InterpretInput, backend: &mut dyn Backend) -> Interpret
                         ExitStatus::MalformedInput,
                     );
                 }
-                Err(_problem) => Some(written.clone()),
+                Err(problem) => match problem.kind() {
+                    // Only a name nothing holds is free, as `write.rs`'s check
+                    // is: any other failure is the operating system's own, and
+                    // the write below would not have told it apart.
+                    ErrorKind::NotFound => Some(written.clone()),
+                    _ => {
+                        return refused(
+                            &answered,
+                            "request_location_unusable".to_string(),
+                            None,
+                            format!(
+                                "cannot check whether {} already exists: {}",
+                                request_name.expect("a file name"),
+                                problem,
+                            ),
+                            ExitStatus::MalformedInput,
+                        )
+                    }
+                },
             }
         }
     };
@@ -659,8 +702,9 @@ mod tests {
     // write is checked on its own.
     #[test]
     fn a_write_never_replaces_a_file() {
-        let dir: PathBuf =
-            std::env::temp_dir().join(format!("luria-write-new-{}", std::process::id()));
+        let dir: PathBuf = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../target/tmp")
+            .join(format!("luria-write-new-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).expect("a directory");
         let path: PathBuf = dir.join("request.json");

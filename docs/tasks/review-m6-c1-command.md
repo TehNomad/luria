@@ -1,6 +1,7 @@
 # Review M6 C-1, C-2, C-3, C-6, C-8: the command's local checks
 
-Status: **Ready for the worker.** Planner: Claude. Parent:
+Status: **Implemented 2026-10-21** by the local worker; accepted on planner
+review. Planner: Claude. Parent:
 `docs/tasks/review-post-m6.md` C-1, C-2, C-3, C-6, C-8. Owner, 2026-10-20:
 "Go ahead and fix them".
 

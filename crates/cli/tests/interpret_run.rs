@@ -482,6 +482,158 @@ fn every_local_input_is_checked_before_anything_is_sent() {
     assert_eq!(backend.prompts().len(), 1);
 }
 
+#[test]
+fn every_capped_or_odd_input_is_checked_before_anything_is_sent() {
+    let dir: PathBuf = workspace("caps");
+    fs::write(dir.join("long.txt"), vec![b'a'; 8 * 1024 + 1]).expect("written");
+    fs::write(dir.join("big-profile.json"), vec![b' '; 64 * 1024 + 1]).expect("written");
+    let latin1: Vec<u8> = [0x41, 0xe9, 0x0a].to_vec();
+    for name in ["latin1.txt", "latin1-profile.json", "latin1.gb"] {
+        fs::write(dir.join(name), latin1.clone()).expect("written");
+    }
+    let text: String = text_of("one-sub-prose");
+    let base = || input(&dir, &text, true, None);
+    let cases: Vec<LocalCase> = vec![
+        (
+            "text file over the cap",
+            InterpretInput {
+                text: TextSource::File(dir.join("long.txt")),
+                ..base()
+            },
+            ExitStatus::MalformedInput,
+            "input_too_large",
+        ),
+        (
+            "profile over the cap",
+            InterpretInput {
+                profile: Some(dir.join("big-profile.json")),
+                ..base()
+            },
+            ExitStatus::MalformedInput,
+            "input_too_large",
+        ),
+        (
+            "text not UTF-8",
+            InterpretInput {
+                text: TextSource::File(dir.join("latin1.txt")),
+                ..base()
+            },
+            ExitStatus::MalformedInput,
+            "text_unreadable",
+        ),
+        (
+            "profile not UTF-8",
+            InterpretInput {
+                profile: Some(dir.join("latin1-profile.json")),
+                ..base()
+            },
+            ExitStatus::MalformedInput,
+            "profile_unreadable",
+        ),
+        (
+            "template not UTF-8",
+            InterpretInput {
+                template: dir.join("latin1.gb"),
+                ..base()
+            },
+            ExitStatus::MalformedInput,
+            "template_unreadable",
+        ),
+        (
+            "template names no file",
+            InterpretInput {
+                template: dir.join(".."),
+                ..base()
+            },
+            ExitStatus::MalformedInput,
+            "template_unreadable",
+        ),
+        (
+            "request ends in a separator",
+            InterpretInput {
+                write_request: Some(dir.join("new.json/")),
+                ..base()
+            },
+            ExitStatus::MalformedInput,
+            "request_location_unusable",
+        ),
+        (
+            "request ends in a dot",
+            InterpretInput {
+                write_request: Some(dir.join("new.json").join(".")),
+                ..base()
+            },
+            ExitStatus::MalformedInput,
+            "request_location_unusable",
+        ),
+    ];
+    for case in cases {
+        let mut backend: ScriptedBackend = scripted(vec![reply_of("one-sub-prose")]);
+        let outcome: InterpretOutcome = interpret(&case.1, &mut backend);
+        assert_eq!(outcome.status, case.2, "{}", case.0);
+        assert_eq!(outcome.document.state, "failed", "{}", case.0);
+        assert_eq!(error_code(&outcome), case.3, "{}", case.0);
+        assert!(
+            backend.prompts().is_empty(),
+            "{}: something was sent",
+            case.0
+        );
+        assert_eq!(outcome.document.interpretation.messages, None, "{}", case.0);
+        let rendered: String = render_interpretation(&outcome.document);
+        assert!(
+            !rendered.contains(env!("CARGO_TARGET_TMPDIR")),
+            "{}",
+            case.0
+        );
+    }
+    let mut backend: ScriptedBackend = scripted(vec![reply_of("one-sub-prose")]);
+    let names_no_file: InterpretOutcome = interpret(
+        &InterpretInput {
+            template: dir.join(".."),
+            ..base()
+        },
+        &mut backend,
+    );
+    assert_eq!(
+        names_no_file
+            .document
+            .error
+            .as_ref()
+            .expect("an error")
+            .message,
+        "the template path names no file".to_string()
+    );
+    assert!(
+        backend.prompts().is_empty(),
+        "template names no file: something was sent"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn a_proposal_whose_write_fails_is_still_shown_and_exits_1() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir: PathBuf = workspace("write-fails");
+    fs::set_permissions(&dir, fs::Permissions::from_mode(0o555))
+        .expect("the workspace is not writable");
+    let mut backend: ScriptedBackend = scripted(vec![reply_of("one-sub-prose")]);
+    let outcome: InterpretOutcome = interpret(
+        &input(&dir, &text_of("one-sub-prose"), true, Some("proposal.json")),
+        &mut backend,
+    );
+    fs::set_permissions(&dir, fs::Permissions::from_mode(0o755))
+        .expect("the workspace is writable again");
+    assert_eq!(outcome.status, ExitStatus::Internal);
+    assert_eq!(outcome.document.state, "proposed");
+    assert!(outcome.document.request.is_some());
+    let note = outcome.note.as_ref().expect("a line for stderr");
+    assert!(
+        note.starts_with("could not write proposal.json"),
+        "the note names the file that could not be written"
+    );
+    assert!(!dir.join("proposal.json").exists());
+}
+
 #[cfg(unix)]
 #[test]
 fn a_dangling_link_is_a_file_already_there() {
