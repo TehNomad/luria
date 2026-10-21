@@ -17,7 +17,7 @@ wrote them in contract 7d0, on 2026-10-21.
 | `reference/order.py` | writes it, and checks it with `--check` | |
 
 The template is the SID-1 cDNA, `../example-construct/input/sid-1_cDNA.fa`,
-named `sid-1` in the request, except for `ins-04`, whose 99-base template is
+named `sid-1` in the request, except for `ins-04`, whose 100-base template is
 the `seq:` column of its row, named `syn`. `ins-04` was added after 7d's
 review, because no other design here has a reverse tail; the planner checked
 that a `q5 design` run of it gives the row's own two primers. Each design's member is named by its row's

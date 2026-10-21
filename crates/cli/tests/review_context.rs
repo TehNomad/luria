@@ -136,6 +136,37 @@ fn context_of(test: &str, name: &str, edit: Value, bound: u64) -> String {
     written(&text::context(&document, 0, Some(&bases(&document, &path))))
 }
 
+/// The `template` column of one row of `tests/fixtures/q5-primer/native-insertion.tsv`,
+/// found by its `case_id` column and read at test time, without its `seq:` prefix.
+fn synthetic(row: &str) -> String {
+    let text = fs::read_to_string("../../tests/fixtures/q5-primer/native-insertion.tsv").unwrap();
+    let mut at: usize = 0;
+    for (index, name) in text
+        .lines()
+        .next()
+        .expect("a header")
+        .split('\t')
+        .enumerate()
+    {
+        if name == "template" {
+            at = index;
+        }
+    }
+    for line in text.lines().skip(1) {
+        let fields: Vec<&str> = line.split('\t').collect();
+        if fields[0] == row {
+            let column: &str = fields[at];
+            assert!(
+                column.starts_with("seq:"),
+                "row {} gives a template file, not a sequence",
+                row
+            );
+            return column["seq:".len()..].to_string();
+        }
+    }
+    panic!("no row {} in native-insertion.tsv", row)
+}
+
 /// The replacement `native.tsv` row `native-01` records.
 fn native_edit() -> Value {
     json!({ "replacement": { "interval": [1209, 1212], "from": "GAT", "to": "AAC" } })
@@ -168,6 +199,63 @@ fn the_ins_14_context_is_the_fixture() {
         context_of("ins-14", "ins-14", edit, 15),
         fixture("context-ins-14.txt"),
         "an insertion's tail sits left of its forward annealing span, and `+` marks the point"
+    );
+}
+
+#[test]
+fn the_ins_04_context_is_the_fixture() {
+    // `native-insertion.tsv` row `ins-04`: seven bases inserted at 50 on the row's
+    // own synthetic template, named `syn`. Seven is past the six a single tail
+    // takes, so the forward primer keeps the last four bases as its tail and the
+    // reverse primer takes the first three, written right of its annealing span.
+    let template: String = synthetic("ins-04");
+    let point: usize = 50;
+    let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("review-context-ins-04");
+    let _ = fs::remove_dir_all(&dir);
+    fs::create_dir_all(&dir).unwrap();
+    fs::write(dir.join("syn.fa"), format!(">syn\n{}\n", template)).unwrap();
+    let path = dir.join("request.json");
+    fs::write(
+        &path,
+        json!({
+            "schema": "luria.q5-request/1",
+            "coordinates": "zero-based-half-open",
+            "template": {
+                "id": "syn",
+                "fasta": "syn.fa",
+                "topology": "linear",
+                "cds": [{
+                    "id": "syn",
+                    "intervals": [[0, 99]],
+                    "strand": "+",
+                    "completeness": "complete",
+                    "geneticCode": "standard",
+                    "numbering": "from-cds-start"
+                }]
+            },
+            "edit": {
+                "name": "ins-04",
+                "insertion": {
+                    "point": point,
+                    "before": template[point - 1..point].to_string(),
+                    "after": template[point..point + 1].to_string(),
+                    "insert": "GATTACA"
+                }
+            },
+            "design": design()
+        })
+        .to_string(),
+    )
+    .unwrap();
+    let document: ResultDocument = run(&path).document;
+    let letters: Vec<char> = bases(&document, &path);
+    assert_eq!(letters.len(), 100, "the row's template column is 100 bases");
+    assert_eq!(document.state, "verified", "ins-04");
+    assert_eq!(document.results.len(), 1, "ins-04");
+    assert_eq!(
+        written(&text::context(&document, 0, Some(&letters))),
+        fixture("context-ins-04.txt"),
+        "both primers get a tail, the reverse one written right of its annealing span"
     );
 }
 
