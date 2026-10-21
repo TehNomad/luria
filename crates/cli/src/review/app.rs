@@ -1,9 +1,10 @@
-//! The state of the review screen (milestone 7b): the result document, which
-//! screen is open, which member is highlighted, and what each key does. No I/O
+//! The state of the review screen (milestone 7b, 7c3): the result document,
+//! which screen is open, which member is highlighted, how far the open screen is
+//! scrolled, and what each key does. No I/O
 //! and no terminal types are here, so the rule is testable without a terminal
 //! (plan §5.1); `terminal` maps crossterm's events to `Key` and carries out the
 //! `Action`. The screens themselves are drawn by `view` (7c, 7d), which reads
-//! `screen()` and `selected()`. Nothing scientific is computed: the app reads
+//! `screen()`, `selected()` and `scroll()`. Nothing scientific is computed: the app reads
 //! only how many entries `results` has, whether `error` is `Some`, and whether
 //! `clarifications` is empty (plan §3 rule 1).
 
@@ -15,6 +16,9 @@ pub enum Key {
     Char(char),
     Up,
     Down,
+    PageUp,
+    PageDown,
+    Home,
     Enter,
     Backspace,
     Esc,
@@ -39,13 +43,14 @@ pub enum Screen {
     Problem,
 }
 
-/// The screen's state: the result document to show, the open screen, and the
-/// member highlighted on the overview.
+/// The screen's state: the result document to show, the open screen, the member
+/// highlighted on the overview, and how far the open screen is scrolled.
 #[derive(Clone, Debug, PartialEq)]
 pub struct App {
     document: ResultDocument,
     screen: Screen,
     selected: usize,
+    scroll: usize,
 }
 
 impl App {
@@ -60,6 +65,7 @@ impl App {
                 Screen::Overview
             },
             selected: 0,
+            scroll: 0,
             document,
         }
     }
@@ -77,10 +83,20 @@ impl App {
         self.selected
     }
 
+    /// How far the open screen's body is scrolled. The app does not know how
+    /// many lines a screen has, so this has no upper bound: `view` clamps it
+    /// to the screen's own lines (7c3 §3.1 rule 5).
+    pub fn scroll(&self) -> usize {
+        self.scroll
+    }
+
     /// `q` quits from every screen. Every other key follows the table of §3.3:
     /// `Esc` and `Backspace` go back, `Enter` opens the selected member, `j`
     /// `k` `c` `p` `e` move, and any other key changes nothing. The selection
-    /// does not wrap, and `Q` is not quit.
+    /// does not wrap, and `Q` is not quit. On the overview `Up` `Down` `j` `k`
+    /// move the selection, so only `PageUp` `PageDown` `Home` scroll there; on
+    /// every screen below it they scroll the body, and a screen change puts the
+    /// new screen at its top (7c3 §3.1).
     pub fn handle(&mut self, key: Key) -> Action {
         if key == Key::Char('q') {
             return Action::Quit;
@@ -90,18 +106,42 @@ impl App {
         let n: usize = self.document.results.len();
         let has_problem: bool =
             self.document.error.is_some() || !self.document.clarifications.is_empty();
+        let opened: Screen = self.screen;
 
         match (self.screen, key) {
             (Screen::Overview, Key::Esc) => return Action::Quit,
             (Screen::Overview, Key::Up | Key::Char('k')) => {
                 self.selected = self.selected.saturating_sub(1);
             }
-            (Screen::Overview, Key::Down | Key::Char('j')) if n > 0 => {
-                self.selected = (self.selected + 1).min(n - 1);
+            (Screen::Overview, Key::Down | Key::Char('j')) => {
+                if n > 0 {
+                    self.selected = (self.selected + 1).min(n - 1);
+                }
             }
             (Screen::Overview, Key::Enter) if n > 0 => self.screen = Screen::Member(self.selected),
             (Screen::Overview, Key::Char('p')) => self.screen = Screen::Provenance,
             (Screen::Overview, Key::Char('e')) if has_problem => self.screen = Screen::Problem,
+            // `PageUp` `PageDown` `Home` scroll on every screen, the overview
+            // included (7c3 §3.1 rule 3).
+            (Screen::Overview, Key::PageUp | Key::PageDown | Key::Home) => self.page(key),
+            // Below the overview there is no selection to move, so `j` `k` and
+            // the arrows scroll as well.
+            (
+                Screen::Member(_) | Screen::Context(_) | Screen::Provenance | Screen::Problem,
+                Key::PageUp | Key::PageDown | Key::Home,
+            ) => self.page(key),
+            (
+                Screen::Member(_) | Screen::Context(_) | Screen::Provenance | Screen::Problem,
+                Key::Down | Key::Char('j'),
+            ) => {
+                self.scroll += 1;
+            }
+            (
+                Screen::Member(_) | Screen::Context(_) | Screen::Provenance | Screen::Problem,
+                Key::Up | Key::Char('k'),
+            ) => {
+                self.scroll = self.scroll.saturating_sub(1);
+            }
             (Screen::Member(i), Key::Char('c')) => self.screen = Screen::Context(i),
             (Screen::Member(i), Key::Esc | Key::Backspace) => {
                 self.screen = Screen::Overview;
@@ -113,7 +153,22 @@ impl App {
             (Screen::Problem, Key::Char('p')) => self.screen = Screen::Provenance,
             _ => {}
         }
+        // A screen change starts at the top of the new screen (7c3 §3.1 rule 4).
+        if self.screen != opened {
+            self.scroll = 0;
+        }
         Action::Continue
+    }
+
+    /// One page key's effect on the scroll: `PageDown` adds 10, `PageUp`
+    /// subtracts 10 and never goes below 0, `Home` is 0 (7c3 §3.1 rule 3).
+    fn page(&mut self, key: Key) {
+        self.scroll = match key {
+            Key::PageDown => self.scroll.saturating_add(10),
+            Key::PageUp => self.scroll.saturating_sub(10),
+            Key::Home => 0,
+            _ => self.scroll,
+        };
     }
 }
 
@@ -344,5 +399,68 @@ mod tests {
         let mut app: App = App::new(document_with_error());
         assert_eq!(app.screen(), Screen::Problem);
         assert_eq!(app.handle(Key::Esc), Action::Continue);
+    }
+
+    #[test]
+    fn scrolling_moves_and_stops_at_zero() {
+        let mut app: App = App::new(document_with(2));
+        assert_eq!(app.handle(Key::Char('p')), Action::Continue);
+        assert_eq!(app.screen(), Screen::Provenance);
+        assert_eq!(app.scroll(), 0);
+        for _ in 0..3 {
+            app.handle(Key::Down);
+        }
+        assert_eq!(app.scroll(), 3, "`Down` moves one line at a time");
+        for _ in 0..5 {
+            app.handle(Key::Up);
+        }
+        assert_eq!(app.scroll(), 0, "`Up` never takes the scroll below 0");
+        app.handle(Key::PageUp);
+        assert_eq!(app.scroll(), 0, "`PageUp` never goes below 0 either");
+        app.handle(Key::PageDown);
+        assert_eq!(app.scroll(), 10);
+        app.handle(Key::Home);
+        assert_eq!(app.scroll(), 0, "`Home` is the top");
+        app.handle(Key::PageDown);
+        app.handle(Key::PageDown);
+        app.handle(Key::PageUp);
+        assert_eq!(app.scroll(), 10, "`PageUp` subtracts 10");
+    }
+
+    #[test]
+    fn changing_screen_resets_the_scroll() {
+        let mut app: App = App::new(document_with(2));
+        app.handle(Key::Enter);
+        assert_eq!(app.screen(), Screen::Member(0));
+        for _ in 0..3 {
+            app.handle(Key::Char('j'));
+        }
+        assert_eq!(app.scroll(), 3);
+        assert_eq!(app.handle(Key::Char('c')), Action::Continue);
+        assert_eq!(app.screen(), Screen::Context(0));
+        assert_eq!(app.scroll(), 0, "the new screen opens at its top");
+        app.handle(Key::PageDown);
+        assert_eq!(app.handle(Key::Esc), Action::Continue);
+        assert_eq!(app.screen(), Screen::Member(0));
+        assert_eq!(app.scroll(), 0, "going back opens the screen at its top");
+    }
+
+    #[test]
+    fn overview_keys_still_move_the_selection() {
+        // 7b's rule, proved with the scroll keys added: on the overview `j` `k`
+        // and the arrows move the selection, and only the page keys scroll.
+        let mut app: App = App::new(document_with(3));
+        for key in [Key::Down, Key::Char('j'), Key::Char('k'), Key::Up] {
+            app.handle(key);
+        }
+        assert_eq!(app.selected(), 0);
+        assert_eq!(app.scroll(), 0, "the arrows do not scroll the overview");
+        app.handle(Key::Down);
+        app.handle(Key::Down);
+        assert_eq!(app.selected(), 2);
+        assert_eq!(app.scroll(), 0);
+        app.handle(Key::PageDown);
+        assert_eq!(app.scroll(), 10, "the page keys scroll the overview");
+        assert_eq!(app.selected(), 2, "and do not move the selection");
     }
 }

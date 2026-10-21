@@ -1,8 +1,10 @@
 //! `luria review`'s screen, drawn on a `ratatui` test backend and read back as
-//! rows (milestone 7a). Every row the screen asserts is the document's own
+//! rows (milestone 7a, 7c3). Every row the screen asserts is the document's own
 //! text: the state and the experimental validation come from the result the CLI
 //! runs, never from a literal typed into the view (plan §3 rule 1, §3 rule 3),
-//! and the size rule is §3.2's.
+//! and the size rule is §3.2's. The body rows come from `text`'s own functions
+//! applied to the same document, so a row is checked against the line the screen
+//! must show, not against what running the screen gave.
 //!
 //! The result documents are `luria_cli::run::run` on `edit-a42g.json` against
 //! `synthetic-linear.gb`, in a directory under `CARGO_TARGET_TMPDIR` as
@@ -13,7 +15,8 @@
 //! could not be prepared.
 
 use luria_cli::result::ResultDocument;
-use luria_cli::review::app::App;
+use luria_cli::review::app::{App, Key, Screen};
+use luria_cli::review::text;
 use luria_cli::review::view;
 use luria_cli::run::run;
 use ratatui::backend::TestBackend;
@@ -80,6 +83,41 @@ fn screen(app: &App, width: u16, height: u16) -> Vec<String> {
         .collect()
 }
 
+/// The two-variant set, as `tests/review_text.rs`'s `set` builds it:
+/// `variants-separate.json` beside a copy of `synthetic-linear.gb`.
+fn set(test: &str) -> ResultDocument {
+    let dir = workspace(test);
+    fs::copy(
+        "../../tests/fixtures/nl/request/variants-separate.json",
+        dir.join("request.json"),
+    )
+    .unwrap();
+    let document: ResultDocument = run(&dir.join("request.json")).document;
+    assert_eq!(document.state, "verified");
+    assert_eq!(document.results.len(), 2);
+    document
+}
+
+/// `app` with `keys` handled, so each screen is reached the way the terminal
+/// reaches it, through keys.
+fn opened(document: &ResultDocument, keys: &[Key]) -> App {
+    let mut app: App = App::new(document.clone());
+    for key in keys {
+        app.handle(*key);
+    }
+    app
+}
+
+/// A line as the screen shows it: cut at `width` characters, not wrapped, with
+/// the padding the test backend pads the row with removed.
+fn shown(line: &str, width: usize) -> String {
+    let cut: String = line.chars().take(width).collect::<String>();
+    cut.trim_end().to_string()
+}
+
+/// The body's rows at 80x24: rows 3 to `height - 2`, so 20 of the 24 rows.
+const BODY_ROWS: usize = 20;
+
 #[test]
 fn the_state_and_validation_are_on_screen() {
     let app = App::new(verified("on_screen"));
@@ -98,7 +136,10 @@ fn the_state_and_validation_are_on_screen() {
             .count(),
         1
     );
-    assert_eq!(screen.last().unwrap(), "q quit");
+    assert_eq!(
+        screen.last().unwrap(),
+        "q quit  enter open  j/k move  p provenance"
+    );
 }
 
 #[test]
@@ -155,5 +196,168 @@ fn the_screen_shows_the_document_not_a_literal() {
         screen.contains(&"experimental validation: performed elsewhere".to_string()),
         "{:?}",
         screen
+    );
+}
+
+#[test]
+fn every_screen_keeps_the_banner() {
+    let document: ResultDocument = set("banner");
+    let banner: Vec<String> = vec![
+        format!("state: {}", document.state),
+        format!(
+            "experimental validation: {}",
+            document.experimental_validation
+        ),
+    ];
+    for (name, app, expected) in [
+        ("overview", opened(&document, &[]), Screen::Overview),
+        (
+            "member",
+            opened(&document, &[Key::Enter]),
+            Screen::Member(0),
+        ),
+        (
+            "context",
+            opened(&document, &[Key::Enter, Key::Char('c')]),
+            Screen::Context(0),
+        ),
+        (
+            "provenance",
+            opened(&document, &[Key::Char('p')]),
+            Screen::Provenance,
+        ),
+    ] {
+        assert_eq!(app.screen(), expected, "the {} screen is open", name);
+        let rows: Vec<String> = screen(&app, 80, 24);
+        assert_eq!(
+            &rows[0..2],
+            &banner[..],
+            "the banner is rows 0 and 1 of the {} screen: {:?}",
+            name,
+            &rows[0..2]
+        );
+    }
+}
+
+#[test]
+fn the_body_is_the_text_of_the_screen() {
+    let document: ResultDocument = set("body_text");
+    let lines: Vec<String> = text::provenance(&document);
+    let app: App = opened(&document, &[Key::Char('p')]);
+    assert_eq!(app.screen(), Screen::Provenance);
+    let rows: Vec<String> = screen(&app, 80, 24);
+    assert_eq!(rows[2], "", "row 2 is blank");
+    for row in 0..BODY_ROWS {
+        let expected: String = lines
+            .get(row)
+            .map(|line| shown(line, 80))
+            .unwrap_or_default();
+        assert_eq!(
+            rows[3 + row],
+            expected,
+            "body row {} shows the screen's line {}",
+            3 + row,
+            row
+        );
+    }
+}
+
+#[test]
+fn a_long_screen_scrolls_and_says_where() {
+    let document: ResultDocument = set("long_scroll");
+    let lines: Vec<String> = text::member(&document, 0);
+    assert!(
+        lines.len() > BODY_ROWS,
+        "the member screen must be longer than the {} body rows: {} lines",
+        BODY_ROWS,
+        lines.len()
+    );
+    let n: usize = lines.len();
+    let app: App = opened(&document, &[Key::Enter, Key::PageDown]);
+    assert_eq!(app.screen(), Screen::Member(0));
+    let rows: Vec<String> = screen(&app, 80, 24);
+    let first: usize = 10.min(n - BODY_ROWS);
+    assert_eq!(
+        rows[3],
+        shown(&lines[first], 80),
+        "the first body row is line {} of the screen: {:?}",
+        first,
+        rows[3]
+    );
+    let key_line: &String = &rows[23];
+    assert!(
+        key_line.ends_with(&format!(
+            "  lines {}-{} of {}",
+            first + 1,
+            first + BODY_ROWS,
+            n
+        )),
+        "the key line says where the body is: {:?}",
+        key_line
+    );
+    assert!(
+        key_line.starts_with("q quit  esc back  c context  j/k scroll"),
+        "the member's keys are on the key line: {:?}",
+        key_line
+    );
+}
+
+#[test]
+fn scrolling_past_the_end_stops_at_the_last_page() {
+    let document: ResultDocument = set("last_page");
+    let lines: Vec<String> = text::member(&document, 0);
+    let n: usize = lines.len();
+    assert!(
+        n > BODY_ROWS,
+        "the screen is longer than the body: {} lines",
+        n
+    );
+    let mut app: App = App::new(document);
+    app.handle(Key::Enter);
+    for _ in 0..100 {
+        app.handle(Key::PageDown);
+    }
+    assert_eq!(app.screen(), Screen::Member(0));
+    let rows: Vec<String> = screen(&app, 80, 24);
+    let first: usize = n - BODY_ROWS;
+    assert_eq!(
+        rows[3 + BODY_ROWS - 1],
+        shown(&lines[n - 1], 80),
+        "the last body row is the screen's last line: {:?}",
+        rows[3 + BODY_ROWS - 1]
+    );
+    assert_eq!(
+        rows[23],
+        format!(
+            "q quit  esc back  c context  j/k scroll  lines {}-{} of {}",
+            first + 1,
+            first + BODY_ROWS,
+            n
+        ),
+        "the key line says the last page: {:?}",
+        rows[23]
+    );
+}
+
+#[test]
+fn the_key_line_offers_problem_only_with_a_problem() {
+    // The set: `verified`, with no error and no clarification, so the overview
+    // offers no problem screen.
+    let rows: Vec<String> = screen(&App::new(set("key_line_set")), 80, 24);
+    assert_eq!(
+        rows[23], "q quit  enter open  j/k move  p provenance",
+        "{:?}",
+        rows[23]
+    );
+
+    // A `failed` result opens on the problem screen; from the overview, the key
+    // that goes back to it is offered, because a problem is never hidden.
+    let app: App = opened(&failed("key_line_failed"), &[Key::Esc]);
+    assert_eq!(app.screen(), Screen::Overview);
+    let rows: Vec<String> = screen(&app, 80, 24);
+    assert_eq!(
+        rows[23], "q quit  enter open  j/k move  p provenance  e problem",
+        "{:?}",
+        rows[23]
     );
 }

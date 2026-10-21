@@ -1,9 +1,14 @@
-//! The review screen's drawing (milestone 7a): the result's state, its
-//! experimental validation and the quit key, read from the document and the
-//! frame's area only. Pure: no I/O, so a test can draw it on a test backend and
-//! read the rows back (plan §5.1).
+//! The review screen's drawing (milestone 7a, 7c3): the result's state, its
+//! experimental validation, the open screen's lines and that screen's keys, read
+//! from the document, the app and the frame's area only. Pure: no I/O, so a test
+//! can draw it on a test backend and read the rows back (plan §5.1).
+//!
+//! `text` builds each screen's lines (7c1, 7c2); the view draws them as they are
+//! and adds only the banner, the key line and the scroll position (plan §3 rule
+//! 1). Nothing is wrapped, so a primer's row never moves.
 
-use crate::review::app::App;
+use crate::review::app::{App, Screen};
+use crate::review::text;
 use ratatui::layout::Rect;
 use ratatui::text::Line;
 use ratatui::widgets::Paragraph;
@@ -16,9 +21,10 @@ pub const MIN_HEIGHT: u16 = 24;
 
 /// Draw `app` into `frame`. Below `MIN_WIDTH` by `MIN_HEIGHT`, the screen says
 /// how small it is and shows nothing of the document; at that size or larger,
-/// the state and the experimental validation are the first two rows and the
-/// quit key is the last row. Every value is the document's own (plan §3 rule
-/// 1, §3 rule 3).
+/// rows 0 and 1 are the state and the experimental validation, rows 3 to
+/// `height - 2` the open screen's lines, scrolled when they are longer than the
+/// body, and the last row that screen's keys. Every value is the document's own
+/// (plan §3 rule 1, §3 rule 3).
 pub fn draw(frame: &mut Frame, app: &App) {
     let area: Rect = frame.area();
 
@@ -32,16 +38,62 @@ pub fn draw(frame: &mut Frame, app: &App) {
     }
 
     let document = app.document();
-    let lines: Vec<Line<'static>> = vec![
+    let banner: Vec<Line<'static>> = vec![
         Line::from(format!("state: {}", document.state)),
         Line::from(format!(
             "experimental validation: {}",
             document.experimental_validation
         )),
     ];
-    frame.render_widget(Paragraph::new(lines), Rect::new(0, 0, area.width, 2));
+    frame.render_widget(Paragraph::new(banner), Rect::new(0, 0, area.width, 2));
+
+    // The body is rows 3 to `height - 2`, so `height - 4` rows tall.
+    let body: Rect = Rect::new(0, 3, area.width, area.height - 4);
+    let rows: usize = body.height as usize;
+    let lines: Vec<String> = match app.screen() {
+        Screen::Overview => text::overview(document, app.selected()),
+        Screen::Member(index) => text::member(document, index),
+        // 7d draws the sequence context; until then the screen says so.
+        Screen::Context(_) => vec!["sequence context: not yet available (7d)".to_string()],
+        Screen::Provenance => text::provenance(document),
+        Screen::Problem => text::problem(document),
+    };
+
+    // The app's scroll has no upper bound, so the clamp is here: the last line
+    // the body can start at is `n - rows` (7c3 §3.1 rule 5).
+    let first: usize = app.scroll().min(lines.len().saturating_sub(rows));
+    let shown: Vec<Line<'static>> = lines[first..]
+        .iter()
+        .map(|line| Line::from(line.clone()))
+        .collect();
+    // No wrap, so a line longer than the width is cut at the width: a primer's
+    // row never moves.
+    frame.render_widget(Paragraph::new(shown), body);
+
+    let mut keys: String = match app.screen() {
+        Screen::Overview => "q quit  enter open  j/k move  p provenance".to_string(),
+        Screen::Member(_) => "q quit  esc back  c context  j/k scroll".to_string(),
+        Screen::Context(_) => "q quit  esc back".to_string(),
+        Screen::Provenance | Screen::Problem => "q quit  esc back  j/k scroll".to_string(),
+    };
+    // A problem is never hidden (plan §3 rule 3), so the key that opens it is on
+    // the overview's key line whenever the document has one.
+    if app.screen() == Screen::Overview
+        && (document.error.is_some() || !document.clarifications.is_empty())
+    {
+        keys.push_str("  e problem");
+    }
+    if lines.len() > rows {
+        // Where the body sits in the screen's lines, 1-based and inclusive.
+        keys.push_str(&format!(
+            "  lines {}-{} of {}",
+            first + 1,
+            first + rows,
+            lines.len()
+        ));
+    }
     frame.render_widget(
-        Paragraph::new("q quit"),
+        Paragraph::new(keys),
         Rect::new(0, area.height - 1, area.width, 1),
     );
 }
