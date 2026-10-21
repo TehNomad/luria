@@ -9,14 +9,84 @@
 //! unit-tested; it keeps to the terminal session and the event loop.
 
 use crate::args::UsageError;
-use crate::result::{ResultDocument, TemplateView};
+use crate::interpret::document::InterpretationDocument;
+use crate::interpret::run::{request_location_problem, request_text, write_request_file};
+use crate::prepare::prepare;
+use crate::result::{RequestEcho, ResultDocument, TemplateView};
+use crate::run::{run_with_output, Outcome};
 use luria_core::sequence::Sequence;
+
+use std::path::Path;
 
 pub mod app;
 pub mod order;
+pub mod proposal;
 pub mod terminal;
 pub mod text;
 pub mod view;
+
+#[derive(Clone, Debug, PartialEq)]
+/// What an approved proposal gave: the result of running the request the
+/// approval wrote, and, for 7d's sequence-context screen, the template's bases
+/// when they match the result (D005).
+pub struct Approved {
+    pub document: ResultDocument,
+    pub template: Option<Vec<char>>,
+}
+
+/// Write the proposed request at `request` and run it, as `luria q5 design`
+/// would run that file: `run_with_output(request, None)`, so the result's
+/// request digest names a file on disk (plan §3 rule 4).
+///
+/// Refuses, writing nothing, when the document is not `proposed` or names no
+/// request, and when the location is not usable now: `request_location_problem`
+/// is checked again here, because a file may have appeared since the screen
+/// opened, and `write_request_file` never replaces one (C-1). The `Err` is one
+/// line for the screen.
+pub fn approve(
+    document: &InterpretationDocument,
+    template: &Path,
+    request: &Path,
+) -> Result<Approved, String> {
+    // The plan §3 rule 4 check, the same condition `handle` and `view` use.
+    if !proposal::approvable(document) {
+        return Err("there is no proposed request to approve".to_string());
+    }
+    let echo: &RequestEcho = document
+        .request
+        .as_ref()
+        .expect("a proposed document names its request");
+
+    // The location, checked again: the rules 7f1 states, with the state of the
+    // file system as it is now.
+    if let Some((_code, message)) = request_location_problem(template, request) {
+        return Err(message);
+    }
+
+    // A new file only, written atomically: a name `request_location_problem`
+    // accepted can still be taken by the time this writes.
+    if let Err(reason) = write_request_file(request, &request_text(echo)) {
+        let name: &str = request
+            .file_name()
+            .expect("a file name")
+            .to_str()
+            .expect("a UTF-8 file name");
+        return Err(format!("could not write {}: {}", name, reason));
+    }
+
+    // The design runs from the file just written, and the template is read
+    // again, so the context screen draws the sequence this result was computed
+    // on and no other (7d, D005) - the same as `emit_review` does.
+    let outcome: Outcome = run_with_output(request, None);
+    let letters: Option<Vec<char>> = match prepare(request) {
+        Ok(prepared) => matching_template(&outcome.document, &prepared.template),
+        Err(_problem) => None,
+    };
+    Ok(Approved {
+        document: outcome.document,
+        template: letters,
+    })
+}
 
 /// The template's bases when `sequence` is the one the result was computed on:
 /// its digest equals `document.provenance.template.sha256`. `None` when the

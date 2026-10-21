@@ -14,11 +14,18 @@
 //! codon `GCA`), and `state` `failed` by §3.1: a request file that is not there
 //! could not be prepared.
 
+use luria_cli::interpret::document::InterpretationDocument;
+use luria_cli::interpret::run::interpret;
+use luria_cli::interpret::run::InterpretInput;
+use luria_cli::interpret::run::InterpretOutcome;
+use luria_cli::interpret::run::TextSource;
 use luria_cli::result::ResultDocument;
 use luria_cli::review::app::{App, Key, Screen};
+use luria_cli::review::proposal::{ProposalApp, ProposalScreen};
 use luria_cli::review::text;
 use luria_cli::review::view;
 use luria_cli::run::run;
+use luria_nl::backend::ScriptedBackend;
 use ratatui::backend::TestBackend;
 use ratatui::Terminal;
 use std::fs;
@@ -360,4 +367,235 @@ fn the_key_line_offers_problem_only_with_a_problem() {
         "{:?}",
         rows[23]
     );
+}
+
+// The proposal screens of 7f2: the documents are corpus cases run through the
+// scripted backend as `tests/review_proposal.rs` runs them, with
+// `write_request: None`, so the screen's content is the corpus's own answer, and
+// the request path is the one `--request` names. The banner, the confirmation's
+// line and the key line are checked against the document's own state and the
+// path as given, not against what running the screen gave.
+const NL: &str = "../../tests/fixtures/nl/";
+const GENBANK: &str = "../../tests/fixtures/genbank/";
+const CASES_HEADER: &str = "case_id\ttemplate\ttext_file\treply_file\tprofile\tstate\tcodes\trequest_file\tdesign_exit\tnote";
+
+fn nl_read(path: &str) -> String {
+    fs::read_to_string(path).unwrap_or_else(|error| panic!("cannot read {}: {}", path, error))
+}
+
+fn row_of(case: &str) -> Vec<String> {
+    let text: String = nl_read(&format!("{}cases.tsv", NL));
+    let lines: Vec<&str> = text.lines().collect();
+    assert_eq!(lines[0], CASES_HEADER);
+    lines[1..]
+        .iter()
+        .map(|line| line.split('\t').map(|field| field.to_string()).collect())
+        .find(|row: &Vec<String>| row[0] == case)
+        .expect("the corpus has this case")
+}
+
+/// A fresh directory for one corpus case, with its template copied in under its
+/// own name, as `tests/review_proposal.rs` does.
+fn proposal_workspace(test: &str, row: &[String]) -> PathBuf {
+    let dir: PathBuf =
+        PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join(format!("review-view-{}-{}", test, row[0]));
+    let _ = fs::remove_dir_all(&dir);
+    fs::create_dir_all(&dir).expect("a workspace");
+    fs::copy(format!("{}{}", GENBANK, row[1]), dir.join(&row[1])).expect("the template is copied");
+    if row[4] != "-" {
+        fs::copy(format!("{}profile/{}", NL, row[4]), dir.join(&row[4]))
+            .expect("the profile is copied");
+    }
+    dir
+}
+
+/// The case, run through `interpret` with the scripted backend and
+/// `write_request: None`: the document the proposal screen shows, with the
+/// request path `--request` names beside the template. The state is checked
+/// against the corpus's own column first, so the banner is the corpus's state.
+fn proposal_of(test: &str, case: &str) -> (PathBuf, InterpretationDocument, PathBuf) {
+    let row: Vec<String> = row_of(case);
+    let dir: PathBuf = proposal_workspace(test, &row);
+    let reply: String = nl_read(&format!("{}reply/{}", NL, row[3]));
+    let mut backend: ScriptedBackend = ScriptedBackend::new("scripted-corpus", vec![Ok(reply)]);
+    let text: String = nl_read(&format!("{}text/{}", NL, row[2]));
+    let input: InterpretInput = InterpretInput {
+        template: dir.join(&row[1]),
+        text: TextSource::Inline(text.strip_suffix('\n').unwrap_or(&text).to_string()),
+        profile: if row[4] == "-" {
+            None
+        } else {
+            Some(dir.join(&row[4]))
+        },
+        write_request: None,
+    };
+    let outcome: InterpretOutcome = interpret(&input, &mut backend);
+    assert_eq!(
+        outcome.document.state, row[5],
+        "{}: the corpus's own state column",
+        row[0]
+    );
+    (
+        dir.clone(),
+        outcome.document.clone(),
+        dir.join("proposal.json"),
+    )
+}
+
+/// Draw `app`' proposal on a `width` by `height` test backend, with the padding
+/// the backend pads each row with removed.
+fn proposal_screen(app: &ProposalApp, width: u16, height: u16) -> Vec<String> {
+    let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
+    terminal
+        .draw(|frame| view::draw_proposal(frame, app))
+        .unwrap();
+    let buffer = terminal.backend().buffer();
+    let width: usize = buffer.area.width as usize;
+    buffer
+        .content
+        .chunks(width)
+        .map(|cells| {
+            cells
+                .iter()
+                .map(|cell| cell.symbol())
+                .collect::<String>()
+                .trim_end()
+                .to_string()
+        })
+        .collect()
+}
+
+/// `app` with `keys` handled, the way the terminal reaches a screen.
+fn opened_proposal(
+    document: &InterpretationDocument,
+    request: PathBuf,
+    keys: &[Key],
+) -> ProposalApp {
+    let mut app: ProposalApp = ProposalApp::new(document.clone(), request);
+    for key in keys {
+        app.handle(*key);
+    }
+    app
+}
+
+#[test]
+fn a_proposal_says_it_is_not_a_result() {
+    for case in ["two-separate", "composition-unstated"] {
+        let (dir, document, request) = proposal_of("banner", case);
+        let rows: Vec<String> =
+            proposal_screen(&ProposalApp::new(document.clone(), request), 80, 24);
+        assert_eq!(
+            rows[0],
+            format!("proposal: {}", document.state),
+            "row 0 is the banner built from the document's own state: {:?}",
+            rows[0]
+        );
+        assert_eq!(
+            rows[1], "nothing has run yet: this is a proposal, not a result",
+            "row 1 says nothing has run: a proposal is never shown as a result (plan §3 rule 3)"
+        );
+        assert!(
+            !rows[0].starts_with("state:") && !rows[1].contains("experimental validation"),
+            "the result's banner is not on a proposal's screen: {:?}",
+            &rows[0..2]
+        );
+        assert_eq!(rows[2], "", "row 2 is blank, as every result screen's is");
+        let _ = fs::remove_dir_all(&dir);
+    }
+}
+
+#[test]
+fn the_confirmation_names_the_file() {
+    let (dir, document, _) = proposal_of("confirm", "two-separate");
+    // The path as `--request` gives it, relative to the directory the command
+    // runs in, so the whole line fits on the screen.
+    let request: PathBuf = PathBuf::from("proposal.json");
+    let app: ProposalApp = opened_proposal(&document, request.clone(), &[Key::Char('a')]);
+    assert_eq!(app.screen(), ProposalScreen::Confirm);
+    let rows: Vec<String> = proposal_screen(&app, 80, 24);
+    assert_eq!(
+        rows[3],
+        format!(
+            "write the request to {} and run luria q5 design on it?",
+            request.display()
+        ),
+        "the confirmation names the file the approval writes (plan §3 rule 4): {:?}",
+        rows[3]
+    );
+    assert_eq!(rows[4], "", "a blank line between the file and the keys");
+    assert_eq!(rows[5], "y yes  n no");
+    assert_eq!(rows[23], "q quit  y yes  n no");
+    assert!(
+        rows[3..BODY_ROWS + 3]
+            .iter()
+            .all(|row| !row.contains("proposal:")),
+        "the confirmation shows the file, not the proposal: {:?}",
+        rows
+    );
+    let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn approve_is_offered_only_for_a_proposal() {
+    // The proposal: `text::proposal`' own lines (7e), so the key line's page
+    // count is the screen's own length, and `a` is offered because the document
+    // is `proposed` and names its request.
+    let (proposed_dir, proposed, _) = proposal_of("key_line_proposed", "two-separate");
+    let lines: Vec<String> = text::proposal(&proposed);
+    let n: usize = lines.len();
+    assert!(
+        n > BODY_ROWS,
+        "the proposal is longer than the body: {} lines",
+        n
+    );
+    let app: ProposalApp = ProposalApp::new(proposed.clone(), PathBuf::from("proposal.json"));
+    let rows: Vec<String> = proposal_screen(&app, 80, 24);
+    assert_eq!(
+        rows[23],
+        format!(
+            "q quit  j/k scroll  a approve  lines 1-{} of {}",
+            BODY_ROWS, n
+        ),
+        "a proposal that names its request offers `a`, and says where its body sits: {:?}",
+        rows[23]
+    );
+    for row in 0..BODY_ROWS {
+        assert_eq!(
+            rows[3 + row],
+            shown(&lines[row], 80),
+            "body row {} shows the proposal's line {}",
+            3 + row,
+            row
+        );
+    }
+
+    // A run that asks proposes nothing, so `a` is not on its key line, and the
+    // document's `request` is null.
+    let (asked_dir, asked, _) = proposal_of("key_line_asked", "composition-unstated");
+    assert!(asked.request.is_none(), "a run that asks names no request");
+    let lines: Vec<String> = text::proposal(&asked);
+    let n: usize = lines.len();
+    let rows: Vec<String> = proposal_screen(
+        &ProposalApp::new(asked, PathBuf::from("proposal.json")),
+        80,
+        24,
+    );
+    assert!(
+        !rows[23].contains("a approve"),
+        "nothing to approve, so `a` is not offered: {:?}",
+        rows[23]
+    );
+    assert!(
+        rows[23].starts_with("q quit  j/k scroll"),
+        "the reading keys are the same: {:?}",
+        rows[23]
+    );
+    assert_eq!(
+        rows[23],
+        format!("q quit  j/k scroll  lines 1-{} of {}", BODY_ROWS, n),
+        "and the page count is the asked screen's own length: {:?}",
+        rows[23]
+    );
+    let _ = fs::remove_dir_all(&proposed_dir);
+    let _ = fs::remove_dir_all(&asked_dir);
 }

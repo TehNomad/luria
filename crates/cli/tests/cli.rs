@@ -120,6 +120,46 @@ fn review_without_a_terminal_is_a_usage_error() {
     );
 }
 
+// Milestone 7f2: the second entry point checks its arguments, its endpoint, its
+// key and its terminals before the request location, and the terminal rule is
+// the first one that can fail here: stdin is not a terminal, so the exit is 2
+// with 7a's usage line, nothing is read, nothing is sent, and `out.json` is
+// never written (7f2 §2, plan §3 rule 4).
+#[test]
+fn review_interpret_checks_the_request_location_first() {
+    let output = Command::new(env!("CARGO_BIN_EXE_luria"))
+        .args([
+            "review",
+            "--template",
+            "t.gb",
+            "--text",
+            "x",
+            "--backend",
+            "openai-compatible",
+            "--endpoint",
+            "http://127.0.0.1:1/v1",
+            "--model",
+            "m",
+            "--request",
+            "out.json",
+        ])
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .output()
+        .expect("the luria executable runs");
+
+    assert_eq!(output.status.code(), Some(2));
+    assert!(output.stdout.is_empty());
+    assert_eq!(
+        String::from_utf8(output.stderr).unwrap(),
+        format!(
+            "luria: 'review' needs a terminal on stdin and stdout; 'q5 design' writes the same result as JSON\n\n{}",
+            luria_cli::args::USAGE
+        )
+    );
+}
+
 // Added in review: a command-line word that isn't valid UTF-8 cannot be
 // parsed, so it is a usage error: exit 2 (plan §3.7), not a panic (101).
 #[cfg(unix)]

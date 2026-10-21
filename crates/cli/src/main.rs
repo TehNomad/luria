@@ -12,10 +12,13 @@ use luria_cli::args::{
 };
 use luria_cli::exit::ExitStatus;
 use luria_cli::interpret::document::render_interpretation;
-use luria_cli::interpret::run::{interpret, InterpretInput, InterpretOutcome, TextSource};
+use luria_cli::interpret::run::{
+    interpret, request_location_problem, InterpretInput, InterpretOutcome, TextSource,
+};
 use luria_cli::result::render;
 use luria_cli::review;
 use luria_cli::review::app::App;
+use luria_cli::review::proposal::ProposalApp;
 use luria_cli::run::{run_with_output, Outcome};
 use luria_cli::version::render_version;
 use luria_nl::openai::OpenAiCompatible;
@@ -154,6 +157,97 @@ fn emit_review(request: PathBuf) -> ExitStatus {
     }
 }
 
+/// `luria review --template`: interpret a request in words, show the proposal,
+/// and write and run it only on the user's approval (7f2, plan §3 rule 4). The
+/// order of §2 is the order here: the endpoint and the key are gated as
+/// `q5 interpret` gates them, so a refused endpoint is a usage error with
+/// nothing read and nothing sent; then 7a's terminal rule, because the screen
+/// must open before anything is shown; then the request location, because the
+/// place the approval will write is stated on the command line and must be
+/// usable before the model is called (plan §3 rule 4), which is exit 4, the
+/// same code `q5 interpret` gives for an unusable location. `interpret` runs
+/// with `write_request: None`, so the run writes nothing and the model is
+/// spoken to once; approving runs the design from the file the approval wrote,
+/// never from the proposal in memory, and calls the model no second time. The
+/// run's own `note` and status are ignored: this review writes nothing, and its
+/// exit status is the screen's (7a's rules).
+fn emit_review_interpret(
+    template: PathBuf,
+    text: TextSource,
+    design: Option<PathBuf>,
+    endpoint: String,
+    model: String,
+    allow_remote: bool,
+    request: PathBuf,
+) -> ExitStatus {
+    match checked_endpoint(&endpoint, allow_remote) {
+        Err(problem) => report_usage(problem),
+        Ok(endpoint) => match checked_key(&endpoint, env::var("LURIA_OPENAI_API_KEY").ok()) {
+            Err(problem) => report_usage(problem),
+            Ok(key) => {
+                // 7a's rule first: without a terminal on both streams the
+                // screen cannot open, so nothing is read and nothing sent.
+                match review::terminal_problem(stdin().is_terminal(), stdout().is_terminal()) {
+                    Some(problem) => report_usage(problem),
+                    None => {
+                        if let Some((_code, message)) =
+                            request_location_problem(&template, &request)
+                        {
+                            write_err(format!("luria: {}\n", message).as_str());
+                            return ExitStatus::MalformedInput;
+                        }
+
+                        // The template the approval reads, kept while `template`
+                        // goes to `interpret`: 7d's context screen is drawn from
+                        // the result, so the approval reads it again.
+                        let approve_template: PathBuf = template.clone();
+                        let mut backend: OpenAiCompatible =
+                            OpenAiCompatible::new(endpoint, &model, key);
+                        let input: InterpretInput = InterpretInput {
+                            template,
+                            text,
+                            profile: design,
+                            write_request: None,
+                        };
+                        let outcome: InterpretOutcome = interpret(&input, &mut backend);
+
+                        match review::terminal::run_proposal(
+                            ProposalApp::new(outcome.document, request.clone()),
+                            &mut |app: &ProposalApp| {
+                                review::approve(app.document(), &approve_template, app.request())
+                            },
+                        ) {
+                            // Quit before approving: nothing was written and
+                            // nothing ran, so 0 is the honest status (7f2 §1).
+                            Ok(None) => ExitStatus::Success,
+                            Ok(Some(approved)) => {
+                                match review::terminal::run(
+                                    App::new(approved.document).with_template(approved.template),
+                                ) {
+                                    Ok(()) => ExitStatus::Success,
+                                    Err(problem) => {
+                                        write_err(
+                                            format!("luria: the terminal failed: {}\n", problem)
+                                                .as_str(),
+                                        );
+                                        ExitStatus::Internal
+                                    }
+                                }
+                            }
+                            Err(problem) => {
+                                write_err(
+                                    format!("luria: the terminal failed: {}\n", problem).as_str(),
+                                );
+                                ExitStatus::Internal
+                            }
+                        }
+                    }
+                }
+            }
+        },
+    }
+}
+
 /// Report a usage error on stderr, with the usage text repeated (plan §3.7,
 /// exit code 2: text on stderr, nothing on stdout).
 fn report_usage(problem: UsageError) -> ExitStatus {
@@ -192,6 +286,23 @@ fn main() -> ExitCode {
                 write_request,
             ),
             Ok(Command::Review { request }) => emit_review(request),
+            Ok(Command::ReviewInterpret {
+                template,
+                text,
+                design,
+                endpoint,
+                model,
+                allow_remote,
+                request,
+            }) => emit_review_interpret(
+                template,
+                text,
+                design,
+                endpoint,
+                model,
+                allow_remote,
+                request,
+            ),
             Err(problem) => report_usage(problem),
         },
     };
