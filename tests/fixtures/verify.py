@@ -47,6 +47,7 @@ CHECKS = [
     "genbank/reference/verify_synthetic.py",
     "genbank/reference/verify_synthetic_linear.py",
     "review/reference/context.py",
+    "review/reference/order.py",
 ]
 
 

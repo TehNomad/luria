@@ -12,6 +12,8 @@ wrote them in contract 7d0, on 2026-10-21.
 | `context-del-11.txt` | deletion `[1209, 1212)` `GAT`, bound 15 | `../q5-primer/native-deletion.tsv` row `del-11` |
 | `context-ins-14.txt` | insertion of `GAT` at 1209, bound 15 | `../q5-primer/native-insertion.tsv` row `ins-14` |
 | `reference/context.py` | writes the three files, and checks them with `--check` | |
+| `order-sid1-del11-ins14.tsv` | the IDT order table for a set of `del-11` and `ins-14` on `sid-1` (contract 7g2) | the rows' own `forward` and `reverse` columns |
+| `reference/order.py` | writes it, and checks it with `--check` | |
 
 The template is the SID-1 cDNA, `../example-construct/input/sid-1_cDNA.fa`,
 named `sid-1` in the request. Each design's member is named by its row's
@@ -45,11 +47,21 @@ The planner also checked each layout by eye against the template: every
 upper-case reverse base is the complement of the base above it, and the
 forward primer's lower-case bases are exactly the written edit or tail.
 
+## The order table
+
+`reference/order.py` writes the table by the rules of
+`docs/tasks/milestone-7-tui.md` §5.4 (owner answers M7-7 to M7-13) from the
+`forward` and `reverse` columns of `del-11` and `ins-14`, which were derived
+without `crates/core`. All four primers are 15 to 19 nt, so every row is
+`25nm` and `STD`. The planner checked by hand that a `q5 design` run of the
+same two edits on SID-1 at bound 15 gives these four primers.
+
 ## Rerunning
 
 ```
 python3 -I tests/fixtures/review/reference/context.py --check
+python3 -I tests/fixtures/review/reference/order.py --check
 ```
 
-prints `OK` for each file, and is part of `tests/fixtures/verify.py`. It
-needs no third-party package.
+print `OK` for each file, and are part of `tests/fixtures/verify.py`. They
+need no third-party package.
