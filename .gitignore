@@ -7,3 +7,5 @@ __pycache__/
 tests/fixtures/nebasechanger-research/
 package.json
 package-lock.json
+.cargo/config.toml
+vendor/
