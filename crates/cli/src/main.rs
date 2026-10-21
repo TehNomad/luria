@@ -18,6 +18,7 @@ use luria_cli::interpret::run::{
 use luria_cli::result::render;
 use luria_cli::review;
 use luria_cli::review::app::App;
+use luria_cli::review::export::{export_plan, write_export, ExportPlan};
 use luria_cli::review::proposal::ProposalApp;
 use luria_cli::run::{run_with_output, Outcome};
 use luria_cli::version::render_version;
@@ -132,9 +133,12 @@ fn emit_interpret(
 /// usage error with nothing read and nothing on stdout (§3.7, exit 2). The
 /// request then runs exactly as `q5 design` runs it, and the document it
 /// produced is the screen's content: the run's `note` is ignored, because
-/// `review` writes nothing (plan §9). The exit status is 0 whatever the
+/// `review` writes nothing (plan §9). The `--export` directory, when the command
+/// line gave one, is the plan the export screen lists, built from the document
+/// on screen, so what `y` writes is what the user reviewed; the write itself is
+/// done by the terminal, on `y` only. The exit status is 0 whatever the
 /// result's state, and 1 when the terminal itself failed.
-fn emit_review(request: PathBuf) -> ExitStatus {
+fn emit_review(request: PathBuf, export: Option<PathBuf>) -> ExitStatus {
     match review::terminal_problem(stdin().is_terminal(), stdout().is_terminal()) {
         Some(problem) => report_usage(problem),
         None => {
@@ -146,7 +150,22 @@ fn emit_review(request: PathBuf) -> ExitStatus {
                 Ok(prepared) => review::matching_template(&outcome.document, &prepared.template),
                 Err(_problem) => None,
             };
-            match review::terminal::run(App::new(outcome.document).with_template(letters)) {
+            // The plan the export screen lists, from the document on screen and
+            // the `--export` directory given, if any (7g1).
+            let plan: Option<ExportPlan> = export
+                .as_deref()
+                .map(|directory| export_plan(&outcome.document, &request, directory));
+            match review::terminal::run(
+                App::new(outcome.document)
+                    .with_template(letters)
+                    .with_export(plan),
+                &mut |app: &App| match app.export_plan() {
+                    Some(plan) => write_export(plan, app.document()),
+                    // `y` is offered only where a plan exists, so this cannot
+                    // be reached; the line says what happened.
+                    None => Err("no export directory was given".to_string()),
+                },
+            ) {
                 Ok(()) => ExitStatus::Success,
                 Err(problem) => {
                     write_err(format!("luria: the terminal failed: {}\n", problem).as_str());
@@ -170,7 +189,10 @@ fn emit_review(request: PathBuf) -> ExitStatus {
 /// spoken to once; approving runs the design from the file the approval wrote,
 /// never from the proposal in memory, and calls the model no second time. The
 /// run's own `note` and status are ignored: this review writes nothing, and its
-/// exit status is the screen's (7a's rules).
+/// exit status is the screen's (7a's rules). The interpret form's seven fields
+/// plus `--export`' directory are the command line's own eight, so no struct is
+/// added for one of them (7g1).
+#[allow(clippy::too_many_arguments)]
 fn emit_review_interpret(
     template: PathBuf,
     text: TextSource,
@@ -179,6 +201,7 @@ fn emit_review_interpret(
     model: String,
     allow_remote: bool,
     request: PathBuf,
+    export: Option<PathBuf>,
 ) -> ExitStatus {
     match checked_endpoint(&endpoint, allow_remote) {
         Err(problem) => report_usage(problem),
@@ -221,8 +244,20 @@ fn emit_review_interpret(
                             // nothing ran, so 0 is the honest status (7f2 §1).
                             Ok(None) => ExitStatus::Success,
                             Ok(Some(approved)) => {
+                                // The request the approval wrote is the file the
+                                // export names, and the plan is built from the
+                                // document the screen shows (7g1).
+                                let plan: Option<ExportPlan> = export.as_deref().map(|directory| {
+                                    export_plan(&approved.document, &request, directory)
+                                });
                                 match review::terminal::run(
-                                    App::new(approved.document).with_template(approved.template),
+                                    App::new(approved.document)
+                                        .with_template(approved.template)
+                                        .with_export(plan),
+                                    &mut |app: &App| match app.export_plan() {
+                                        Some(plan) => write_export(plan, app.document()),
+                                        None => Err("no export directory was given".to_string()),
+                                    },
                                 ) {
                                     Ok(()) => ExitStatus::Success,
                                     Err(problem) => {
@@ -285,7 +320,7 @@ fn main() -> ExitCode {
                 allow_remote,
                 write_request,
             ),
-            Ok(Command::Review { request }) => emit_review(request),
+            Ok(Command::Review { request, export }) => emit_review(request, export),
             Ok(Command::ReviewInterpret {
                 template,
                 text,
@@ -294,6 +329,7 @@ fn main() -> ExitCode {
                 model,
                 allow_remote,
                 request,
+                export,
             }) => emit_review_interpret(
                 template,
                 text,
@@ -302,6 +338,7 @@ fn main() -> ExitCode {
                 model,
                 allow_remote,
                 request,
+                export,
             ),
             Err(problem) => report_usage(problem),
         },

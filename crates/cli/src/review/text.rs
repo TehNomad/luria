@@ -29,6 +29,7 @@ use crate::result::{
     OperationWarning, PrimerView, PrimerWarningView, Provenance, RequestEcho, ResultDocument,
     SourceView,
 };
+use crate::review::export::ExportPlan;
 use luria_nl::backend::BackendInfo;
 use luria_nl::extraction::{Composition, Extraction, Operation};
 use luria_nl::prompt::Prompt;
@@ -1140,19 +1141,82 @@ pub fn provenance(document: &ResultDocument) -> Vec<String> {
     lines
 }
 
+/// The export screen (7g1, plan §5.4 "Writing", M7-4): the files `y` writes,
+/// each named exactly as the plan names it, so the list is the files, not a
+/// description of them. With no plan, the one line says how to enable an export.
+/// `rows` is the table's lines less its header, so the count is the primers. The
+/// members left out of a table that exists are named, as `order` lists them.
+/// `message` is the line the last export gave, after a blank line.
+pub fn export(plan: Option<&ExportPlan>, message: Option<&str>) -> Vec<String> {
+    let mut lines: Vec<String> = Vec::new();
+
+    match plan {
+        None => {
+            lines.push("start luria review with --export DIR to export this result".to_string())
+        }
+        Some(plan) => {
+            lines.push(format!("export to {}:", plan.directory.display()));
+            lines.push(format!(
+                "  {}  the result, as luria q5 design prints it",
+                plan.result_file
+            ));
+            match &plan.order {
+                Ok(table) => {
+                    // The header is not a primer, so the count is the lines less
+                    // one (M7-7).
+                    let rows: usize = table.text.lines().count() - 1;
+                    lines.push(format!(
+                        "  {}  IDT order table, {} primers",
+                        plan.order_file, rows
+                    ));
+                }
+                // The refusal is shown with its own message, and the other
+                // files are still listed, because they are written (§2).
+                Err(refusal) => {
+                    lines.push(format!("order table not written: {}", refusal.message()));
+                }
+            }
+            for name in &plan.constructs {
+                lines.push(format!("  {}  edited construct", name));
+            }
+            if let Ok(table) = &plan.order {
+                if !table.left_out.is_empty() {
+                    lines.push(format!(
+                        "members left out of the order table: {}",
+                        table.left_out.join(", ")
+                    ));
+                }
+            }
+            lines.push(String::new());
+            lines.push(
+                "nothing is replaced: if any of these files exists, nothing is written".to_string(),
+            );
+        }
+    }
+
+    if let Some(message) = message {
+        lines.push(String::new());
+        lines.push(message.to_string());
+    }
+    lines
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::interpret::document::{InterpretationDocument, InterpretationView};
     use crate::result::{
-        AlgorithmRef, AnnealingView, BufferView, DesignView, EditedView, GenBankView, MemberView,
-        PackageView, PairView, PartView, PrimerView, PrimerWarningView, RefusalView, TailView,
-        TemplateView, TmView, UnusedFeatureView,
+        AlgorithmRef, AnnealingView, BufferView, DesignView, EditedView, ErrorView, GenBankView,
+        MemberView, PackageView, PairView, PartView, PrimerView, PrimerWarningView, RefusalView,
+        TailView, TemplateView, TmView, UnusedFeatureView,
     };
+    use crate::review::export::export_plan;
+    use crate::review::order::OrderRefusal;
     use crate::review::text;
     use luria_nl::backend::BackendInfo;
     use luria_nl::extraction::{Extraction, Mutation, Operation};
     use luria_nl::prompt::PROMPT_VERSION;
+    use std::path::Path;
 
     /// The provenance a hand-built document needs: the package that ran, and
     /// nothing else, so a test sets the one field it is about.
@@ -1861,6 +1925,103 @@ mod tests {
             !lines.iter().any(|line| line.contains("user message")),
             "no user message is shown when none was sent: {:?}",
             lines
+        );
+    }
+
+    /// The plan `main` builds from `--export out` for the request `set.json`,
+    /// built by `export_plan`, which is pure and writes nothing.
+    fn plan_of(document: &ResultDocument) -> ExportPlan {
+        export_plan(document, Path::new("set.json"), Path::new("out"))
+    }
+
+    #[test]
+    fn no_plan_says_how_to_export() {
+        assert_eq!(
+            text::export(None, None),
+            vec!["start luria review with --export DIR to export this result".to_string()],
+            "with no --export directory, the screen says how to get one"
+        );
+
+        // A plan lists every file it will write, the table's primer count, and
+        // the rule that nothing is replaced.
+        let mut document: ResultDocument = document_with(2);
+        document.results[0].name = "del-11".to_string();
+        document.results[1].name = "ins-14".to_string();
+        document.provenance.template = Some(TemplateView {
+            id: "sid-1".to_string(),
+            sha256: "0".to_string(),
+            length: 393,
+            topology: "linear".to_string(),
+            source: SourceView::Fasta {
+                path: "sid-1_cDNA.fa".to_string(),
+                header: "a template".to_string(),
+            },
+            genbank: None,
+        });
+        document.results[0].design = Some(design(
+            primer("forward", &"A".repeat(15)),
+            primer("reverse", &"C".repeat(15)),
+        ));
+        document.results[1].design_failure = Some(ErrorView {
+            code: "no_primer_design_fits",
+            rule: None,
+            category: "unsupported",
+            message: "no primer pair fits".to_string(),
+            path: None,
+            details: Details(Vec::new()),
+        });
+        let plan: ExportPlan = plan_of(&document);
+        assert_eq!(
+            text::export(
+                Some(&plan),
+                Some("export failed: set.result.json already exists")
+            ),
+            vec![
+                "export to out:".to_string(),
+                "  set.result.json  the result, as luria q5 design prints it".to_string(),
+                "  set.order.tsv  IDT order table, 2 primers".to_string(),
+                "  del-11.fa  edited construct".to_string(),
+                "  ins-14.fa  edited construct".to_string(),
+                "members left out of the order table: ins-14".to_string(),
+                String::new(),
+                "nothing is replaced: if any of these files exists, nothing is written".to_string(),
+                String::new(),
+                "export failed: set.result.json already exists".to_string(),
+            ],
+            "the files the export writes, the table it writes, the members it \
+             leaves out, then the line the last export gave: {:?}",
+            text::export(
+                Some(&plan),
+                Some("export failed: set.result.json already exists")
+            )
+        );
+    }
+
+    #[test]
+    fn a_refused_table_is_named() {
+        // The pBR322 `T99C` shape: a verified result whose one member has no
+        // design, so `order` refuses and the screen says so, while the result
+        // file and the construct are still listed as written.
+        let mut document: ResultDocument = document_with(1);
+        document.results[0].name = "T99C".to_string();
+        let plan: ExportPlan = plan_of(&document);
+        assert_eq!(
+            text::export(Some(&plan), None),
+            vec![
+                "export to out:".to_string(),
+                "  set.result.json  the result, as luria q5 design prints it".to_string(),
+                "order table not written: no order table: no member has a primer pair".to_string(),
+                "  T99C.fa  edited construct".to_string(),
+                String::new(),
+                "nothing is replaced: if any of these files exists, nothing is written".to_string(),
+            ],
+            "the refusal's own message, with no order file listed: {:?}",
+            text::export(Some(&plan), None)
+        );
+        assert_eq!(
+            plan.order,
+            Err(OrderRefusal::NothingDesigned),
+            "the plan holds the refusal the screen shows"
         );
     }
 }

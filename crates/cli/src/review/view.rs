@@ -59,6 +59,9 @@ pub fn draw(frame: &mut Frame, app: &App) {
         Screen::Context(index) => text::context(document, index, app.template()),
         Screen::Provenance => text::provenance(document),
         Screen::Problem => text::problem(document),
+        // 7g1: the export screen's lines are the plan's names, the table's
+        // refusal when there is one, and the line the last export gave.
+        Screen::Export => text::export(app.export_plan(), app.export_message()),
     };
 
     // The app's scroll has no upper bound, so the clamp is here: the last line
@@ -73,10 +76,20 @@ pub fn draw(frame: &mut Frame, app: &App) {
     frame.render_widget(Paragraph::new(shown), body);
 
     let mut keys: String = match app.screen() {
-        Screen::Overview => "q quit  enter open  j/k move  p provenance".to_string(),
+        Screen::Overview => "q quit  enter open  j/k move  p provenance  x export".to_string(),
         Screen::Member(_) => "q quit  esc back  c context  j/k scroll".to_string(),
         Screen::Context(_) => "q quit  esc back".to_string(),
         Screen::Provenance | Screen::Problem => "q quit  esc back  j/k scroll".to_string(),
+        // `y` is offered only where `y` writes, that is where a plan exists, so
+        // the key line never offers an action that does nothing (7g1).
+        Screen::Export => {
+            let mut keys: String = "q quit".to_string();
+            if app.export_plan().is_some() {
+                keys.push_str("  y write");
+            }
+            keys.push_str("  n back");
+            keys
+        }
     };
     // A problem is never hidden (plan §3 rule 3), so the key that opens it is on
     // the overview's key line whenever the document has one.

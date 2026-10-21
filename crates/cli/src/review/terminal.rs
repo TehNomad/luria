@@ -35,7 +35,15 @@ fn key_of(code: KeyCode) -> Key {
 
 /// Open the screen, draw `app` until it asks to quit, and restore the terminal,
 /// whatever happens (plan §3 rule 7).
-pub fn run(mut app: App) -> std::io::Result<()> {
+///
+/// `export` is called only on `Action::Export`, which `app` gives for `y` on the
+/// export screen when there is a plan (7g1). Its outcome is the one line the
+/// screen shows, and the session continues, so the user reads what was written
+/// and goes back by choice.
+pub fn run(
+    mut app: App,
+    export: &mut dyn FnMut(&App) -> Result<Vec<String>, String>,
+) -> std::io::Result<()> {
     let mut terminal = match ratatui::try_init() {
         Ok(opened) => opened,
         Err(problem) => {
@@ -58,8 +66,12 @@ pub fn run(mut app: App) -> std::io::Result<()> {
                 break;
             }
             Ok(Event::Key(key)) if key.kind == KeyEventKind::Press => {
-                if app.handle(key_of(key.code)) == Action::Quit {
-                    break;
+                match app.handle(key_of(key.code)) {
+                    Action::Quit => break,
+                    // `y` asked for the write: the outcome is shown on the
+                    // export screen, and the loop draws it.
+                    Action::Export => app.export_done(export(&app)),
+                    Action::Continue => {}
                 }
             }
             // A resize, a mouse event, a release: the next draw pass redraws.

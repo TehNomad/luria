@@ -9,6 +9,7 @@
 //! `clarifications` is empty (plan §3 rule 1).
 
 use crate::result::ResultDocument;
+use crate::review::export::ExportPlan;
 
 /// A key, as the app sees it. `terminal` maps crossterm's events to it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -30,6 +31,7 @@ pub enum Key {
 pub enum Action {
     Continue,
     Quit,
+    Export,
 }
 
 /// Which screen is open. A member index is an index into
@@ -41,6 +43,7 @@ pub enum Screen {
     Context(usize),
     Provenance,
     Problem,
+    Export,
 }
 
 /// The screen's state: the result document to show, the open screen, the member
@@ -52,6 +55,8 @@ pub struct App {
     selected: usize,
     scroll: usize,
     template: Option<Vec<char>>,
+    export: Option<ExportPlan>,
+    export_message: Option<String>,
 }
 
 impl App {
@@ -69,6 +74,8 @@ impl App {
             scroll: 0,
             document,
             template: None,
+            export: None,
+            export_message: None,
         }
     }
 
@@ -85,6 +92,50 @@ impl App {
     /// The template's bases, or `None` when there are none to draw.
     pub fn template(&self) -> Option<&[char]> {
         self.template.as_deref()
+    }
+
+    /// The export the screen offers: the plan `main` built from the `--export`
+    /// directory the command line gave, `None` when it gave none, in which case
+    /// the screen says how to enable it (7g1).
+    pub fn with_export(self, plan: Option<ExportPlan>) -> App {
+        App {
+            export: plan,
+            ..self
+        }
+    }
+
+    /// The plan, or `None` when there is none, so `y` has nothing to write.
+    pub fn export_plan(&self) -> Option<&ExportPlan> {
+        self.export.as_ref()
+    }
+
+    /// The one line the last export gave, kept on the export screen.
+    pub fn export_message(&self) -> Option<&str> {
+        self.export_message.as_deref()
+    }
+
+    /// The outcome of the write `y` asked for: the names written in the order
+    /// written, or the reason nothing was. The message is the screen's own line
+    /// and the screen stays on `Export`, so what was written is said, and the
+    /// user goes back by choice (7g1).
+    pub fn export_done(&mut self, outcome: Result<Vec<String>, String>) {
+        self.export_message = Some(match outcome {
+            Ok(names) => {
+                let directory: String = self
+                    .export
+                    .as_ref()
+                    .map(|plan| plan.directory.display().to_string())
+                    .unwrap_or_default();
+                format!(
+                    "exported {} files to {}: {}",
+                    names.len(),
+                    directory,
+                    names.join(", ")
+                )
+            }
+            Err(message) => format!("export failed: {}", message),
+        });
+        self.screen = Screen::Export;
     }
 
     pub fn document(&self) -> &ResultDocument {
@@ -109,11 +160,13 @@ impl App {
 
     /// `q` quits from every screen. Every other key follows the table of §3.3:
     /// `Esc` and `Backspace` go back, `Enter` opens the selected member, `j`
-    /// `k` `c` `p` `e` move, and any other key changes nothing. The selection
-    /// does not wrap, and `Q` is not quit. On the overview `Up` `Down` `j` `k`
-    /// move the selection, so only `PageUp` `PageDown` `Home` scroll there; on
-    /// every screen below it they scroll the body, and a screen change puts the
-    /// new screen at its top (7c3 §3.1).
+    /// `k` `c` `p` `e` `x` move, `y` on the export screen asks for the write
+    /// when a plan exists and `n` goes back, and
+    /// any other key changes nothing. The selection does not wrap, and `Q` is
+    /// not quit. On the overview `Up` `Down` `j` `k` move the selection, so only
+    /// `PageUp` `PageDown` `Home` scroll there; on every screen below it they
+    /// scroll the body, and a screen change puts the new screen at its top
+    /// (7c3 §3.1, 7g1).
     pub fn handle(&mut self, key: Key) -> Action {
         if key == Key::Char('q') {
             return Action::Quit;
@@ -137,6 +190,9 @@ impl App {
             }
             (Screen::Overview, Key::Enter) if n > 0 => self.screen = Screen::Member(self.selected),
             (Screen::Overview, Key::Char('p')) => self.screen = Screen::Provenance,
+            // 7g1: `x` opens the export screen, which says how to enable an
+            // export when the command line gave no `--export` directory.
+            (Screen::Overview, Key::Char('x')) => self.screen = Screen::Export,
             (Screen::Overview, Key::Char('e')) if has_problem => self.screen = Screen::Problem,
             // `PageUp` `PageDown` `Home` scroll on every screen, the overview
             // included (7c3 §3.1 rule 3).
@@ -168,6 +224,16 @@ impl App {
             (Screen::Provenance, Key::Esc | Key::Backspace) => self.screen = Screen::Overview,
             (Screen::Problem, Key::Esc | Key::Backspace) => self.screen = Screen::Overview,
             (Screen::Problem, Key::Char('p')) => self.screen = Screen::Provenance,
+            // `y` writes, and only when there is a plan to write with, so `y`
+            // with no `--export` directory does nothing (no silent action).
+            (Screen::Export, Key::Char('y')) => {
+                if self.export.is_some() {
+                    return Action::Export;
+                }
+            }
+            (Screen::Export, Key::Char('n') | Key::Esc | Key::Backspace) => {
+                self.screen = Screen::Overview;
+            }
             _ => {}
         }
         // A screen change starts at the top of the new screen (7c3 §3.1 rule 4).
@@ -271,6 +337,24 @@ mod tests {
             .clarifications
             .push("which CDS is meant".to_string());
         document
+    }
+
+    use crate::review::export::{export_plan, ExportPlan};
+    use std::path::Path;
+
+    /// The plan `main` builds from `--export out` for the request `set.json`,
+    /// built by `export_plan`, which is pure and writes nothing.
+    fn plan_of(document: &ResultDocument) -> ExportPlan {
+        export_plan(document, Path::new("set.json"), Path::new("out"))
+    }
+
+    /// The app on the export screen, as the keys reach it, with a plan built
+    /// from `document`.
+    fn export_app(document: ResultDocument) -> App {
+        let plan: ExportPlan = plan_of(&document);
+        let mut app: App = App::new(document).with_export(Some(plan));
+        app.handle(Key::Char('x'));
+        app
     }
 
     #[test]
@@ -479,5 +563,84 @@ mod tests {
         app.handle(Key::PageDown);
         assert_eq!(app.scroll(), 10, "the page keys scroll the overview");
         assert_eq!(app.selected(), 2, "and do not move the selection");
+    }
+
+    #[test]
+    fn x_opens_export_and_y_asks_only_with_a_plan() {
+        // `x` opens the export screen whether or not a plan exists: the screen
+        // explains how to enable an export when the command line gave none.
+        let mut app: App = App::new(document_with(2));
+        app.handle(Key::PageDown);
+        assert_eq!(app.handle(Key::Char('x')), Action::Continue);
+        assert_eq!(app.screen(), Screen::Export);
+        assert!(
+            app.export_plan().is_none(),
+            "no --export directory, so no plan"
+        );
+        assert_eq!(app.scroll(), 0, "the new screen opens at its top");
+        // `y` with no plan asks for nothing, so nothing is written.
+        assert_eq!(app.handle(Key::Char('y')), Action::Continue);
+        assert_eq!(app.screen(), Screen::Export);
+        assert_eq!(app.handle(Key::Char('n')), Action::Continue);
+        assert_eq!(app.screen(), Screen::Overview);
+
+        // With a plan, `y` asks for the write, and `n` goes back.
+        let mut app: App = export_app(document_with(2));
+        assert_eq!(app.screen(), Screen::Export);
+        assert_eq!(app.handle(Key::Char('y')), Action::Export);
+        assert_eq!(
+            app.screen(),
+            Screen::Export,
+            "the screen stays for the report"
+        );
+        assert_eq!(app.handle(Key::Char('n')), Action::Continue);
+        assert_eq!(app.screen(), Screen::Overview);
+
+        // `Esc` and `Backspace` go back the same way, and `q` quits.
+        for key in [Key::Esc, Key::Backspace] {
+            let mut app: App = export_app(document_with(2));
+            assert_eq!(app.handle(key), Action::Continue);
+            assert_eq!(app.screen(), Screen::Overview, "{:?}", key);
+        }
+        let mut app: App = export_app(document_with(2));
+        assert_eq!(app.handle(Key::Char('q')), Action::Quit);
+    }
+
+    #[test]
+    fn export_done_reports_and_stays() {
+        let mut app: App = export_app(document_with(2));
+        app.export_done(Ok(vec![
+            "del-11.fa".to_string(),
+            "set.result.json".to_string(),
+        ]));
+        assert_eq!(
+            app.screen(),
+            Screen::Export,
+            "the screen stays on the export"
+        );
+        assert_eq!(
+            app.export_message(),
+            Some("exported 2 files to out: del-11.fa, set.result.json"),
+            "the names written, in the order written"
+        );
+
+        app.export_done(Err(
+            "set.result.json already exists; luria never replaces a file; nothing was written"
+                .to_string(),
+        ));
+        assert_eq!(app.screen(), Screen::Export);
+        assert_eq!(
+            app.export_message(),
+            Some(
+                "export failed: set.result.json already exists; luria never replaces a file; nothing was written"
+            ),
+            "the refusal's own line, on the screen that listed the files"
+        );
+
+        // Going back to the overview keeps the message; a screen change clears
+        // the scroll and nothing else.
+        assert_eq!(app.handle(Key::Char('n')), Action::Continue);
+        assert_eq!(app.screen(), Screen::Overview);
+        assert!(app.export_message().is_some());
     }
 }

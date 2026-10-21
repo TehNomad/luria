@@ -22,6 +22,7 @@ pub enum Command {
     },
     Review {
         request: PathBuf,
+        export: Option<PathBuf>,
     },
     ReviewInterpret {
         template: PathBuf,
@@ -31,6 +32,7 @@ pub enum Command {
         model: String,
         allow_remote: bool,
         request: PathBuf,
+        export: Option<PathBuf>,
     },
 }
 
@@ -47,10 +49,10 @@ pub const USAGE: &str = "usage:
   luria q5 interpret --template FILE.gb (--text TEXT | --text-file FILE)
       --backend openai-compatible --endpoint URL --model NAME
       [--design PROFILE.json] [--allow-remote] [--write-request FILE.json]
-  luria review REQUEST.json
+  luria review REQUEST.json [--export DIR]
   luria review --template FILE.gb (--text TEXT | --text-file FILE)
       --backend openai-compatible --endpoint URL --model NAME
-      --request FILE.json [--design PROFILE.json] [--allow-remote]
+      --request FILE.json [--design PROFILE.json] [--allow-remote] [--export DIR]
   luria version
   luria help
 
@@ -213,8 +215,10 @@ fn parse_design(words: &[String]) -> Result<Command, UsageError> {
 /// approved request will be written is stated before anything happens (7f2,
 /// plan §3 rule 4). `--write-request` is not an option of `review`. Before
 /// that, 7a's rule holds: one request path, `--` ending the options, and any
-/// other word starting with `-` an unknown option. The first error found is
-/// the one reported.
+/// other word starting with `-` an unknown option. `--export DIR` (7g1) is the
+/// directory the export screen writes to, on both forms, and, as
+/// `--write-edited` is in `q5 design`, must come before the `--` that ends the
+/// options. The first error found is the one reported.
 fn parse_review(words: &[String]) -> Result<Command, UsageError> {
     if words.iter().any(|word| word == "--template") {
         let options: InterpretOptions = parse_interpret_form(words, "review", "--request", true)?;
@@ -227,12 +231,14 @@ fn parse_review(words: &[String]) -> Result<Command, UsageError> {
                 model: options.model,
                 allow_remote: options.allow_remote,
                 request: path,
+                export: options.export,
             }),
             None => reject("'review' needs --request".to_string()),
         };
     }
 
     let mut request: Option<String> = None;
+    let mut export: Option<String> = None;
     let mut options_end: bool = false;
     let last: usize = words.len();
     let mut index: usize = 0;
@@ -242,6 +248,26 @@ fn parse_review(words: &[String]) -> Result<Command, UsageError> {
 
         if word == "--" && !options_end {
             options_end = true;
+            index += 1;
+            continue;
+        }
+
+        if word == "--export" && !options_end {
+            match export {
+                Some(_) => return reject("--export is given more than once".to_string()),
+                None => {
+                    index += 1;
+                    if index == last {
+                        return reject("--export needs a directory".to_string());
+                    }
+
+                    let value: &str = &words[index];
+                    if value.is_empty() {
+                        return reject("an empty path is not a file".to_string());
+                    }
+                    export = Some(value.to_string());
+                }
+            }
             index += 1;
             continue;
         }
@@ -271,6 +297,7 @@ fn parse_review(words: &[String]) -> Result<Command, UsageError> {
     match request {
         Some(path) => Ok(Command::Review {
             request: PathBuf::from(path),
+            export: export.map(PathBuf::from),
         }),
         None => reject("'review' needs a request file".to_string()),
     }
@@ -280,7 +307,7 @@ fn parse_review(words: &[String]) -> Result<Command, UsageError> {
 fn path_option(option: &str) -> bool {
     matches!(
         option,
-        "--template" | "--text-file" | "--design" | "--write-request" | "--request"
+        "--template" | "--text-file" | "--design" | "--write-request" | "--request" | "--export"
     )
 }
 
@@ -306,6 +333,7 @@ fn value_option(word: &str, request_option: &str) -> bool {
             | "--backend"
             | "--endpoint"
             | "--model"
+            | "--export"
     ) || word == request_option
 }
 
@@ -321,6 +349,7 @@ struct InterpretOptions {
     model: String,
     allow_remote: bool,
     request: Option<PathBuf>,
+    export: Option<PathBuf>,
 }
 
 /// Read the interpret form's words left to right: each value option takes the
@@ -424,6 +453,7 @@ fn parse_interpret_form(
             None
         }
     };
+    let export: Option<PathBuf> = given_value(&given, "--export").map(PathBuf::from);
 
     Ok(InterpretOptions {
         template,
@@ -433,6 +463,7 @@ fn parse_interpret_form(
         model,
         allow_remote,
         request,
+        export,
     })
 }
 
@@ -677,7 +708,8 @@ mod tests {
         assert_eq!(
             parse_words(&["review", "r.json"]),
             Ok(Command::Review {
-                request: PathBuf::from("r.json")
+                request: PathBuf::from("r.json"),
+                export: None
             })
         );
         // The word after -- is the request path, whatever it is, and -- is not
@@ -685,7 +717,8 @@ mod tests {
         assert_eq!(
             parse_words(&["review", "--", "-r.json"]),
             Ok(Command::Review {
-                request: PathBuf::from("-r.json")
+                request: PathBuf::from("-r.json"),
+                export: None
             })
         );
         let cases: [(&[&str], &str); 4] = [
@@ -699,6 +732,68 @@ mod tests {
                 "unknown option '--write-edited'",
             ),
             (&["review", ""], "an empty path is not a file"),
+        ];
+        for (words, message) in cases {
+            assert_eq!(usage(words), message, "{:?}", words);
+        }
+    }
+
+    /// 7g1: `--export DIR` on the request form, and the rules §3.1 states for
+    /// it: the word after it is the directory, whatever it is, as 5g2's
+    /// `--write-edited`'s is, and `--` ends the options before it.
+    #[test]
+    fn export_is_an_optional_directory_of_the_request_form() {
+        let with_dir = Ok(Command::Review {
+            request: PathBuf::from("r.json"),
+            export: Some(PathBuf::from("out")),
+        });
+        assert_eq!(
+            parse_words(&["review", "r.json", "--export", "out"]),
+            with_dir
+        );
+        assert_eq!(
+            parse_words(&["review", "--export", "out", "r.json"]),
+            with_dir
+        );
+        // The word after --export is the directory, whatever it is, as --write-
+        // edited's is in q5 design.
+        assert_eq!(
+            parse_words(&["review", "r.json", "--export", "-x"]),
+            Ok(Command::Review {
+                request: PathBuf::from("r.json"),
+                export: Some(PathBuf::from("-x")),
+            })
+        );
+        // `--` ends the options, so `--export` after it is the request path, as
+        // `--write-edited` after it is in q5 design.
+        assert_eq!(
+            parse_words(&["review", "--", "--export"]),
+            Ok(Command::Review {
+                request: PathBuf::from("--export"),
+                export: None,
+            })
+        );
+        assert_eq!(
+            parse_words(&["review", "--export", "out", "--", "-r.json"]),
+            Ok(Command::Review {
+                request: PathBuf::from("-r.json"),
+                export: Some(PathBuf::from("out")),
+            })
+        );
+        let cases: [(&[&str], &str); 4] = [
+            (&["review", "--export"], "--export needs a directory"),
+            (
+                &["review", "r.json", "--export", "o", "--export", "p"],
+                "--export is given more than once",
+            ),
+            (
+                &["review", "r.json", "--export", ""],
+                "an empty path is not a file",
+            ),
+            (
+                &["review", "r.json", "--export=o"],
+                "unknown option '--export=o'",
+            ),
         ];
         for (words, message) in cases {
             assert_eq!(usage(words), message, "{:?}", words);
@@ -743,6 +838,7 @@ mod tests {
                 model: "qwen".to_string(),
                 allow_remote: true,
                 request: PathBuf::from("out.json"),
+                export: None,
             })
         );
         // The words in any order, and `--text-file` in place of `--text`.
@@ -771,8 +867,47 @@ mod tests {
                 model: "m".to_string(),
                 allow_remote: false,
                 request: PathBuf::from("o.json"),
+                export: None,
             })
         );
+    }
+
+    /// 7g1: `--export DIR` on the interpret form too, read by the same
+    /// `parse_interpret_form` rules as every other path option, so the words
+    /// `parse_review`' request form gives are the words the interpret form
+    /// gives for it.
+    #[test]
+    fn export_is_an_optional_directory_of_the_interpret_form() {
+        assert_eq!(
+            parse_words(&review_interpret_words(&["--export", "dir"])),
+            Ok(Command::ReviewInterpret {
+                template: PathBuf::from("r.gb"),
+                text: TextSource::Inline("make A42G".to_string()),
+                design: None,
+                endpoint: "http://127.0.0.1:8080/v1".to_string(),
+                model: "qwen".to_string(),
+                allow_remote: false,
+                request: PathBuf::from("out.json"),
+                export: Some(PathBuf::from("dir")),
+            })
+        );
+        let cases: Vec<UsageCase> = vec![
+            (
+                review_interpret_words(&["--export", "o", "--export", "p"]),
+                "--export is given more than once",
+            ),
+            (
+                review_interpret_words(&["--export", ""]),
+                "an empty path is not a file",
+            ),
+            (
+                review_interpret_words(&["--export"]),
+                "--export needs a value",
+            ),
+        ];
+        for case in cases {
+            assert_eq!(usage(&case.0), case.1, "{:?}", case.0);
+        }
     }
 
     #[test]

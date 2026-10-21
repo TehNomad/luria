@@ -145,7 +145,7 @@ fn the_state_and_validation_are_on_screen() {
     );
     assert_eq!(
         screen.last().unwrap(),
-        "q quit  enter open  j/k move  p provenance"
+        "q quit  enter open  j/k move  p provenance  x export"
     );
 }
 
@@ -352,7 +352,7 @@ fn the_key_line_offers_problem_only_with_a_problem() {
     // offers no problem screen.
     let rows: Vec<String> = screen(&App::new(set("key_line_set")), 80, 24);
     assert_eq!(
-        rows[23], "q quit  enter open  j/k move  p provenance",
+        rows[23], "q quit  enter open  j/k move  p provenance  x export",
         "{:?}",
         rows[23]
     );
@@ -363,7 +363,7 @@ fn the_key_line_offers_problem_only_with_a_problem() {
     assert_eq!(app.screen(), Screen::Overview);
     let rows: Vec<String> = screen(&app, 80, 24);
     assert_eq!(
-        rows[23], "q quit  enter open  j/k move  p provenance  e problem",
+        rows[23], "q quit  enter open  j/k move  p provenance  x export  e problem",
         "{:?}",
         rows[23]
     );
