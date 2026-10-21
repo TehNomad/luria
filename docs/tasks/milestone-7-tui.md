@@ -199,11 +199,20 @@ rule). `luria-core` and `luria-nl` are unchanged. Split inside the module:
 
 A window of the template around the edit span: the top strand with
 coordinates, the forward primer over its span, the reverse primer under its
-span written 3'→5' (core's complement of its annealing part, aligned by
-the reported span), tails shown off the template, and the edited bases
-marked. Only for a member with a design; for a circular template (no
-design, D035) the window shows the edit span only. The expected layout for
-the linear GenBank fixture is written by hand (§7).
+span written 3'→5' (the primer's own text reversed, so each base sits
+under the base it pairs with; nothing is complemented), tails shown off
+the template beside their primer, and the edited bases marked.
+
+Changed by the planner in 7d0 (2026-10-21), to be confirmed by the owner:
+- A member with no design (every circular template, D035) gets one line
+  saying there is no context, rather than the edit span alone: the edit
+  span is reported only inside a design, a circular edit can cross the
+  origin, and the member screen already lists the edit's coordinates.
+- The expected layouts are for three SID-1 designs (`native-01`, `del-11`,
+  `ins-14`), not the linear GenBank record: their primer geometry is
+  already fixed by independently verified rows of `tests/fixtures/q5-primer/`,
+  while the linear record's primers are not. They are in
+  `tests/fixtures/review/`, written by `reference/context.py`.
 
 ### 5.4 The primer table (M7-4)
 
@@ -312,10 +321,10 @@ Proposed rules:
 
 - No new scientific fixtures: the TUI shows results whose values are
   already verified (M3–M6).
-- One new presentation fixture: the sequence-context layout for the
-  linear GenBank record's designed substitution, written by hand from
-  `tests/fixtures/genbank/synthetic-linear.gb` and the hand-verified primer
-  spans, recorded in `tests/fixtures/README.md`.
+- One new presentation fixture set, `tests/fixtures/review/`: the
+  sequence-context layouts of three SID-1 designs from
+  `tests/fixtures/q5-primer/` rows (§5.3), recorded in
+  `tests/fixtures/README.md`.
 - Owner acceptance in a real terminal, from a short checklist in 7h.
 
 ## 8. Not in this milestone

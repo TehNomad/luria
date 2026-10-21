@@ -9,6 +9,7 @@
 | [`genbank/`](./genbank/) | pBR322 (NCBI J01749.1) read by Biopython, a hand-written synthetic record with one CDS per accepted form and per refusal, and a hand-written linear record with one designable CDS for the natural-language milestone. Drives `crates/core/tests/genbank_fixtures.rs`. |
 | [`nl/`](./nl/) | The natural-language corpus of Milestone 6: 24 cases pairing a user's prose and a scripted model reply with the typed request, questions or error it must give. Drives contracts 6e and 6i. |
 | [`q5-primer/`](./q5-primer/) | The primer-design contract in `docs/q5-primer-design.md`: ten contract cases, reproducible reference designs for the substitution cases, and expected `luriaNative` outcomes for substitutions, deletions, insertions and replacements (`native*.tsv`). Drives `crates/core/tests/q5_primer_fixtures.rs`. |
+| [`review/`](./review/) | Expected text of `luria review`'s sequence-context screen for three designs whose geometry `q5-primer/` already fixes, written by `reference/context.py` from those rows and the SID-1 template (milestone 7, contract 7d0). Drives `crates/cli/tests/review_context.rs`. |
 | [`tm/`](./tm/) | Published nearest-neighbour parameters for the Tm calculation (D030). Drives `crates/core/tests/tm_tables.rs`; `tm_crosscheck.rs` holds reference Tm values. |
 | [`primer-quality/`](./primer-quality/) | Sourced thresholds for the non-blocking primer-quality warnings. Drives `crates/core/tests/primer_quality_thresholds.rs`. |
 | [`codon-usage/`](./codon-usage/) | The Kazusa Codon Usage Database page for *Escherichia coli* W3110 (species 316407) as captured, parsed to `counts.tsv` by `reference/parse_kazusa.py`. Checked against `crates/core/src/codon_usage.rs` by `crates/core/tests/codon_usage_fixture.rs`. |
@@ -31,8 +32,8 @@ python -I tests/fixtures/verify.py
 `verify.py` runs each check as `sys.executable -I <script> --check` and prints
 `PASS` or `FAIL` and the name of each, exiting 1 if any fails: the three Tm
 verifiers (`verify_imm.py`, `verify_matched.py`, `crosscheck.py`), the five
-q5-primer generators, the codon-usage parser, the FASTA digest check, and the three
-GenBank checks.
+q5-primer generators, the codon-usage parser, the FASTA digest check, the three
+GenBank checks, and the review context check.
 
 These Python checks are **not** part of the required cargo checks (D039, D026):
 the Rust tests never call Python, and `cargo test --workspace` does not run

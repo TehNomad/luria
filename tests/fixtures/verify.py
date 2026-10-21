@@ -46,6 +46,7 @@ CHECKS = [
     "genbank/reference/pbr322.py",
     "genbank/reference/verify_synthetic.py",
     "genbank/reference/verify_synthetic_linear.py",
+    "review/reference/context.py",
 ]
 
 

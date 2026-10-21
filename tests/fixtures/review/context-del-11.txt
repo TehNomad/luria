@@ -1,0 +1,9 @@
+sequence context: del-11, [1185, 1232) of sid-1
+top strand 5'->3'; forward 5'->3' above it, reverse 3'->5' below it
+upper case anneals, lower case does not; ^ base edited or removed, + insertion point
+
+bases [1185, 1232)
+template  CTGCTCAATCCGCTCGTTGAGCAAGATTTCGGGGCGCACAGAAAGAG
+forward                              TTCGGGGCGCACAGA
+reverse        GTTAGGCGAGCAACTCGTT
+edit                              ^^^
