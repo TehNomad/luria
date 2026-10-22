@@ -1,6 +1,6 @@
 # Milestone 7m2: export names constructs by template, and asks before replacing
 
-Status: **Draft, waits for 7m1** (both change `review/app.rs`). Planner:
+Status: **Ready for the worker, 2026-10-22.** Planner:
 Claude. Parent: `docs/tasks/milestone-7m-polish.md`, M7-57 and the export
 half of M7-49.
 

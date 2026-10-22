@@ -257,3 +257,26 @@ fn waiting_names_the_model_call() {
         "the key line is the only row that differs"
     );
 }
+
+// 7m1c: `option_runs` takes the first character's style from the character
+// itself, so a choice row written at the value column, whose text starts with
+// `◉`, draws that mark green as a `◉` in the middle of a row does.
+#[test]
+fn a_leading_choice_mark_is_green() {
+    let form: NewForm = sid1(&["D404N"], "15");
+    let screen: Vec<String> = rows(&form, 80, 24);
+    // A choice row's text starts right after the 11-column label, so its first
+    // character sits at column 12, inside the frame's left border column.
+    let row: usize = screen
+        .iter()
+        .position(|line| line.chars().nth(12) == Some('◉'))
+        .expect("a choice row whose text starts with ◉");
+    let styles: Vec<Vec<Style>> = styles(&form, 80, 24);
+    assert_eq!(
+        styles[row][12].fg,
+        Some(Color::Green),
+        "the leading ◉ on the row {:?} is green: {:?}",
+        styles[row][12],
+        screen[row]
+    );
+}

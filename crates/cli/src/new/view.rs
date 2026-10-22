@@ -237,14 +237,20 @@ fn styled_line(line: &str, focused_label: bool, focused_review: bool) -> Line<'s
 fn option_runs(text: &str, base: Style) -> Vec<Span<'static>> {
     let mut spans: Vec<Span<'static>> = Vec::new();
     let mut run: String = String::new();
-    let mut style: Style = base;
-    for (index, ch) in text.chars().enumerate() {
+    // 7m1c: the first character's style is its own, so a row that starts with
+    // `◉` draws its mark green, as a `◉` anywhere else on the row does.
+    let mut style: Style = match text.chars().next() {
+        Some('◉') => Style::default().fg(Color::Green),
+        Some(_) => base,
+        None => base,
+    };
+    for ch in text.chars() {
         let next: Style = if ch == '◉' {
             Style::default().fg(Color::Green)
         } else {
             base
         };
-        if index > 0 && next != style {
+        if next != style {
             spans.push(Span::styled(run.clone(), style));
             run.clear();
             style = next;

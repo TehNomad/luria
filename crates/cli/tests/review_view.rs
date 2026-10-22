@@ -1839,8 +1839,7 @@ fn the_primer_table_colours_only_the_sequence() {
         "the row's sequence is the fixture's forward primer: {:?}",
         cells[start..start + length].iter().collect::<String>()
     );
-    // `runs` styles a run from its second character on, as 7j2 draws it, so the
-    // annealing base the rule is proved on is the one after the first.
+    // Any annealing base proves the rule; the first one is 7m1c's own test.
     let style: Style = styles[row][start + 1];
     assert_eq!(
         ink(style),
@@ -1848,6 +1847,68 @@ fn the_primer_table_colours_only_the_sequence() {
         "the annealing base `{}` of the table's sequence is light blue: {:?}",
         primer.chars().nth(1).expect("the primer has a second base"),
         style
+    );
+}
+
+// 7m1c: `runs` takes the first character's style from the character itself, so
+// a primer table row's first base is coloured as its own case gives it, the
+// same colour the bases after it take (M7-54, M7-55).
+#[test]
+fn the_first_base_of_a_row_is_coloured() {
+    // `del-11`'s forward primer is all upper case, so its first base is an
+    // annealing base and is `LightBlue` like every other base of the sequence.
+    let run: Run = del11("first_base_colour");
+    let app: App = opened_app(app_of(&run), &[Key::Enter]);
+    assert_eq!(app.screen(), Screen::Member(0), "`enter` opens the variant");
+    let rows: Vec<String> = rows(&app, 80, 24);
+    let styles: Vec<Vec<Style>> = styles(&app, 80, 24);
+    let row: usize = rows
+        .iter()
+        .position(|line| line.starts_with("\u{2502}forward") && line.contains(" nt"))
+        .expect("the sequence screen's forward primer table row");
+    let cells: Vec<char> = rows[row].chars().collect();
+
+    let primer: String = column_of("native-deletion.tsv", "del-11", "forward");
+    let length: usize = primer.chars().count();
+
+    // The sequence starts after the `°C` unit and the three spaces, the way
+    // `the_primer_table_colours_only_the_sequence` reads the row.
+    let needle: Vec<char> = vec!['\u{00b0}', 'C'];
+    let degree: usize = cells
+        .windows(needle.len())
+        .position(|window| window == needle.as_slice())
+        .expect("the primer table row's `°C`");
+    let start: usize = degree + 5;
+    assert_eq!(
+        cells[degree + 2..start].iter().collect::<String>(),
+        "   ",
+        "three spaces stand between the unit and the sequence: {:?}",
+        cells[degree + 2..start].iter().collect::<String>()
+    );
+    assert_eq!(
+        cells[start..start + length].iter().collect::<String>(),
+        primer,
+        "the row's sequence is the fixture's forward primer: {:?}",
+        cells[start..start + length].iter().collect::<String>()
+    );
+
+    // The colour the fixture's own first base's case gives: `LightBlue` for an
+    // upper-case annealing base, `Yellow` for a lower-case tail base.
+    let first: char = primer.chars().next().expect("the primer has a first base");
+    let annealing: bool = first.is_ascii_uppercase();
+    let expected: Color = if annealing {
+        Color::LightBlue
+    } else {
+        Color::Yellow
+    };
+    assert_eq!(
+        ink(styles[row][start]),
+        Some(expected),
+        "the first base `{}` of the table's sequence is {} ({} case): {:?}",
+        first,
+        expected,
+        if annealing { "upper" } else { "lower" },
+        styles[row][start]
     );
 }
 

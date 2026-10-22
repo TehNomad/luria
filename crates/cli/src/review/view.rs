@@ -306,10 +306,15 @@ fn runs(text: &str, style_of: &dyn Fn(char) -> Style) -> Vec<Span<'static>> {
     }
     let mut spans: Vec<Span<'static>> = Vec::new();
     let mut run: String = String::new();
-    let mut style: Style = Style::default();
-    for (index, ch) in text.chars().enumerate() {
+    // 7m1c: the first character's style is its own, so every character is drawn
+    // in the style `style_of` gives it, the first one included.
+    let mut style: Style = match text.chars().next() {
+        Some(first) => style_of(first),
+        None => Style::default(),
+    };
+    for ch in text.chars() {
         let next: Style = style_of(ch);
-        if index > 0 && next != style {
+        if next != style {
             spans.push(Span::styled(run.clone(), style));
             run.clear();
             style = next;

@@ -1,6 +1,6 @@
 # Milestone 7m1c: a coloured run's first character takes its colour
 
-Status: **Ready for the worker, 2026-10-22.** Planner: Claude. Found by
+Status: **Implemented, 2026-10-22.** Planner: Claude. Found by
 w7m1b during 7m1.
 
 ## 1. The bug
