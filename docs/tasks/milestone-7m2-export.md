@@ -130,3 +130,19 @@ git status --short
 
 Report each result, the §3.1 proofs, and every existing assertion
 changed.
+
+## 6. Planner answers to w7m2 (2026-10-22)
+
+Approved beyond §4, each forced by §2:
+
+- `review/text.rs`: `text::help` gains a `Screen::Replace` arm (`y`
+  "replace the files named", `esc` "back"); its test
+  `no_plan_says_how_to_export` names the constructs `sid-1_del-11.fa`
+  and `sid-1_ins-14.fa`.
+- `tests/review_export.rs`: `nothing_is_replaced`'s refusal is
+  `sid-1_del-11.fa already exists; luria never replaces a file; nothing
+  was written`, and its sorted name list follows. The refusal in
+  `an_existing_construct_blocks_the_export` is now the taken-name line,
+  because the export no longer calls `run_with_output`.
+- `main.rs`: the doc comment near line 148 says the write happens on `w`
+  or `o`, or on `y` at the replace prompt.
