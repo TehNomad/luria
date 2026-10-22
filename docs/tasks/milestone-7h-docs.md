@@ -1,6 +1,6 @@
 # Milestone 7h: the documentation, and D046
 
-Status: **Ready for the worker, 2026-10-21** (the owner confirmed the
+Status: **Implemented 2026-10-21.** Proof failed as required. (The owner confirmed the
 plan's §8a choices). Planner: Claude. Parent:
 `docs/tasks/milestone-7-tui.md` §6 (7h).
 

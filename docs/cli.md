@@ -4,7 +4,8 @@ This page describes `luria-cli` 0.1.0, which reads requests in schema
 `luria.q5-request/1` and writes results in schema `luria.q5-result/1`.
 The decisions behind it are D041 and D034 in `docs/decisions.md`.
 `luria q5 interpret`, which turns a request in words into a proposed
-request, is §10 (D044).
+request, is §10 (D044). `luria review`, which shows a result or a
+proposal in the terminal, is §11 (D046).
 
 `luria` runs one workflow, Q5 site-directed mutagenesis. It reads a request
 and the sequence file the request names, applies the edit, verifies it,
@@ -17,6 +18,10 @@ luria q5 design REQUEST.json [--write-edited DIR]
 luria q5 interpret --template FILE.gb (--text TEXT | --text-file FILE)
     --backend openai-compatible --endpoint URL --model NAME
     [--design PROFILE.json] [--allow-remote] [--write-request FILE.json]
+luria review REQUEST.json [--export DIR]
+luria review --template FILE.gb (--text TEXT | --text-file FILE)
+    --backend openai-compatible --endpoint URL --model NAME
+    --request FILE.json [--design PROFILE.json] [--allow-remote] [--export DIR]
 luria version
 luria help
 ```
@@ -26,6 +31,7 @@ luria help
 | `q5 design REQUEST.json` | Runs the request and prints one result document. |
 | `--write-edited DIR` | Also writes each edited construct to `DIR/<member name>.fa`. `DIR` is created if needed. An existing file is never overwritten. The file's header is the result name, and it records no topology. |
 | `q5 interpret ...` | Asks a language model what a request in words means and prints the proposed request, or luria's questions, as one document. It runs nothing (§10). |
+| `review ...` | Shows a result, or a proposal it runs once you approve, in the terminal, and exports it (§11). |
 | `version`, `--version` | Prints the package version, every algorithm's name and version, and the two schema names (§4). |
 | `help`, `--help`, `-h` | Prints the usage text. |
 
@@ -477,7 +483,7 @@ Every result repeats these algorithm names and versions in its
 
 | Code | Meaning |
 | --- | --- |
-| 0 | `verified`, and every member designed; for `luria q5 interpret`, `proposed` |
+| 0 | `verified`, and every member designed; for `luria q5 interpret`, `proposed`; for `luria review`, you quit |
 | 1 | An internal error, or a failure to write the output: stdout, a `--write-edited` file or a `--write-request` file; for `luria q5 interpret`, also a model server that could not be reached or answered badly (§10.7) |
 | 2 | Usage error: bad arguments. Text on stderr, no JSON |
 | 3 | `needs_clarification` |
@@ -779,3 +785,103 @@ an `https://` endpoint included, exits 2 with nothing on stdout.
 When the `--write-request` file cannot be written, the `proposed`
 document still goes to stdout, the reason goes to stderr as `luria:
 could not write <name>: <reason>`, and the exit is 1.
+
+## 11. Reviewing in the terminal: `luria review`
+
+`luria review` shows a result, or a proposal, on a full-screen terminal
+view, so you can read it before you rely on it. Every value on screen is
+a field of the documents §8 and §10.5 describe, except the variant's
+protein, which luria-core reads from the edited construct. The decisions behind it are D046 and
+`docs/tasks/milestone-7-tui.md`.
+
+```
+luria review REQUEST.json [--export DIR]
+luria review --template FILE.gb (--text TEXT | --text-file FILE)
+    --backend openai-compatible --endpoint URL --model NAME
+    --request FILE.json [--design PROFILE.json] [--allow-remote] [--export DIR]
+```
+
+Both forms need a terminal on stdin and stdout, and a screen of at least
+80 by 24; with less, the screen says so and shows nothing else.
+
+### 11.1 A result
+
+`luria review REQUEST.json` runs the request as `luria q5 design` does
+and opens on the overview, or on the problem screen when the result
+failed or asks a question. Every screen sits in one frame whose title
+shows the state as a coloured badge (`✓ verified`, `✗ failed`, `?
+needs clarification`) and the experimental validation (`not tested at
+the bench`). Positions on screen are 1-based and inclusive, as GenBank
+writes them (`GAT→AAC at 1210–1212`, `insert GAT after 1209`); the
+request and result files stay zero-based (§3). `?` opens a help pop-up
+with the legend and the keys.
+
+| Screen | What it shows | Keys |
+| --- | --- | --- |
+| Overview | The template, the target CDS and its strand, any operation warnings, and the variants, one row each with its edit and whether a primer pair was designed | `j`/`k` move, `enter` open, `p` provenance, `e` problem, `x` export |
+| Variant | The forward primer above the top strand, the variant's protein between the strands, the bottom strand, the reverse primer below it written 3'→5'; edited bases and primer bases that do not anneal in lower case and coloured; then a table of each primer's length, Tm (one decimal) and sequence 5'→3', the annealing temperature, and each warning in words | `d` details, `i` expand or collapse a long insertion, `j`/`k` scroll |
+| Details | Everything the result records for the variant: the edit, its warnings by code, and each primer with its parts, Tm basis and warnings; or why no pair was designed | `j`/`k` scroll |
+| Provenance | The package, every algorithm and version, the request and template digests, what a GenBank record imported and did not, the buffer | `j`/`k` scroll |
+| Problem | The error and its details, or the clarifications and candidates | `p` provenance |
+
+`esc` goes back, and quits from the overview; `q` quits from anywhere;
+`PgUp`, `PgDn` and `Home` scroll. The variant screen reads the template
+again and draws it only when its digest is the one the result reports.
+The protein is the one luria-core reads from the edited construct, in
+the CDS's frame, on past a frameshift, ending at the first stop codon;
+the construct is used only when its digest is the variant's. An
+insertion longer than 30 bases is shown by its boundaries until `i`
+expands it, and starts collapsed each time the screen opens.
+
+### 11.2 A request in words
+
+The second form interprets your text as `luria q5 interpret` does (§10),
+with the same backend, remote gate and key rules, and shows the proposal:
+any questions or error first, then the proposed request exactly as it
+will be written, where each value came from, the model's reading with
+each quote, and everything sent to and received from the model.
+
+Its frame's badge is `PROPOSAL`, never a result's. Nothing is written
+and nothing runs until you press `a`, then `y` on a
+screen that names the file. luria then writes the request to
+`--request`, under `--write-request`'s rules (beside the template,
+never replacing a file), runs `luria q5 design` on that file, and shows
+the result as §11.1 does. `--request` is checked before the model is
+called. Quitting before you approve writes nothing.
+
+Questions are read only. To answer one, quit, change your text or your
+profile, and run again.
+
+### 11.3 Export
+
+With `--export DIR`, `x` on the overview lists the files an export would
+write, and `y` writes them:
+
+| File | What it holds |
+| --- | --- |
+| `<request>.result.json` | The result, byte for byte what `luria q5 design REQUEST.json` prints |
+| `<member>.fa` | Each edited construct, as `--write-edited` writes it |
+| `<request>.order.tsv` | An order table for IDT's Bulk Input |
+
+`<request>` is the request file's name without `.json`. If any of these
+files exists, nothing is written. Before it writes, luria runs the
+request again and refuses if the result is not the one on screen.
+
+<!-- luria:order-scales -->
+The order table is tab-separated, with the header `Name`, `Sequence`,
+`Scale`, `Purification`, and one row per primer of each designed member,
+forward then reverse, named `<template id>_<member>_F` and `_R`. Every row
+is `STD` (standard desalting). The scale is set by the primer's length:
+
+| Length | Scale |
+| --- | --- |
+| 15-60 nt | `25nm` |
+| 61-90 nt | `100nm` |
+| 91-100 nt | `250nm` |
+| 101-200 nt | `4nmU` |
+
+A primer outside 15-200 nt, a base other than A, C, G or T, or a result
+that is not verified gives no table, and the export screen says why; the
+other files are still written. luria writes the file and never places an
+order. Check the scale and purification against your own needs before
+you paste it.
