@@ -1,6 +1,12 @@
 # Milestone 7k2: building a request from the form's values
 
-Status: **Ready for the worker, 2026-10-21.** Planner: Claude. Parent:
+Status: **Implemented 2026-10-21.** Proofs 1-3 failed as required. A
+GenBank file is read twice (once to learn its LOCUS name, once under
+it), because `read_genbank` takes its identifier from the caller. Not
+checked here, as in `requests.py`: a GenBank CDS id absent from the
+record, and a residue number past the CDS (both refused later by
+`prepare`/core). Untested: a paste given as FASTA text, and the refusal
+messages' wording. Planner: Claude. Parent:
 `docs/tasks/milestone-7k-new.md` §2 and §3 (owner answers M7-32 to M7-39).
 The specification is `tests/fixtures/new/reference/requests.py` (read its
 docstring and `build`/`member`); its outputs under `tests/fixtures/new/`
