@@ -178,3 +178,16 @@ git status --short
 
 Report each result, the §3.1 proofs, and every existing assertion
 changed.
+
+## 6. Planner answers to w7m4 (2026-10-22)
+
+The first worker, w7m4, wrote §2.1, §2.2 and §2.4 and ran out of context
+before §2.3. Its choices are accepted:
+
+- `form_blocker`'s empty-`SaveAs` blocker goes with `Field::SaveAs`; the
+  pop-up's `write the request's file name` failure replaces it.
+- `NewForm::save_as_cursor()` is added for §2.4's pop-up cursor.
+- `Replace` shows no failure line; `ask_replace` and `open_words_popup`
+  clear the failure.
+- `new_view.rs` tests that read the key line change only if they assert
+  `enter review`, which becomes `enter save` (approved).
