@@ -144,9 +144,10 @@ fn emit_interpret(
 /// on each member's own edited construct, not a translation of the screen's own
 /// (7i2, plan §5.3a, M7-21). The `--export` directory, when the command
 /// line gave one, is the plan the export screen lists, built from the document
-/// on screen, so what `y` writes is what the user reviewed; the write itself is
-/// done by the terminal, on `y` only. The exit status is 0 whatever the
-/// result's state, and 1 when the terminal itself failed.
+/// on screen, so what the export writes is what the user reviewed; the write
+/// itself is done by the terminal, on `w` or `o`, and on `y` at the prompt
+/// naming a name that already exists (M7-58, M7-49). The exit status is 0
+/// whatever the result's state, and 1 when the terminal itself failed.
 fn emit_review(request: PathBuf, export: Option<PathBuf>) -> ExitStatus {
     match review::terminal_problem("review", stdin().is_terminal(), stdout().is_terminal()) {
         Some(problem) => report_usage(problem),
@@ -181,9 +182,9 @@ fn emit_review(request: PathBuf, export: Option<PathBuf>) -> ExitStatus {
                     .with_template(letters)
                     .with_frames(frames)
                     .with_export(plan),
-                &mut |app: &App| match app.export_plan() {
-                    Some(plan) => write_export(plan, app.document()),
-                    // `y` is offered only where a plan exists, so this cannot
+                &mut |app: &App, replace: bool| match app.export_plan() {
+                    Some(plan) => write_export(plan, app.document(), replace),
+                    // `w` is offered only where a plan exists, so this cannot
                     // be reached; the line says what happened.
                     None => Err("no export directory was given".to_string()),
                 },
@@ -281,8 +282,8 @@ fn emit_review_interpret(
                                         .with_template(approved.template)
                                         .with_frames(approved.frames)
                                         .with_export(plan),
-                                    &mut |app: &App| match app.export_plan() {
-                                        Some(plan) => write_export(plan, app.document()),
+                                    &mut |app: &App, replace: bool| match app.export_plan() {
+                                        Some(plan) => write_export(plan, app.document(), replace),
                                         None => Err("no export directory was given".to_string()),
                                     },
                                 ) {
@@ -431,8 +432,8 @@ fn emit_new(
                             .with_template(approved.template)
                             .with_frames(approved.frames)
                             .with_export(plan),
-                        &mut |app: &App| match app.export_plan() {
-                            Some(plan) => write_export(plan, app.document()),
+                        &mut |app: &App, replace: bool| match app.export_plan() {
+                            Some(plan) => write_export(plan, app.document(), replace),
                             None => Err("no export directory was given".to_string()),
                         },
                     ) {

@@ -10,7 +10,8 @@
 //! and runs the approval the user confirms, in the one place the shell decides
 //! to write (plan §3 rule 4).
 
-use crate::review::app::{Action, App, Key};
+use crate::review::app::{Action, App, Key, Screen};
+use crate::review::export::taken;
 use crate::review::proposal::{ProposalAction, ProposalApp};
 use crate::review::view;
 use crate::review::Approved;
@@ -54,17 +55,26 @@ fn key_of(key: KeyEvent) -> Key {
     }
 }
 
+/// The write the export screen asks for: the plan the screen shows, the answer of
+/// the prompt over it (`true` replaces the names it listed, `false` writes nothing
+/// over a name that exists), and the names written in the order written, or the
+/// one line saying why nothing was (M7-49).
+///
+/// The type is named here, because the closure's own form is long, and it is the
+/// one `run` calls and `main` gives.
+type ExportWrite = dyn FnMut(&App, bool) -> Result<Vec<String>, String>;
+
 /// Open the screen, draw `app` until it asks to quit, and restore the terminal,
 /// whatever happens (plan §3 rule 7).
 ///
-/// `export` is called only on `Action::Export`, which `app` gives for `y` on the
-/// export screen when there is a plan (7g1). Its outcome is the one line the
-/// screen shows, and the session continues, so the user reads what was written
-/// and goes back by choice.
-pub fn run(
-    mut app: App,
-    export: &mut dyn FnMut(&App) -> Result<Vec<String>, String>,
-) -> std::io::Result<()> {
+/// `export` is called on `Action::Export`, which `app` gives for `w` `o` on the
+/// export screen when there is a plan and nothing the export would write exists,
+/// and on `Action::ExportReplace`, which `app` gives for `y` on the prompt naming
+/// the files that exist (M7-49, M7-58); the `bool` it carries is the answer, so
+/// the closure writes nothing over an existing name for `false` and replaces for
+/// `true`. Its outcome is the one line the screen shows, and the session
+/// continues, so the user reads what was written and goes back by choice.
+pub fn run(mut app: App, export: &mut ExportWrite) -> std::io::Result<()> {
     let mut terminal = match ratatui::try_init() {
         Ok(opened) => opened,
         Err(problem) => {
@@ -87,11 +97,23 @@ pub fn run(
                 break;
             }
             Ok(Event::Key(key)) if key.kind == KeyEventKind::Press => {
+                // M7-49: before each key on the export screen, the names the
+                // export would write that exist are set, so `w` can tell whether
+                // a write is asked for, or a prompt naming a taken name. The app
+                // stays pure, so this is where the file system is looked at.
+                if app.screen() == Screen::Export {
+                    let names: Vec<String> = match app.export_plan() {
+                        Some(plan) => taken(plan),
+                        None => Vec::new(),
+                    };
+                    app.set_taken(names);
+                }
                 match app.handle(key_of(key)) {
                     Action::Quit => break,
-                    // `y` asked for the write: the outcome is shown on the
-                    // export screen, and the loop draws it.
-                    Action::Export => app.export_done(export(&app)),
+                    // The write asked for: the outcome is shown on the export
+                    // screen, and the loop draws it.
+                    Action::Export => app.export_done(export(&app, false)),
+                    Action::ExportReplace => app.export_done(export(&app, true)),
                     Action::Continue => {}
                 }
                 // M7-56: scrolling stops at the bottom, so after every key the

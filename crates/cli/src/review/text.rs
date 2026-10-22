@@ -1272,6 +1272,10 @@ pub fn help(screen: Screen, problem: bool, expandable: bool) -> Vec<String> {
             lines.push(key("w o", "write the files"));
             lines.push(key("esc", "back"));
         }
+        Screen::Replace => {
+            lines.push(key("y", "replace the files named"));
+            lines.push(key("esc", "back"));
+        }
     }
     lines.push(key("q", "quit"));
     lines.push(key("ctrl-c", "quit"));
@@ -2655,8 +2659,8 @@ mod tests {
                 "export to out:".to_string(),
                 "  set.result.json  the result, as luria q5 design prints it".to_string(),
                 "  set.order.tsv  IDT order table, 2 primers".to_string(),
-                "  del-11.fa  edited construct".to_string(),
-                "  ins-14.fa  edited construct".to_string(),
+                "  sid-1_del-11.fa  edited construct".to_string(),
+                "  sid-1_ins-14.fa  edited construct".to_string(),
                 "members left out of the order table: ins-14".to_string(),
                 String::new(),
                 "nothing is replaced: if any of these files exists, nothing is written".to_string(),

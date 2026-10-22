@@ -43,6 +43,9 @@ pub enum Action {
     Continue,
     Quit,
     Export,
+    /// The write asked for on the `Replace` prompt, `y` answered (M7-49):
+    /// `terminal` calls the export closure to replace the names it listed.
+    ExportReplace,
 }
 
 /// Which screen is open. A member index is an index into
@@ -59,6 +62,9 @@ pub enum Screen {
     Details(usize),
     Problem,
     Export,
+    /// The prompt over the export screen when a name it would write exists
+    /// (M7-49): it names those files, and `y` replaces them.
+    Replace,
 }
 
 /// The screen's state: the result document to show, the open screen, the member
@@ -75,6 +81,9 @@ pub struct App {
     frames: Vec<MemberFrame>,
     export: Option<ExportPlan>,
     export_message: Option<String>,
+    /// The plan's names that exist in the export directory, as the shell set
+    /// them before the last key on `Export` (M7-49). `Replace` lists them.
+    taken: Vec<String>,
     expanded: bool,
     help: bool,
 }
@@ -97,6 +106,7 @@ impl App {
             frames: Vec::new(),
             export: None,
             export_message: None,
+            taken: Vec::new(),
             // A long insertion starts collapsed every time the screen opens (7i4).
             expanded: false,
             // The help legend is closed when the screen opens (M7-27).
@@ -162,6 +172,19 @@ impl App {
         self.export.as_ref()
     }
 
+    /// The names that exist in the export directory, set by the shell with
+    /// `taken` of the plan before each key on `Export` (M7-49): the app stays
+    /// pure, so the shell looks at the file system and the app only carries what
+    /// it is given, which `Replace` draws and `w` asks about.
+    pub fn set_taken(&mut self, names: Vec<String>) {
+        self.taken = names;
+    }
+
+    /// The names the shell said exist, in the plan's order.
+    pub fn taken(&self) -> &[String] {
+        self.taken.as_slice()
+    }
+
     /// The one line the last export gave, kept on the export screen.
     pub fn export_message(&self) -> Option<&str> {
         self.export_message.as_deref()
@@ -224,7 +247,10 @@ impl App {
     /// `e` `x` move, `d` opens the details of the open member, `?` opens the
     /// help legend on every screen (M7-53), `w` `o` on the export screen ask for
     /// the write when a plan exists and `esc` goes back (M7-58), and any other
-    /// key changes nothing. While help is open, `esc` and `backspace` only close
+    /// key changes nothing. When a name the export would write exists, as the
+    /// shell set with `set_taken`, `w` `o` open the `Replace` prompt, where `y`
+    /// asks for the replace and any other key goes back saying nothing was
+    /// written (M7-49). While help is open, `esc` and `backspace` only close
     /// it, `q` quits and every other key does nothing (M7-27). The selection does
     /// not wrap, and `Q` is not quit. On the overview `Up` `Down` `j` `k` move
     /// the selection, so only `PageUp` `PageDown` `Home` scroll there; on every
@@ -314,14 +340,27 @@ impl App {
             (Screen::Problem, Key::Esc | Key::Backspace) => self.screen = Screen::Overview,
             // M7-58: `w` and `o` write, and only when there is a plan to write
             // with, so `w` with no `--export` directory does nothing (no silent
-            // action), and `y` and `n` do nothing at all.
+            // action), and `y` and `n` do nothing at all. M7-49: when a name the
+            // export would write exists, `w` opens the prompt that names it and
+            // asks, and writes nothing until the prompt is answered.
             (Screen::Export, Key::Char('w') | Key::Char('o')) => {
                 if self.export.is_some() {
-                    return Action::Export;
+                    if self.taken.is_empty() {
+                        return Action::Export;
+                    }
+                    self.screen = Screen::Replace;
                 }
             }
             (Screen::Export, Key::Esc | Key::Backspace) => {
                 self.screen = Screen::Overview;
+            }
+            // M7-49: on the prompt, `y` replaces the names listed, and any
+            // other key goes back to the export screen with the line saying
+            // nothing was written. `ctrl-c` quits, as on every screen (M7-43).
+            (Screen::Replace, Key::Char('y')) => return Action::ExportReplace,
+            (Screen::Replace, _) => {
+                self.screen = Screen::Export;
+                self.export_message = Some("nothing was written".to_string());
             }
             _ => {}
         }
@@ -744,6 +783,90 @@ mod tests {
         }
         let mut app: App = export_app(document_with(2));
         assert_eq!(app.handle(Key::Char('q')), Action::Quit);
+    }
+
+    // M7-49: a name the export would write that exists opens the prompt naming
+    // it, where `y` replaces them and any other key writes nothing. The names are
+    // what the shell set with `set_taken`, so the app stays pure.
+    #[test]
+    fn a_taken_name_opens_the_replace_prompt() {
+        // Nothing exists, so `w` and `o` write, as M7-58 says.
+        for key in [Key::Char('w'), Key::Char('o')] {
+            let mut app: App = export_app(document_with(2));
+            assert!(app.taken().is_empty(), "the shell said nothing exists");
+            assert_eq!(app.handle(key), Action::Export, "`{:?}` writes", key);
+            assert_eq!(
+                app.screen(),
+                Screen::Export,
+                "`{:?}` stays for the report",
+                key
+            );
+        }
+
+        // A name taken, so `w` and `o` open the prompt, which writes nothing
+        // until it is answered.
+        for key in [Key::Char('w'), Key::Char('o')] {
+            let mut app: App = export_app(document_with(2));
+            app.set_taken(vec!["sid-1_del-11.fa".to_string()]);
+            assert_eq!(
+                app.handle(key),
+                Action::Continue,
+                "`{:?}` asks, not writes",
+                key
+            );
+            assert_eq!(
+                app.screen(),
+                Screen::Replace,
+                "`{:?}` opens the prompt",
+                key
+            );
+            assert_eq!(app.scroll(), 0, "the new screen opens at its top");
+        }
+
+        // `y` answers the prompt, asking for the replace of the names listed.
+        let mut app: App = export_app(document_with(2));
+        app.set_taken(vec!["sid-1_del-11.fa".to_string()]);
+        app.handle(Key::Char('w'));
+        assert_eq!(app.handle(Key::Char('y')), Action::ExportReplace);
+        assert_eq!(
+            app.screen(),
+            Screen::Replace,
+            "the prompt stays for the shell to write and report"
+        );
+
+        // Any other key goes back to the export screen, writing nothing.
+        for key in [
+            Key::Char('n'),
+            Key::Esc,
+            Key::Backspace,
+            Key::Char('x'),
+            Key::Other,
+        ] {
+            let mut app: App = export_app(document_with(2));
+            app.set_taken(vec!["sid-1_del-11.fa".to_string()]);
+            app.handle(Key::Char('w'));
+            assert_eq!(
+                app.handle(key),
+                Action::Continue,
+                "`{:?}` writes nothing",
+                key
+            );
+            assert_eq!(app.screen(), Screen::Export, "`{:?}` goes back", key);
+            assert_eq!(
+                app.export_message(),
+                Some("nothing was written"),
+                "`{:?}` says nothing was written",
+                key
+            );
+        }
+
+        // `q` and `ctrl-c` quit from the prompt as on every screen, M7-43.
+        for key in [Key::Char('q'), Key::CtrlC] {
+            let mut app: App = export_app(document_with(2));
+            app.set_taken(vec!["sid-1_del-11.fa".to_string()]);
+            app.handle(Key::Char('w'));
+            assert_eq!(app.handle(key), Action::Quit, "`{:?}` quits", key);
+        }
     }
 
     #[test]

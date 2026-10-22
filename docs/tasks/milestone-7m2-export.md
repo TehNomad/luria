@@ -1,6 +1,6 @@
 # Milestone 7m2: export names constructs by template, and asks before replacing
 
-Status: **Ready for the worker, 2026-10-22.** Planner:
+Status: **Implemented, 2026-10-22.** Planner:
 Claude. Parent: `docs/tasks/milestone-7m-polish.md`, M7-57 and the export
 half of M7-49.
 
@@ -146,3 +146,16 @@ Approved beyond §4, each forced by §2:
   because the export no longer calls `run_with_output`.
 - `main.rs`: the doc comment near line 148 says the write happens on `w`
   or `o`, or on `y` at the replace prompt.
+
+## 7. Implementation notes (planner, 2026-10-22)
+
+- 1125 tests passed, 0 failed, 1 ignored; fmt, clippy, diff check clean;
+  fixtures 19 of 19. Both §3.1 proofs failed as required.
+- `write_text` with `replace` refuses a non-regular file, writes
+  `.<name>.luria-tmp` with `create_new`, then renames it over the name, so
+  a link that appears after the check is replaced, never written through.
+  A stale temporary file from a crash makes that write fail and is
+  removed, so the next try succeeds.
+- `terminal.rs` names the closure type `ExportWrite` for clippy.
+- Untested: the terminal loop's `set_taken` and `ExportReplace` call, the
+  Replace screen's text, and `file_name_problem` on the export path.

@@ -18,6 +18,10 @@
 //!   reviewing 5g2, C-1);
 //! - a refusal names the file on its own, never the directory it sits in
 //!   (D012), so the result document stays free of absolute paths;
+//! - `write_text` is the one writer the export uses (M7-49): with `replace`
+//!   false it is today's `create_new` rule unchanged, and with `replace` true
+//!   it writes over a regular file only, never through a link, and replaces it
+//!   by renaming a temporary over it, so a reader never sees half a file;
 //! - a result name that holds a path separator (`/` or `\`), or one of `:`
 //!   `*` `?` `<` `>` `|`, is refused before anything is created (§4.1 and the
 //!   owner answer of 2026-10-18), so a request cannot choose where the
@@ -27,8 +31,9 @@
 //! - two result names that differ only in case are refused at the later one
 //!   before anything is created (owner answer, 2026-10-18): on a
 //!   case-insensitive file system their files would replace each other while
-//!   the document reports both members.
-
+//!   the document reports both members. The last two checks are
+//!   `file_name_problem`' own, which `write_edited` and `write_export` share, so
+//!   a name checked by one is checked by the other.
 use std::fs;
 use std::io::ErrorKind;
 use std::io::Write;
@@ -65,6 +70,115 @@ pub enum WriteFailure {
     CaseClash(String),
 }
 
+/// Write `text` to `path`, with `replace` saying what a name that exists means.
+///
+/// `replace` false is today's rule, unchanged: `create_new` refuses a path
+/// something already holds, a symlink included, atomically with creating it, so
+/// nothing is ever written through a link (C-1).
+///
+/// `replace` true, the answer of M7-49, writes over a regular file only. The
+/// path is looked at itself by `symlink_metadata`, so a directory, a symlink of
+/// any kind, a dangling one included, refuses with `AlreadyExists`: nothing is
+/// ever written through a link. A regular file is replaced by writing `text` to
+/// a new file `.<name>.luria-tmp` in the same directory with `create_new`, then
+/// renaming that over `path`, so a reader of `path` never sees half a file. A
+/// failure removes the temporary, so nothing is left behind.
+pub fn write_text(path: &Path, text: &str, replace: bool) -> std::io::Result<()> {
+    if !replace {
+        return write_new_file(path, text);
+    }
+
+    // The path itself, as `write_edited` reads it (C-1): one that holds a
+    // regular file may be replaced, and one that holds a directory, a symlink
+    // of any kind, a dangling one included, refuses.
+    // The path itself, as `write_edited` reads it (C-1): one that holds a
+    // regular file may be replaced, and one that holds a directory, a symlink
+    // of any kind, a dangling one included, refuses.
+    match fs::symlink_metadata(path) {
+        Ok(found) => {
+            if !found.is_file() {
+                return Err(ErrorKind::AlreadyExists.into());
+            }
+        }
+        // A free name is written; any other failure to look is the operating
+        // system's own.
+        Err(problem) => match problem.kind() {
+            ErrorKind::NotFound => (),
+            _ => return Err(problem),
+        },
+    }
+
+    // The temporary: a hidden name in the same directory, so the rename below
+    // moves within one directory, and `.<name>.luria-tmp` is a name `write_text`
+    // itself creates and nothing else can name.
+    let file_name: &str = match path.file_name().and_then(|given| given.to_str()) {
+        Some(name) => name,
+        None => {
+            return Err(std::io::Error::new(
+                ErrorKind::InvalidInput,
+                "the path has no file name to write",
+            ))
+        }
+    };
+    let parent: &Path = path.parent().unwrap_or_else(|| Path::new("."));
+    let temp: PathBuf = parent.join(format!(".{}.luria-tmp", file_name));
+
+    match write_new_file(temp.as_path(), text).and_then(|()| fs::rename(&temp, path)) {
+        Err(problem) => {
+            // The temporary is removed whatever failed, so a failed replace
+            // leaves nothing behind. Its own removal is not a failure here: the
+            // line the caller sees is the failure that happened.
+            let _ = fs::remove_file(&temp);
+            Err(problem)
+        }
+        Ok(()) => Ok(()),
+    }
+}
+
+/// Open `path` as a new file only, and write `text` into it: `create_new` is
+/// the rule of C-1, so a path something already holds, a symlink included, is
+/// never written through or replaced.
+fn write_new_file(path: &Path, text: &str) -> std::io::Result<()> {
+    let mut handle: fs::File = fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(path)?;
+    handle.write_all(text.as_bytes())
+}
+
+/// Why a name cannot be a file name, checked over the names a write would use,
+/// in the order given, before anything is created: `write_edited` and the export
+/// share these checks, so one name that cannot be a portable file name, or two
+/// names that differ only in case, refuses the whole set (G8). The `String` each
+/// refusal carries is the name alone, never a directory (D012).
+///
+/// A name holding a path separator (`/` or `\`) is refused first, in the order
+/// given, because `<name>.fa` would not be a file inside the directory, so a
+/// request cannot choose where the constructs are written (§4.1). Then, walking
+/// the names in order, one holding one of `:` `*` `?` `<` `>` `|` is refused, as
+/// no portable file system names it, and a name whose ASCII lower case is an
+/// earlier name's is refused at the later one, because their files would replace
+/// each other on a case-insensitive file system (owner answer, 2026-10-18).
+pub(crate) fn file_name_problem(names: &[String]) -> Option<WriteFailure> {
+    for name in names.iter() {
+        if name.contains("/") || name.contains("\\") {
+            return Some(WriteFailure::NotAFileName(name.clone()));
+        }
+    }
+    let mut folded: Vec<String> = [].to_vec();
+    for name in names.iter() {
+        if has_unportable_character(name.clone()) {
+            return Some(WriteFailure::NotAFileName(name.clone()));
+        }
+        let lower: String = ascii_lowered(name.clone());
+        if folded.contains(&lower) {
+            return Some(WriteFailure::CaseClash(name.clone()));
+        }
+        folded.push(lower.clone());
+    }
+    None
+}
+
 /// Write each member's edited construct as FASTA into `directory`, one file
 /// per artifact at `directory/<name>.fa`, and return the paths written in the
 /// order given.
@@ -83,34 +197,19 @@ pub fn write_edited(
         return Ok([].to_vec());
     }
 
-    // §4.1: a result name becomes a file name, so a name holding a path
-    // separator would write outside `directory`. Refused first, before anything
-    // is created, so a request cannot choose where the constructs go (G8).
-    for artifact in artifacts.iter() {
-        let (name, _) = artifact;
-        if name.value().contains("/") || name.value().contains("\\") {
-            return Err(WriteFailure::NotAFileName(name.value().to_string()));
-        }
-    }
-
-    // The owner answer of 2026-10-18, found reviewing 5g2: `:` `*` `?` `<`
-    // `>` `|` do not name a portable file, and two names that differ only in
-    // case name one file on a case-insensitive file system. Both are refused
-    // here, still before `directory` is created, so nothing is created (G8),
-    // and the clash is reported at the later name, walking the artifacts in
-    // the order given.
-    let mut folded: Vec<String> = [].to_vec();
-    for artifact in artifacts.iter() {
-        let (name, _) = artifact;
-        let value: String = name.value().to_string();
-        if has_unportable_character(value.clone()) {
-            return Err(WriteFailure::NotAFileName(value.clone()));
-        }
-        let lower: String = ascii_lowered(value.clone());
-        if folded.contains(&lower) {
-            return Err(WriteFailure::CaseClash(value.clone()));
-        }
-        folded.push(lower.clone());
+    // §4.1 and the owner answer of 2026-10-18, found reviewing 5g2: a result
+    // name becomes a file name, so a name holding a path separator, one of
+    // `:` `*` `?` `<` `>` `|`, or a later name differing from an earlier one
+    // only in case, is refused. The checks are `file_name_problem`' own, shared
+    // with the export, and run here still before `directory` is created, so
+    // nothing is created (G8), the clash reported at the later name, walking the
+    // artifacts in the order given.
+    let names: Vec<String> = artifacts
+        .iter()
+        .map(|(name, _)| name.value().to_string())
+        .collect();
+    if let Some(failure) = file_name_problem(names.as_slice()) {
+        return Err(failure);
     }
 
     // G8: a directory that is missing is created, parents included; one that

@@ -112,6 +112,32 @@ fn screen_lines(app: &App) -> Vec<String> {
         // 7g1: the export screen's lines are the plan's names, the table's
         // refusal when there is one, and the line the last export gave.
         Screen::Export => text::export(app.export_plan(), app.export_message()),
+        // M7-49: the prompt over the export screen names the files that exist,
+        // and the key that replaces them.
+        Screen::Replace => replace_lines(app),
+    }
+}
+
+/// The `Replace` prompt's lines (M7-49): the directory the export writes in, each
+/// name that exists in it on its own line, indented as the export screen indents
+/// the names it lists, then the key that answers. `taken` is what the shell set
+/// before the last key, so nothing here looks at the file system (plan §3 rule 1).
+fn replace_lines(app: &App) -> Vec<String> {
+    match app.export_plan() {
+        None => Vec::new(),
+        Some(plan) => {
+            let mut lines: Vec<String> = Vec::new();
+            lines.push(format!(
+                "these files exist in {}:",
+                plan.directory.display()
+            ));
+            for name in app.taken() {
+                lines.push(format!("  {}", name));
+            }
+            lines.push(String::new());
+            lines.push("y replace them  any other key: write nothing".to_string());
+            lines
+        }
     }
 }
 
@@ -566,6 +592,9 @@ pub fn draw(frame: &mut Frame, app: &App) {
                 keys.push_str("  esc back");
                 keys
             }
+            // M7-49: the prompt's own keys, `y` answering the question the body
+            // asks, `esc` going back to the export screen the prompt sits over.
+            Screen::Replace => "q quit  y replace them  esc back".to_string(),
         };
         // A problem is never hidden (plan §3 rule 3), so the key that opens it is on
         // the overview's key line whenever the document has one.

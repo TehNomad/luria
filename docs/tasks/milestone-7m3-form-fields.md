@@ -1,6 +1,6 @@
 # Milestone 7m3: the form's fields after the owner's hand test
 
-Status: **Draft, waits for 7m1** (one worker at a time: both run the whole
+Status: **Ready for the worker, 2026-10-22.** (One worker at a time: each runs the whole
 test suite). Planner: Claude. Parent: `docs/tasks/milestone-7m-polish.md`,
 M7-45, M7-46, M7-47 and M7-51.
 
