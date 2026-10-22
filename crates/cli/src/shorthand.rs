@@ -27,14 +27,14 @@ pub enum Reading {
         to: char,
         codon: Option<String>,
     },
-    /// `1210 G>A`, `1210-1212 GAT>AAC` (same length).
+    /// `1210 G>A` (one base to one base).
     Substitution {
         start: i64,
         end: i64,
         from: String,
         to: String,
     },
-    /// `1210-1212 GAT>TT` (different length).
+    /// Any other base change: `1210-1212 GAT>AAC`, `1210-1212 GAT>TT`.
     Replacement {
         start: i64,
         end: i64,
@@ -211,7 +211,10 @@ pub fn parse_line(line: &str) -> Result<Reading, Refusal> {
         return Err(Refusal::SameBases);
     }
     let start: i64 = zero_based(a);
-    if x.chars().count() == y.chars().count() {
+    // A request's `substitution` is one base only, so the reading is a
+    // `Substitution` only when both sides are one base; any other base
+    // change, `1210-1212 GAT>AAC` included, is a `Replacement`.
+    if x.chars().count() == 1 && y.chars().count() == 1 {
         return Ok(Reading::Substitution {
             start,
             end: b,

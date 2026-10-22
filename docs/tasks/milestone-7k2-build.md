@@ -1,6 +1,6 @@
 # Milestone 7k2: building a request from the form's values
 
-Status: **Draft, waits for 7k1b.** Planner: Claude. Parent:
+Status: **Ready for the worker, 2026-10-21.** Planner: Claude. Parent:
 `docs/tasks/milestone-7k-new.md` §2 and §3 (owner answers M7-32 to M7-39).
 The specification is `tests/fixtures/new/reference/requests.py` (read its
 docstring and `build`/`member`); its outputs under `tests/fixtures/new/`

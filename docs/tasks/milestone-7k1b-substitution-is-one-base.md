@@ -1,6 +1,6 @@
 # Milestone 7k1b: a range is a replacement
 
-Status: **Ready for the worker, 2026-10-21.** Planner: Claude. Corrects
+Status: **Implemented 2026-10-21.** The old rule failed `every_shorthand_row_matches` on `1210-1212 GAT>AAC`, as required. Planner: Claude. Corrects
 7k1 (committed as bbe71f8).
 
 ## 1. What and why
