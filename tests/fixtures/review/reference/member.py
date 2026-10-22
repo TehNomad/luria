@@ -40,14 +40,15 @@ The layout, in display columns:
 
 Lines:
 
-    <member>  <summary>  on <template id> [<template start>, <template end>)
+    <member>  <summary>  <template id> bases <a>–<b>
 
-where <summary> is the edit as requested (the overview's summary): `[s, e)
-X->Y` for a substitution or replacement, `[s, e) del X` for a deletion,
-`ins X at p` for an insertion, each base text longer than 30 written as
-`<N> bp`.
-    forward 5'->3' above, reverse 3'->5' below; the protein is the mutant's
-    lower case: edited bases, and primer bases that do not anneal
+where <summary> is the edit as requested, in 1-based inclusive
+coordinates (plan §5.3b, M7-24): `X→Y at a–b` (or `at a` for one base)
+for a substitution or replacement, `delete X at a–b` for a deletion,
+`insert X after p` for an insertion at zero-based point p (`at the
+start` for 0), each base text longer than 30 written as `<N> bp`; and
+<a>–<b> the window's template bases, 1-based inclusive. The legend is
+not here: it is the `?` help pop-up (M7-27).
     (blank)
     forward   ...
     template  ...
@@ -199,12 +200,18 @@ def bases_text(bases):
     return "%d bp" % len(bases) if len(bases) > INLINE_LIMIT else bases
 
 
+def bases_at(s, e):
+    # zero-based half-open [s, e) as 1-based inclusive
+    return "%d" % (s + 1) if e - s == 1 else "%d\u2013%d" % (s + 1, e)
+
+
 def summary(t, s, e, written):
     if s == e:
-        return "ins %s at %d" % (bases_text(written), s)
+        where = "at the start" if s == 0 else "after %d" % s
+        return "insert %s %s" % (bases_text(written), where)
     if not written:
-        return "[%d, %d) del %s" % (s, e, bases_text(t[s:e]))
-    return "[%d, %d) %s->%s" % (s, e, bases_text(t[s:e]), bases_text(written))
+        return "delete %s at %s" % (bases_text(t[s:e]), bases_at(s, e))
+    return "%s\u2192%s at %s" % (bases_text(t[s:e]), bases_text(written), bases_at(s, e))
 
 
 def screen(design, expanded):
@@ -305,10 +312,8 @@ def screen(design, expanded):
         return e + (c - s - region)
 
     lines = [
-        "%s  %s  on %s [%d, %d)" % (name, summary(t, s, e, w_bases), tid, template_position(lo, False),
-                                 template_position(hi, True)),
-        "forward 5'->3' above, reverse 3'->5' below; the protein is the mutant's",
-        "lower case: edited bases, and primer bases that do not anneal",
+        "%s  %s  %s bases %s" % (name, summary(t, s, e, w_bases), tid,
+                                 bases_at(template_position(lo, False), template_position(hi, True))),
     ]
     # Blocks of WIDTH columns; a block never splits a collapsed marker: it
     # ends just before the marker, and the next block starts at it.
@@ -337,12 +342,12 @@ def screen(design, expanded):
 def emit(name, text):
     path = os.path.join(OUT, name)
     if "--check" not in sys.argv[1:]:
-        with open(path, "w", encoding="ascii") as f:
+        with open(path, "w", encoding="utf-8") as f:
             f.write(text)
         print("wrote", name)
         return True
     try:
-        with open(path, encoding="ascii") as f:
+        with open(path, encoding="utf-8") as f:
             tracked = f.read()
     except FileNotFoundError:
         tracked = None

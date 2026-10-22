@@ -1,6 +1,4 @@
-ins-13  ins 210 bp at 50  on syn [30, 70)
-forward 5'->3' above, reverse 3'->5' below; the protein is the mutant's
-lower case: edited bases, and primer bases that do not anneal
+ins-13  insert 210 bp after 50  syn bases 31–70
 
 forward
 template  TCGCGGACGCATGGCTTGGAgattacagattacagattacagattacagattacagatta

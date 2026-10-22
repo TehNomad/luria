@@ -1,6 +1,4 @@
-del-02  [45, 46) del T  on syn [25, 68)
-forward 5'->3' above, reverse 3'->5' below; the protein is the mutant's
-lower case: edited bases, and primer bases that do not anneal
+del-02  delete T at 46  syn bases 26–68
 
 forward                        TGGAATCAGCAGCAGCC
 template  GCGGCTCGCGGACGCATGGCtTGGAATCAGCAGCAGCCGAGCG

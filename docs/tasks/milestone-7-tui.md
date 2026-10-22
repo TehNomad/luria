@@ -233,6 +233,29 @@ Fixtures: `tests/fixtures/review/` is rewritten in the new layout by its
 script, which translates the edited construct independently with its own
 codon table.
 
+### 5.3b The second polish (owner, 2026-10-21, M7-23 to M7-30)
+
+After using §5.3a's screens the owner still found them cluttered. Answers:
+
+| # | Question | Answer |
+| --- | --- | --- |
+| M7-23 | The state and validation rows | **A compact title bar**: the screens sit in one rounded border whose title holds a badge, `✓ verified` (green), `✗ failed` (red) or `? needs clarification` (yellow), then `· not tested at the bench`. Plan §3 rule 3 still holds (the state is on every screen), in one row instead of two. The proposal screen's badge is `PROPOSAL` in its own colour, never a result's. |
+| M7-24 | Coordinates on screen | **1-based, inclusive**, as GenBank writes them: `bases 43–345`, `GAT→AAC at 1210–1212`, `delete T at 46`, `insert GAT after 1209`. Files stay zero-based half-open (D006); one tested function in `text.rs` converts, at the screen only. |
+| M7-25 | Labels | `Template` and `Target` are labelled rows; the target's strand reads `forward strand` or `reverse strand`. |
+| M7-26 | Members | Called **Variants** on screen (`Variants (2)`). |
+| M7-27 | The legend | Not on the member screen; **`?` opens a help pop-up** with the legend and the keys, closed by `?` or `esc`. |
+| M7-28 | Primer lines | **Aligned columns**: a header row `sequence 5'→3'`, `length`, `Tm`; lengths and Tms right-aligned. |
+| M7-29 | Warnings | **Descriptive**: core's own `describe` text, as the document carries it, with the primer named (`forward: G+C is 60.9 %, outside the 40–60 % guideline`). Codes stay on the details screen. |
+| M7-30 | The technical screen | Renamed **Details**, key **`d`**. |
+
+Styling follows common ratatui apps: rounded borders, a highlighted
+selected row instead of `>`, edited bases in a highlight colour, the
+protein row in its own colour, failures in red, the key line in a dim
+style below the border. Unicode arrows, dashes and `°` are allowed on
+screen from here; files stay as they are. Colour is applied in `view`
+by rules on the plain text lines, so every line stays testable as a
+string (plan §5.1).
+
 ### 5.4 The primer table (M7-4)
 
 What IDT documents (its Japanese ordering guide,

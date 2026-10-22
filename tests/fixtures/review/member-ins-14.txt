@@ -1,6 +1,4 @@
-ins-14  ins GAT at 1209  on sid-1 [1189, 1229)
-forward 5'->3' above, reverse 3'->5' below; the protein is the mutant's
-lower case: edited bases, and primer bases that do not anneal
+ins-14  insert GAT after 1209  sid-1 bases 1190–1229
 
 forward                       gatGATTTCGGGGCGCAC
 template  TCAATCCGCTCGTTGAGCAAgatGATTTCGGGGCGCACAGAAA
