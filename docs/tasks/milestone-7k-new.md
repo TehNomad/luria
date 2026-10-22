@@ -13,6 +13,7 @@ typed operations). Owner answers so far, 2026-10-21:
 | M7-36 | Free text without `--backend` | **Shown, disabled**, saying it needs `--backend`. |
 | M7-37 | Where files go | **Beside the template** for a file template (as `--write-request` requires); for a paste, the pasted `.fa` and the request both in the **current directory**. Names editable on the form; never replacing a file. |
 | M7-39 | Placement on the form | **Shown as a fixed `inline`**, with a note that confine-to-tail is not supported yet (D029: `q5 design` refuses it); the overlap stays editable. Found when the planner ran the 7k2 fixtures through `q5 design`. |
+| M7-40 | Words and shorthand | **Either one, not both** (2026-10-22). Words go through `interpret` and the existing proposal screen, as `luria review --template` does; they need a GenBank template (M6-7). Supersedes §2 rule 1's "joined" wording. |
 | M7-38 | Branch | **Continue on `feat/milestone-7`.** |
 | M7-34 | Choices on the form | **Primer placement** (`inline` or `confine_to_tail`) with the minimum annealing overlap, and **codon choice** (the default policy, or a typed codon). Composition is not offered: several mutations are always separate variants, the only composition `q5 design` accepts. |
 
