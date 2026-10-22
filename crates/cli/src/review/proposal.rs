@@ -81,10 +81,17 @@ impl ProposalApp {
         self.screen
     }
 
-    /// How far the open screen's body is scrolled, with no upper bound: `view`
-    /// clamps it to the screen's own lines, as 7c3 §3.1 rule 5 does.
+    /// How far the open screen's body is scrolled, clamped by `terminal` to
+    /// `view::proposal_max_scroll` after every key (M7-56).
     pub fn scroll(&self) -> usize {
         self.scroll
+    }
+
+    /// The scroll, clamped to `max`, the largest the open screen's body can start
+    /// at (M7-56): `scroll` never goes past it, so `k` moves the body at once
+    /// after scrolling past the bottom.
+    pub fn clamp_scroll(&mut self, max: usize) {
+        self.scroll = self.scroll.min(max);
     }
 
     /// The last approval's failure, shown on the reading screen.

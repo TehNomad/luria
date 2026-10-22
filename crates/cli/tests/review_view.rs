@@ -31,7 +31,7 @@ use luria_cli::result::MutationView;
 use luria_cli::result::PrimerView;
 use luria_cli::result::PrimerWarningView;
 use luria_cli::result::ResultDocument;
-use luria_cli::review::app::{App, Key, Screen};
+use luria_cli::review::app::{expandable, App, Key, Screen};
 use luria_cli::review::matching_template;
 use luria_cli::review::member_frames;
 use luria_cli::review::proposal::{ProposalApp, ProposalScreen};
@@ -42,6 +42,7 @@ use luria_cli::run::run;
 use luria_cli::run::run_with_constructs;
 use luria_nl::backend::ScriptedBackend;
 use ratatui::backend::TestBackend;
+use ratatui::layout::Rect;
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::Terminal;
 use serde_json::{json, Value};
@@ -190,9 +191,10 @@ fn the_state_and_validation_are_on_screen() {
             .count(),
         1
     );
+    // M7-52: `p provenance` leaves the overview's key line with the screen.
     assert_eq!(
         screen.last().unwrap(),
-        "q quit  enter open  j/k move  p provenance  x export  ? help"
+        "q quit  enter open  j/k move  x export  ? help"
     );
 }
 
@@ -283,11 +285,8 @@ fn every_screen_keeps_the_banner() {
             opened(&document, &[Key::Enter, Key::Char('d')]),
             Screen::Details(0),
         ),
-        (
-            "provenance",
-            opened(&document, &[Key::Char('p')]),
-            Screen::Provenance,
-        ),
+        // M7-52: the provenance screen is gone, so there is no `p` screen to
+        // check the banner on.
     ] {
         assert_eq!(app.screen(), expected, "the {} screen is open", name);
         let rows: Vec<String> = screen(&app, 80, 24);
@@ -304,9 +303,11 @@ fn every_screen_keeps_the_banner() {
 #[test]
 fn the_body_is_the_text_of_the_screen() {
     let document: ResultDocument = set("body_text");
-    let lines: Vec<String> = text::provenance(&document);
-    let app: App = opened(&document, &[Key::Char('p')]);
-    assert_eq!(app.screen(), Screen::Provenance);
+    // M7-52: the provenance lines are the last lines of the details, so the
+    // details screen is the screen this test reads.
+    let lines: Vec<String> = text::details(&document, 0);
+    let app: App = opened(&document, &[Key::Enter, Key::Char('d')]);
+    assert_eq!(app.screen(), Screen::Details(0));
     // 7j2: the body is the frame's inner area, so its rows are read through
     // `body`, at the body's own width, and row 2 is a body row, not a blank.
     let rows: Vec<String> = body(&app);
@@ -326,7 +327,9 @@ fn the_body_is_the_text_of_the_screen() {
 #[test]
 fn a_long_screen_scrolls_and_says_where() {
     let document: ResultDocument = set("long_scroll");
-    let lines: Vec<String> = text::member(&document, 0);
+    // M7-52: `d` opens the details, whose lines are `text::details`, the member
+    // text with the provenance under it.
+    let lines: Vec<String> = text::details(&document, 0);
     assert!(
         lines.len() > BODY_ROWS,
         "the member screen must be longer than the {} body rows: {} lines",
@@ -368,7 +371,8 @@ fn a_long_screen_scrolls_and_says_where() {
 #[test]
 fn scrolling_past_the_end_stops_at_the_last_page() {
     let document: ResultDocument = set("last_page");
-    let lines: Vec<String> = text::member(&document, 0);
+    // M7-52: the screen `d` opens is the details, so its lines are `text::details`.
+    let lines: Vec<String> = text::details(&document, 0);
     let n: usize = lines.len();
     assert!(
         n > BODY_ROWS,
@@ -402,6 +406,118 @@ fn scrolling_past_the_end_stops_at_the_last_page() {
         "the key line says the last page: {:?}",
         rows[23]
     );
+}
+
+#[test]
+fn details_stops_scrolling_at_the_bottom() {
+    // M7-56: `terminal` clamps the scroll to `view::max_scroll` after every key
+    // it handles, so `j` past the bottom leaves no hidden scroll for `k` to
+    // undo. The clamp is done here the way the loop does it.
+    let document: ResultDocument = set("scroll_bottom");
+    let lines: Vec<String> = text::details(&document, 0);
+    let area: Rect = Rect::new(0, 0, 80, 24);
+    let mut app: App = opened(&document, &[Key::Enter, Key::Char('d')]);
+    assert_eq!(app.screen(), Screen::Details(0), "the details are open");
+    let max: usize = view::max_scroll(&app, area);
+    assert_eq!(
+        max,
+        lines.len() - BODY_ROWS,
+        "the last line the body can start at is {} - {} rows",
+        lines.len(),
+        BODY_ROWS
+    );
+    for _ in 0..200 {
+        app.handle(Key::Down);
+        app.clamp_scroll(view::max_scroll(&app, area));
+    }
+    assert_eq!(
+        app.scroll(),
+        max,
+        "200 `j` stop at the bottom, not past it: {}",
+        app.scroll()
+    );
+    // One `k` moves the drawn body up one line at once, which is what an
+    // unclamped scroll cannot do.
+    app.handle(Key::Up);
+    app.clamp_scroll(view::max_scroll(&app, area));
+    assert_eq!(app.scroll(), max - 1, "one `k` moves one line up");
+    assert_eq!(
+        body(&app)[0],
+        shown(&lines[max - 1], INNER_WIDTH),
+        "the body's first row is line {}: {:?}",
+        max - 1,
+        body(&app)[0]
+    );
+}
+
+#[test]
+fn details_end_with_the_provenance() {
+    // M7-52: the provenance is read under the member's text, so the details'
+    // last lines are `text::provenance`'s, and the stale `c context` line is
+    // gone from the screen.
+    let document: ResultDocument = set("details_provenance");
+    let provenance: Vec<String> = text::provenance(&document);
+    let lines: Vec<String> = text::details(&document, 0);
+    let start: usize = lines.len() - provenance.len();
+    assert!(
+        provenance.len() >= BODY_ROWS && lines.len() > BODY_ROWS,
+        "the details' last {} lines are the provenance's own {} lines, so the whole \
+         last page is provenance",
+        BODY_ROWS,
+        provenance.len()
+    );
+    let mut app: App = opened(&document, &[Key::Enter, Key::Char('d')]);
+    let area: Rect = Rect::new(0, 0, 80, 24);
+    for _ in 0..100 {
+        app.handle(Key::PageDown);
+        app.clamp_scroll(view::max_scroll(&app, area));
+    }
+    let first: usize = lines.len() - BODY_ROWS;
+    assert_eq!(app.scroll(), first, "the scroll stops at the last page");
+    assert!(
+        first >= start,
+        "the last page starts inside the provenance, at line {}, and the provenance \
+         starts at {}",
+        first,
+        start
+    );
+    let drawn: Vec<String> = body(&app);
+    // Every row of the last page is a provenance line, in the provenance's own
+    // order, and the details end with the provenance's last line.
+    for row in 0..BODY_ROWS {
+        let line: &String = &provenance[first - start + row];
+        assert_eq!(
+            &lines[first + row],
+            line,
+            "line {} of the details is the provenance's line {}",
+            first + row,
+            first - start + row
+        );
+        assert_eq!(
+            drawn[row],
+            shown(line, INNER_WIDTH),
+            "body row {} shows the provenance's line {}: {:?}",
+            row,
+            first - start + row,
+            drawn[row]
+        );
+    }
+    assert_eq!(
+        drawn[BODY_ROWS - 1],
+        shown(
+            provenance.last().expect("the provenance has lines"),
+            INNER_WIDTH
+        ),
+        "the details end with the provenance's last line: {:?}",
+        drawn[BODY_ROWS - 1]
+    );
+    for cell in &drawn {
+        assert!(
+            !cell.contains("c context"),
+            "no `c context` line is drawn on the details: {:?}",
+            cell
+        );
+    }
 }
 
 // The redesigned member screen of 7i4 (plan §5.3a): `enter` opens the sequence
@@ -652,6 +768,27 @@ fn native01(test: &str) -> Run {
     run_at(&path, test)
 }
 
+/// The app of the `del-11` row: the q5p-01 codon deleted from the SID-1 cDNA at
+/// bound 15, as `tests/review_member.rs` runs it.
+fn del11(test: &str) -> Run {
+    let field: String = column_of("native-deletion.tsv", "del-11", "deletion");
+    let parts: Vec<&str> = field.split(':').collect();
+    assert!(parts.len() == 3, "deletion {:?} is not s:e:bases", field);
+    let edit: Value = json!({
+        "deletion": {
+            "interval": [
+                parts[0].parse::<u64>().unwrap(),
+                parts[1].parse::<u64>().unwrap()
+            ],
+            "from": parts[2]
+        }
+    });
+    let dir = sid1_dir(test);
+    let path = dir.join("request.json");
+    fs::write(&path, sid1_request("del-11", edit, 15).to_string()).unwrap();
+    run_at(&path, test)
+}
+
 /// The app of the `ins-13` row: 210 bases inserted on the synthetic FASTA
 /// template written beside the request, as `tests/review_member.rs` does.
 fn ins13(test: &str) -> Run {
@@ -828,7 +965,10 @@ fn d_opens_the_details_and_esc_returns() {
     let run: Run = native01("details_lines");
     let app: App = opened_app(app_of(&run), &[Key::Enter, Key::Char('d')]);
     assert_eq!(app.screen(), Screen::Details(0), "`d` opens the details");
-    let first: String = text::member(&run.document, 0)[0].clone();
+    // M7-52: the details are `text::details`, the member text with the
+    // provenance under it, so the page count is that screen's own length.
+    let lines: Vec<String> = text::details(&run.document, 0);
+    let first: String = lines[0].clone();
     let rows: Vec<String> = screen(&app, 80, 24);
     // 7j2: the body's first row, read through `body` at the body's width.
     assert_eq!(
@@ -842,7 +982,7 @@ fn d_opens_the_details_and_esc_returns() {
         format!(
             "q quit  esc back  j/k scroll  ? help  lines 1-{} of {}",
             BODY_ROWS,
-            text::member(&run.document, 0).len()
+            lines.len()
         ),
         "the details screen's keys, with the page it shows: {:?}",
         rows[23]
@@ -1225,7 +1365,7 @@ fn the_key_line_offers_problem_only_with_a_problem() {
     // offers no problem screen.
     let rows: Vec<String> = screen(&App::new(set("key_line_set")), 80, 24);
     assert_eq!(
-        rows[23], "q quit  enter open  j/k move  p provenance  x export  ? help",
+        rows[23], "q quit  enter open  j/k move  x export  ? help",
         "{:?}",
         rows[23]
     );
@@ -1236,7 +1376,7 @@ fn the_key_line_offers_problem_only_with_a_problem() {
     assert_eq!(app.screen(), Screen::Overview);
     let rows: Vec<String> = screen(&app, 80, 24);
     assert_eq!(
-        rows[23], "q quit  enter open  j/k move  p provenance  x export  e problem  ? help",
+        rows[23], "q quit  enter open  j/k move  x export  e problem  ? help",
         "{:?}",
         rows[23]
     );
@@ -1590,17 +1730,145 @@ fn edited_bases_are_highlighted() {
     );
 }
 
+/// A cell's foreground colour, with the test backend's `Reset` default read as
+/// no colour, so an uncoloured cell is `None`.
+fn ink(style: Style) -> Option<Color> {
+    match style.fg {
+        Some(Color::Reset) | None => None,
+        Some(colour) => Some(colour),
+    }
+}
+
+#[test]
+fn the_primer_table_colours_only_the_sequence() {
+    // M7-55, M7-54: on a primer table row the length's `nt` and the temperature's
+    // `°C` take no colour, the temperature's number is bold and its unit plain,
+    // and the colour is on the sequence after the three spaces only. `del-11`'s
+    // forward primer is 15 annealing bases with no tail, so the whole sequence
+    // is the annealing colour.
+    let run: Run = del11("primer_table_colours");
+    let app: App = opened_app(app_of(&run), &[Key::Enter]);
+    assert_eq!(app.screen(), Screen::Member(0), "`enter` opens the variant");
+    let rows: Vec<String> = rows(&app, 80, 24);
+    let styles: Vec<Vec<Style>> = styles(&app, 80, 24);
+    // The table row is the one with ` nt` in it; the sequence block's `forward`
+    // row has the same label and no table cells.
+    let row: usize = rows
+        .iter()
+        .position(|line| line.starts_with("\u{2502}forward") && line.contains(" nt"))
+        .expect("the sequence screen's forward primer table row");
+    let cells: Vec<char> = rows[row].chars().collect();
+
+    // The values the row shows are the fixture table's own row for `del-11`.
+    let primer: String = column_of("native-deletion.tsv", "del-11", "forward");
+    let tm: String = format!(
+        "{:.1}",
+        column_of("native-deletion.tsv", "del-11", "forward_tm")
+            .parse::<f64>()
+            .expect("the table's forward Tm is a number")
+    );
+    let length: usize = primer.chars().count();
+
+    let needle: Vec<char> = vec!['n', 't'];
+    let nt: usize = cells
+        .windows(needle.len())
+        .position(|window| window == needle.as_slice())
+        .expect("the primer table row's `nt`");
+    // The length's number is the fixture's, right-aligned before ` nt`, and
+    // neither it nor `nt` is coloured.
+    let length_number: String = length.to_string();
+    let number_start: usize = nt - 1 - length_number.chars().count();
+    let digits: String = cells[number_start..nt - 1].iter().collect::<String>();
+    assert_eq!(
+        digits, length_number,
+        "the row's length is the fixture's primer length: {:?}",
+        digits
+    );
+    for column in number_start..nt + 2 {
+        assert_eq!(
+            ink(styles[row][column]),
+            None,
+            "the length's `{}` takes no colour on the table row: {:?}",
+            cells[column],
+            styles[row][column]
+        );
+    }
+
+    // The temperature: its number is the fixture's, its digits are bold, and the
+    // `°C` unit is plain.
+    let needle: Vec<char> = vec!['\u{00b0}', 'C'];
+    let degree: usize = cells
+        .windows(needle.len())
+        .position(|window| window == needle.as_slice())
+        .expect("the primer table row's `°C`");
+    let number: usize = degree - 1 - tm.chars().count();
+    assert_eq!(
+        cells[number..degree - 1].iter().collect::<String>(),
+        tm,
+        "the row's annealing temperature is the fixture's: {:?}",
+        cells[number..degree - 1].iter().collect::<String>()
+    );
+    for column in number..degree - 1 {
+        assert!(
+            styles[row][column].has_modifier(Modifier::BOLD),
+            "the temperature's `{}` is bold: {:?}",
+            cells[column],
+            styles[row][column]
+        );
+    }
+    for style in &styles[row][degree..degree + 2] {
+        assert!(
+            ink(*style).is_none() && !style.has_modifier(Modifier::BOLD),
+            "the unit `°C` is plain: {:?}",
+            style
+        );
+    }
+
+    // The sequence, after the three spaces, is coloured as a primer row: its
+    // upper-case annealing bases are light blue.
+    let start: usize = degree + 5;
+    assert_eq!(
+        cells[degree + 2..start].iter().collect::<String>(),
+        "   ",
+        "three spaces stand between the unit and the sequence: {:?}",
+        cells[degree + 2..start].iter().collect::<String>()
+    );
+    assert_eq!(
+        cells[start..start + length].iter().collect::<String>(),
+        primer,
+        "the row's sequence is the fixture's forward primer: {:?}",
+        cells[start..start + length].iter().collect::<String>()
+    );
+    // `runs` styles a run from its second character on, as 7j2 draws it, so the
+    // annealing base the rule is proved on is the one after the first.
+    let style: Style = styles[row][start + 1];
+    assert_eq!(
+        ink(style),
+        Some(Color::LightBlue),
+        "the annealing base `{}` of the table's sequence is light blue: {:?}",
+        primer.chars().nth(1).expect("the primer has a second base"),
+        style
+    );
+}
+
 #[test]
 fn help_is_a_pop_up() {
+    // M7-53: help is the open screen's own keys, and the legend is on the variant
+    // screen only, so the pop-up is proved on `Member`, where both are present.
     let document: ResultDocument = set("help_pop_up");
-    let app: App = opened(&document, &[Key::Char('?')]);
-    assert!(app.help(), "`?` opens the legend");
-    let lines: Vec<String> = text::help();
+    let app: App = opened(&document, &[Key::Enter, Key::Char('?')]);
+    assert!(app.help(), "`?` opens help on the variant screen");
+    assert_eq!(
+        app.screen(),
+        Screen::Member(0),
+        "the variant screen is open"
+    );
+    let lines: Vec<String> = text::help(Screen::Member(0), false, expandable(&document, 0));
     let pop_width: usize = lines
         .iter()
         .map(|line| line.chars().count())
         .max()
-        .expect("the legend has lines")
+        .expect("help has lines")
         + 4;
     let pop_height: usize = lines.len() + 2;
     // A frame wider than the pop-up, so the screen's own text shows outside it.
@@ -1613,15 +1881,20 @@ fn help_is_a_pop_up() {
         "the pop-up is clamped to the frame: {:?}",
         rows[y]
     );
-    // §5.1 rule 2: the pop-up clears what is under it, so its rows hold the
-    // legend's lines and nothing of the screen, and the body stays where the
-    // pop-up is not.
-    let first: String = text::overview(&document, 0)[0].clone();
+    // §5.1 rule 2: the pop-up clears what is under it, so its rows hold help's
+    // lines and nothing of the screen, and the body stays where the pop-up is not.
+    // The body starts at row 1 (7j2), so row `y` shows the open screen's line
+    // `y - 1`.
+    let body: Vec<String> =
+        text::member_screen(&document, 0, app.template(), app.frame(0), app.expanded());
+    assert!(y >= 1, "the pop-up is drawn below the title row: {}", y);
     let outside: String = rows[y].chars().skip(1).take(x - 1).collect::<String>();
     assert_eq!(
         outside.trim_end(),
-        shown(&first, x - 1),
-        "the body's first row shows the screen's own text outside the pop-up: {:?}",
+        shown(&body[y - 1], x - 1),
+        "row {} shows the variant screen's line {} outside the pop-up: {:?}",
+        y,
+        y - 1,
         rows[y]
     );
     for (index, line) in lines.iter().enumerate() {
@@ -1633,7 +1906,7 @@ fn help_is_a_pop_up() {
         assert_eq!(
             row,
             format!("{:width$}", line, width = pop_width - 2),
-            "pop-up row {} holds the legend's line {:?} and nothing under it: {:?}",
+            "pop-up row {} holds help's line {:?} and nothing under it: {:?}",
             index,
             line,
             row

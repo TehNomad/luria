@@ -33,6 +33,7 @@ use crate::result::{
     OperationWarning, PrimerView, PrimerWarningView, Provenance, RequestEcho, ResultDocument,
     SourceView,
 };
+use crate::review::app::Screen;
 use crate::review::edit_span;
 use crate::review::export::ExportPlan;
 use crate::review::MemberFrame;
@@ -476,10 +477,20 @@ pub fn member(document: &ResultDocument, index: usize) -> Vec<String> {
     }
 
     lines.push(String::new());
-    if member.design.is_some() {
-        lines.push("c context".to_string());
+    lines
+}
+
+/// The details screen's lines (7i4, M7-30, M7-52): 7c2's member text, one empty
+/// line, then the provenance, so the record of how the result was computed is
+/// read with the variant's technical lines, one key away, and `member()`'s stale
+/// `c context` and `esc back` lines are gone. The empty line is added only when
+/// `member()`'s last line is not already empty, so there is exactly one.
+pub fn details(document: &ResultDocument, index: usize) -> Vec<String> {
+    let mut lines: Vec<String> = member(document, index);
+    if lines.last().is_some_and(|last| !last.is_empty()) {
+        lines.push(String::new());
     }
-    lines.push("esc back".to_string());
+    lines.extend(provenance(document));
     lines
 }
 
@@ -1202,11 +1213,14 @@ pub fn member_screen(
     lines
 }
 
-/// The `?` help: the legend of the sequence screen and the keys, in plain words
-/// (plan §5.3b, M7-27). It is the same on every screen, and nothing of the
-/// document is in it.
-pub fn help() -> Vec<String> {
-    const LINES: [&str; 20] = [
+/// The `?` help (M7-27, M7-53): the sequence legend, on the variant screen only,
+/// then `Keys` and the open screen's own keys. Each key line is two spaces, the
+/// key padded to 11, then its words, and `ctrl-c` is the last line on every
+/// screen. `problem` is whether the document has one, `expandable` whether `i`
+/// expands on the open member; a key that does nothing is not named. Nothing of
+/// the document is in it.
+pub fn help(screen: Screen, problem: bool, expandable: bool) -> Vec<String> {
+    const LEGEND: [&str; 10] = [
         "The sequence",
         "  forward    the forward primer, 5'→3', over the bases it covers",
         "  template   the template's top strand, 5'→3'",
@@ -1217,18 +1231,51 @@ pub fn help() -> Vec<String> {
         "  *          a stop codon: the protein ends there",
         "  [+N bp …]  a long insertion, shown in full with i",
         "",
-        "Keys",
-        "  enter      open a variant",
-        "  j k        move or scroll",
-        "  d          details: everything the result records for the variant",
-        "  i          show or hide a long insertion",
-        "  p          provenance",
-        "  e          the problem, when there is one",
-        "  x          export",
-        "  esc        back",
-        "  q          quit",
     ];
-    LINES.map(|line| line.to_string()).to_vec()
+
+    /// One key line: the key padded to 11, then its words.
+    fn key(key: &str, words: &str) -> String {
+        format!("  {:width$}{}", key, words, width = 11)
+    }
+
+    let mut lines: Vec<String> = Vec::new();
+    if matches!(screen, Screen::Member(_)) {
+        lines.extend(LEGEND.map(|line| line.to_string()));
+    }
+    lines.push("Keys".to_string());
+    match screen {
+        Screen::Overview => {
+            lines.push(key("enter", "open a variant"));
+            lines.push(key("j k", "move"));
+            lines.push(key("PgUp PgDn", "page"));
+            if problem {
+                lines.push(key("e", "the problem"));
+            }
+            lines.push(key("x", "export"));
+        }
+        Screen::Member(_) => {
+            lines.push(key("d", "details"));
+            if expandable {
+                lines.push(key("i", "show or hide a long insertion"));
+            }
+            lines.push(key("j k", "scroll"));
+            lines.push(key("PgUp PgDn", "page"));
+            lines.push(key("esc", "back"));
+        }
+        Screen::Details(_) | Screen::Problem => {
+            lines.push(key("j k", "scroll"));
+            lines.push(key("PgUp PgDn", "page"));
+            lines.push(key("Home", "top"));
+            lines.push(key("esc", "back"));
+        }
+        Screen::Export => {
+            lines.push(key("w o", "write the files"));
+            lines.push(key("esc", "back"));
+        }
+    }
+    lines.push(key("q", "quit"));
+    lines.push(key("ctrl-c", "quit"));
+    lines
 }
 
 /// The code of the operation the model reported: its serde tag, the variant

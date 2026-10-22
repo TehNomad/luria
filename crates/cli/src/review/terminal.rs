@@ -15,6 +15,17 @@ use crate::review::proposal::{ProposalAction, ProposalApp};
 use crate::review::view;
 use crate::review::Approved;
 use crossterm::event::{read, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+use ratatui::layout::Rect;
+
+/// The terminal's current size, as the area the apps draw on: `0, 0` and the
+/// backend's width and height. `None` when the size cannot be read, in which
+/// case the scroll is left as the app gave it.
+fn area_of<B: ratatui::backend::Backend>(terminal: &ratatui::Terminal<B>) -> Option<Rect> {
+    match terminal.backend().size() {
+        Ok(size) => Some(Rect::new(0, 0, size.width, size.height)),
+        Err(_) => None,
+    }
+}
 
 /// The key a crossterm press is, as the apps see it: the same mapping for the
 /// result screen and the proposal screen, so both read the same keys. `c` with
@@ -83,6 +94,12 @@ pub fn run(
                     Action::Export => app.export_done(export(&app)),
                     Action::Continue => {}
                 }
+                // M7-56: scrolling stops at the bottom, so after every key the
+                // scroll is clamped to the largest the open screen's body can
+                // start at on this terminal, and the next draw shows it there.
+                if let Some(area) = area_of(&terminal) {
+                    app.clamp_scroll(view::max_scroll(&app, area));
+                }
             }
             // A resize, a mouse event, a release: the next draw pass redraws.
             Ok(_) => {}
@@ -145,6 +162,11 @@ pub fn run_proposal(
                         Err(message) => app.approval_failed(message),
                     },
                     ProposalAction::Continue => {}
+                }
+                // M7-56: the same clamp as `run`, so scrolling stops at the
+                // bottom on the proposal screen too.
+                if let Some(area) = area_of(&terminal) {
+                    app.clamp_scroll(view::proposal_max_scroll(&app, area));
                 }
             }
             // A resize, a mouse event, a release: the next draw pass redraws.

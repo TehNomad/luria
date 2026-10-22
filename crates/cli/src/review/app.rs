@@ -53,10 +53,10 @@ pub enum Screen {
     /// The sequence screen (7i4, plan §5.3a): `member_sequence`'s block with the
     /// short primer lines under it, and the mutant protein between the strands.
     Member(usize),
-    /// The technical lines (7c2's member text) behind `d` (7i4, M7-30): the
-    /// details the result records for one variant.
+    /// The technical lines (7c2's member text, with the provenance under it, as
+    /// M7-52 puts them) behind `d` (7i4, M7-30): the details the result records
+    /// for one variant.
     Details(usize),
-    Provenance,
     Problem,
     Export,
 }
@@ -141,7 +141,7 @@ impl App {
     }
 
     /// Whether the `?` help legend is shown in place of the open screen's lines
-    /// (M7-27): `?` opens it on every screen bar `Export`, and every screen
+    /// (M7-27, M7-53): `?` opens it on every screen, and every screen
     /// change closes it.
     pub fn help(&self) -> bool {
         self.help
@@ -205,24 +205,32 @@ impl App {
     }
 
     /// How far the open screen's body is scrolled. The app does not know how
-    /// many lines a screen has, so this has no upper bound: `view` clamps it
-    /// to the screen's own lines (7c3 §3.1 rule 5).
+    /// many lines a screen has, so `terminal` clamps it to `view::max_scroll`
+    /// after every key (M7-56); `view` clamps what it draws to the same value.
     pub fn scroll(&self) -> usize {
         self.scroll
     }
 
+    /// The scroll, clamped to `max`, the largest the open screen's body can start
+    /// at (M7-56): `scroll` never goes past it, so `k` moves the body at once
+    /// after scrolling past the bottom.
+    pub fn clamp_scroll(&mut self, max: usize) {
+        self.scroll = self.scroll.min(max);
+    }
+
     /// `q` quits from every screen, and so does `ctrl-c`, which writes nothing
     /// (M7-43). Every other key follows the table of §3.3:
-    /// `Esc` and `Backspace` go back, `Enter` opens the selected member, `j`
-    /// `k` `c` `p` `e` `x` move, `d` opens the details of the open member, `?`
-    /// opens the help legend, `y` on the export screen asks for the write when a
-    /// plan exists and `n` goes back, and any other key changes nothing. While
-    /// help is open, `esc` and `backspace` only close it, `q` quits and every
-    /// other key does nothing (M7-27). The selection does not wrap, and `Q` is
-    /// not quit. On the overview `Up` `Down` `j` `k` move the selection, so only
-    /// `PageUp` `PageDown` `Home` scroll there; on every screen below it they
-    /// scroll the body, and a screen change puts the new screen at its top
-    /// (7c3 §3.1, 7g1).
+    /// `Esc` and `Backspace` go back, `Enter` opens the selected member, `j` `k`
+    /// `e` `x` move, `d` opens the details of the open member, `?` opens the
+    /// help legend on every screen (M7-53), `w` `o` on the export screen ask for
+    /// the write when a plan exists and `esc` goes back (M7-58), and any other
+    /// key changes nothing. While help is open, `esc` and `backspace` only close
+    /// it, `q` quits and every other key does nothing (M7-27). The selection does
+    /// not wrap, and `Q` is not quit. On the overview `Up` `Down` `j` `k` move
+    /// the selection, so only `PageUp` `PageDown` `Home` scroll there; on every
+    /// screen below it they scroll the body, and a screen change puts the new
+    /// screen at its top (7c3 §3.1, 7g1), and `terminal` clamps the scroll to the
+    /// body's length (M7-56).
     pub fn handle(&mut self, key: Key) -> Action {
         // M7-43: `ctrl-c` quits from every screen, help open or not, and writes
         // nothing, exactly as `q` does.
@@ -241,9 +249,8 @@ impl App {
             }
             return Action::Continue;
         }
-        // `?` opens the help legend on every screen bar `Export`, where `?` does
-        // nothing (M7-27).
-        if key == Key::Char('?') && self.screen != Screen::Export {
+        // `?` opens the help legend on every screen, Export included (M7-53).
+        if key == Key::Char('?') {
             self.help = true;
             return Action::Continue;
         }
@@ -265,7 +272,6 @@ impl App {
                 }
             }
             (Screen::Overview, Key::Enter) if n > 0 => self.screen = Screen::Member(self.selected),
-            (Screen::Overview, Key::Char('p')) => self.screen = Screen::Provenance,
             // 7g1: `x` opens the export screen, which says how to enable an
             // export when the command line gave no `--export` directory.
             (Screen::Overview, Key::Char('x')) => self.screen = Screen::Export,
@@ -276,17 +282,17 @@ impl App {
             // Below the overview there is no selection to move, so `j` `k` and
             // the arrows scroll as well.
             (
-                Screen::Member(_) | Screen::Details(_) | Screen::Provenance | Screen::Problem,
+                Screen::Member(_) | Screen::Details(_) | Screen::Problem,
                 Key::PageUp | Key::PageDown | Key::Home,
             ) => self.page(key),
             (
-                Screen::Member(_) | Screen::Details(_) | Screen::Provenance | Screen::Problem,
+                Screen::Member(_) | Screen::Details(_) | Screen::Problem,
                 Key::Down | Key::Char('j'),
             ) => {
                 self.scroll += 1;
             }
             (
-                Screen::Member(_) | Screen::Details(_) | Screen::Provenance | Screen::Problem,
+                Screen::Member(_) | Screen::Details(_) | Screen::Problem,
                 Key::Up | Key::Char('k'),
             ) => {
                 self.scroll = self.scroll.saturating_sub(1);
@@ -305,17 +311,16 @@ impl App {
                 self.selected = i;
             }
             (Screen::Details(i), Key::Esc | Key::Backspace) => self.screen = Screen::Member(i),
-            (Screen::Provenance, Key::Esc | Key::Backspace) => self.screen = Screen::Overview,
             (Screen::Problem, Key::Esc | Key::Backspace) => self.screen = Screen::Overview,
-            (Screen::Problem, Key::Char('p')) => self.screen = Screen::Provenance,
-            // `y` writes, and only when there is a plan to write with, so `y`
-            // with no `--export` directory does nothing (no silent action).
-            (Screen::Export, Key::Char('y')) => {
+            // M7-58: `w` and `o` write, and only when there is a plan to write
+            // with, so `w` with no `--export` directory does nothing (no silent
+            // action), and `y` and `n` do nothing at all.
+            (Screen::Export, Key::Char('w') | Key::Char('o')) => {
                 if self.export.is_some() {
                     return Action::Export;
                 }
             }
-            (Screen::Export, Key::Char('n') | Key::Esc | Key::Backspace) => {
+            (Screen::Export, Key::Esc | Key::Backspace) => {
                 self.screen = Screen::Overview;
             }
             _ => {}
@@ -541,22 +546,6 @@ mod tests {
     }
 
     #[test]
-    fn provenance_opens_and_closes() {
-        let mut app: App = App::new(document_with(2));
-        assert_eq!(app.handle(Key::Char('p')), Action::Continue);
-        assert_eq!(app.screen(), Screen::Provenance);
-        assert_eq!(app.handle(Key::Esc), Action::Continue);
-        assert_eq!(app.screen(), Screen::Overview);
-
-        let mut app: App = App::new(document_with_error());
-        assert_eq!(app.screen(), Screen::Problem);
-        assert_eq!(app.handle(Key::Char('p')), Action::Continue);
-        assert_eq!(app.screen(), Screen::Provenance);
-        assert_eq!(app.handle(Key::Esc), Action::Continue);
-        assert_eq!(app.screen(), Screen::Overview);
-    }
-
-    #[test]
     fn e_opens_the_problem_screen_only_when_there_is_one() {
         let mut app: App = App::new(document_with(2));
         assert_eq!(app.handle(Key::Char('e')), Action::Continue);
@@ -577,7 +566,6 @@ mod tests {
             (document_with(2), Vec::new()),
             (document_with(2), vec![Key::Enter]),
             (document_with(2), vec![Key::Enter, Key::Char('d')]),
-            (document_with(2), vec![Key::Char('p')]),
             (document_with(2), vec![Key::Char('x')]),
             (document_with(2), vec![Key::Enter, Key::Char('?')]),
             (document_with_error(), Vec::new()),
@@ -603,7 +591,6 @@ mod tests {
             (document_with(2), Vec::new()),
             (document_with(2), vec![Key::Enter]),
             (document_with(2), vec![Key::Enter, Key::Char('d')]),
-            (document_with(2), vec![Key::Char('p')]),
             (document_with(2), vec![Key::Enter, Key::Char('?')]),
             (document_with_error(), Vec::new()),
             (document_with_error(), vec![Key::Esc, Key::Char('e')]),
@@ -630,11 +617,6 @@ mod tests {
         assert_eq!(app.screen(), Screen::Details(0));
         assert_eq!(app.handle(Key::Esc), Action::Continue);
 
-        let mut app: App = App::new(document_with(2));
-        app.handle(Key::Char('p'));
-        assert_eq!(app.screen(), Screen::Provenance);
-        assert_eq!(app.handle(Key::Esc), Action::Continue);
-
         let mut app: App = App::new(document_with_error());
         assert_eq!(app.screen(), Screen::Problem);
         assert_eq!(app.handle(Key::Esc), Action::Continue);
@@ -642,9 +624,12 @@ mod tests {
 
     #[test]
     fn scrolling_moves_and_stops_at_zero() {
+        // M7-52: the provenance screen is gone, so the scrolling is proved on
+        // the details, the screen `d` opens.
         let mut app: App = App::new(document_with(2));
-        assert_eq!(app.handle(Key::Char('p')), Action::Continue);
-        assert_eq!(app.screen(), Screen::Provenance);
+        app.handle(Key::Enter);
+        assert_eq!(app.handle(Key::Char('d')), Action::Continue);
+        assert_eq!(app.screen(), Screen::Details(0));
         assert_eq!(app.scroll(), 0);
         for _ in 0..3 {
             app.handle(Key::Down);
@@ -704,7 +689,7 @@ mod tests {
     }
 
     #[test]
-    fn x_opens_export_and_y_asks_only_with_a_plan() {
+    fn x_opens_export_and_w_o_ask_only_with_a_plan() {
         // `x` opens the export screen whether or not a plan exists: the screen
         // explains how to enable an export when the command line gave none.
         let mut app: App = App::new(document_with(2));
@@ -716,23 +701,40 @@ mod tests {
             "no --export directory, so no plan"
         );
         assert_eq!(app.scroll(), 0, "the new screen opens at its top");
-        // `y` with no plan asks for nothing, so nothing is written.
-        assert_eq!(app.handle(Key::Char('y')), Action::Continue);
-        assert_eq!(app.screen(), Screen::Export);
-        assert_eq!(app.handle(Key::Char('n')), Action::Continue);
-        assert_eq!(app.screen(), Screen::Overview);
+        // M7-58: `w` and `o` with no plan ask for nothing, so nothing is written,
+        // and `y` `n` do nothing at all, plan or not.
+        for key in [
+            Key::Char('w'),
+            Key::Char('o'),
+            Key::Char('y'),
+            Key::Char('n'),
+        ] {
+            assert_eq!(app.handle(key), Action::Continue, "{:?}", key);
+            assert_eq!(app.screen(), Screen::Export, "{:?}", key);
+        }
 
-        // With a plan, `y` asks for the write, and `n` goes back.
-        let mut app: App = export_app(document_with(2));
-        assert_eq!(app.screen(), Screen::Export);
-        assert_eq!(app.handle(Key::Char('y')), Action::Export);
-        assert_eq!(
-            app.screen(),
-            Screen::Export,
-            "the screen stays for the report"
-        );
-        assert_eq!(app.handle(Key::Char('n')), Action::Continue);
-        assert_eq!(app.screen(), Screen::Overview);
+        // With a plan, `w` and `o` ask for the write, and the screen stays for the
+        // report (M7-58, 7g1).
+        for key in [Key::Char('w'), Key::Char('o')] {
+            let mut app: App = export_app(document_with(2));
+            assert_eq!(app.screen(), Screen::Export);
+            assert_eq!(app.handle(key), Action::Export, "`{:?}` writes", key);
+            assert_eq!(
+                app.screen(),
+                Screen::Export,
+                "the screen stays for the report"
+            );
+        }
+        for key in [Key::Char('y'), Key::Char('n')] {
+            let mut app: App = export_app(document_with(2));
+            assert_eq!(
+                app.handle(key),
+                Action::Continue,
+                "`{:?}` does nothing",
+                key
+            );
+            assert_eq!(app.screen(), Screen::Export, "{:?}", key);
+        }
 
         // `Esc` and `Backspace` go back the same way, and `q` quits.
         for key in [Key::Esc, Key::Backspace] {
@@ -777,7 +779,7 @@ mod tests {
 
         // Going back to the overview keeps the message; a screen change clears
         // the scroll and nothing else.
-        assert_eq!(app.handle(Key::Char('n')), Action::Continue);
+        assert_eq!(app.handle(Key::Esc), Action::Continue);
         assert_eq!(app.screen(), Screen::Overview);
         assert!(app.export_message().is_some());
     }
@@ -820,23 +822,39 @@ mod tests {
             assert_eq!(app.handle(Key::Char('q')), Action::Quit, "`q` quits");
         }
 
-        // `?` does nothing on the export screen, and a screen change closes help.
+        // M7-53: `?` opens help on the export screen too, `esc` and `?` close it,
+        // and a screen change keeps help closed.
         let mut app: App = App::new(document_with(2));
         app.handle(Key::Char('x'));
         app.handle(Key::Char('?'));
-        assert!(!app.help(), "`?` does nothing on the export screen");
-        app.handle(Key::Char('n'));
-        app.handle(Key::Char('?'));
-        app.handle(Key::Char('p'));
+        assert!(app.help(), "`?` opens help on the export screen");
+        app.handle(Key::Char('w'));
         assert!(
-            app.help() && app.screen() == Screen::Overview,
+            app.help() && app.screen() == Screen::Export,
             "no key moves the screen while help is open"
         );
         app.handle(Key::Esc);
-        assert!(!app.help(), "`esc` closes help on the overview");
-        assert_eq!(app.screen(), Screen::Overview, "and does not go back");
-        app.handle(Key::Char('p'));
-        assert_eq!(app.screen(), Screen::Provenance);
-        assert!(!app.help(), "a screen change keeps help closed");
+        assert!(!app.help(), "`esc` closes help");
+        assert_eq!(
+            app.screen(),
+            Screen::Export,
+            "`esc` closes help and stays on the screen"
+        );
+        app.handle(Key::Char('?'));
+        app.handle(Key::Char('?'));
+        assert!(!app.help(), "`?` closes help as well");
+        app.handle(Key::Esc);
+        assert_eq!(app.screen(), Screen::Overview, "then `esc` goes back");
+        app.handle(Key::Char('?'));
+        app.handle(Key::Char('x'));
+        assert!(app.help(), "no key moves the screen while help is open");
+        app.handle(Key::Esc);
+        app.handle(Key::Char('x'));
+        assert_eq!(
+            app.screen(),
+            Screen::Export,
+            "a screen change moves the screen"
+        );
+        assert!(!app.help(), "and keeps help closed");
     }
 }

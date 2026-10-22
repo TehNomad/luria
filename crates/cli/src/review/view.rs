@@ -77,6 +77,90 @@ pub(crate) fn frame_block(title: Line<'static>) -> Block<'static> {
         .title_alignment(Alignment::Left)
 }
 
+/// The rows the body has on an `area`-sized terminal: the frame's inner area's
+/// height, that is `height - 3` (two border rows and the key row), and `0` below
+/// `MIN_WIDTH` by `MIN_HEIGHT`, where nothing of the document is drawn.
+fn body_rows(area: Rect) -> usize {
+    if area.width < MIN_WIDTH || area.height < MIN_HEIGHT {
+        0
+    } else {
+        frame_block(Line::from(""))
+            .inner(Rect::new(0, 0, area.width, area.height - 1))
+            .height as usize
+    }
+}
+
+/// The open result screen's lines, exactly the ones `draw` renders: `text`'s own,
+/// by the open screen (plan §3 rule 1). The details (7c2's member text) carry the
+/// provenance under them (M7-52, 7i4, M7-30).
+fn screen_lines(app: &App) -> Vec<String> {
+    let document = app.document();
+    match app.screen() {
+        Screen::Overview => text::overview(document, app.selected()),
+        // 7i4 (plan §5.3a): `enter` on a member opens its sequence screen, 7i3's
+        // block with the short primer lines under it, expanded when `i` asked for
+        // the insertion to be written out.
+        Screen::Member(index) => text::member_screen(
+            document,
+            index,
+            app.template(),
+            app.frame(index),
+            app.expanded(),
+        ),
+        Screen::Details(index) => text::details(document, index),
+        Screen::Problem => text::problem(document),
+        // 7g1: the export screen's lines are the plan's names, the table's
+        // refusal when there is one, and the line the last export gave.
+        Screen::Export => text::export(app.export_plan(), app.export_message()),
+    }
+}
+
+/// The proposal screen's lines, exactly the ones `draw_proposal` renders (7e).
+fn proposal_lines(app: &ProposalApp) -> Vec<String> {
+    match app.screen() {
+        ProposalScreen::Reading => {
+            let mut lines: Vec<String> = Vec::new();
+            if let Some(message) = app.failure() {
+                lines.push(format!("approval failed: {}", message));
+                lines.push(String::new());
+            }
+            lines.extend(text::proposal(app.document()));
+            lines
+        }
+        ProposalScreen::Confirm => vec![
+            format!(
+                "write the request to {} and run luria q5 design on it?",
+                app.request().display()
+            ),
+            String::new(),
+            "y yes  n no".to_string(),
+        ],
+    }
+}
+
+/// The largest scroll the open screen's body can have on an `area`-sized terminal
+/// (M7-56): the last line the body can start at, `lines - rows`, and `0` below
+/// the minimum size. `terminal` clamps the app's scroll to this after every key,
+/// so `k` moves the body at once after scrolling past the bottom.
+pub fn max_scroll(app: &App, area: Rect) -> usize {
+    let rows: usize = body_rows(area);
+    if rows == 0 {
+        0
+    } else {
+        screen_lines(app).len().saturating_sub(rows)
+    }
+}
+
+/// The same rule on the proposal screen (M7-56).
+pub fn proposal_max_scroll(app: &ProposalApp, area: Rect) -> usize {
+    let rows: usize = body_rows(area);
+    if rows == 0 {
+        0
+    } else {
+        proposal_lines(app).len().saturating_sub(rows)
+    }
+}
+
 /// A block's left title: ` luria review `, the badge, then the trailing words.
 fn title_line(badge: Span<'static>, tail: Span<'static>) -> Line<'static> {
     Line::from(vec![Span::raw(" luria review "), badge, tail])
@@ -139,10 +223,11 @@ fn row_label(line: &str) -> Option<String> {
     }
 }
 
-/// The style of one character of a labelled row's body, by §3's table: the
-/// template and bottom rows' lower case (the edited bases) bold yellow, the
-/// protein's letters cyan and its `*` bold red, the primer rows' upper case
-/// (annealing) green and lower case (not annealing) yellow.
+/// The style of one character of a labelled row's body, by §2.6's table (M7-54):
+/// the template and bottom rows' lower case (the edited bases) bold yellow, the
+/// protein's letters magenta and its `*` bold red, the primer rows' upper case
+/// (annealing) light blue and lower case (the tail) yellow. Red and green are
+/// never the only difference between two things.
 fn letter_style(label: &str, ch: char) -> Style {
     match label {
         "template" | "bottom" => {
@@ -156,14 +241,14 @@ fn letter_style(label: &str, ch: char) -> Style {
             if ch == '*' {
                 red_bold()
             } else if ch.is_ascii_alphabetic() {
-                Style::default().fg(Color::Cyan)
+                Style::default().fg(Color::Magenta)
             } else {
                 Style::default()
             }
         }
         "forward" | "reverse" => {
             if ch.is_ascii_uppercase() {
-                Style::default().fg(Color::Green)
+                Style::default().fg(Color::LightBlue)
             } else if ch.is_ascii_lowercase() {
                 yellow()
             } else {
@@ -172,6 +257,30 @@ fn letter_style(label: &str, ch: char) -> Style {
         }
         _ => Style::default(),
     }
+}
+
+/// A primer table row (M7-55): `text`'s `primer_table_line`, whose body after the
+/// label is `<n> nt`, two spaces, the annealing temperature `{:.1} °C`, three
+/// spaces, then the sequence. The byte offsets of the temperature's number and of
+/// the sequence, in `body`; `None` when the body is not such a row, that is on a
+/// sequence block row, whose label is the same word.
+fn primer_table_cells(body: &str) -> Option<(usize, usize, usize)> {
+    let lead: usize = body.len() - body.trim_start().len();
+    let rest: &str = &body[lead..];
+    let digits: usize = rest.chars().take_while(|c| c.is_ascii_digit()).count();
+    // A length of no digits is not a table row, and ` nt` must follow the digits.
+    if digits == 0 || !rest[digits..].starts_with(" nt") {
+        return None;
+    }
+    let tm_at: usize = body.find(" \u{00b0}C")?;
+    let mut start: usize = tm_at;
+    while start > 0
+        && (body[start - 1..].starts_with('.')
+            || body[start - 1..].starts_with(|c: char| c.is_ascii_digit()))
+    {
+        start -= 1;
+    }
+    Some((start, tm_at, tm_at + " \u{00b0}C".len() + 3))
 }
 
 /// The `[+N bp …]` marker's columns in `text`, when it holds one: from `[+` to
@@ -183,15 +292,14 @@ fn marker_range(text: &str) -> Option<(usize, usize)> {
 }
 
 /// `text` as spans: one span per run of one style, and the `[+N bp …]` marker
-/// bold magenta wherever it is (§3's last row). The text itself is unchanged.
+/// bold wherever it is (§2.6's last row, M7-54: it takes the protein's colour).
+/// The text itself is unchanged.
 fn runs(text: &str, style_of: &dyn Fn(char) -> Style) -> Vec<Span<'static>> {
     if let Some((start, end)) = marker_range(text) {
         let mut spans: Vec<Span<'static>> = runs(&text[..start], style_of);
         spans.push(Span::styled(
             text[start..end].to_string(),
-            Style::default()
-                .fg(Color::Magenta)
-                .add_modifier(Modifier::BOLD),
+            Style::default().add_modifier(Modifier::BOLD),
         ));
         spans.extend(runs(&text[end..], style_of));
         return spans;
@@ -291,7 +399,18 @@ fn styled_lines(lines: &[String], screen: Option<Screen>) -> Vec<Line<'static>> 
             let label_text: String = line.chars().take(CONTEXT_LABEL).collect::<String>();
             let body: String = line.chars().skip(CONTEXT_LABEL).collect::<String>();
             let mut spans: Vec<Span<'static>> = vec![Span::styled(label_text, dim())];
-            spans.extend(runs(&body, &|ch| letter_style(&label, ch)));
+            // M7-55: on a primer table row, `nt` and `°C` take no colour, the
+            // annealing temperature's number is bold and its unit plain, and only
+            // the sequence after the three spaces is coloured as a primer row.
+            match primer_table_cells(&body) {
+                Some((tm_start, tm_at, seq_start)) => {
+                    spans.push(Span::raw(body[..tm_start].to_string()));
+                    spans.push(Span::styled(body[tm_start..tm_at].to_string(), bold()));
+                    spans.push(Span::raw(body[tm_at..seq_start].to_string()));
+                    spans.extend(runs(&body[seq_start..], &|ch| letter_style(&label, ch)));
+                }
+                None => spans.extend(runs(&body, &|ch| letter_style(&label, ch))),
+            }
             spans
         } else if line.starts_with("  ") {
             outcome_spans(line)
@@ -330,12 +449,22 @@ pub(crate) fn key_line(keys: &str) -> Line<'static> {
     Line::from(spans)
 }
 
-/// `?`'s help legend as a pop-up over the screen (M7-27, plan §5.3b): centred,
-/// `Clear` under it so nothing of the screen shows through, a rounded block
-/// titled ` Help `, sized to `text::help()`'s longest line + 4 by its line count
-/// + 2, clamped to `area`.
-fn draw_help(frame: &mut Frame, area: Rect) {
-    let lines: Vec<String> = text::help();
+/// `?`'s help as a pop-up over the screen (M7-27, M7-53): centred, `Clear` under
+/// it so nothing of the screen shows through, a rounded block titled ` Help `,
+/// sized to `text::help`'s longest line + 4 by its line count + 2, clamped to
+/// `area`. The legend is on the variant screen only, and the keys named are the
+/// open screen's own.
+fn draw_help(frame: &mut Frame, area: Rect, app: &App) {
+    let document = app.document();
+    let can_expand: bool = match app.screen() {
+        Screen::Member(index) => expandable(document, index),
+        _ => false,
+    };
+    let lines: Vec<String> = text::help(
+        app.screen(),
+        document.error.is_some() || !document.clarifications.is_empty(),
+        can_expand,
+    );
     let width: u16 = lines
         .iter()
         .map(|line| line.chars().count())
@@ -385,31 +514,13 @@ pub fn draw(frame: &mut Frame, app: &App) {
 
     // The body is the frame's inner area, so `height - 3` rows: two border rows
     // and the key row.
-    let lines: Vec<String> = match app.screen() {
-        Screen::Overview => text::overview(document, app.selected()),
-        // 7i4 (plan §5.3a): `enter` on a member opens its sequence screen, 7i3's
-        // block with the short primer lines under it, expanded when `i` asked for
-        // the insertion to be written out.
-        Screen::Member(index) => text::member_screen(
-            document,
-            index,
-            app.template(),
-            app.frame(index),
-            app.expanded(),
-        ),
-        // 7i4, M7-30: the details (7c2's member text) are behind `d`.
-        Screen::Details(index) => text::member(document, index),
-        Screen::Provenance => text::provenance(document),
-        Screen::Problem => text::problem(document),
-        // 7g1: the export screen's lines are the plan's names, the table's
-        // refusal when there is one, and the line the last export gave.
-        Screen::Export => text::export(app.export_plan(), app.export_message()),
-    };
+    let lines: Vec<String> = screen_lines(app);
 
-    // The app's scroll has no upper bound, so the clamp is here: the last line
-    // the body can start at is `n - rows` (7c3 §3.1 rule 5).
+    // The app's scroll is clamped by `terminal` to `max_scroll`, and the draw
+    // clamps it here as well, so the body never starts past the last line
+    // (7c3 §3.1 rule 5, M7-56).
     let rows: usize = inner.height as usize;
-    let first: usize = app.scroll().min(lines.len().saturating_sub(rows));
+    let first: usize = app.scroll().min(max_scroll(app, area));
     let shown: Vec<Line<'static>> = styled_lines(&lines[first..], Some(app.screen()));
     // No wrap, so a line longer than the body's width is cut at that width: a
     // primer's row never moves.
@@ -421,7 +532,7 @@ pub fn draw(frame: &mut Frame, app: &App) {
         "q quit  esc close".to_string()
     } else {
         let mut keys: String = match app.screen() {
-            Screen::Overview => "q quit  enter open  j/k move  p provenance  x export".to_string(),
+            Screen::Overview => "q quit  enter open  j/k move  x export".to_string(),
             Screen::Member(index) => {
                 // `i` is offered only where `i` expands, that is on a member whose
                 // design writes more than the inline limit, and it names the state the
@@ -438,15 +549,16 @@ pub fn draw(frame: &mut Frame, app: &App) {
                 keys
             }
             Screen::Details(_) => "q quit  esc back  j/k scroll".to_string(),
-            Screen::Provenance | Screen::Problem => "q quit  esc back  j/k scroll".to_string(),
-            // `y` is offered only where `y` writes, that is where a plan exists, so
-            // the key line never offers an action that does nothing (7g1).
+            Screen::Problem => "q quit  esc back  j/k scroll".to_string(),
+            // M7-58: `w` is offered only where `w` writes, that is where a plan
+            // exists, so the key line never offers an action that does nothing
+            // (7g1).
             Screen::Export => {
                 let mut keys: String = "q quit".to_string();
                 if app.export_plan().is_some() {
-                    keys.push_str("  y write");
+                    keys.push_str("  w write");
                 }
-                keys.push_str("  n back");
+                keys.push_str("  esc back");
                 keys
             }
         };
@@ -457,11 +569,9 @@ pub fn draw(frame: &mut Frame, app: &App) {
         {
             keys.push_str("  e problem");
         }
-        // M7-27: `?` opens the legend on every result screen bar `Export`, where it
-        // does nothing, so it is offered only where it works.
-        if app.screen() != Screen::Export {
-            keys.push_str("  ? help");
-        }
+        // M7-27, M7-53: `?` opens the legend on every screen, Export included, so
+        // it is offered on every key line.
+        keys.push_str("  ? help");
         keys
     };
     if lines.len() > rows {
@@ -480,7 +590,7 @@ pub fn draw(frame: &mut Frame, app: &App) {
 
     if app.help() {
         // The screen is drawn as usual first, so the pop-up goes over it (M7-27).
-        draw_help(frame, area);
+        draw_help(frame, area, app);
     }
 }
 
@@ -507,29 +617,11 @@ pub fn draw_proposal(frame: &mut Frame, app: &ProposalApp) {
     let inner: Rect = block.inner(screen_area);
     frame.render_widget(block, screen_area);
 
-    let lines: Vec<String> = match app.screen() {
-        ProposalScreen::Reading => {
-            let mut lines: Vec<String> = Vec::new();
-            if let Some(message) = app.failure() {
-                lines.push(format!("approval failed: {}", message));
-                lines.push(String::new());
-            }
-            lines.extend(text::proposal(app.document()));
-            lines
-        }
-        ProposalScreen::Confirm => vec![
-            format!(
-                "write the request to {} and run luria q5 design on it?",
-                app.request().display()
-            ),
-            String::new(),
-            "y yes  n no".to_string(),
-        ],
-    };
+    let lines: Vec<String> = proposal_lines(app);
 
-    // The same clamp as `draw`: the last line the body can start at.
+    // The same clamp as `draw`: the last line the body can start at (M7-56).
     let rows: usize = inner.height as usize;
-    let first: usize = app.scroll().min(lines.len().saturating_sub(rows));
+    let first: usize = app.scroll().min(proposal_max_scroll(app, area));
     let shown: Vec<Line<'static>> = styled_lines(&lines[first..], None);
     frame.render_widget(Paragraph::new(shown), inner);
 

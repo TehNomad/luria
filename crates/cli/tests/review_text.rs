@@ -33,6 +33,7 @@
 use serde_json::{json, Value};
 
 use luria_cli::result::{DesignView, DetailValue, EditedView, MutationView, ResultDocument};
+use luria_cli::review::app::Screen;
 use luria_cli::review::text;
 use luria_cli::run::run;
 use std::fs;
@@ -419,7 +420,7 @@ fn rows_line_up() {
 
 #[test]
 fn the_help_holds_the_legend() {
-    let lines: Vec<String> = text::help();
+    let lines: Vec<String> = text::help(Screen::Member(0), false, false);
     assert!(
         lines.iter().any(|line| line.starts_with("  protein")),
         "the help explains the protein line: {:?}",
@@ -430,6 +431,102 @@ fn the_help_holds_the_legend() {
         "the help explains what lower case means: {:?}",
         lines
     );
+}
+
+#[test]
+fn help_names_only_the_open_screens_keys() {
+    // M7-53: `?` shows the open screen's own keys, and the sequence legend is on
+    // the variant screen only.
+    fn has_key(lines: &[String], key: &str) -> bool {
+        let prefix: String = format!("  {:width$}", key, width = 11);
+        lines.iter().any(|line| line.starts_with(&prefix))
+    }
+
+    let legend: [&str; 9] = [
+        "The sequence",
+        "  forward",
+        "  template",
+        "  protein",
+        "  bottom",
+        "  reverse",
+        "  lower case",
+        "  *",
+        "  [+N bp",
+    ];
+    for (screen, problem, expandable) in [
+        (Screen::Overview, false, false),
+        (Screen::Overview, true, false),
+        (Screen::Member(0), false, false),
+        (Screen::Member(0), true, true),
+        (Screen::Details(0), true, false),
+        (Screen::Problem, true, false),
+        (Screen::Export, true, false),
+    ] {
+        let lines: Vec<String> = text::help(screen, problem, expandable);
+        let legend_on_member: bool = screen == Screen::Member(0);
+        for head in legend {
+            let count: usize = lines.iter().filter(|line| line.starts_with(head)).count();
+            assert_eq!(
+                count,
+                usize::from(legend_on_member),
+                "the legend is on Member only: {:?} -> {:?}",
+                screen,
+                lines
+            );
+        }
+        // `x` is an overview key, `w o` an export key, and each names the screen
+        // it works on, never another.
+        assert_eq!(
+            has_key(&lines, "x"),
+            screen == Screen::Overview,
+            "`x` is on Overview only: {:?} -> {:?}",
+            screen,
+            lines
+        );
+        assert_eq!(
+            has_key(&lines, "w o"),
+            screen == Screen::Export,
+            "`w o` is on Export only: {:?} -> {:?}",
+            screen,
+            lines
+        );
+        assert_eq!(
+            has_key(&lines, "e"),
+            screen == Screen::Overview && problem,
+            "`e` appears only when there is a problem, on Overview: {:?} -> {:?}",
+            screen,
+            lines
+        );
+        assert_eq!(
+            has_key(&lines, "i"),
+            screen == Screen::Member(0) && expandable,
+            "`i` appears only where `i` expands: {:?} -> {:?}",
+            screen,
+            lines
+        );
+        assert_eq!(
+            has_key(&lines, "d"),
+            screen == Screen::Member(0),
+            "`d` is on the variant screen only: {:?} -> {:?}",
+            screen,
+            lines
+        );
+        assert_eq!(
+            has_key(&lines, "Home"),
+            screen == Screen::Details(0) || screen == Screen::Problem,
+            "`Home` is on the scrolled screens that offer it: {:?} -> {:?}",
+            screen,
+            lines
+        );
+        // `ctrl-c` is the last line on every screen.
+        assert_eq!(
+            lines.last().map(String::as_str),
+            Some("  ctrl-c     quit"),
+            "`ctrl-c` is the last line: {:?} -> {:?}",
+            screen,
+            lines
+        );
+    }
 }
 
 #[test]
@@ -728,9 +825,18 @@ fn the_member_screen_names_the_edit() {
         );
     }
 
-    // The design the document carries is what makes `c context` worth offering.
+    // The design the document carries is what used to make `c context` worth
+    // offering; M7-56 takes both stale lines out of `member`, so the screen's
+    // lines are the record only.
     assert!(member.design.is_some(), "the set's member 0 has a design");
-    assert_eq!(count(&lines, "c context"), 1, "{:?}", lines);
+    for stale in ["c context", "esc back"] {
+        assert!(
+            !lines.iter().any(|line| line.as_str() == stale),
+            "`{}` is not a line of `member`: {:?}",
+            stale,
+            lines
+        );
+    }
 }
 
 #[test]
@@ -901,26 +1007,33 @@ fn a_design_failure_replaces_the_pair() {
         "a member with no pair shows no primer: {:?}",
         lines
     );
-    assert!(
-        !lines.iter().any(|line| line.as_str() == "c context"),
-        "no context to read, so no `c context`: {:?}",
-        lines
-    );
+    // M7-56: `member` names no key, so neither stale line is on it, design or
+    // no design.
+    for stale in ["c context", "esc back"] {
+        assert!(
+            !lines.iter().any(|line| line.as_str() == stale),
+            "no context to read, and no key line on the member's text: {:?}",
+            lines
+        );
+    }
 }
 
 #[test]
-fn back_is_always_offered() {
+fn the_stale_lines_are_gone() {
     for (test, document) in [
         ("the set", set("back_set")),
         ("a design failure", design_failure("back_failure")),
     ] {
         let lines = text::member(&document, 0);
-        assert_eq!(
-            lines.last().map(String::as_str),
-            Some("esc back"),
-            "{} ends with `esc back`: {:?}",
-            test,
-            lines
-        );
+        // M7-56: `c context` and `esc back` are not lines of `member`.
+        for stale in ["c context", "esc back"] {
+            assert!(
+                !lines.iter().any(|line| line.as_str() == stale),
+                "{}'s member text holds no `{}`: {:?}",
+                test,
+                stale,
+                lines
+            );
+        }
     }
 }

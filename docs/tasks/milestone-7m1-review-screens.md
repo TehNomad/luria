@@ -1,6 +1,6 @@
 # Milestone 7m1: the review screens after the owner's hand test
 
-Status: **Ready for the worker, 2026-10-22.** Planner: Claude. Parent:
+Status: **Implemented, 2026-10-22.** Planner: Claude. Parent:
 `docs/tasks/milestone-7m-polish.md`, items M7-52 to M7-56 and M7-58's
 keys (quoted in §1).
 
@@ -188,3 +188,13 @@ with its §2 reason.
   outside the pop-up with that screen's body lines.
   `review/app.rs`'s `scrolling_moves_and_stops_at_zero` opening Details
   by `enter`, `d` is accepted.
+
+## 7. Implementation notes (planner, 2026-10-22)
+
+- 1117 tests passed, 0 failed, 1 ignored; fmt, clippy, diff check clean;
+  fixtures 19 of 19. Both §3.1 proofs failed as required. Two workers:
+  w7m1 wrote §2 and ran out of context; w7m1b finished the tests.
+- Found by w7m1b: `view.rs`'s `runs` gives a run's first character no
+  style, so the first base of a coloured row is drawn plain. `new/view.rs`'s
+  `option_runs` has the same pattern. Fixed in 7m1c.
+- The clamp in `terminal.rs` is untested; test 1 emulates it.
