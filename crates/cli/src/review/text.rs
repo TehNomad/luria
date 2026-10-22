@@ -707,7 +707,7 @@ pub(crate) const MEMBER_INLINE_LIMIT: usize = 30;
 
 /// A base text as the heading and the overview state it: the bases themselves,
 /// or `<N> bp` when there are more than `MEMBER_INLINE_LIMIT` of them.
-fn bases_text(bases: &str) -> String {
+pub(crate) fn bases_text(bases: &str) -> String {
     let count: usize = bases.chars().count();
     if count > MEMBER_INLINE_LIMIT {
         format!("{} bp", count)

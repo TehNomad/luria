@@ -56,6 +56,8 @@ use luria_core::identity::Identifier;
 use luria_core::sequence::{Sequence, SequenceTopology};
 
 pub mod form;
+pub mod text;
+pub mod view;
 
 /// Where the template comes from.
 #[derive(Clone, Debug, PartialEq)]

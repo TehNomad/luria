@@ -1,6 +1,6 @@
 # Milestone 7k5: the `luria new` command
 
-Status: **Draft, waits for 7k4.** Planner: Claude. Parent:
+Status: **Ready for the worker, 2026-10-22.** Planner: Claude. Parent:
 `docs/tasks/milestone-7k-new.md` §1, §2 (rules 4 to 6), M7-31, M7-37.
 Builds on 7k2 (`new::build`), 7k3 (`NewForm`), 7k4 (`draw_form`) and the
 review's proposal pattern (7f2: nothing written before `a` then `y`).

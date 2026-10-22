@@ -55,7 +55,7 @@ fn yellow() -> Style {
 /// The size rule (plan §3.2): below `MIN_WIDTH` by `MIN_HEIGHT`, row 0 says how
 /// small the screen is and nothing of the document is drawn. Returns whether the
 /// screen is that small.
-fn too_small(frame: &mut Frame, area: Rect) -> bool {
+pub(crate) fn too_small(frame: &mut Frame, area: Rect) -> bool {
     if area.width < MIN_WIDTH || area.height < MIN_HEIGHT {
         let notice: String = format!(
             "the screen is {}x{}; luria review needs at least {}x{}",
@@ -69,7 +69,7 @@ fn too_small(frame: &mut Frame, area: Rect) -> bool {
 
 /// The frame's block: rows `0` to `height - 2`, all four sides rounded, with
 /// `title` at the left.
-fn frame_block(title: Line<'static>) -> Block<'static> {
+pub(crate) fn frame_block(title: Line<'static>) -> Block<'static> {
     Block::new()
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded)
@@ -306,7 +306,7 @@ fn styled_lines(lines: &[String], screen: Option<Screen>) -> Vec<Line<'static>> 
 /// The key line as spans: `keys` split on the two spaces between its items, each
 /// key letter (the text up to the item's first space) bold, the rest dim. The
 /// key text itself is unchanged.
-fn key_line(keys: &str) -> Line<'static> {
+pub(crate) fn key_line(keys: &str) -> Line<'static> {
     let dim: Style = Style::default().add_modifier(Modifier::DIM);
     let mut spans: Vec<Span<'static>> = Vec::new();
     for (index, item) in keys.split("  ").enumerate() {
