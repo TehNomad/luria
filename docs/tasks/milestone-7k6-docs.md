@@ -1,6 +1,6 @@
 # Milestone 7k6: the documentation of `luria new`, and D047
 
-Status: **Ready for the worker, 2026-10-22.** Planner: Claude. Parent:
+Status: **Implemented, 2026-10-22.** Planner: Claude. Parent:
 `docs/tasks/milestone-7k-new.md` §4 (7k6). As 7h: the two long texts
 are the planner's, appended verbatim.
 

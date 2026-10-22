@@ -339,7 +339,8 @@ Build the TUI around the same application capabilities and typed operations.
 
 Implemented: luria review, its result, proposal, variant (sequence and
 protein), details, provenance and export screens, and an IDT order
-table, docs/cli.md section 11 (D046).
+table, docs/cli.md section 11 (D046); luria new, a form for a new design,
+docs/cli.md section 12 (D047).
 
 Milestone 8: Web interface
 

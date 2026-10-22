@@ -1586,3 +1586,54 @@ Adding an editing screen, a new export format or vendor, a default scale
 or purification, or any value the screens compute needs approval.
 The variant screen's layout and words (M7-16 to M7-30) are the
 owner's, after using the earlier versions.
+
+## D047: Entering a design in the terminal (Milestone 7, `luria new`)
+
+Status: approved by the owner, 2026-10-21 and 2026-10-22
+(`docs/tasks/milestone-7k-new.md`, answers M7-31 to M7-40). Applies D003,
+D005, D006, D012, D029, D034, D044 and D046.
+
+Decision:
+
+* **`luria new`** (M7-31). A form builds a `luria.q5-request/1` request
+  from a template, mutation lines or words, the overlap and the codon
+  choice; the request is shown exactly as it will be written, and
+  written and run only on the user's explicit approval (`a`, then `y`),
+  then shown on `luria review`'s screens. Quitting before approval
+  writes nothing and runs nothing.
+* **The template** (M7-32, M7-37). A FASTA or GenBank file, or a pasted
+  sequence saved as a new FASTA file on approval. For FASTA and a paste
+  the user states the CDS (whole sequence, or 1-based first and last
+  base, and the strand); for GenBank the user picks a usable CDS from the
+  record. Never guessed. The request goes beside a template file, as
+  `--write-request` requires; a paste and its request go in the current
+  directory. No file is ever replaced.
+* **The shorthand** (M7-35). One mutation per line, read by luria's own
+  code with no model: residues as milestone 6's notation, with an
+  optional codon; base changes, deletions and insertions by 1-based
+  inclusive template positions, converted to the request's zero-based
+  half-open form (D006) by one tested function. A one-base change is a
+  substitution; any longer range is a replacement. Typed bases must match
+  the template. Several lines are separate variants (M7-34).
+* **Words** (M7-33, M7-36, M7-40). With `--backend`, words are sent
+  through `luria q5 interpret`'s path unchanged, and need a GenBank
+  template (M6-7); words and mutation lines are not combined. Without a
+  backend the box is shown and disabled.
+* **Nothing scientific defaulted silently** (M7-34, M7-39). The overlap
+  is empty until the user or a `--design` profile gives it; the codon
+  choice is shown; placement is shown as a fixed `inline`, the only
+  placement `luria q5 design` supports (D029).
+* **Same code paths.** The request is built as the request parser's own
+  types, the paste is written by luria-core's FASTA writer, the request by
+  `--write-request`'s writer, and the design runs as `luria review` runs
+  an approved request.
+* **Tested without a terminal.** The shorthand, the request builder, the
+  form, its text and drawing are pure and tested against planner fixtures
+  in `tests/fixtures/new/`, written by scripts that share no code with
+  `crates/`, and every expected request was run through `luria q5
+  design`. The terminal session is checked by the owner by hand.
+
+Reversibility:
+
+Combining words with mutation lines, other placements, composition
+choices, or any default for a scientific value needs approval.

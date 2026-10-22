@@ -5,7 +5,8 @@ This page describes `luria-cli` 0.1.0, which reads requests in schema
 The decisions behind it are D041 and D034 in `docs/decisions.md`.
 `luria q5 interpret`, which turns a request in words into a proposed
 request, is §10 (D044). `luria review`, which shows a result or a
-proposal in the terminal, is §11 (D046).
+proposal in the terminal, is §11 (D046). `luria new`, a form for a new
+design, is §12 (D047).
 
 `luria` runs one workflow, Q5 site-directed mutagenesis. It reads a request
 and the sequence file the request names, applies the edit, verifies it,
@@ -22,6 +23,8 @@ luria review REQUEST.json [--export DIR]
 luria review --template FILE.gb (--text TEXT | --text-file FILE)
     --backend openai-compatible --endpoint URL --model NAME
     --request FILE.json [--design PROFILE.json] [--allow-remote] [--export DIR]
+luria new [--design PROFILE.json] [--export DIR]
+    [--backend openai-compatible --endpoint URL --model NAME [--allow-remote]]
 luria version
 luria help
 ```
@@ -32,6 +35,7 @@ luria help
 | `--write-edited DIR` | Also writes each edited construct to `DIR/<member name>.fa`. `DIR` is created if needed. An existing file is never overwritten. The file's header is the result name, and it records no topology. |
 | `q5 interpret ...` | Asks a language model what a request in words means and prints the proposed request, or luria's questions, as one document. It runs nothing (§10). |
 | `review ...` | Shows a result, or a proposal it runs once you approve, in the terminal, and exports it (§11). |
+| `new ...` | A form for a template and mutations, which writes and runs the request once you approve (§12). |
 | `version`, `--version` | Prints the package version, every algorithm's name and version, and the two schema names (§4). |
 | `help`, `--help`, `-h` | Prints the usage text. |
 
@@ -885,3 +889,70 @@ that is not verified gives no table, and the export screen says why; the
 other files are still written. luria writes the file and never places an
 order. Check the scale and purification against your own needs before
 you paste it.
+
+## 12. Entering a design in the terminal: `luria new`
+
+`luria new` is a form for a new design: a template, the mutations and
+two choices. It builds the request, shows it exactly as it will be
+written, and writes and runs it only once you approve. The result then
+opens on `luria review`'s screens (§11). The decisions behind it are D047
+and `docs/tasks/milestone-7k-new.md`.
+
+```
+luria new [--design PROFILE.json] [--export DIR]
+    [--backend openai-compatible --endpoint URL --model NAME [--allow-remote]]
+```
+
+It needs a terminal on stdin and stdout, and a screen of at least 80 by
+24.
+
+### 12.1 The form
+
+| Field | What you give |
+| --- | --- |
+| Template | A file, FASTA or GenBank, by its path; or a sequence you paste, raw or as FASTA. A paste is saved as a new FASTA file when you approve. |
+| Name, Shape | For FASTA or a paste: the template's name and whether it is linear or circular. A GenBank record gives its own. |
+| CDS | For FASTA or a paste: the whole sequence, or its first and last base (1-based, inclusive), and its strand. For GenBank: one of the record's CDSs that luria can use. Never guessed. |
+| Mutations | One per line, in the shorthand of §12.2. Each line shows what luria reads it as, or why it cannot. |
+| In words | Your request in words, sent to your model as `luria q5 interpret` does (§10). Only with `--backend`, and only with a GenBank template. Use words or mutation lines, not both. |
+| Primers | `inline`, shown and fixed: confine-to-tail placement is not supported yet (D029). |
+| Overlap | The minimum annealing overlap in nucleotides. Empty until you or `--design` give it. |
+| Codon | For a residue change without a codon: the default codon policy, or a codon on each line (`D404N:AAC`). |
+| Save as | The request file's name. |
+
+`tab` and `shift-tab` move between fields, `←`/`→` change a choice,
+`enter` on `[ Review ]` builds the request, and `esc` quits. A field
+that is missing or a line luria cannot read is named in red, and the
+cursor moves to it.
+
+### 12.2 The mutation shorthand
+
+Positions are template bases, 1-based and inclusive, as GenBank writes
+them; residue numbers count from the CDS's first codon.
+
+| Line | Meaning |
+| --- | --- |
+| `D404N`, `p.D404N`, `Asp404Asn` | Residue 404 from D to N, the codon by the form's choice |
+| `D404N:AAC` | The same, with codon `AAC` |
+| `1210 G>A` | Base 1210 from G to A |
+| `1210-1212 GAT>AAC` | Bases 1210 to 1212 replaced (any length) |
+| `del 1210-1212`, `del 46` | Bases deleted |
+| `ins GAT after 1209` | `GAT` inserted between bases 1209 and 1210 |
+
+A stop (`*`, `X`, `Ter`), a `?`, a position of 0, a range written
+backwards, bases that do not match the range, or anything else is
+refused with the reason; the typed bases of a substitution or a
+replacement must be the template's. Two or more lines are separate
+variants, one construct each.
+
+### 12.3 Approving
+
+`[ Review ]` shows the request exactly as it will be written and the
+files that will be written: the request beside a template file, as
+`--write-request` requires (§10), or, for a paste, the pasted FASTA and
+the request in the current directory. With words, it shows `luria q5
+interpret`'s proposal instead, as §11.2 does. Nothing is written until
+you press `a`, then `y`. A file is never replaced. luria then runs the
+request as `luria q5 design` does and opens the result as §11.1 does,
+with export when `--export DIR` was given (§11.3). Quitting before you
+approve writes nothing.
