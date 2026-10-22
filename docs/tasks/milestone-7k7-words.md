@@ -56,7 +56,10 @@ need a GenBank file.
 With a backend, `In words` shows the text like `Mutations` (multi-line,
 label on the first line). When the template is not a loaded GenBank file
 and the box holds text, one more row follows it: 11 spaces then `needs a
-GenBank template` (dim in the view, as `needs --backend` is).
+GenBank template` (dim in the view, as `needs --backend` is: one rule
+added to `new/view.rs`'s `styled_line` for a continued row starting with
+that text, approved on w7k7's question, 2026-10-22, with a test
+`a_genbank_need_is_dim` in `crates/cli/tests/new_view.rs`).
 
 ### 2.4 The loop, `crates/cli/src/new/terminal.rs`
 
@@ -142,7 +145,8 @@ In `crates/cli/tests/cli.rs`:
 ## 4. Do not
 
 - Change only `args.rs`, `main.rs`, `review.rs` (§2.6 only),
-  `new/form.rs`, `new/text.rs`, `new/terminal.rs`, the new
+  `new/form.rs`, `new/text.rs`, `new/terminal.rs`, `new/view.rs` (the
+  one §2.3 dim rule), `crates/cli/tests/new_view.rs` (its one test), the new
   `crates/cli/tests/new_words.rs`, and `crates/cli/tests/cli.rs` (§3 tests
   6 and 7 and the one approved assertion).
 - No change to `interpret`, the proposal screen, `review::approve`,
