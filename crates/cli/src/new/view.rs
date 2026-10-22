@@ -16,8 +16,11 @@
 //!   are added (plan §3 rule 1);
 //! - labels dim, the focused field's label bold and reversed, `◉` green, `✓`
 //!   previews green, `✗` previews red, `…` previews and the box's `needs a
-//!   GenBank template` hint dim, `[ Review ]` bold
-//!   and reversed when focused, the blocker line bold red;
+//!   GenBank template` hint dim, `[ Save and run ]` bold and reversed when
+//!   focused, the blocker line bold red, and the pop-up's `✗` line red bold;
+//! - `draw_popup` draws the pop-up over the form, centred in a rounded block
+//!   titled ` Save `, as `text::popup_lines` writes it, with the cursor in the
+//!   name typed (M7-48); `draw_form` calls it last;
 //! - the cursor is `frame.set_cursor_position` at the text field's column on its
 //!   line, so the terminal shows where a typed character goes;
 //! - `draw_waiting` draws the same screen with the key line saying the model is
@@ -26,6 +29,7 @@
 
 use crate::new::form::Field;
 use crate::new::form::NewForm;
+use crate::new::form::Popup;
 use crate::new::text;
 use crate::new::text::FormText;
 use crate::review::view::frame_block;
@@ -34,7 +38,7 @@ use crate::review::view::too_small;
 use ratatui::layout::{Position, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, Paragraph};
+use ratatui::widgets::{Block, BorderType, Borders, Clear, Paragraph};
 use ratatui::Frame;
 
 /// The label column `text` pads its rows to, so a row's label is its first
@@ -45,7 +49,7 @@ const LABEL: usize = 11;
 /// exactly when its first `LABEL` characters, trimmed, are one of these: the
 /// rows that continue a field start with `LABEL` spaces, so no typed value is
 /// read as a label.
-const LABELS: [&str; 11] = [
+const LABELS: [&str; 10] = [
     "Template",
     "  File",
     "  Paste",
@@ -56,18 +60,18 @@ const LABELS: [&str; 11] = [
     "  Strand",
     "Mutations",
     "Overlap",
-    "Save as",
 ];
 
 /// Draw `form` into `frame`: the frame with the ` NEW DESIGN ` badge, the body
-/// scrolled so the focused field's line is visible, the key line, and the cursor
-/// in the focused text field. Below 80x24 the screen says how small it is and
-/// shows nothing of the form.
+/// scrolled so the focused field's line is visible, the key line, the cursor in
+/// the focused text field, and, when a pop-up is open, the pop-up over the form
+/// (M7-48). Below 80x24 the screen says how small it is and shows nothing of the
+/// form.
 pub fn draw_form(frame: &mut Frame, form: &NewForm) {
     draw_form_with(
         frame,
         form,
-        "tab next  shift-tab back  ←/→ choose  enter review  esc quit",
+        "tab next  shift-tab back  ←/→ choose  enter save  esc quit",
         true,
     );
 }
@@ -85,9 +89,10 @@ pub fn draw_waiting(frame: &mut Frame, form: &NewForm) {
 }
 
 /// The form's screen: the frame with the ` NEW DESIGN ` badge, the body scrolled
-/// so the focused field's line is visible, the key line `keys`, and, when
-/// `with_cursor` is set, the cursor in the focused text field. Below 80x24 the
-/// screen says how small it is and shows nothing of the form.
+/// so the focused field's line is visible, the key line `keys`, the cursor in the
+/// focused text field when `with_cursor` is set, and the pop-up over it when one
+/// is open. Below 80x24 the screen says how small it is and shows nothing of the
+/// form.
 fn draw_form_with(frame: &mut Frame, form: &NewForm, keys: &str, with_cursor: bool) {
     let area: Rect = frame.area();
     if too_small(frame, area) {
@@ -135,11 +140,75 @@ fn draw_form_with(frame: &mut Frame, form: &NewForm, keys: &str, with_cursor: bo
             ));
         }
     }
+    // M7-48: the pop-up is drawn last, over the form's own screen.
+    draw_popup(frame, form);
 }
+
+/// The pop-up, drawn over the screen `draw_form` has drawn (M7-48, contract
+/// §2.4): `Clear`, then a rounded block titled ` Save `, centred, as wide as the
+/// longest line plus 4, and at most the screen, with `text::popup_lines` as its
+/// body and the cursor in the name on `Request`'s row while the name is typed.
+/// Nothing is drawn when no pop-up is open.
+pub fn draw_popup(frame: &mut Frame, form: &NewForm) {
+    if form.popup() == Popup::Closed {
+        return;
+    }
+    let area: Rect = frame.area();
+    let lines: Vec<String> = text::popup_lines(form);
+    let longest: usize = lines
+        .iter()
+        .map(|line| line.chars().count())
+        .max()
+        .unwrap_or(0);
+    let width: u16 = (longest + 4).min(area.width as usize) as u16;
+    let height: u16 = (lines.len() + 2).min(area.height as usize) as u16;
+    let pop: Rect = Rect::new(
+        (area.width - width) / 2,
+        (area.height - height) / 2,
+        width,
+        height,
+    );
+    frame.render_widget(Clear, pop);
+    let title: Line<'static> = Line::from(Span::styled(
+        " Save ".to_string(),
+        Style::default().fg(Color::Black).bg(Color::Cyan),
+    ));
+    let block: Block<'static> = Block::new()
+        .borders(Borders::ALL)
+        .border_type(BorderType::Rounded)
+        .title(title);
+    let inner: Rect = block.inner(pop);
+    frame.render_widget(block, pop);
+    let shown: Vec<Line<'static>> = lines.iter().map(|line| popup_line(line)).collect();
+    frame.render_widget(Paragraph::new(shown), inner);
+    // M7-48: the typed name carries the cursor, on `Request`'s row, which is the
+    // body's first row.
+    if form.popup() == Popup::Naming {
+        frame.set_cursor_position(Position::new(
+            inner.x + LABEL as u16 + form.save_as_cursor() as u16,
+            inner.y,
+        ));
+    }
+}
+
+/// One pop-up line: the failure line red bold, every other line as `text` wrote
+/// it, with no character changed (plan §3 rule 1).
+fn popup_line(line: &str) -> Line<'static> {
+    if line.starts_with('✗') {
+        return Line::from(Span::styled(
+            line.to_string(),
+            Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+        ));
+    }
+    Line::from(line.to_string())
+}
+
+/// The button's label (M7-48), which `text` writes as its own row.
+const BUTTON: &str = "[ Save and run ]";
 
 /// One `text` line as spans, with the styles §3 lists: the text itself is
 /// unchanged. `focused_label` is the focused field's own row, `focused_review`
-/// the `[ Review ]` row when focus is on it.
+/// the `[ Save and run ]` row when focus is on it.
 fn styled_line(line: &str, focused_label: bool, focused_review: bool) -> Line<'static> {
     let mut spans: Vec<Span<'static>> = Vec::new();
     // The blocker line, which `text` writes at the left margin.
@@ -149,15 +218,14 @@ fn styled_line(line: &str, focused_label: bool, focused_review: bool) -> Line<'s
             Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
         ));
     }
-    if line.trim_start() == "[ Review ]" {
-        let indent: String =
-            line[..line.chars().count() - "[ Review ]".chars().count()].to_string();
+    if line.trim_start() == BUTTON {
+        let indent: String = line[..line.chars().count() - BUTTON.chars().count()].to_string();
         let style: Style = Style::default().add_modifier(Modifier::BOLD);
         if !indent.is_empty() {
             spans.push(Span::raw(indent));
         }
         spans.push(Span::styled(
-            "[ Review ]".to_string(),
+            BUTTON.to_string(),
             if focused_review {
                 style.add_modifier(Modifier::REVERSED)
             } else {

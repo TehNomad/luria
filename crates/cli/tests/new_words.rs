@@ -38,6 +38,7 @@ use luria_cli::request::OperationSpec;
 use luria_cli::request::ProfileDocument;
 use luria_cli::review::app::Key;
 use luria_cli::review::approve;
+use luria_cli::review::approve_replacing;
 use luria_cli::review::Approved;
 use luria_cli::shorthand::Refusal;
 use luria_nl::backend::ScriptedBackend;
@@ -483,6 +484,70 @@ fn the_interpreted_request_is_the_corpus_request() {
     let _ = fs::remove_dir_all(&dir);
 }
 
+// M7-49 (contract §3 test 8): the approval of a proposal over a name that is
+// there refuses when nobody was asked to replace it, and writes the request the
+// corpus states when `replace` is the `y` the pop-up gave.
+#[test]
+fn a_proposal_replaces_only_when_asked() {
+    let row: Vec<String> = row_of("two-separate");
+    let dir: PathBuf = workspace("replace", &row);
+    let mut form = words_form(&row);
+    let (typed, words): (String, String) = match form.handle(Key::Enter) {
+        FormAction::Interpret {
+            template,
+            text,
+            profile: _,
+        } => (template, text),
+        other => panic!("the words form gave {:?} instead of the Interpret", other),
+    };
+
+    // The loop's closure, as `emit_new` builds it: the case's reply.
+    let reply: String = read(&format!("{}reply/{}", NL, row[3]));
+    let mut backend: ScriptedBackend = ScriptedBackend::new("scripted-corpus", vec![Ok(reply)]);
+    let input: InterpretInput = InterpretInput {
+        template: dir.join(&typed),
+        text: TextSource::Inline(words),
+        profile: Some(dir.join(&row[4])),
+        write_request: None,
+    };
+    let document: InterpretationDocument = interpret(&input, &mut backend).document;
+
+    let named: String = form.save_as();
+    let template: PathBuf = dir.join(&typed);
+    let request: PathBuf = dir.join(named.clone());
+    fs::write(&request, "old\n").expect("the taken name is filled");
+
+    let refusal: String = approve_replacing(&document, &template, &request, false)
+        .expect_err("a name that is there is refused when nothing was asked");
+    assert!(
+        refusal.contains(&named),
+        "the refusal names the file that is there: {}",
+        refusal
+    );
+    assert_eq!(
+        fs::read_to_string(&request).expect("the file is still readable"),
+        "old\n",
+        "a write nobody asked for leaves the file as the user wrote it"
+    );
+
+    // The `y` the pop-up gives, on the name it named.
+    let approved: Approved = approve_replacing(&document, &template, &request, true)
+        .expect("the user's y writes the request over the file it named");
+    let written: Value =
+        serde_json::from_str(&fs::read_to_string(&request).expect("the request was written"))
+            .expect("the written file is JSON");
+    assert_eq!(
+        written,
+        fixture("nl/request/variants-separate.json"),
+        "the request the corpus states for the case"
+    );
+    assert_eq!(
+        approved.document.state, "verified",
+        "the run of the file the replace wrote"
+    );
+    let _ = fs::remove_dir_all(&dir);
+}
+
 // §3.1 rule 3: a box whose lines all read is not words, so the shorthand path is
 // 7k3's, `[ Review ]` building the request, with a FASTA template, as it was.
 #[test]
@@ -491,14 +556,16 @@ fn blank_words_keep_the_shorthand_path() {
     tab_to(&mut form, Field::Mutations);
     type_text(&mut form, "   ");
     tab_to(&mut form, Field::Review);
+    form.handle(Key::Enter);
     match form.handle(Key::Enter) {
-        FormAction::Review(built) => {
+        FormAction::Save { built, replace } => {
             let members: usize = match &built.request.operation {
                 OperationSpec::Variants { members, .. } => members.len(),
                 other => panic!("the two lines give a set of variants, gave {:?}", other),
             };
             assert_eq!(members, 2, "the shorthand lines are the form's own request");
+            assert!(!replace, "the pop-up's enter asks for no replace");
         }
-        other => panic!("blank words gave {:?} instead of the built request", other),
+        other => panic!("the pop-up gave {:?} instead of the built request", other),
     }
 }

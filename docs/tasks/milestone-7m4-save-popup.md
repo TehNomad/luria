@@ -1,6 +1,6 @@
 # Milestone 7m4: one pop-up to save and run, asking before it replaces
 
-Status: **Ready for the worker, 2026-10-22.** Planner: Claude. Parent:
+Status: **Implemented, 2026-10-22.** Planner: Claude. Parent:
 `docs/tasks/milestone-7m-polish.md`, M7-48 and the `luria new` half of
 M7-49. Builds on 7m3 (committed `81c1ead`).
 
@@ -191,3 +191,16 @@ before §2.3. Its choices are accepted:
   clear the failure.
 - `new_view.rs` tests that read the key line change only if they assert
   `enter review`, which becomes `enter save` (approved).
+
+## 7. Implementation notes (planner, 2026-10-22)
+
+- 1133 tests passed, 0 failed, 1 ignored; fmt, clippy, diff check clean;
+  fixtures 19 of 19. Both §3.1 proofs failed as required. w7m4 wrote §2.1,
+  §2.2 and §2.4; w7m4b wrote §2.3 and the tests.
+- On the proposal, `a` opens the pop-up whenever the proposal is
+  approvable, not only on its reading screen; the proposal's own confirm
+  screen is never reached in `luria new`, so the two are the same.
+- The planner fixed two comments naming the removed `Save as` row
+  (`main.rs`, `new/terminal.rs`).
+- Untested: the terminal loop (pop-up over the form and over the
+  proposal, `y` to replace, `esc` back).

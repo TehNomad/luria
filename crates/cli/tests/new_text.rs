@@ -10,6 +10,7 @@ use luria_cli::new::form::Field;
 use luria_cli::new::form::FormAction;
 use luria_cli::new::form::NewForm;
 use luria_cli::new::text::form_lines;
+use luria_cli::new::text::popup_lines;
 use luria_cli::new::text::reading_words;
 use luria_cli::new::text::FormText;
 use luria_cli::review::app::Key;
@@ -20,6 +21,10 @@ use std::fs;
 
 const FIXTURES: &str = "../../tests/fixtures/";
 const SID1: &str = "example-construct/input/sid-1_cDNA.fa";
+
+/// `requests.py`'s `SYN`: the 100 bases of the pasted sequence.
+const SYN: &str = "ATGGCTTGGAATCAGCAGCAGCCGAGCGGCTCGCGGACGCATGGCTTGGAATCAGCAGCA\
+                   GCCGAGCGGCTCGCGGACGCATGGCTTGGAATCAGCAGCA";
 
 /// One fixture template, read at test time, as `tests/new_form.rs` does.
 fn read_file(relative: &str) -> String {
@@ -82,6 +87,35 @@ fn sid1(lines: &[&str], overlap: &str) -> NewForm {
     form
 }
 
+/// The pasted text of `requests.py`'s `syn_paste`: `SYN[:50]`, a newline and
+/// two spaces, then `SYN[50:]` lower case.
+fn typed_paste() -> String {
+    format!("{}\n  {}", &SYN[..50], SYN[50..].to_lowercase())
+}
+
+/// The `syn-paste` form, as `tests/new_confirm.rs` builds it: a paste, its CDS
+/// typed as bases 1 to 99, the name `syn`, two mutations, and `Overlap` at its
+/// prefilled 15, so `[ Save and run ]` builds and the pop-up opens.
+fn syn_paste() -> NewForm {
+    let mut form = NewForm::new(None, false);
+    form.handle(Key::Right);
+    tab_to(&mut form, Field::Paste);
+    form.paste(&typed_paste());
+    tab_to(&mut form, Field::Name);
+    type_text(&mut form, "syn");
+    tab_to(&mut form, Field::Cds);
+    form.handle(Key::Right);
+    tab_to(&mut form, Field::First);
+    type_text(&mut form, "1");
+    tab_to(&mut form, Field::Last);
+    type_text(&mut form, "99");
+    tab_to(&mut form, Field::Mutations);
+    type_text(&mut form, "del 46");
+    form.handle(Key::Enter);
+    type_text(&mut form, "51-53 ATC>TT");
+    form
+}
+
 /// The form with the GenBank fixture loaded as the loop answers `Load`.
 fn genbank() -> NewForm {
     let mut form = NewForm::new(None, false);
@@ -113,7 +147,7 @@ fn the_sid1_form_reads_as_drawn() {
         "15",
     );
     let body: FormText = form_lines(&form);
-    let expected: [&str; 26] = [
+    let expected: [&str; 24] = [
         "Template   ◉ file  ○ paste",
         "  File     sid-1_cDNA.fa",
         "           sid-1_cDNA.fa, FASTA",
@@ -137,9 +171,7 @@ fn the_sid1_form_reads_as_drawn() {
         "",
         "Primers    inline (confine to tail not supported yet)",
         "Overlap    15 nt",
-        "Save as    sid-1.request.json",
-        "",
-        "           [ Review ]",
+        "           [ Save and run ]",
     ];
     assert_eq!(
         body.lines,
@@ -227,4 +259,66 @@ fn the_focus_line_follows_tab() {
         .expect("the File row is there");
     assert_eq!(body.focus_line, file_row, "the focus line is the File row");
     assert!(body.cursor.is_some(), "the cursor is in the text field");
+}
+
+// M7-48 (contract §3 test 7): the pop-up says what it writes, where it goes, the
+// failure it is holding, and the keys that answer it, and the pop-up that names
+// the files already there names them in order (M7-49). With the pop-up open, the
+// form's own body has no cursor, since the name typed carries it.
+#[test]
+fn the_popup_says_what_it_writes() {
+    // The `sid-1` file form, with the pop-up `[ Save and run ]` opened.
+    let mut form = sid1(&["D404N"], "15");
+    tab_to(&mut form, Field::Review);
+    form.handle(Key::Enter);
+    let expected: [&str; 4] = [
+        "Request    sid-1.request.json",
+        "           beside sid-1_cDNA.fa",
+        "",
+        "enter save and run  esc back",
+    ];
+    assert_eq!(
+        popup_lines(&form),
+        expected.to_vec(),
+        "the file form says the name, and the template file it goes beside"
+    );
+    assert!(
+        form_lines(&form).cursor.is_none(),
+        "the form's cursor is the pop-up's, not the field's"
+    );
+
+    // The paste form: the request and the pasted FASTA, both in the current
+    // directory, with the failure the write gave.
+    let mut paste = syn_paste();
+    tab_to(&mut paste, Field::Review);
+    paste.handle(Key::Enter);
+    paste.save_failed("nothing was written".to_string());
+    let expected: [&str; 6] = [
+        "Request    syn.request.json",
+        "           in the current directory",
+        "Template   syn.fa, from the paste",
+        "✗ nothing was written",
+        "",
+        "enter save and run  esc back",
+    ];
+    assert_eq!(
+        popup_lines(&paste),
+        expected.to_vec(),
+        "the paste form says both files, and the failure line is its own"
+    );
+
+    // The pop-up that names the files luria would write that are there (M7-49).
+    paste.ask_replace(vec!["syn.fa".to_string(), "syn.request.json".to_string()]);
+    let expected: [&str; 5] = [
+        "These files exist:",
+        "  syn.fa",
+        "  syn.request.json",
+        "",
+        "y replace them  any other key: back",
+    ];
+    assert_eq!(
+        popup_lines(&paste),
+        expected.to_vec(),
+        "the paste is named first, then the request, and only y replaces"
+    );
 }

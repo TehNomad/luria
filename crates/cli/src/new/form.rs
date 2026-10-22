@@ -1,14 +1,15 @@
 //! What the `luria new` form holds (milestone 7k3, contract 7k3): the text and
 //! choices the user has typed, where focus is, the previews of each mutation
-//! line, and what `[ Review ]` builds. Pure: no terminal, no file I/O, no model
-//! (plan §5.1's rule for the screens holds here too).
+//! line, what `[ Save and run ]` builds, and the pop-up it writes from. Pure: no
+//! terminal, no file I/O, no model (plan §5.1's rule for the screens holds here
+//! too).
 //!
 //! The form is the state; its loop is 7k5. Reading a file is the loop's job: the
 //! form asks for it with `FormAction::Load(path)` when the user leaves `File`
-//! with a path, and is told the outcome with `NewForm::loaded`. `[ Review ]`
-//! gives `FormAction::Review(built)`, `new::build`'s answer (contract 7k2), and
-//! `Esc` gives `FormAction::Quit`. Drawing is 7k4, which reads the accessors
-//! below; nothing is drawn, written or run here.
+//! with a path, and is told the outcome with `NewForm::loaded`. `[ Save and run
+//! ]` builds, `new::build`'s answer (contract 7k2), opens the pop-up that names
+//! the file, and `Esc` gives `FormAction::Quit`. Drawing is 7k4, which reads the
+//! accessors below; nothing is drawn, written or run here.
 //!
 //! # The rules this module applies (contract §3.1, M7-31 to M7-39)
 //!
@@ -32,13 +33,15 @@
 //! - the previews follow every edit: each mutation line's 1-based number with
 //!   what `shorthand::parse_line` says about it, and nothing for a blank line,
 //!   so the screen shows what each line means (plan §2 rule 1);
-//! - `[ Review ]` checks the form's own blockers first, in order, moving focus
-//!   to the field it names (plan §2 rule 2), then a mutation line luria reads but
-//!   refuses, then the box read in words, then `new::build`, whose refusal names
-//!   the field it concerns;
+//! - `[ Save and run ]` (the button, whose field keeps the name `Review`) checks
+//!   the form's own blockers first, in order, moving focus to the field it names
+//!   (plan §2 rule 2), then a mutation line luria reads but refuses, then the box
+//!   read in words, then `new::build`, whose refusal names the field it concerns;
+//!   with the form built it opens the pop-up, which asks for the request's file
+//!   name and shows the pasted FASTA's name (M7-48);
 //! - one `Mutations` box (M7-47): a line luria cannot read at all, refusal
 //!   `unreadable`, makes the whole box words (`reads_as_words`). With a backend
-//!   `[ Review ]` asks the loop to send the box through `interpret`, which needs
+//!   `[ Save and run ]` asks the loop to send the box through `interpret`, which needs
 //!   a GenBank template whose CDS list the model is shown (M7-41, M7-42), and
 //!   gives `Interpret` with the path as typed in `File`, building nothing; without
 //!   one the box is a blocker that names `--backend`. A line luria reads but
@@ -46,8 +49,12 @@
 //! - `Overlap` opens at 15 nt, which a `--design` profile's value replaces
 //!   (M7-45), and the codon a line types is used, so `new::build` is always given
 //!   the default codon policy (M7-46);
-//! - `SaveAs` is filled from the name, and the name the user typed is never
-//!   replaced (M7-37); a paste's FASTA is `<name>.fa`, shown read-only beside it.
+//! - `save_as` is filled from the name, and the name the user typed is never
+//!   replaced (M7-37); the row is gone from the screen, and the name is typed in
+//!   the pop-up, whose `enter` writes and runs, `esc` closes, and, when a file
+//!   luria would write already exists, the pop-up names it and `y` replaces it
+//!   while any other key writes nothing (M7-48, M7-49); a paste's FASTA is
+//!   `<name>.fa`, named in the pop-up.
 
 use crate::interpret::catalogue::catalogue;
 use crate::interpret::catalogue::CatalogueEntry;
@@ -91,12 +98,12 @@ pub enum Field {
     Strand,    // forward or reverse (FASTA and paste only)
     Mutations, // multi-line
     Overlap,   // digits, 15 nt at opening (M7-45)
-    SaveAs,    // the request file's name
-    Review,    // the button
+    Review,    // `[ Save and run ]`
 }
 
-/// The fields in focus order: the order the screen's rows are in (M7-45).
-const ORDER: [Field; 13] = [
+/// The fields in focus order: the order the screen's rows are in (M7-45). The
+/// request's name is typed in the pop-up (M7-48), so it is not a field.
+const ORDER: [Field; 12] = [
     Field::Source,
     Field::File,
     Field::Paste,
@@ -108,12 +115,24 @@ const ORDER: [Field; 13] = [
     Field::Strand,
     Field::Mutations,
     Field::Overlap,
-    Field::SaveAs,
     Field::Review,
 ];
 
-/// What the form asks its loop to do after a key. `Load` and `Review` are the
-/// only I/O the form starts, and it starts neither itself.
+/// The pop-up the form opens over itself (M7-48, M7-49).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Popup {
+    /// No pop-up: the form takes its own keys.
+    Closed,
+    /// The request's file name, typed here, with the pasted FASTA's name shown
+    /// beside it: `enter` writes and runs, `esc` closes.
+    Naming,
+    /// The files luria would write that already exist, named in order (M7-49):
+    /// `y` replaces them, any other key writes nothing.
+    Replace(Vec<String>),
+}
+
+/// What the form asks its loop to do after a key. `Load`, `Save` and
+/// `SaveWords` are the only I/O the form asks for, and it starts none itself.
 #[derive(Clone, Debug, PartialEq)]
 pub enum FormAction {
     Continue,
@@ -121,8 +140,22 @@ pub enum FormAction {
     /// The user left `File` with a path: the loop reads it and calls
     /// `NewForm::loaded`.
     Load(String),
-    /// `[ Review ]` with every field valid.
-    Review(Box<Built>),
+    /// The pop-up's `enter` with every field valid: the built request, and
+    /// `replace` true when the user answered `y` on the pop-up that named the
+    /// files already there (M7-49).
+    Save {
+        built: Box<Built>,
+        replace: bool,
+    },
+    /// The pop-up's `enter` over a proposal approved from words (M7-48): the
+    /// loop writes the request at the path it builds from `save_as`, and
+    /// `replace` is as above. The form built nothing.
+    SaveWords {
+        replace: bool,
+    },
+    /// `esc` on the pop-up over the proposal, so the loop shows the proposal
+    /// again, and the form's values are kept.
+    Back,
     /// `[ Review ]` with the mutation box read in words (M7-47): the loop sends
     /// the whole box through `interpret` with the template at `template`, the path
     /// typed in `File`, and shows the proposal. `profile` is the design the form
@@ -306,9 +339,19 @@ pub struct NewForm {
     mutations: Text,
     overlap: Text,
     save_as: Text,
-    /// Whether the user has typed in `SaveAs`, after which the form fills
+    /// Whether the user has typed in `save_as`, after which the form fills
     /// nothing there (M7-37: a name the user wrote is never replaced).
     save_touched: bool,
+    /// The pop-up over the form (M7-48).
+    popup: Popup,
+    /// Whether the pop-up is saving a proposal read from words, which is the
+    /// only pop-up `esc` sends back, so the proposal is shown again.
+    popup_words: bool,
+    /// The pop-up's own failure line, the reason it did not write.
+    popup_failure: Option<String>,
+    /// The action the pop-up's `enter` gave, kept so the `Replace` pop-up's `y`
+    /// gives the same one, with `replace` true (M7-49).
+    pending: Option<FormAction>,
     focus: Field,
     backend: bool,
     loaded: Option<Loaded>,
@@ -342,6 +385,10 @@ impl NewForm {
             overlap: Text::empty(),
             save_as: Text::empty(),
             save_touched: false,
+            popup: Popup::Closed,
+            popup_words: false,
+            popup_failure: None,
+            pending: None,
             focus: Field::Source,
             backend,
             loaded: None,
@@ -360,15 +407,20 @@ impl NewForm {
         form
     }
 
-    /// One key. `Esc` quits from any field (`esc quit` on the form's legend), and
-    /// so does `ctrl-c`, which types nothing (M7-43); `PageDown`/`PageUp` move 10
-    /// lines in the paste and mutation boxes, and to the ends elsewhere (M7-51);
-    /// the rest move focus, edit text, toggle a choice, and `Enter` on
-    /// `[ Review ]` builds.
+    /// One key. While a pop-up is open every key goes to it (M7-48), `ctrl-c`
+    /// quitting first. `Esc` quits from any field (`esc quit` on the form's
+    /// legend), and so does `ctrl-c`, which types nothing (M7-43);
+    /// `PageDown`/`PageUp` move 10 lines in the paste and mutation boxes, and to
+    /// the ends elsewhere (M7-51); the rest move focus, edit text, toggle a
+    /// choice, and `Enter` on `[ Save and run ]` builds and opens the pop-up.
     pub fn handle(&mut self, key: Key) -> FormAction {
         // M7-43: `ctrl-c` quits from any field, typing nothing, as `Esc` does.
         if key == Key::CtrlC {
             return FormAction::Quit;
+        }
+        // M7-48: the pop-up is the form's own key rule, over every field.
+        if self.popup != Popup::Closed {
+            return self.popup_key(key);
         }
         if key == Key::Esc {
             return FormAction::Quit;
@@ -381,7 +433,7 @@ impl NewForm {
         }
         if from == Field::Review {
             if key == Key::Enter {
-                return self.review();
+                return self.save_and_run();
             }
             return self.moved(key, from);
         }
@@ -716,6 +768,44 @@ impl NewForm {
         self.save_as.text()
     }
 
+    /// Which pop-up is open over the form (M7-48).
+    pub fn popup(&self) -> Popup {
+        self.popup.clone()
+    }
+
+    /// The pop-up's failure line, `None` when it has none.
+    pub fn popup_failure(&self) -> Option<String> {
+        self.popup_failure.clone()
+    }
+
+    /// The cursor's column in `save_as`, which the pop-up draws on its `Request`
+    /// row, so `view` can put the cursor where a typed character goes.
+    pub fn save_as_cursor(&self) -> usize {
+        self.save_as.col
+    }
+
+    /// The loop opens the pop-up over a proposal read from words, whose approval
+    /// this is (M7-48).
+    pub fn open_words_popup(&mut self) {
+        self.popup = Popup::Naming;
+        self.popup_words = true;
+        self.popup_failure = None;
+    }
+
+    /// The files luria would write that already exist, named in the order the
+    /// pop-up shows them (M7-49): it asks, `y` replaces, any other key writes
+    /// nothing.
+    pub fn ask_replace(&mut self, names: Vec<String>) {
+        self.popup = Popup::Replace(names);
+        self.popup_failure = None;
+    }
+
+    /// A write that refused: the pop-up goes back to the name with that line.
+    pub fn save_failed(&mut self, message: String) {
+        self.popup = Popup::Naming;
+        self.popup_failure = Some(message);
+    }
+
     /// A GenBank record's LOCUS name, which is the request's `id` (M7-32).
     pub fn locus(&self) -> Option<String> {
         self.locus.clone()
@@ -761,16 +851,129 @@ impl NewForm {
         self.blocker.clone()
     }
 
-    /// `[ Review ]`: the form's own blockers first, in order (plan §2 rule 2),
-    /// then a mutation line luria reads but refuses, which is a red error naming
-    /// its line and is never sent to the model (M7-47), then the box read in words
-    /// (M7-47), whose own blockers are `--backend` and a GenBank template, then
-    /// `new::build`, whose refusal becomes a blocker on the field it concerns.
-    /// Success gives the built request, and clears the blocker. With words the form
-    /// builds nothing: the whole box goes to the model, which needs a GenBank
-    /// record whose CDS list it is shown, and `Interpret` names the template as it
-    /// was typed in `File` (contract §2.2).
-    fn review(&mut self) -> FormAction {
+    /// `[ Save and run ]`: `build_action`, and the request built opens the
+    /// pop-up that names the file it is written as (M7-48). The action is kept,
+    /// so the pop-up's `enter`, and the `Replace` pop-up's `y`, give the same
+    /// one, which is why `esc` on the pop-up can close it and leave the built
+    /// request for the next `enter`.
+    fn save_and_run(&mut self) -> FormAction {
+        match self.build_action() {
+            FormAction::Save { built, .. } => {
+                self.pending = Some(FormAction::Save {
+                    built,
+                    replace: false,
+                });
+                self.open_naming();
+                FormAction::Continue
+            }
+            action => action,
+        }
+    }
+
+    /// One key with a pop-up open (M7-48, M7-49). On `Naming` the name is typed,
+    /// `enter` writes and runs, `esc` closes, and every other key does nothing.
+    /// On `Replace` `y` replaces the names listed, and any other key goes back to
+    /// the name with the line saying nothing was written.
+    fn popup_key(&mut self, key: Key) -> FormAction {
+        match self.popup.clone() {
+            Popup::Closed => FormAction::Continue,
+            Popup::Naming => {
+                match key {
+                    Key::Char(ch) => {
+                        self.save_as.insert(ch);
+                        self.save_touched = true;
+                    }
+                    Key::Backspace => {
+                        self.save_as.backspace();
+                        self.save_touched = true;
+                    }
+                    Key::Delete => {
+                        self.save_as.delete();
+                        self.save_touched = true;
+                    }
+                    Key::Left => self.save_as.left(),
+                    Key::Right => self.save_as.right(),
+                    Key::Esc => {
+                        // M7-48: `esc` closes the pop-up. Over a proposal it goes
+                        // back, so the loop shows the proposal again.
+                        self.popup = Popup::Closed;
+                        let back: bool = self.popup_words;
+                        self.popup_words = false;
+                        return if back {
+                            FormAction::Back
+                        } else {
+                            FormAction::Continue
+                        };
+                    }
+                    Key::Enter => return self.popup_enter(),
+                    _ => {}
+                }
+                FormAction::Continue
+            }
+            Popup::Replace(_names) => {
+                // M7-49: `y` is the only key that replaces, and it gives the
+                // action `enter` gave, with `replace` true.
+                if key == Key::Char('y') {
+                    return match self.pending.take() {
+                        Some(FormAction::Save { built, .. }) => FormAction::Save {
+                            built,
+                            replace: true,
+                        },
+                        Some(FormAction::SaveWords { .. }) => {
+                            FormAction::SaveWords { replace: true }
+                        }
+                        _ => FormAction::Continue,
+                    };
+                }
+                self.popup = Popup::Naming;
+                self.popup_failure = Some("nothing was written".to_string());
+                FormAction::Continue
+            }
+        }
+    }
+
+    /// `enter` on the pop-up naming the request's file: an empty name, and a name
+    /// with a path separator, are its own failures, and any other name builds
+    /// again exactly as `[ Save and run ]` did, or, over a proposal, approves the
+    /// words the model read (M7-48).
+    fn popup_enter(&mut self) -> FormAction {
+        let name: String = self.save_as.text();
+        if name.is_empty() {
+            self.popup_failure = Some("write the request's file name".to_string());
+            return FormAction::Continue;
+        }
+        if name.contains('/') || name.contains('\\') {
+            self.popup_failure = Some("write a file name, not a path".to_string());
+            return FormAction::Continue;
+        }
+        if self.popup_words {
+            self.pending = Some(FormAction::SaveWords { replace: false });
+            return FormAction::SaveWords { replace: false };
+        }
+        let action: FormAction = self.build_action();
+        if matches!(action, FormAction::Save { .. }) {
+            self.pending = Some(action.clone());
+        }
+        action
+    }
+
+    /// The pop-up opens on the request's name, with no failure line.
+    fn open_naming(&mut self) {
+        self.popup = Popup::Naming;
+        self.popup_words = false;
+        self.popup_failure = None;
+    }
+
+    /// `[ Save and run ]`'s build: the form's own blockers first, in order (plan
+    /// §2 rule 2), then a mutation line luria reads but refuses, which is a red
+    /// error naming its line and is never sent to the model (M7-47), then the box
+    /// read in words (M7-47), whose own blockers are `--backend` and a GenBank
+    /// template, then `new::build`, whose refusal becomes a blocker on the field
+    /// it concerns. Success gives `Save` with the built request, and clears the
+    /// blocker. With words the form builds nothing: the whole box goes to the
+    /// model, which needs a GenBank record whose CDS list it is shown, and
+    /// `Interpret` names the template as it was typed in `File` (contract §2.2).
+    fn build_action(&mut self) -> FormAction {
         if let Some((field, line, message)) = self.form_blocker() {
             self.refuse(field, line, message);
             return FormAction::Continue;
@@ -836,7 +1039,10 @@ impl NewForm {
         match build(&self.build_form()) {
             Ok(built) => {
                 self.blocker = None;
-                FormAction::Review(Box::new(built))
+                FormAction::Save {
+                    built: Box::new(built),
+                    replace: false,
+                }
             }
             Err((refusal, line)) => {
                 let field: Field = self.field_of(refusal, line);
@@ -847,8 +1053,10 @@ impl NewForm {
     }
 
     /// The form's blockers, in contract §3.1's order: a template that is not
-    /// there, a name that is, a CDS whose bases are, the overlap, the request's
-    /// name, and a `--design` profile whose placement is not `inline` (M7-39).
+    /// there, a name that is, a CDS whose bases are, the overlap, and a
+    /// `--design` profile whose placement is not `inline` (M7-39). The request's
+    /// file name is not a blocker here: it is typed in the pop-up, which refuses
+    /// an empty name itself (M7-48).
     /// A GenBank record whose catalogue has no usable CDS is a template the
     /// form cannot build, since one cannot be picked (plan rule 4).
     fn form_blocker(&self) -> Option<(Field, Option<usize>, String)> {
@@ -911,13 +1119,6 @@ impl NewForm {
                 None,
                 "the minimum annealing overlap is too large; write a length in nucleotides"
                     .to_string(),
-            ));
-        }
-        if self.save_as.text().is_empty() {
-            return Some((
-                Field::SaveAs,
-                None,
-                "the request has no file name; write the name to save it as".to_string(),
             ));
         }
         if let Some(placement) = &self.profile_placement {
@@ -1109,8 +1310,9 @@ impl NewForm {
         }
     }
 
-    /// `SaveAs` follows the name, which for a GenBank record is the LOCUS name,
-    /// and never replaces what the user typed there (M7-37).
+    /// The pop-up's name field follows the name, which for a GenBank record is
+    /// the LOCUS name, and never replaces what the user typed in the pop-up
+    /// (M7-37, M7-48).
     fn sync_save_as(&mut self) {
         if self.save_touched {
             return;
@@ -1127,7 +1329,7 @@ impl NewForm {
     }
 
     /// A typed character: digits only in `Overlap`, `First` and `Last`, then the
-    /// rules `SaveAs` and `Name` keep.
+    /// rule `Name` keeps.
     fn insert_char(&mut self, ch: char) {
         let field: Field = self.focus;
         if matches!(field, Field::Overlap | Field::First | Field::Last) && !ch.is_ascii_digit() {
@@ -1140,12 +1342,10 @@ impl NewForm {
     }
 
     /// What an edit of one field means for the others: a typed name carries its
-    /// request name with it, and a typed `SaveAs` means the form writes nothing
-    /// there again.
+    /// request name with it, while a name typed in the pop-up (M7-48) marks it
+    /// touched by the pop-up's own rule, so `after_edit` never writes there
+    /// again (M7-37).
     fn after_edit(&mut self, field: Field) {
-        if field == Field::SaveAs {
-            self.save_touched = true;
-        }
         if field == Field::Name {
             self.sync_save_as();
         }
@@ -1263,7 +1463,6 @@ impl NewForm {
             Field::Last => Some(&self.last),
             Field::Mutations => Some(&self.mutations),
             Field::Overlap => Some(&self.overlap),
-            Field::SaveAs => Some(&self.save_as),
             _ => None,
         }
     }
@@ -1278,7 +1477,6 @@ impl NewForm {
             Field::Last => Some(&mut self.last),
             Field::Mutations => Some(&mut self.mutations),
             Field::Overlap => Some(&mut self.overlap),
-            Field::SaveAs => Some(&mut self.save_as),
             _ => None,
         }
     }
@@ -1287,12 +1485,7 @@ impl NewForm {
     /// out (contract §3.1).
     fn field_visible(&self, field: Field) -> bool {
         match field {
-            Field::Source
-            | Field::Cds
-            | Field::Mutations
-            | Field::Overlap
-            | Field::SaveAs
-            | Field::Review => true,
+            Field::Source | Field::Cds | Field::Mutations | Field::Overlap | Field::Review => true,
             Field::File => self.source == Source::File,
             Field::Paste => self.source == Source::Paste,
             Field::Name | Field::Shape | Field::Strand => self.cds_mode != CdsMode::Catalogue,

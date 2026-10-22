@@ -10,12 +10,13 @@
 
 use crate::args::UsageError;
 use crate::interpret::document::InterpretationDocument;
-use crate::interpret::run::{request_location_problem, request_text, write_request_file};
+use crate::interpret::run::{request_location_problem, request_text};
 use crate::prepare::prepare;
 use crate::result::{
     CdsView, EditedView, MemberView, MutationView, RequestEcho, ResultDocument, TemplateView,
 };
 use crate::run::{run_with_constructs, Outcome};
+use crate::write::write_text;
 use luria_core::cds::Cds;
 use luria_core::frame::mutant_residues;
 use luria_core::frame::EditSpan;
@@ -52,12 +53,16 @@ pub struct Approved {
 /// Refuses, writing nothing, when the document is not `proposed` or names no
 /// request, and when the location is not usable now: `request_location_problem`
 /// is checked again here, because a file may have appeared since the screen
-/// opened, and `write_request_file` never replaces one (C-1). The `Err` is one
-/// line for the screen.
-pub fn approve(
+/// opened. `replace` is the user's `y` on 7m4's pop-up that named this name
+/// (M7-49): with it a regular file is replaced by rename, and the location
+/// check's `output_exists` refusal goes; without it the request is written as a
+/// new file only, and nothing is ever written through a link, which is
+/// `write_text`'s own rule (C-1). The `Err` is one line for the screen.
+pub fn approve_replacing(
     document: &InterpretationDocument,
     template: &Path,
     request: &Path,
+    replace: bool,
 ) -> Result<Approved, String> {
     // The plan §3 rule 4 check, the same condition `handle` and `view` use.
     if !proposal::approvable(document) {
@@ -70,22 +75,39 @@ pub fn approve(
 
     // The location, checked again: the rules 7f1 states, with the state of the
     // file system as it is now.
-    if let Some((_code, message)) = request_location_problem(template, request) {
-        return Err(message);
+    if let Some((code, message)) = request_location_problem(template, request) {
+        // M7-49: the user's `y` covers a name that is there, so only that
+        // refusal goes; any other, the location not usable, is the refusal.
+        if !(replace && code == "output_exists") {
+            return Err(message);
+        }
     }
 
-    // A new file only, written atomically: a name `request_location_problem`
-    // accepted can still be taken by the time this writes.
-    if let Err(reason) = write_request_file(request, &request_text(echo)) {
+    // Written atomically: a name `request_location_problem` accepted can still
+    // be taken by the time this writes, and with `replace` a regular file is
+    // replaced by renaming a temporary over it, never a link written through.
+    if let Err(problem) = write_text(request, &request_text(echo), replace) {
         let name: &str = request
             .file_name()
             .expect("a file name")
             .to_str()
             .expect("a UTF-8 file name");
-        return Err(format!("could not write {}: {}", name, reason));
+        return Err(format!("could not write {}: {}", name, problem));
     }
 
     Ok(run_approved(request))
+}
+
+/// Write the proposed request as a new file that never replaces one, exactly as
+/// 7f2 runs it: `approve_replacing` asked to replace nothing, so `luria review
+/// --template` and `luria q5 interpret --write-request` keep M7-49's rule that
+/// they never replace a file.
+pub fn approve(
+    document: &InterpretationDocument,
+    template: &Path,
+    request: &Path,
+) -> Result<Approved, String> {
+    approve_replacing(document, template, request, false)
 }
 
 /// The design run from a request file on disk, the code `approve` does after its

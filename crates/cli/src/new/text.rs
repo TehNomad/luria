@@ -24,11 +24,16 @@
 //!   `review::text`'s `bases_at`, `insertion_place` and `bases_text` with no
 //!   second conversion;
 //! - every line has its trailing spaces cut, so an empty text field shows
-//!   nothing after its label and an empty mutation line is an empty string.
+//!   nothing after its label and an empty mutation line is an empty string;
+//! - the button reads `[ Save and run ]`, the `Save as` row is gone, and the
+//!   paste's `template saved as` row is in the pop-up, whose lines
+//!   `popup_lines` writes (M7-48, M7-49); `cursor` is `None` while a pop-up is
+//!   open, because the cursor is the pop-up's.
 
 use crate::new::form::CdsMode;
 use crate::new::form::Field;
 use crate::new::form::NewForm;
+use crate::new::form::Popup;
 use crate::new::form::Source;
 use crate::request::StrandSpec;
 use crate::request::TopologySpec;
@@ -51,8 +56,9 @@ const LABEL: usize = 11;
 
 /// The fields in the order the screen shows them (contract §2.1), which is
 /// 7k3's focus order, with the primers' own row and the box's `needs a GenBank
-/// template` row written where §2.3 puts them.
-const ROWS: [Field; 13] = [
+/// template` row written where §2.3 puts them. The request's name is not a row:
+/// it is typed in the pop-up (M7-48).
+const ROWS: [Field; 12] = [
     Field::Source,
     Field::File,
     Field::Paste,
@@ -64,7 +70,6 @@ const ROWS: [Field; 13] = [
     Field::Strand,
     Field::Mutations,
     Field::Overlap,
-    Field::SaveAs,
     Field::Review,
 ];
 
@@ -244,21 +249,9 @@ pub fn form_lines(form: &NewForm) -> FormText {
                 rows.push((*field, lines.len()));
                 lines.push(row_line("Overlap", &format!("{} nt", form.overlap())));
             }
-            Field::SaveAs => {
-                rows.push((*field, row));
-                lines.push(row_line("Save as", form.save_as().as_str()));
-                if form.source() == Source::Paste {
-                    lines.push(continued(&format!(
-                        "template saved as {}",
-                        form.paste_file()
-                    )));
-                }
-                // The blank row §2.1 puts above the button.
-                lines.push(String::new());
-            }
             Field::Review => {
                 rows.push((*field, row));
-                lines.push(continued("[ Review ]"));
+                lines.push(continued("[ Save and run ]"));
             }
         }
     }
@@ -289,8 +282,13 @@ pub fn form_lines(form: &NewForm) -> FormText {
 }
 
 /// The cursor's column in the drawn line, when the focus is a text field: the
-/// label's 11 characters, then the cursor's column in the field's line.
+/// label's 11 characters, then the cursor's column in the field's line. While a
+/// pop-up is open the cursor belongs to the pop-up, so the form's screen has
+/// none (M7-48).
 fn typed_cursor(form: &NewForm) -> Option<usize> {
+    if form.popup() != Popup::Closed {
+        return None;
+    }
     match form.focus() {
         Field::File
         | Field::Paste
@@ -298,9 +296,52 @@ fn typed_cursor(form: &NewForm) -> Option<usize> {
         | Field::First
         | Field::Last
         | Field::Mutations
-        | Field::Overlap
-        | Field::SaveAs => Some(LABEL + form.cursor()),
+        | Field::Overlap => Some(LABEL + form.cursor()),
         _ => None,
+    }
+}
+
+/// The pop-up's lines as they are drawn (M7-48, M7-49, contract §2.4). On
+/// `Naming`, the request's file name, where it goes, for a paste the FASTA the
+/// form writes first, the failure line when there is one, then the keys. On
+/// `Replace`, the files that exist, named in the order given, then the keys.
+pub fn popup_lines(form: &NewForm) -> Vec<String> {
+    match form.popup() {
+        Popup::Closed => Vec::new(),
+        Popup::Naming => {
+            let mut lines: Vec<String> = Vec::new();
+            lines.push(row_line("Request", form.save_as().as_str()));
+            // Where the request goes: beside the template file, as M7-37
+            // requires, and in the current directory for a paste.
+            if form.source() == Source::Paste {
+                lines.push(continued("in the current directory"));
+                lines.push(row_line(
+                    "Template",
+                    &format!("{}, from the paste", form.paste_file()),
+                ));
+            } else {
+                lines.push(continued(&format!(
+                    "beside {}",
+                    form.template_file().unwrap_or_default()
+                )));
+            }
+            if let Some(failure) = form.popup_failure() {
+                lines.push(format!("✗ {}", failure));
+            }
+            lines.push(String::new());
+            lines.push("enter save and run  esc back".to_string());
+            lines
+        }
+        Popup::Replace(names) => {
+            let mut lines: Vec<String> = Vec::new();
+            lines.push("These files exist:".to_string());
+            for name in names.iter() {
+                lines.push(format!("  {}", name));
+            }
+            lines.push(String::new());
+            lines.push("y replace them  any other key: back".to_string());
+            lines
+        }
     }
 }
 

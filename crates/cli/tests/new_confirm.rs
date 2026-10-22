@@ -1,24 +1,23 @@
-//! Milestone 7k5's proof (contract 7k5 §3): the `luria new` confirmation, from
-//! the form of 7k3 (whose helpers are copied here) to the request file the
-//! approval writes and the design it runs. Each test works in a fresh directory
-//! under `CARGO_TARGET_TMPDIR` with a fixture template copied into it, so the
-//! files written are the ones the user's own directory holds. The request shown
-//! is compared with `interpret::run::request_text`, the text the file holds, and
-//! as JSON with `tests/fixtures/new/request-<case>.json`; the run's state and
-//! member come from `luria-core` through `review::Approved`.
+//! Milestone 7m4's proof (contract 7m4 §2.2, §3): the writing behind `luria new`'s
+//! pop-up, from the form of 7m3 (whose helpers are copied here) to the request
+//! file the approval writes and the design it runs. Each test works in a fresh
+//! directory under `CARGO_TARGET_TMPDIR` with a fixture template copied into it,
+//! so the files written are the ones the user's own directory holds. The request
+//! written is compared with `interpret::run::request_text`, the text the file
+//! holds, and as JSON with `tests/fixtures/new/request-<case>.json`; the run's
+//! state and member come from `luria-core` through `review::Approved`.
 //!
-//! The rules proved: a file is never replaced (§3.1 rule 1, test
-//! `an_existing_file_is_never_replaced`), `y` only after `a` (§3.1 rule 2, test
-//! `esc_returns_to_the_form`), and the request is written beside the template,
-//! not in the current directory (§3.1 rule 3, test
+//! The rules proved: the request is written beside the template, not in the
+//! current directory (§3.1 rule 3, test
 //! `approving_writes_the_request_beside_the_template_and_runs_it`: the template
 //! is copied into a subdirectory, so a request written in `cwd` is not found by
-//! the run and not where the test reads it).
+//! the run and not where the test reads it), a file is replaced only on the `y`
+//! the user answered on the pop-up that named it (§3.1 rule 1, test
+//! `approve_new_replaces_only_when_asked`), and a `y` never writes through a link
+//! (§3.1 rule 2, test `replace_never_writes_through_a_link`).
 
 use luria_cli::interpret::run::request_text;
-use luria_cli::new::confirm::{
-    approve_new, confirm_lines, plan, ConfirmAction, ConfirmApp, ConfirmScreen, Planned,
-};
+use luria_cli::new::confirm::{approve_new, plan, Planned};
 use luria_cli::new::form::{Field, FormAction, NewForm};
 use luria_cli::new::Built;
 use luria_cli::result::request_echo;
@@ -134,13 +133,17 @@ fn sid1(lines: &[&str], overlap: &str) -> NewForm {
     form
 }
 
-/// `[ Review ]`: the built request, insisting it is the action the contract
-/// names, and returning what was built.
+/// `[ Save and run ]`, then the pop-up's `enter`: the built request, insisting it
+/// is the action the contract names, and returning what was built.
 fn review(form: &mut NewForm) -> Built {
     tab_to(form, Field::Review);
+    form.handle(Key::Enter);
     match form.handle(Key::Enter) {
-        FormAction::Review(placed) => *placed,
-        other => panic!("Review gave {:?} instead of the built request", other),
+        FormAction::Save { built, replace } => {
+            assert!(!replace, "the pop-up's enter asks for no replace");
+            *built
+        }
+        other => panic!("the pop-up gave {:?} instead of the built request", other),
     }
 }
 
@@ -174,56 +177,9 @@ fn syn_paste() -> Built {
     review(&mut form)
 }
 
-/// The confirmation of a built form, at its top, with the request file named by
-/// `save_as`.
-fn confirm_of(built: Built, template_dir: Option<&Path>, cwd: &Path, save_as: &str) -> ConfirmApp {
-    ConfirmApp::new(planned_of(built, template_dir, cwd, save_as))
-}
-
-/// The request text the confirmation shows, the text `request_text` writes.
+/// The request text the approval writes, the text `request_text` writes.
 fn shown(planned: &Planned) -> String {
     request_text(&request_echo(&planned.built.request))
-}
-
-#[test]
-fn the_confirmation_shows_the_request_as_written() {
-    let dir: PathBuf = fresh("confirm-shown");
-    let built: Built = sid1_codon();
-    let app: ConfirmApp = confirm_of(built, Some(&dir), &dir, "sid-1.request.json");
-    let lines: Vec<String> = confirm_lines(&app);
-
-    assert_eq!(
-        lines[0], "This request will be written:",
-        "the screen says what the request will be, before it is written"
-    );
-    assert_eq!(
-        lines[1],
-        app.planned().request.display().to_string(),
-        "the file's path, as the approval will write it"
-    );
-    assert_eq!(lines[2], "", "a blank line before the request");
-
-    // The request exactly as `request_text` writes it (plan §3 rule 2), and the
-    // text parsed as JSON is the fixture the form is expected to build.
-    let text: String = shown(app.planned());
-    let written: Vec<String> = text.lines().map(|line| line.to_string()).collect();
-    assert_eq!(
-        lines[3..3 + written.len()].to_vec(),
-        written,
-        "the request, byte for byte as the file holds it"
-    );
-    assert_eq!(
-        lines.len(),
-        3 + written.len(),
-        "nothing of the confirmation's reading screen follows the request"
-    );
-    assert_eq!(
-        serde_json::from_str::<Value>(&text).expect("the shown request is JSON"),
-        fixture("new/request-sid1-codon.json"),
-        "the request shown is the fixture the sid1-codon form builds"
-    );
-    assert_eq!(app.screen(), ConfirmScreen::Reading);
-    assert_eq!(app.failure(), None);
 }
 
 // §3.1 rule 3: writing the request in `cwd`, next to the template's directory,
@@ -238,7 +194,8 @@ fn approving_writes_the_request_beside_the_template_and_runs_it() {
 
     let built: Built = sid1_codon();
     let planned: Planned = planned_of(built, Some(&templates), &dir, "sid-1.request.json");
-    let approved = approve_new(&planned).expect("the approval writes the request and runs it");
+    let approved =
+        approve_new(&planned, false).expect("the approval writes the request and runs it");
 
     let written: String = fs::read_to_string(templates.join("sid-1.request.json"))
         .expect("the request is written beside the template");
@@ -272,7 +229,7 @@ fn approving_a_paste_writes_both_files() {
         "the paste's FASTA is named by the form's name (M7-37)"
     );
     let planned: Planned = planned_of(built, None, &dir, "syn.request.json");
-    let approved = approve_new(&planned).expect("the approval writes both files and runs");
+    let approved = approve_new(&planned, false).expect("the approval writes both files and runs");
 
     assert_eq!(
         fs::read_to_string(dir.join("syn.fa")).expect("the pasted FASTA is written"),
@@ -312,7 +269,7 @@ fn an_existing_file_is_never_replaced() {
 
     let built: Built = sid1_codon();
     let planned: Planned = planned_of(built, Some(&templates), &dir, "sid-1.request.json");
-    let refusal: String = approve_new(&planned).expect_err("a taken name is refused");
+    let refusal: String = approve_new(&planned, false).expect_err("a taken name is refused");
     assert!(
         refusal.contains("sid-1.request.json"),
         "the refusal names the file that is there: {}",
@@ -325,82 +282,79 @@ fn an_existing_file_is_never_replaced() {
     );
 }
 
-// §3.1 rule 2, and 7f2's rule: quitting at any point before `y` writes nothing.
+// §3.1 rule 1 (M7-49): `approve_new` replaces only when it is asked to, so
+// `replace` false refuses a name that is there and leaves the file as the user
+// wrote it, and `replace` true, the `y` the user answered on the pop-up that
+// named it, writes the request over it.
 #[test]
-fn quitting_writes_nothing() {
-    let dir: PathBuf = fresh("confirm-quit");
+fn approve_new_replaces_only_when_asked() {
+    let dir: PathBuf = fresh("confirm-replace");
     copy_sid1(&dir);
+    let taken: PathBuf = dir.join("sid-1.request.json");
+    fs::write(&taken, "old\n").expect("the taken name is filled");
+
     let built: Built = sid1_codon();
-    let mut app: ConfirmApp = confirm_of(built.clone(), Some(&dir), &dir, "sid-1.request.json");
+    let planned: Planned = planned_of(built, None, &dir, "sid-1.request.json");
 
-    assert_eq!(app.handle(Key::Char('q')), ConfirmAction::Quit);
-    let mut back: ConfirmApp = confirm_of(built.clone(), Some(&dir), &dir, "sid-1.request.json");
-    back.handle(Key::Char('a'));
-    assert_eq!(back.handle(Key::Char('q')), ConfirmAction::Quit);
+    let refusal: String = approve_new(&planned, false)
+        .expect_err("a name that is there is refused when nothing was asked");
+    assert!(
+        refusal.contains("sid-1.request.json"),
+        "the refusal names the file that is there: {}",
+        refusal
+    );
+    assert_eq!(
+        fs::read_to_string(&taken).expect("the file is still readable"),
+        "old\n",
+        "a write nobody asked for leaves the file as the user wrote it"
+    );
 
-    let names: Vec<String> = fs::read_dir(&dir)
-        .expect("the directory is readable")
-        .map(|entry| {
-            entry
-                .expect("an entry")
-                .file_name()
-                .to_string_lossy()
-                .into_owned()
-        })
-        .collect();
-    assert_eq!(names, vec!["sid-1_cDNA.fa".to_string()]);
+    let approved = approve_new(&planned, true).expect("the user's y replaces the file it named");
+    assert_eq!(
+        fs::read_to_string(&taken).expect("the request is written over the old file"),
+        shown(&planned),
+        "the file holds the request, the text the pop-up named"
+    );
+    assert_eq!(
+        approved.document.state, "verified",
+        "the design ran from the file the replace wrote"
+    );
 }
 
-// §3.1 rule 2: `y` is the approval key on the confirmation only, and the
-// confirmation is reached by `a` alone, so `y` on reading approves nothing.
+// §3.1 rule 2 (M7-49, C-1): `y` never writes through a link, so a request path
+// that is a link to a file outside the directory is refused, and the file the
+// link points at stands as the user wrote it.
+#[cfg(unix)]
 #[test]
-fn esc_returns_to_the_form() {
-    let dir: PathBuf = fresh("confirm-keys");
+fn replace_never_writes_through_a_link() {
+    use std::os::unix::fs::symlink;
+
+    let dir: PathBuf = fresh("confirm-link");
+    // The link's target is outside the directory, so the test reads it back.
+    let outside: PathBuf = Path::new(env!("CARGO_TARGET_TMPDIR")).join("confirm-link-target");
+    fs::write(&outside, "not a request\n").expect("the link's target is written");
+    copy_sid1(&dir);
+    let taken: PathBuf = dir.join("sid-1.request.json");
+    symlink(&outside, &taken).expect("the request path is a link to the outside file");
+
     let built: Built = sid1_codon();
+    let planned: Planned = planned_of(built, None, &dir, "sid-1.request.json");
 
-    let mut app: ConfirmApp = confirm_of(built.clone(), Some(&dir), &dir, "sid-1.request.json");
-    assert_eq!(app.screen(), ConfirmScreen::Reading);
-    assert_eq!(app.handle(Key::Esc), ConfirmAction::Back);
-
-    // `a` opens the confirmation; `n` goes back to reading; a second `a` opens
-    // it again, and only `y` there asks for the approval.
-    let mut again: ConfirmApp = confirm_of(built.clone(), Some(&dir), &dir, "sid-1.request.json");
-    assert_eq!(again.handle(Key::Char('y')), ConfirmAction::Continue);
-    assert_eq!(again.screen(), ConfirmScreen::Reading);
-    assert_eq!(again.handle(Key::Char('a')), ConfirmAction::Continue);
-    assert_eq!(again.screen(), ConfirmScreen::Confirm);
-    assert_eq!(again.handle(Key::Char('n')), ConfirmAction::Continue);
-    assert_eq!(again.screen(), ConfirmScreen::Reading);
-    assert_eq!(again.handle(Key::Char('y')), ConfirmAction::Continue);
-    assert_eq!(again.handle(Key::Char('a')), ConfirmAction::Continue);
-    assert_eq!(again.handle(Key::Char('y')), ConfirmAction::Approve);
-
-    // The scroll rule of 7c3, and `q` on the confirmation.
-    let mut scrolled: ConfirmApp =
-        confirm_of(built.clone(), Some(&dir), &dir, "sid-1.request.json");
-    for _ in 0..3 {
-        scrolled.handle(Key::Char('j'));
-    }
-    assert_eq!(scrolled.scroll(), 3);
-    assert_eq!(scrolled.handle(Key::PageDown), ConfirmAction::Continue);
-    assert_eq!(scrolled.scroll(), 13);
-    assert_eq!(scrolled.handle(Key::PageUp), ConfirmAction::Continue);
-    assert_eq!(scrolled.scroll(), 3);
-    assert_eq!(scrolled.handle(Key::Char('a')), ConfirmAction::Continue);
-    assert_eq!(
-        scrolled.scroll(),
-        0,
-        "a screen change puts the new screen at its top"
+    let refusal: String =
+        approve_new(&planned, true).expect_err("a link is written through by nobody, y included");
+    assert!(
+        refusal.contains("sid-1.request.json"),
+        "the refusal names the link: {}",
+        refusal
     );
-    assert_eq!(scrolled.handle(Key::Esc), ConfirmAction::Continue);
-    assert_eq!(scrolled.screen(), ConfirmScreen::Reading);
-    assert_eq!(scrolled.handle(Key::Char('q')), ConfirmAction::Quit);
-
     assert_eq!(
-        fs::read_dir(&dir)
-            .expect("the directory is readable")
-            .count(),
-        0,
-        "the keys wrote nothing"
+        fs::read_to_string(&outside).expect("the link's target is readable"),
+        "not a request\n",
+        "the file the link points at is unchanged (C-1)"
+    );
+    assert_eq!(
+        fs::read_to_string(&taken).expect("the link stands"),
+        "not a request\n",
+        "reading the path gives its target, which was not written"
     );
 }

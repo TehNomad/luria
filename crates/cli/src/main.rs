@@ -372,7 +372,7 @@ fn emit_new(
                                 write_request: None,
                             };
                             // The run writes nothing: the approval writes the request
-                            // the form's `Save as` names (plan §3 rule 4).
+                            // the save pop-up names (plan §3 rule 4).
                             interpret_with_profile(&input, profile, &mut openai).document
                         },
                     )
