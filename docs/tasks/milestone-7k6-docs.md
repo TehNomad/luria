@@ -60,6 +60,11 @@ As `documented_review.rs` does for §11:
    `Replacement` for "replaced", `Deletion` for "deleted", `Insertion` for
    "inserted").
 
+A row whose meaning starts with `The same` takes the previous row's kind;
+any other row naming no kind panics. `D404N:AAC` must also read as a
+`Residue` with codon `Some("AAC")` (answer to w7k6, 2026-10-22: the
+`D404N:AAC` row names no kind).
+
 Proof: change one example in §12.2 to `D404*` once; test 2 fails.
 
 ## 3. Do not
