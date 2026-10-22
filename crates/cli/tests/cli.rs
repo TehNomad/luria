@@ -228,8 +228,43 @@ fn new_with_an_unknown_word_is_a_usage_error_naming_it() {
     );
 }
 
+// Milestone 7k7: `new`'s backend is all three of `--backend`, `--endpoint` and
+// `--model` or none of them (contract §2.1), read by the interpret form's rules,
+// so a partial one names the first option missing, and `--allow-remote`, the
+// flag of `--backend`, without it names `--allow-remote`.
 #[test]
-fn new_without_a_terminal_is_a_usage_error() {
+fn new_with_a_backend_but_no_model_is_a_usage_error() {
+    let output = luria(&[
+        "new",
+        "--backend",
+        "openai-compatible",
+        "--endpoint",
+        "http://127.0.0.1:8080/v1",
+    ]);
+    assert_eq!(output.status.code(), Some(2));
+    assert!(output.stdout.is_empty());
+    assert_eq!(
+        String::from_utf8(output.stderr).unwrap(),
+        format!("luria: 'new' needs --model\n\n{}", luria_cli::args::USAGE)
+    );
+}
+
+#[test]
+fn new_allow_remote_without_backend_is_a_usage_error() {
+    let output = luria(&["new", "--allow-remote"]);
+    assert_eq!(output.status.code(), Some(2));
+    assert!(output.stdout.is_empty());
+    assert_eq!(
+        String::from_utf8(output.stderr).unwrap(),
+        format!(
+            "luria: --allow-remote needs --backend\n\n{}",
+            luria_cli::args::USAGE
+        )
+    );
+}
+
+#[test]
+fn new_without_a_terminal_names_new() {
     let output = Command::new(env!("CARGO_BIN_EXE_luria"))
         .args(["new"])
         .stdin(Stdio::null())
@@ -243,9 +278,9 @@ fn new_without_a_terminal_is_a_usage_error() {
     assert_eq!(
         String::from_utf8(output.stderr).unwrap(),
         format!(
-            "luria: 'review' needs a terminal on stdin and stdout; 'q5 design' writes the same result as JSON\n\n{}",
+            "luria: 'new' needs a terminal on stdin and stdout; 'q5 design' writes the same result as JSON\n\n{}",
             luria_cli::args::USAGE
         ),
-        "7a's usage error, reused by `new` (contract §2.4)"
+        "7a's usage error, with the command `new` names (contract §2.6)"
     );
 }

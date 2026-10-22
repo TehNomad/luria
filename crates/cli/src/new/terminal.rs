@@ -6,14 +6,21 @@
 //! `NewForm::paste`, draws the confirmation once `[ Review ]` built, and calls
 //! `approve_new` only on `y`: a refusal is the line the confirmation shows, and
 //! an approval ends the session with the run it made. Quitting before `y` writes
-//! nothing, which is 7f2's rule. There is no unit test here, as there is none in
-//! `review/terminal`: the form, the confirmation and the drawing are tested in
-//! `new/form`, `new/view` and `new/confirm`.
+//! nothing, which is 7f2's rule. With words typed (7k7, M7-40) the same session
+//! draws the proposal screen: `interpret` is called once, `review::approve` runs
+//! on `a` then `y`, and `q` goes back to the form with its values kept. There is
+//! no unit test here, as there is none in `review/terminal`: the form, the
+//! confirmation and the drawing are tested in `new/form`, `new/view` and
+//! `new/confirm`.
 
+use crate::interpret::document::InterpretationDocument;
 use crate::new::confirm::{approve_new, draw_confirm, plan, ConfirmAction, ConfirmApp};
 use crate::new::form::{FormAction, NewForm, Source};
 use crate::new::view::draw_form;
 use crate::review::app::Key;
+use crate::review::approve;
+use crate::review::proposal::{ProposalAction, ProposalApp};
+use crate::review::view::draw_proposal;
 use crate::review::Approved;
 
 use crossterm::event::{
@@ -68,16 +75,35 @@ fn template_dir(form: &NewForm, cwd: &Path) -> Option<PathBuf> {
     }
 }
 
+/// The request path `plan` gives for the form's `SaveAs`: beside the template
+/// file, and in `cwd` for a paste (M7-37). The words path builds no `Built`, so
+/// `plan`'s directory rule is applied here, which is the path the approval of a
+/// proposal writes (contract §2.4).
+fn request_path(form: &NewForm, cwd: &Path) -> PathBuf {
+    let dir: PathBuf = match template_dir(form, cwd) {
+        Some(found) => found,
+        None => cwd.to_path_buf(),
+    };
+    dir.join(form.save_as())
+}
+
 /// One terminal session on the form: draw the form, then the confirmation once
 /// `[ Review ]` built, until the user quits, which gives `Ok(None)` and has
 /// written and run nothing, or an approval succeeds, which gives
 /// `Ok(Some(approved))`, and restore the terminal whatever happens (plan §3 rule
 /// 7). `written` is the request file the approval wrote, `None` when none was,
 /// so the shell can name it in the export plan (7g1).
+///
+/// `interpret` is called only on `FormAction::Interpret`, which the form gives
+/// when the words box holds text with a GenBank template loaded (M7-40): the
+/// template path as typed, and the words as typed. Its document is the proposal
+/// drawn in this session, and the approval of it is `review::approve`, exactly as
+/// `luria review --template` runs it (7f2). The loop is the owner's hand test.
 pub fn run_new(
     form: NewForm,
     cwd: &Path,
     written: &mut Option<PathBuf>,
+    interpret: &mut dyn FnMut(&str, &str) -> InterpretationDocument,
 ) -> std::io::Result<Option<Approved>> {
     let mut terminal = match ratatui::try_init() {
         Ok(opened) => opened,
@@ -99,13 +125,18 @@ pub fn run_new(
 
     let mut form = form;
     let mut confirm: Option<ConfirmApp> = None;
+    // The proposal screen, and the template path the words were typed with, which
+    // the approval reads (M7-40).
+    let mut proposal: Option<ProposalApp> = None;
+    let mut words_template: Option<PathBuf> = None;
     let mut approved: Option<Approved> = None;
     let mut looped: std::io::Result<()> = Ok(());
 
     loop {
-        let drawing: std::io::Result<()> = match &confirm {
-            Some(app) => terminal.draw(|frame| draw_confirm(frame, app)).map(|_| ()),
-            None => terminal.draw(|frame| draw_form(frame, &form)).map(|_| ()),
+        let drawing: std::io::Result<()> = match (&confirm, &proposal) {
+            (Some(app), _) => terminal.draw(|frame| draw_confirm(frame, app)).map(|_| ()),
+            (None, Some(app)) => terminal.draw(|frame| draw_proposal(frame, app)).map(|_| ()),
+            (None, None) => terminal.draw(|frame| draw_form(frame, &form)).map(|_| ()),
         };
         if let Err(problem) = drawing {
             looped = Err(problem);
@@ -118,16 +149,16 @@ pub fn run_new(
                 break;
             }
             Ok(Event::Paste(text)) => {
-                // A paste is the form's own: the confirmation takes no text.
-                if confirm.is_none() {
+                // A paste is the form's own: the screens take no text.
+                if confirm.is_none() && proposal.is_none() {
                     form.paste(&text);
                 }
             }
             Ok(Event::Key(key)) if key.kind == KeyEventKind::Press => {
                 let pressed: Key = key_of(key.code);
                 let mut back: bool = false;
-                match &mut confirm {
-                    Some(app) => match app.handle(pressed) {
+                match (&mut confirm, &mut proposal) {
+                    (Some(app), _) => match app.handle(pressed) {
                         ConfirmAction::Quit => break,
                         ConfirmAction::Approve => match approve_new(app.planned()) {
                             Ok(found) => {
@@ -142,7 +173,29 @@ pub fn run_new(
                         ConfirmAction::Back => back = true,
                         ConfirmAction::Continue => {}
                     },
-                    None => match form.handle(pressed) {
+                    (None, Some(app)) => match app.handle(pressed) {
+                        // `q` or `esc` goes back to the form, whose values are
+                        // kept, so the model is not called again until the next
+                        // `[ Review ]` (contract §2.4).
+                        ProposalAction::Quit => proposal = None,
+                        ProposalAction::Approve => {
+                            let template: PathBuf = words_template
+                                .clone()
+                                .expect("a proposal came from words with its template");
+                            match approve(app.document(), &template, app.request()) {
+                                // The request the approval wrote is the file it
+                                // ran, so the loop ends as 7k5's approval does.
+                                Ok(found) => {
+                                    *written = Some(app.request().to_path_buf());
+                                    approved = Some(found);
+                                    break;
+                                }
+                                Err(message) => app.approval_failed(message),
+                            }
+                        }
+                        ProposalAction::Continue => {}
+                    },
+                    (None, None) => match form.handle(pressed) {
                         FormAction::Quit => break,
                         FormAction::Load(path) => {
                             let read: Result<String, String> = load(&path, cwd);
@@ -156,6 +209,13 @@ pub fn run_new(
                                 cwd,
                                 &form.save_as(),
                             )));
+                        }
+                        FormAction::Interpret { template, text } => {
+                            // The model is spoken to once per `[ Review ]`, and
+                            // the request is the path the approval will write.
+                            let document: InterpretationDocument = interpret(&template, &text);
+                            words_template = Some(PathBuf::from(&template));
+                            proposal = Some(ProposalApp::new(document, request_path(&form, cwd)));
                         }
                         FormAction::Continue => {}
                     },

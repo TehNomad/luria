@@ -258,15 +258,23 @@ pub fn matching_template(document: &ResultDocument, sequence: &Sequence) -> Opti
     Some(sequence.letters())
 }
 
-/// Why `luria review` cannot open its screen here, or `None` when it can
-/// (plan §3 rule 7). Both stdin (keys) and stdout (the screen) must be
-/// terminals. Decided before the request is read.
-pub fn terminal_problem(stdin_is_terminal: bool, stdout_is_terminal: bool) -> Option<UsageError> {
+/// Why `luria review` and `luria new` cannot open their screen here, or `None`
+/// when they can (plan §3 rule 7). Both stdin (keys) and stdout (the screen) must
+/// be terminals. Decided before anything is read. `command` is the command the
+/// message names, so `new` says `'new'` where `review` says `'review'` (7k7).
+pub fn terminal_problem(
+    command: &str,
+    stdin_is_terminal: bool,
+    stdout_is_terminal: bool,
+) -> Option<UsageError> {
     if stdin_is_terminal && stdout_is_terminal {
         return None;
     }
     Some(UsageError {
-        message: "'review' needs a terminal on stdin and stdout; 'q5 design' writes the same result as JSON".to_string(),
+        message: format!(
+            "'{}' needs a terminal on stdin and stdout; 'q5 design' writes the same result as JSON",
+            command
+        ),
     })
 }
 
@@ -362,7 +370,7 @@ mod tests {
     fn review_needs_a_terminal_on_both_streams() {
         for (stdin, stdout) in [(false, true), (true, false), (false, false)] {
             assert_eq!(
-                terminal_problem(stdin, stdout),
+                terminal_problem("review", stdin, stdout),
                 Some(UsageError {
                     message: MESSAGE.to_string()
                 }),
@@ -371,6 +379,6 @@ mod tests {
                 stdout
             );
         }
-        assert_eq!(terminal_problem(true, true), None);
+        assert_eq!(terminal_problem("review", true, true), None);
     }
 }

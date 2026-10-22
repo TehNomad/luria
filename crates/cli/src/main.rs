@@ -9,10 +9,11 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 
 use luria_cli::args::{
-    checked_endpoint, checked_key, parse, utf8_arguments, Command, UsageError, USAGE,
+    checked_endpoint, checked_key, parse, utf8_arguments, Command, NewBackend, UsageError, USAGE,
 };
 use luria_cli::exit::ExitStatus;
 use luria_cli::interpret::document::render_interpretation;
+use luria_cli::interpret::document::InterpretationDocument;
 use luria_cli::interpret::run::{
     interpret, request_location_problem, InterpretInput, InterpretOutcome, TextSource,
 };
@@ -146,7 +147,7 @@ fn emit_interpret(
 /// done by the terminal, on `y` only. The exit status is 0 whatever the
 /// result's state, and 1 when the terminal itself failed.
 fn emit_review(request: PathBuf, export: Option<PathBuf>) -> ExitStatus {
-    match review::terminal_problem(stdin().is_terminal(), stdout().is_terminal()) {
+    match review::terminal_problem("review", stdin().is_terminal(), stdout().is_terminal()) {
         Some(problem) => report_usage(problem),
         None => {
             let (outcome, constructs): (Outcome, Vec<(String, luria_core::sequence::Sequence)>) =
@@ -230,7 +231,11 @@ fn emit_review_interpret(
             Ok(key) => {
                 // 7a's rule first: without a terminal on both streams the
                 // screen cannot open, so nothing is read and nothing sent.
-                match review::terminal_problem(stdin().is_terminal(), stdout().is_terminal()) {
+                match review::terminal_problem(
+                    "review",
+                    stdin().is_terminal(),
+                    stdout().is_terminal(),
+                ) {
                     Some(problem) => report_usage(problem),
                     None => {
                         if let Some((_code, message)) =
@@ -304,21 +309,70 @@ fn emit_review_interpret(
     }
 }
 
+/// The `In words` box's model, as the loop calls it: the template path as typed
+/// in `File`, and the words as typed, which the model answers with its document
+/// (contract §2.4), so `emit_new` builds it once and `run_new` calls it once per
+/// `[ Review ]`.
+type WordsModel = dyn FnMut(&str, &str) -> InterpretationDocument;
+
 /// `luria new`: the form, the confirmation, and the design an approval runs
-/// (milestone 7k5, contract 7k5 §2.4). 7a's rule is checked first, because
-/// without a terminal on both streams the screen cannot open, and a refusal is
-/// 7a's usage error with nothing read (plan §3 rule 7, §3.7, exit 2). `--design`
-/// is read with `parse_profile`, and a refusal is exit 4 with its message,
-/// before the screen opens, as `emit_review_interpret` gives exit 4 for the
-/// request location. The form opens with no backend, so the `In words` box stays
-/// disabled whatever the command line says (M7-36, 7k7), and nothing is written
-/// until `a` then `y` (plan §3 rule 4). The request the approval wrote is the
-/// file the export names, and the plan is built from the document the screen
+/// (milestone 7k5, contract 7k5 §2.4), and the `In words` box's model, which
+/// sends the words through `interpret` and writes and runs the proposal on the
+/// user's approval, as `luria review --template` does (7k7, M7-40). With a
+/// backend, the endpoint and the key are gated exactly as `emit_review_interpret`
+/// gates them, before the terminal check and before anything is read, so a
+/// refused endpoint is a usage error with nothing read and nothing sent (plan §3,
+/// M6-18, D045); the backend is built once here, and the loop calls it once per
+/// `[ Review ]`. Without a backend the `In words` box stays disabled whatever the
+/// command line says (M7-36) and the closure handed to the loop is never called.
+/// 7a's rule is checked next, because without a terminal on both streams the
+/// screen cannot open, and a refusal is 7a's usage error with nothing read (plan
+/// §3 rule 7, §3.7, exit 2). `--design` is read with `parse_profile`, and a
+/// refusal is exit 4 with its message, before the screen opens, as
+/// `emit_review_interpret` gives exit 4 for the request location. Nothing is
+/// written until `a` then `y` (plan §3 rule 4). The request the approval wrote is
+/// the file the export names, and the plan is built from the document the screen
 /// shows, so the result screens are 7a's, opened exactly as
 /// `emit_review_interpret` opens them (7g1). The exit status is 0 whatever the
 /// result's state, and 1 when the terminal itself failed.
-fn emit_new(design: Option<PathBuf>, export: Option<PathBuf>) -> ExitStatus {
-    match review::terminal_problem(stdin().is_terminal(), stdout().is_terminal()) {
+fn emit_new(
+    design: Option<PathBuf>,
+    export: Option<PathBuf>,
+    backend: Option<NewBackend>,
+) -> ExitStatus {
+    // The form is told whether the words box is enabled, so that is read before
+    // `backend` goes into the closure the loop calls.
+    let words_enabled: bool = backend.is_some();
+    let mut interpret_new: Box<WordsModel> = match backend {
+        // The box is disabled, so the loop never calls this.
+        None => Box::new(|_template: &str, _words: &str| -> InterpretationDocument {
+            panic!("no backend")
+        }),
+        Some(given) => match checked_endpoint(&given.endpoint, given.allow_remote) {
+            Err(problem) => return report_usage(problem),
+            Ok(endpoint) => match checked_key(&endpoint, env::var("LURIA_OPENAI_API_KEY").ok()) {
+                Err(problem) => return report_usage(problem),
+                Ok(key) => {
+                    let mut openai: OpenAiCompatible =
+                        OpenAiCompatible::new(endpoint, &given.model, key);
+                    let profile: Option<PathBuf> = design.clone();
+                    Box::new(move |template: &str, words: &str| {
+                        let input: InterpretInput = InterpretInput {
+                            template: PathBuf::from(template),
+                            text: TextSource::Inline(words.to_string()),
+                            profile: profile.clone(),
+                            write_request: None,
+                        };
+                        // The run writes nothing: the approval writes the request
+                        // the form's `Save as` names (plan §3 rule 4).
+                        interpret(&input, &mut openai).document
+                    })
+                }
+            },
+        },
+    };
+
+    match review::terminal_problem("new", stdin().is_terminal(), stdout().is_terminal()) {
         Some(problem) => report_usage(problem),
         None => {
             let profile: Option<ProfileDocument> = match design.as_deref() {
@@ -350,8 +404,12 @@ fn emit_new(design: Option<PathBuf>, export: Option<PathBuf>) -> ExitStatus {
                 }
             };
             let mut written: Option<PathBuf> = None;
-            match new::terminal::run_new(NewForm::new(profile.as_ref(), false), &cwd, &mut written)
-            {
+            match new::terminal::run_new(
+                NewForm::new(profile.as_ref(), words_enabled),
+                &cwd,
+                &mut written,
+                &mut interpret_new,
+            ) {
                 // Quit before `y`: nothing was written and nothing ran, so 0 is
                 // the honest status (7f2 §1).
                 Ok(None) => ExitStatus::Success,
@@ -445,7 +503,11 @@ fn main() -> ExitCode {
                 request,
                 export,
             ),
-            Ok(Command::New { design, export }) => emit_new(design, export),
+            Ok(Command::New {
+                design,
+                export,
+                backend,
+            }) => emit_new(design, export, backend),
             Err(problem) => report_usage(problem),
         },
     };

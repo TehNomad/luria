@@ -12,6 +12,10 @@
 //!   record has no `Name`, `Shape` or `Strand` row and `First`/`Last` appear
 //!   only as the `Bases` row when the CDS is typed bases; `In words` is shown
 //!   with `needs --backend` when no backend was given (M7-36);
+//! - `In words` shows the text typed in it the way `Mutations` shows its lines,
+//!   the label on the first one, and when the box holds text with a template that
+//!   is not a loaded GenBank record one more row follows it, `needs a GenBank
+//!   template` (M7-40);
 //! - `◉` marks the chosen option and `○` the other on every choice row;
 //! - each mutation line is shown as typed, then one preview line per non-blank
 //!   line, in order: `✓ <n>  <words>` from `reading_words`, `✗ <n>  <message>`
@@ -213,6 +217,11 @@ pub fn form_lines(form: &NewForm) -> FormText {
                         } else {
                             lines.push(continued(one));
                         }
+                    }
+                    // M7-40: the words need a record the form has not loaded, so
+                    // the box says what it needs, under the text.
+                    if form.words_need_genbank() {
+                        lines.push(continued("needs a GenBank template"));
                     }
                 } else {
                     // M7-36: the row is there, saying it needs a backend, and

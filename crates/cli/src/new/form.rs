@@ -33,6 +33,10 @@
 //! - `[ Review ]` checks the form's own blockers first, in order, moving focus
 //!   to the field it names (plan §2 rule 2), then `new::build`, whose refusal
 //!   names the field it concerns;
+//! - with words typed (M7-40), `[ Review ]` asks the loop to send them through
+//!   `interpret`: words and lines are one or the other, not both, words need a
+//!   GenBank template, whose CDS list the model is shown, and the form gives
+//!   `Interpret` with the path as typed in `File` and builds nothing;
 //! - `SaveAs` is filled from the name, and the name the user typed is never
 //!   replaced (M7-37); a paste's FASTA is `<name>.fa`, shown read-only beside it.
 
@@ -108,6 +112,13 @@ pub enum FormAction {
     Load(String),
     /// `[ Review ]` with every field valid.
     Review(Box<Built>),
+    /// `[ Review ]` with words typed and a GenBank template loaded (M7-40): the
+    /// loop sends `text` through `interpret` with the template at `template`,
+    /// the path typed in `File`, and shows the proposal. The form built nothing.
+    Interpret {
+        template: String,
+        text: String,
+    },
 }
 
 /// The template's source, the choice on the `Source` field (M7-32).
@@ -640,6 +651,13 @@ impl NewForm {
         self.backend
     }
 
+    /// Whether the words typed ask for a GenBank record the form has not loaded
+    /// (M7-40): the box holds text, and the file read is not a GenBank record,
+    /// whose CDS list is what the model is shown. `text` draws the row this says.
+    pub fn words_need_genbank(&self) -> bool {
+        !self.words().trim().is_empty() && !matches!(&self.loaded, Some(found) if found.genbank)
+    }
+
     /// What each mutation line means, in order: recomputed here from the lines
     /// as they now are, so every edit, `Backspace` included, changes what the
     /// screen shows (plan §2 rule 1).
@@ -666,12 +684,45 @@ impl NewForm {
     }
 
     /// `[ Review ]`: the form's own blockers first, in order (plan §2 rule 2),
-    /// then `new::build`, whose refusal becomes a blocker on the field it
-    /// concerns. Success gives the built request, and clears the blocker.
+    /// then, when the words box holds text, the words' own blockers (M7-40), then
+    /// `new::build`, whose refusal becomes a blocker on the field it concerns.
+    /// Success gives the built request, and clears the blocker. With words typed
+    /// the form builds nothing: words and lines are one or the other, not both,
+    /// words need a GenBank record whose CDS list the model is shown, and
+    /// `Interpret` names the template as it was typed in `File`.
     fn review(&mut self) -> FormAction {
         if let Some((field, line, message)) = self.form_blocker() {
             self.refuse(field, line, message);
             return FormAction::Continue;
+        }
+        if !self.words().trim().is_empty() {
+            // Words and shorthand are either one, not both (M7-40).
+            if self
+                .mutations
+                .lines
+                .iter()
+                .any(|one| !one.trim().is_empty())
+            {
+                self.refuse(
+                    Field::Words,
+                    None,
+                    "write the mutations either in words or as lines, not both".to_string(),
+                );
+                return FormAction::Continue;
+            }
+            // The model is shown the record's CDS list, so it needs a record.
+            if !matches!(&self.loaded, Some(found) if found.genbank) {
+                self.refuse(
+                    Field::Words,
+                    None,
+                    "words need a GenBank template, whose CDS list the model is shown".to_string(),
+                );
+                return FormAction::Continue;
+            }
+            return FormAction::Interpret {
+                template: self.file.text(),
+                text: self.words(),
+            };
         }
         match build(&self.build_form()) {
             Ok(built) => {

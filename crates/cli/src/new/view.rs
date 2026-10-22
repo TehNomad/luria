@@ -187,6 +187,20 @@ fn styled_line(line: &str, focused_label: bool, focused_review: bool) -> Line<'s
         ));
         return Line::from(spans);
     }
+    // The `In words` box's own hint, a continued row written at the label
+    // column: dim, as `needs --backend` on a label row is (7k7 §2.3, approved by
+    // the owner), and the text itself is unchanged.
+    if line.chars().take(LABEL).all(|ch| ch == ' ')
+        && trimmed.starts_with("needs a GenBank template")
+    {
+        let indent: usize = line.chars().count() - trimmed.chars().count();
+        spans.push(Span::raw(line[..indent].to_string()));
+        spans.push(Span::styled(
+            line[indent..].to_string(),
+            Style::default().add_modifier(Modifier::DIM),
+        ));
+        return Line::from(spans);
+    }
     Line::from(line.to_string())
 }
 

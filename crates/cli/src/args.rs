@@ -37,7 +37,19 @@ pub enum Command {
     New {
         design: Option<PathBuf>,
         export: Option<PathBuf>,
+        backend: Option<NewBackend>,
     },
+}
+
+/// The model `luria new`'s `In words` box sends its text to (7k7, M7-40): the
+/// endpoint and the model name as the command line gave them, and whether an
+/// endpoint off this machine was allowed, the same three the interpret form
+/// reads, so `new` gates them exactly as `q5 interpret` gates them.
+#[derive(Clone, Debug, PartialEq)]
+pub struct NewBackend {
+    pub endpoint: String,
+    pub model: String,
+    pub allow_remote: bool,
 }
 
 /// A command line luria can't act on. `message` is one line, no trailing
@@ -58,6 +70,7 @@ pub const USAGE: &str = "usage:
       --backend openai-compatible --endpoint URL --model NAME
       --request FILE.json [--design PROFILE.json] [--allow-remote] [--export DIR]
   luria new [--design PROFILE.json] [--export DIR]
+      [--backend openai-compatible --endpoint URL --model NAME [--allow-remote]]
   luria version
   luria help
 
@@ -315,13 +328,29 @@ fn parse_review(words: &[String]) -> Result<Command, UsageError> {
 /// Read `new`'s arguments: the form opens with no path typed, so `--design` is
 /// the `--design` profile 7k3 fills `Overlap` and `Codon` from, and `--export`
 /// is 7g1's directory the result screen writes to, taken exactly as `review`
-/// takes it. There is no request file and no template on the command line, so
-/// any other word, a repeated option, an option without its value and an empty
-/// path are all usage errors naming the word. `--` ends the options, as in
-/// `q5 design`, and the first error found is the one reported.
+/// takes it. `--backend openai-compatible --endpoint URL --model NAME
+/// [--allow-remote]` (7k7, M7-40) is the model the `In words` box sends its
+/// words to, read by the interpret form's rules for these four options: the
+/// value is the next word, whatever it is, an option given more than once is a
+/// usage error naming it, an option without its value is a usage error naming
+/// it, an empty path is not a file, and an empty model name is refused with the
+/// words. `--backend`'s only value is `openai-compatible`; the endpoint, its
+/// value empty included, is gated by `checked_endpoint` in the shell, as `q5
+/// interpret` gates it. The three of `--backend`, `--endpoint` and `--model` are
+/// all given, in `--backend`'s order, or none of them, else a usage error names
+/// the first one missing, and `--allow-remote`, the flag of `--backend`, without
+/// it is a usage error naming `--allow-remote`. There is no request file and no
+/// template on the command line, so any other word, a repeated option, an option
+/// without its value and an empty path are all usage errors naming the word.
+/// `--` ends the options, as in `q5 design`, so a word after it is not an
+/// option, and the first error found is the one reported.
 fn parse_new(words: &[String]) -> Result<Command, UsageError> {
     let mut design: Option<String> = None;
     let mut export: Option<String> = None;
+    let mut backend: Option<String> = None;
+    let mut endpoint: Option<String> = None;
+    let mut model: Option<String> = None;
+    let mut allow_remote: bool = false;
     let mut options_end: bool = false;
     let last: usize = words.len();
     let mut index: usize = 0;
@@ -331,6 +360,41 @@ fn parse_new(words: &[String]) -> Result<Command, UsageError> {
 
         if word == "--" && !options_end {
             options_end = true;
+            index += 1;
+            continue;
+        }
+
+        if !options_end && word == "--allow-remote" {
+            match allow_remote {
+                true => return reject("--allow-remote is given more than once".to_string()),
+                false => {
+                    allow_remote = true;
+                    index += 1;
+                    continue;
+                }
+            }
+        }
+
+        if !options_end && matches!(word, "--backend" | "--endpoint" | "--model") {
+            // The value is the next word, whatever it is, as the interpret form
+            // takes it, so the option's own rules are the form's.
+            let stored: &mut Option<String> = match word {
+                "--backend" => &mut backend,
+                "--endpoint" => &mut endpoint,
+                _ => &mut model,
+            };
+            if stored.is_some() {
+                return reject(format!("{} is given more than once", word));
+            }
+            index += 1;
+            if index == last {
+                return reject(format!("{} needs a value", word));
+            }
+            let value: String = words[index].to_string();
+            if value.is_empty() && word == "--model" {
+                return reject("the model name is empty".to_string());
+            }
+            *stored = Some(value);
             index += 1;
             continue;
         }
@@ -379,9 +443,50 @@ fn parse_new(words: &[String]) -> Result<Command, UsageError> {
         ));
     }
 
+    // `--backend`'s value is its own, so an unknown one is named before the
+    // options that follow it, as the interpret form names it.
+    if let Some(kind) = &backend {
+        if kind != "openai-compatible" {
+            return reject(format!(
+                "unknown backend '{}'; this build has only 'openai-compatible' (M6-18)",
+                kind
+            ));
+        }
+    }
+
+    // The three are all given, in the form's order, or none of them, so a
+    // partial backend names the first option missing (contract §2.1).
+    if backend.is_none() {
+        if allow_remote {
+            return reject("--allow-remote needs --backend".to_string());
+        }
+        if endpoint.is_some() || model.is_some() {
+            return reject("'new' needs --backend".to_string());
+        }
+        return Ok(Command::New {
+            design: design.map(PathBuf::from),
+            export: export.map(PathBuf::from),
+            backend: None,
+        });
+    }
+
+    let endpoint: String = match endpoint {
+        Some(url) => url,
+        None => return reject("'new' needs --endpoint".to_string()),
+    };
+    let model: String = match model {
+        Some(name) => name,
+        None => return reject("'new' needs --model".to_string()),
+    };
+
     Ok(Command::New {
         design: design.map(PathBuf::from),
         export: export.map(PathBuf::from),
+        backend: Some(NewBackend {
+            endpoint,
+            model,
+            allow_remote,
+        }),
     })
 }
 

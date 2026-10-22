@@ -1,6 +1,6 @@
 # Milestone 7k7: `luria new`'s "In words" box, through the model
 
-Status: **Ready for the worker, 2026-10-22.** Planner: Claude. Parent:
+Status: **Implemented, 2026-10-22.** Planner: Claude. Parent:
 `docs/tasks/milestone-7k-new.md` (owner answers M7-33, M7-36, M7-40).
 Builds on 7k3 to 7k5, on milestone 6's `interpret`, and on 7f2's proposal
 screen, which it calls unchanged. Also fixes 7k5's known gap: `luria new`
@@ -167,3 +167,20 @@ git status --short
 Report each result, the §3.1 proofs, every existing assertion changed,
 and anything that did not match. The loop with a real model is the
 owner's hand test.
+
+## 6. Implementation notes (planner, 2026-10-22)
+
+- 1101 tests passed, 0 failed, 1 ignored; fmt, clippy, diff check clean;
+  fixtures 19 of 19. Proofs 1 to 3 and the dim rule's proof failed as
+  required.
+- The 7k5 terminal test was renamed to `new_without_a_terminal_names_new`
+  as §3 test 7 names it; its message assertion changed to `'new'`.
+- `parse_new`'s unknown-word message still says `takes only --design and
+  --export` (pinned by an existing test); the backend options are matched
+  before it. Worth updating with 7k6.
+- `terminal.rs`'s `request_path` repeats `confirm::plan`'s directory rule,
+  since the words path has no `Built`.
+- `main.rs` adds `type WordsModel` for clippy's `type_complexity`.
+- The model call runs in the loop, so the screen waits while it answers.
+- Untested: the proposal loop with a real model, `q` back to the form, and
+  the dim row on a real terminal (owner's hand test).

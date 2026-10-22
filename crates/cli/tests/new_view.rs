@@ -11,7 +11,7 @@ use luria_cli::new::view;
 use luria_cli::review::app::Key;
 use ratatui::backend::TestBackend;
 use ratatui::layout::Position;
-use ratatui::style::{Color, Style};
+use ratatui::style::{Color, Modifier, Style};
 use ratatui::Terminal;
 use std::fs;
 
@@ -164,5 +164,54 @@ fn a_refused_preview_is_red() {
         styles(&form, 80, 24)[row][column].fg,
         Some(Color::Red),
         "a refused preview is red"
+    );
+}
+
+/// The `sid-1` form with a backend, so the `In words` box is enabled (M7-36): the
+/// file loaded as the loop answers `Load`, the name typed over the stem, `overlap`
+/// typed, and `words` typed in the box, with nothing in the mutation box.
+fn words_form(words: &str) -> NewForm {
+    let mut form = NewForm::new(None, true);
+    tab_to(&mut form, Field::File);
+    type_text(&mut form, "sid-1_cDNA.fa");
+    assert_eq!(
+        form.handle(Key::Tab),
+        FormAction::Load("sid-1_cDNA.fa".to_string()),
+        "leaving File with a path asks the loop to read it"
+    );
+    form.loaded("sid-1_cDNA.fa", Ok(read_file(SID1)));
+    tab_to(&mut form, Field::Name);
+    let filled: usize = form.name().chars().count();
+    for _ in 0..filled {
+        form.handle(Key::Backspace);
+    }
+    type_text(&mut form, "sid-1");
+    tab_to(&mut form, Field::Overlap);
+    type_text(&mut form, "15");
+    tab_to(&mut form, Field::Words);
+    type_text(&mut form, words);
+    form
+}
+
+// 7k7 §2.3: the words box says a GenBank template is needed, dim in the view as
+// `needs --backend` is, so the typed words read as the user's own text.
+#[test]
+fn a_genbank_need_is_dim() {
+    let form: NewForm = words_form("A42G is a substitution");
+    let screen: Vec<String> = rows(&form, 80, 24);
+    let row: usize = screen
+        .iter()
+        .position(|line| line.contains("needs a GenBank template"))
+        .expect("the words box says a GenBank template is needed");
+    // The cell under the `n`, counted in characters: the frame's left border and
+    // the 11-column label field.
+    let column: usize = screen[row].chars().take_while(|ch| *ch != 'n').count();
+    assert_eq!(
+        column, 12,
+        "the row is written at the label column, inside the frame"
+    );
+    assert!(
+        styles(&form, 80, 24)[row][column].has_modifier(Modifier::DIM),
+        "the hint is dim in the view, as `needs --backend` is"
     );
 }
