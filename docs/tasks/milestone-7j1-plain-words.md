@@ -1,6 +1,11 @@
 # Milestone 7j1: the screens in plain words
 
-Status: **Ready for the worker, 2026-10-21.** Planner: Claude. Parent:
+Status: **Implemented 2026-10-21** by w7j1 (ran out of context) and
+w7j1b. Proofs 1-3 failed as required. Accepted: `operation_warning_code`
+removed (unused); `? help` on every result key line except Export;
+the design-failure block starts with a blank line; the ins-13 test
+compares only the block's rows (the primer table below it is checked by
+`the_primer_columns_line_up`). Planner: Claude. Parent:
 `docs/tasks/milestone-7-tui.md` §5.3b (owner answers M7-24 to M7-30).
 Next: 7j2 (borders, the title badge, colour, the help pop-up's
 drawing). This contract changes **text and keys only**; `view.rs`

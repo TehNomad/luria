@@ -11,16 +11,18 @@
 //! rounded, and a digest is shortened nowhere. The one approved rounding is the
 //! sequence screen's `Tm` line, shown with `{:.1}` (7i4, plan §5.3a); the full
 //! value stays on the technical screen. The only formatting is intervals
-//! as `[start, end)`, a float with `{}` (the same digits the JSON holds) and a
-//! code written as the serde tag's variant name in snake case. An error, a
+//! as `[start, end)`, the 1-based inclusive `bases_at` the screens in words use
+//! (M7-24), a float with `{}` (the same digits the JSON holds) and a code
+//! written as the serde tag's variant name in snake case. An error, a
 //! clarification, a design failure and a warning are always listed (plan §3
 //! rule 3); on the proposal screen the questions and an error come first, the
 //! proposed request is shown as the exact bytes `--write-request` writes (plan
 //! §3 rule 2), and the messages sent to the model are shown (plan §3 rule 6).
 //!
-//! Lines hold ASCII only: `->` for an arrow, no `→` or `°`. `view` draws these
-//! lines (7c3). The state and the experimental validation are not here, because
-//! 7a's banner draws them on every screen.
+//! Screens use Unicode: `→` (U+2192), `–` (U+2013), `°` (U+00B0), `▶` (U+25B6)
+//! and `…` (U+2026); the files luria writes are unchanged (plan §5.3b, M7-24).
+//! `view` draws these lines (7c3). The state and the experimental validation are
+//! not here, because 7a's banner draws them on every screen.
 
 use crate::interpret::document::{
     AssumptionView, InterpretErrorView, InterpretationDocument, OriginView, TemplateFileView,
@@ -56,12 +58,24 @@ pub(crate) fn intervals(intervals: &[(u64, u64)]) -> String {
         .join(", ")
 }
 
-/// The code of an operation warning: its serde tag, the variant name in snake
-/// case, written as a `match` rather than found by serializing.
-pub(crate) fn operation_warning_code(warning: &OperationWarning) -> &'static str {
-    match warning {
-        OperationWarning::WildTypeSkipped { .. } => "wild_type_skipped",
-        OperationWarning::ManyDesigns { .. } => "many_designs",
+/// `[start, end)` zero-based as 1-based inclusive: `"1210–1212"`, or `"1210"`
+/// for one base (plan §5.3b, M7-24; D006 keeps files zero-based). Only the
+/// screens in words use it; a coordinate written by luria stays zero-based.
+pub(crate) fn bases_at(start: u64, end: u64) -> String {
+    if end.saturating_sub(start) == 1 {
+        format!("{}", start + 1)
+    } else {
+        format!("{}–{}", start + 1, end)
+    }
+}
+
+/// An insertion at zero-based point `p`: `"after p"`, or `"at the start"` for 0
+/// (plan §5.3b, M7-24).
+pub(crate) fn insertion_place(point: u64) -> String {
+    if point == 0 {
+        "at the start".to_string()
+    } else {
+        format!("after {}", point)
     }
 }
 
@@ -141,15 +155,15 @@ fn obstacle_message(obstacle: &ObstacleView) -> &str {
     }
 }
 
-/// The mutation one member performed, as one phrase: for a residue, its CDS,
-/// the residue number between the two residues, and the two codons; for a
-/// substitution or replacement, its interval and the two letters; for a
-/// deletion, its interval, `del` and the bases removed; for an insertion, the
-/// bases written and the point. Every value is the member's own.
+/// The mutation one member performed, as one phrase in words (plan §5.3b,
+/// M7-24): a residue as `A42G (GCA→GCT)`; a substitution or a replacement as
+/// `GAT→AAC at 1210–1212`; a deletion as `delete GAT at 1210–1212`; an
+/// insertion as `insert GATT after 1209`. Coordinates are 1-based inclusive, a
+/// base text over `MEMBER_INLINE_LIMIT` is `<N> bp`, and every value is the
+/// member's own.
 pub(crate) fn mutation_summary(mutation: &MutationView) -> String {
     match mutation {
         MutationView::Residue {
-            cds,
             residue,
             original_residue,
             written_residue,
@@ -157,8 +171,8 @@ pub(crate) fn mutation_summary(mutation: &MutationView) -> String {
             written_codon,
             ..
         } => format!(
-            "{} {}{}{} {}->{}",
-            cds, original_residue, residue, written_residue, original_codon, written_codon
+            "{}{}{} ({}→{})",
+            original_residue, residue, written_residue, original_codon, written_codon
         ),
         MutationView::Substitution {
             interval: span,
@@ -172,18 +186,22 @@ pub(crate) fn mutation_summary(mutation: &MutationView) -> String {
             written,
             ..
         } => format!(
-            "{} {}->{}",
-            interval(*span),
+            "{}→{} at {}",
             bases_text(original),
-            bases_text(written)
+            bases_text(written),
+            bases_at(span.0, span.1)
         ),
         MutationView::Deletion {
             interval: span,
             original,
             ..
-        } => format!("{} del {}", interval(*span), bases_text(original)),
+        } => format!(
+            "delete {} at {}",
+            bases_text(original),
+            bases_at(span.0, span.1)
+        ),
         MutationView::Insertion { point, written, .. } => {
-            format!("ins {} at {}", bases_text(written), point)
+            format!("insert {} {}", bases_text(written), insertion_place(*point))
         }
     }
 }
@@ -1040,18 +1058,16 @@ pub fn member_sequence(
         Some(named) => named.id.as_str(),
         None => "none",
     };
-    let mut lines: Vec<String> = vec![
-        format!(
-            "{}  {}  on {} [{}, {})",
-            member.name,
-            mutation_summary(&member.mutation),
-            template_id,
+    let mut lines: Vec<String> = vec![format!(
+        "{}  {}  {} bases {}",
+        member.name,
+        mutation_summary(&member.mutation),
+        template_id,
+        bases_at(
             layout.template_position(lo, false),
             layout.template_position(hi, true)
-        ),
-        "forward 5'->3' above, reverse 3'->5' below; the protein is the mutant's".to_string(),
-        "lower case: edited bases, and primer bases that do not anneal".to_string(),
-    ];
+        )
+    )];
 
     // Blocks of `CONTEXT_WIDTH` columns; a block never splits a collapsed marker,
     // so it ends where the marker starts and the next block starts at it.
@@ -1099,24 +1115,37 @@ pub fn member_sequence(
     lines
 }
 
-/// One primer's short line on the sequence screen: its label padded to the
-/// context label's width as 7i3's rows are, then the primer's own text, its
-/// length and its Tm, with two spaces between the fields (plan §5.3a).
-fn primer_screen_line(label: &str, primer: &PrimerView) -> String {
+/// One primer's line in the sequence screen's primer table (M7-28, plan §5.3b):
+/// its label padded to `CONTEXT_LABEL`, its `<n> nt` right-aligned in 6, its
+/// `{:.1} °C` right-aligned in 9, three spaces, then its own sequence.
+/// The padding counts characters, not bytes.
+fn primer_table_line(label: &str, primer: &PrimerView) -> String {
     format!(
-        "{:width$}5'-{}-3'  {} nt  Tm {:.1} C",
+        "{:width$}{:>6}  {:>9}   {}",
         label,
+        format!("{} nt", primer.length),
+        format!("{:.1} °C", primer.tm.celsius),
         primer.sequence,
-        primer.length,
-        primer.tm.celsius,
         width = CONTEXT_LABEL
     )
 }
 
-/// The sequence screen (`enter` on a member, plan §5.3a, 7i4): 7i3's block, then,
-/// when the member has a design, the two short primer lines and the annealing
-/// temperature, then every warning by its code, and a design failure as its code
-/// and message. The full Tm and the messages stay on the technical screen (7c2's
+/// The primer table's header (M7-28): 10 spaces, `length` right-aligned in 6,
+/// `Tm` right-aligned in 9, three spaces, `sequence 5'→3'`.
+fn primer_table_header() -> String {
+    format!(
+        "{}{:>6}  {:>9}   sequence 5'→3'",
+        " ".repeat(CONTEXT_LABEL),
+        "length",
+        "Tm"
+    )
+}
+
+/// The sequence screen (`enter` on a member, plan §5.3a, 7i4, M7-28, M7-29):
+/// 7i3's block, then, when the member has a design, the primer table with the
+/// annealing temperature, then every warning by the document's own message, and
+/// a design failure as `No primer pair could be designed` with its message. The
+/// full Tm, the codes and every other value stay on the details screen (7c2's
 /// `member`). `index` is `document.results`' index; out of range the screen is
 /// 7i3's single line. Every value is one field of the document (plan §3 rule 1),
 /// and warnings and failures are listed, never summarised away (plan §3 rule 3).
@@ -1135,36 +1164,71 @@ pub fn member_screen(
 
     if let Some(design) = &member.design {
         lines.push(String::new());
-        lines.push(primer_screen_line("forward", &design.forward));
-        lines.push(primer_screen_line("reverse", &design.reverse));
-        lines.push(format!("anneal at {} C", design.annealing_temperature));
+        lines.push(primer_table_header());
+        lines.push(primer_table_line("forward", &design.forward));
+        lines.push(primer_table_line("reverse", &design.reverse));
+        lines.push(format!(
+            "annealing temperature {} °C",
+            design.annealing_temperature
+        ));
     }
 
-    // The codes, in the document's own order: the member's edit warnings, then
-    // the forward primer's, then the reverse primer's.
+    // The messages, in the document's own order: the member's edit warnings, then
+    // the forward primer's, then the reverse primer's (M7-29): a warning is shown
+    // as the document's own `message`, never as its code.
     let mut warnings: Vec<String> = Vec::new();
     for warning in &member.warnings {
-        warnings.push(format!("  {}", edit_warning_code(warning)));
+        warnings.push(format!("  {}", edit_warning_message(warning)));
     }
     if let Some(design) = &member.design {
         for warning in &design.forward.warnings {
-            warnings.push(format!("  forward {}", primer_warning_code(warning)));
+            warnings.push(format!("  forward: {}", primer_warning_message(warning)));
         }
         for warning in &design.reverse.warnings {
-            warnings.push(format!("  reverse {}", primer_warning_code(warning)));
+            warnings.push(format!("  reverse: {}", primer_warning_message(warning)));
         }
     }
     if !warnings.is_empty() {
         lines.push(String::new());
-        lines.push("warnings:".to_string());
+        lines.push("Warnings".to_string());
         lines.extend(warnings);
     }
 
     if let Some(failure) = &member.design_failure {
-        lines.push(format!("design failed: {}", failure.code));
+        lines.push(String::new());
+        lines.push("No primer pair could be designed".to_string());
         lines.push(format!("  {}", failure.message));
     }
     lines
+}
+
+/// The `?` help: the legend of the sequence screen and the keys, in plain words
+/// (plan §5.3b, M7-27). It is the same on every screen, and nothing of the
+/// document is in it.
+pub fn help() -> Vec<String> {
+    const LINES: [&str; 20] = [
+        "The sequence",
+        "  forward    the forward primer, 5'→3', over the bases it covers",
+        "  template   the template's top strand, 5'→3'",
+        "  protein    the variant's protein, each letter over its codon's middle base",
+        "  bottom     the bottom strand, 3'→5'",
+        "  reverse    the reverse primer, written 3'→5' under its bases",
+        "  lower case edited bases, and primer bases that do not anneal",
+        "  *          a stop codon: the protein ends there",
+        "  [+N bp …]  a long insertion, shown in full with i",
+        "",
+        "Keys",
+        "  enter      open a variant",
+        "  j k        move or scroll",
+        "  d          details: everything the result records for the variant",
+        "  i          show or hide a long insertion",
+        "  p          provenance",
+        "  e          the problem, when there is one",
+        "  x          export",
+        "  esc        back",
+        "  q          quit",
+    ];
+    LINES.map(|line| line.to_string()).to_vec()
 }
 
 /// The code of the operation the model reported: its serde tag, the variant
@@ -1422,58 +1486,114 @@ pub fn proposal(document: &InterpretationDocument) -> Vec<String> {
 pub fn overview(document: &ResultDocument, selected: usize) -> Vec<String> {
     let mut lines: Vec<String> = Vec::new();
 
-    match &document.provenance.template {
-        Some(template) => lines.push(format!(
-            "template: {}, {}, {} bp",
-            template.id, template.topology, template.length
-        )),
-        None => lines.push("template: none".to_string()),
-    }
+    // M7-25: the template and the target are named in two columns, the id padded
+    // to the longer of the two; an absent one is `none`.
+    let template_id: String = document
+        .provenance
+        .template
+        .as_ref()
+        .map(|template| template.id.clone())
+        .unwrap_or("none".to_string());
+    let target_id: String = document
+        .target
+        .as_ref()
+        .map(|target| target.id.clone())
+        .unwrap_or("none".to_string());
+    let id_width: usize = template_id.chars().count().max(target_id.chars().count());
 
-    match &document.target {
-        Some(target) => lines.push(format!(
-            "target: {}, {}, {}",
-            target.id,
-            target.strand,
-            intervals(&target.intervals)
-        )),
-        None => lines.push("target: none".to_string()),
-    }
+    let template_line: String = match &document.provenance.template {
+        Some(template) => format!(
+            "Template  {:width$}  {}, {} bp",
+            template_id,
+            template.topology,
+            template.length,
+            width = id_width
+        ),
+        None => format!("Template  {:width$}  none", template_id, width = id_width),
+    };
+    let target_line: String = match &document.target {
+        Some(target) => {
+            // M7-26: a strand in words, `+` as `forward` and `-` as `reverse`.
+            let strand: &str = if target.strand == "+" {
+                "forward"
+            } else {
+                "reverse"
+            };
+            format!(
+                "Target    {:width$}  {} strand, bases {}",
+                target_id,
+                strand,
+                target
+                    .intervals
+                    .iter()
+                    .map(|one| bases_at(one.0, one.1))
+                    .collect::<Vec<String>>()
+                    .join(", "),
+                width = id_width
+            )
+        }
+        None => format!("Target    {:width$}  none", target_id, width = id_width),
+    };
+    lines.push(template_line.trim_end().to_string());
+    lines.push(target_line.trim_end().to_string());
+    lines.push(String::new());
 
     // 7i4 (plan §5.3a M7-22): the overview names the template, the target and the
     // members only, so the operation is not here; the operation warnings are, as
-    // a warning is never hidden (plan §3 rule 3).
+    // a warning is never hidden (plan §3 rule 3), and M7-25 shows the message,
+    // never the code.
     if !document.warnings.is_empty() {
-        lines.push("warnings:".to_string());
+        lines.push("Warnings".to_string());
         for warning in &document.warnings {
-            lines.push(format!(
-                "  {}: {}",
-                operation_warning_code(warning),
-                operation_warning_message(warning)
-            ));
+            lines.push(format!("  {}", operation_warning_message(warning)));
         }
+        lines.push(String::new());
     }
 
-    lines.push(format!("members: {}", document.results.len()));
+    // M7-26: the rows are padded so the summary and the outcome line up; the
+    // selected row carries `▶`, the others two spaces.
+    let name_width: usize = document
+        .results
+        .iter()
+        .map(|member| member.name.chars().count())
+        .max()
+        .unwrap_or(0);
+    let summaries: Vec<String> = document
+        .results
+        .iter()
+        .map(|member| mutation_summary(&member.mutation))
+        .collect();
+    let summary_width: usize = summaries
+        .iter()
+        .map(|summary| summary.chars().count())
+        .max()
+        .unwrap_or(0);
+    lines.push(format!("Variants ({})", document.results.len()));
     for (index, member) in document.results.iter().enumerate() {
-        let marker: &str = if index == selected { "> " } else { "  " };
+        let marker: &str = if index == selected { "▶ " } else { "  " };
         // A member states one design, a design failure, or, when the run's
         // invariant is broken, neither: then the row says `no design` rather
         // than hiding the missing design (plan §3 rule 3).
-        let outcome: String = match (&member.design, &member.design_failure) {
-            (Some(_), _) => "designed".to_string(),
-            (None, Some(problem)) => format!("design failed: {}", problem.code),
-            (None, None) => "no design".to_string(),
+        let outcome: &str = match (&member.design, &member.design_failure) {
+            (Some(_), _) => "designed",
+            (None, Some(_)) => "no primer pair",
+            (None, None) => "no design",
         };
         // The row ends with its outcome, and a member's own warnings are not
         // counted here: they are on the member's screen (7i4, plan §5.3a M7-22).
-        lines.push(format!(
-            "{}{}  {}  {}",
-            marker,
-            member.name,
-            mutation_summary(&member.mutation),
-            outcome
-        ));
+        lines.push(
+            format!(
+                "{}{:name$}  {:sum$}  {}",
+                marker,
+                member.name,
+                summaries[index],
+                outcome,
+                name = name_width,
+                sum = summary_width
+            )
+            .trim_end()
+            .to_string(),
+        );
     }
     lines
 }
@@ -1903,10 +2023,22 @@ mod tests {
     fn row(lines: &[String], index: usize) -> String {
         lines
             .iter()
-            .filter(|line| line.starts_with("> ") || line.starts_with("  "))
+            .filter(|line| line.starts_with("\u{25b6} ") || line.starts_with("  "))
             .nth(index)
             .expect("a member row")
             .clone()
+    }
+
+    #[test]
+    fn coordinates_on_screen_are_1_based_inclusive() {
+        // M7-24 (plan §5.3b): `[start, end)` zero-based shows as 1-based inclusive
+        // on screen, with one base as a single number; D006 keeps the files
+        // luria writes zero-based, so only these two convert.
+        assert_eq!(bases_at(1209, 1212), "1210–1212");
+        assert_eq!(bases_at(45, 46), "46");
+        assert_eq!(bases_at(0, 1), "1");
+        assert_eq!(insertion_place(1209), "after 1209");
+        assert_eq!(insertion_place(0), "at the start");
     }
 
     #[test]
@@ -1924,14 +2056,19 @@ mod tests {
         };
         document.warnings = vec![warning.clone()];
         let lines: Vec<String> = overview(&document, 0);
-        assert_eq!(lines.iter().filter(|line| **line == "warnings:").count(), 1);
+        assert_eq!(count(&lines, "Warnings"), 1, "one `Warnings` heading");
+        assert_eq!(
+            count(
+                &lines,
+                &format!("  {}", operation_warning_message(&warning))
+            ),
+            1,
+            "the warning's own `message`, indented by two: {:?}",
+            lines
+        );
         assert!(
-            lines.contains(&format!(
-                "  {}: {}",
-                "many_designs",
-                operation_warning_message(&warning)
-            )),
-            "the code is the serde tag in snake case: {:?}",
+            !lines.iter().any(|line| line.contains("many_designs")),
+            "the screen shows the message, never the code: {:?}",
             lines
         );
     }
@@ -2003,7 +2140,7 @@ mod tests {
         let lines: Vec<String> = overview(&document, 0);
         assert_eq!(
             row(&lines, 0),
-            format!("> {}  {}  no design", name, summary),
+            format!("\u{25b6} {}  {}  no design", name, summary),
             "a member with neither states `no design`, never `designed`"
         );
         assert!(!lines.iter().any(|line| line.contains("designed")));

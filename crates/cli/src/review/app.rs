@@ -46,8 +46,9 @@ pub enum Screen {
     /// The sequence screen (7i4, plan §5.3a): `member_sequence`'s block with the
     /// short primer lines under it, and the mutant protein between the strands.
     Member(usize),
-    /// The technical lines (7c2's member text) behind `t` (7i4).
-    Technical(usize),
+    /// The technical lines (7c2's member text) behind `d` (7i4, M7-30): the
+    /// details the result records for one variant.
+    Details(usize),
     Provenance,
     Problem,
     Export,
@@ -68,6 +69,7 @@ pub struct App {
     export: Option<ExportPlan>,
     export_message: Option<String>,
     expanded: bool,
+    help: bool,
 }
 
 impl App {
@@ -90,6 +92,8 @@ impl App {
             export_message: None,
             // A long insertion starts collapsed every time the screen opens (7i4).
             expanded: false,
+            // The help legend is closed when the screen opens (M7-27).
+            help: false,
         }
     }
 
@@ -123,10 +127,17 @@ impl App {
 
     /// Whether a long insertion on the sequence screen is written out (`true`) or
     /// carried as its marker (`false`). `i` on a sequence screen switches it, and
-    /// every screen change starts it collapsed, so leaving to `t` and coming back
+    /// every screen change starts it collapsed, so leaving to `d` and coming back
     /// shows the marker again (7i4).
     pub fn expanded(&self) -> bool {
         self.expanded
+    }
+
+    /// Whether the `?` help legend is shown in place of the open screen's lines
+    /// (M7-27): `?` opens it on every screen bar `Export`, and every screen
+    /// change closes it.
+    pub fn help(&self) -> bool {
+        self.help
     }
 
     /// The export the screen offers: the plan `main` built from the `--export`
@@ -195,9 +206,11 @@ impl App {
 
     /// `q` quits from every screen. Every other key follows the table of §3.3:
     /// `Esc` and `Backspace` go back, `Enter` opens the selected member, `j`
-    /// `k` `c` `p` `e` `x` move, `y` on the export screen asks for the write
-    /// when a plan exists and `n` goes back, and
-    /// any other key changes nothing. The selection does not wrap, and `Q` is
+    /// `k` `c` `p` `e` `x` move, `d` opens the details of the open member, `?`
+    /// opens the help legend, `y` on the export screen asks for the write when a
+    /// plan exists and `n` goes back, and any other key changes nothing. While
+    /// help is open, `esc` and `backspace` only close it, `q` quits and every
+    /// other key does nothing (M7-27). The selection does not wrap, and `Q` is
     /// not quit. On the overview `Up` `Down` `j` `k` move the selection, so only
     /// `PageUp` `PageDown` `Home` scroll there; on every screen below it they
     /// scroll the body, and a screen change puts the new screen at its top
@@ -205,6 +218,21 @@ impl App {
     pub fn handle(&mut self, key: Key) -> Action {
         if key == Key::Char('q') {
             return Action::Quit;
+        }
+
+        // M7-27: with the help legend open, `?` closes it, `esc` and `backspace`
+        // close it, and nothing else moves the screen.
+        if self.help {
+            if matches!(key, Key::Char('?') | Key::Esc | Key::Backspace) {
+                self.help = false;
+            }
+            return Action::Continue;
+        }
+        // `?` opens the help legend on every screen bar `Export`, where `?` does
+        // nothing (M7-27).
+        if key == Key::Char('?') && self.screen != Screen::Export {
+            self.help = true;
+            return Action::Continue;
         }
 
         // The only facts the app uses about the document (plan §3 rule 1).
@@ -235,22 +263,23 @@ impl App {
             // Below the overview there is no selection to move, so `j` `k` and
             // the arrows scroll as well.
             (
-                Screen::Member(_) | Screen::Technical(_) | Screen::Provenance | Screen::Problem,
+                Screen::Member(_) | Screen::Details(_) | Screen::Provenance | Screen::Problem,
                 Key::PageUp | Key::PageDown | Key::Home,
             ) => self.page(key),
             (
-                Screen::Member(_) | Screen::Technical(_) | Screen::Provenance | Screen::Problem,
+                Screen::Member(_) | Screen::Details(_) | Screen::Provenance | Screen::Problem,
                 Key::Down | Key::Char('j'),
             ) => {
                 self.scroll += 1;
             }
             (
-                Screen::Member(_) | Screen::Technical(_) | Screen::Provenance | Screen::Problem,
+                Screen::Member(_) | Screen::Details(_) | Screen::Provenance | Screen::Problem,
                 Key::Up | Key::Char('k'),
             ) => {
                 self.scroll = self.scroll.saturating_sub(1);
             }
-            (Screen::Member(i), Key::Char('t')) => self.screen = Screen::Technical(i),
+            // M7-30: `d` opens the details of the open member; `t` does nothing.
+            (Screen::Member(i), Key::Char('d')) => self.screen = Screen::Details(i),
             // `i` expands a long insertion, and only one that can be: on a short
             // edit, and on a member with no design, `i` does nothing (7i4).
             (Screen::Member(i), Key::Char('i')) => {
@@ -262,7 +291,7 @@ impl App {
                 self.screen = Screen::Overview;
                 self.selected = i;
             }
-            (Screen::Technical(i), Key::Esc | Key::Backspace) => self.screen = Screen::Member(i),
+            (Screen::Details(i), Key::Esc | Key::Backspace) => self.screen = Screen::Member(i),
             (Screen::Provenance, Key::Esc | Key::Backspace) => self.screen = Screen::Overview,
             (Screen::Problem, Key::Esc | Key::Backspace) => self.screen = Screen::Overview,
             (Screen::Problem, Key::Char('p')) => self.screen = Screen::Provenance,
@@ -278,12 +307,13 @@ impl App {
             }
             _ => {}
         }
-        // A screen change starts at the top of the new screen (7c3 §3.1 rule 4)
-        // and collapses an expanded insertion, so `t` and back both start the
-        // screen with its marker (7i4).
+        // A screen change starts at the top of the new screen (7c3 §3.1 rule 4),
+        // collapses an expanded insertion, so `d` and back both start the screen
+        // with its marker (7i4), and closes the help legend (M7-27).
         if self.screen != opened {
             self.scroll = 0;
             self.expanded = false;
+            self.help = false;
         }
         Action::Continue
     }
@@ -486,8 +516,10 @@ mod tests {
         app.handle(Key::Down);
         assert_eq!(app.handle(Key::Enter), Action::Continue);
         assert_eq!(app.screen(), Screen::Member(1));
+        assert_eq!(app.handle(Key::Char('d')), Action::Continue);
+        assert_eq!(app.screen(), Screen::Details(1));
         assert_eq!(app.handle(Key::Char('t')), Action::Continue);
-        assert_eq!(app.screen(), Screen::Technical(1));
+        assert_eq!(app.screen(), Screen::Details(1), "`t` does nothing (M7-30)");
         assert_eq!(app.handle(Key::Esc), Action::Continue);
         assert_eq!(app.screen(), Screen::Member(1));
         assert_eq!(app.handle(Key::Backspace), Action::Continue);
@@ -529,8 +561,9 @@ mod tests {
         let screens: Vec<(ResultDocument, Vec<Key>)> = vec![
             (document_with(2), Vec::new()),
             (document_with(2), vec![Key::Enter]),
-            (document_with(2), vec![Key::Enter, Key::Char('t')]),
+            (document_with(2), vec![Key::Enter, Key::Char('d')]),
             (document_with(2), vec![Key::Char('p')]),
+            (document_with(2), vec![Key::Enter, Key::Char('?')]),
             (document_with_error(), Vec::new()),
             (document_with_error(), vec![Key::Esc, Key::Char('e')]),
         ];
@@ -552,8 +585,8 @@ mod tests {
 
         let mut app: App = App::new(document_with(2));
         app.handle(Key::Enter);
-        app.handle(Key::Char('t'));
-        assert_eq!(app.screen(), Screen::Technical(0));
+        app.handle(Key::Char('d'));
+        assert_eq!(app.screen(), Screen::Details(0));
         assert_eq!(app.handle(Key::Esc), Action::Continue);
 
         let mut app: App = App::new(document_with(2));
@@ -601,8 +634,8 @@ mod tests {
             app.handle(Key::Char('j'));
         }
         assert_eq!(app.scroll(), 3);
-        assert_eq!(app.handle(Key::Char('t')), Action::Continue);
-        assert_eq!(app.screen(), Screen::Technical(0));
+        assert_eq!(app.handle(Key::Char('d')), Action::Continue);
+        assert_eq!(app.screen(), Screen::Details(0));
         assert_eq!(app.scroll(), 0, "the new screen opens at its top");
         app.handle(Key::PageDown);
         assert_eq!(app.handle(Key::Esc), Action::Continue);
@@ -706,5 +739,63 @@ mod tests {
         assert_eq!(app.handle(Key::Char('n')), Action::Continue);
         assert_eq!(app.screen(), Screen::Overview);
         assert!(app.export_message().is_some());
+    }
+
+    #[test]
+    fn help_opens_and_closes() {
+        let mut app: App = App::new(document_with(2));
+        app.handle(Key::Enter);
+        assert_eq!(app.screen(), Screen::Member(0));
+        assert!(!app.help(), "the screen opens with the legend closed");
+
+        app.handle(Key::Char('?'));
+        assert!(app.help(), "`?` opens the legend");
+        app.handle(Key::Char('j'));
+        app.handle(Key::PageDown);
+        assert_eq!(app.scroll(), 0, "no key scrolls while help is open");
+        app.handle(Key::Char('d'));
+        assert_eq!(
+            app.screen(),
+            Screen::Member(0),
+            "and no key moves the screen while help is open"
+        );
+        assert!(app.help(), "help stays open");
+
+        assert_eq!(app.handle(Key::Esc), Action::Continue);
+        assert!(!app.help(), "`esc` closes help");
+        assert_eq!(
+            app.screen(),
+            Screen::Member(0),
+            "`esc` closes help and stays on the screen, not back"
+        );
+
+        // `q` quits with help open, on the overview and below it.
+        for keys in [vec![Key::Char('?')], vec![Key::Enter, Key::Char('?')]] {
+            let mut app: App = App::new(document_with(2));
+            for key in keys {
+                app.handle(key);
+            }
+            assert!(app.help(), "with help open");
+            assert_eq!(app.handle(Key::Char('q')), Action::Quit, "`q` quits");
+        }
+
+        // `?` does nothing on the export screen, and a screen change closes help.
+        let mut app: App = App::new(document_with(2));
+        app.handle(Key::Char('x'));
+        app.handle(Key::Char('?'));
+        assert!(!app.help(), "`?` does nothing on the export screen");
+        app.handle(Key::Char('n'));
+        app.handle(Key::Char('?'));
+        app.handle(Key::Char('p'));
+        assert!(
+            app.help() && app.screen() == Screen::Overview,
+            "no key moves the screen while help is open"
+        );
+        app.handle(Key::Esc);
+        assert!(!app.help(), "`esc` closes help on the overview");
+        assert_eq!(app.screen(), Screen::Overview, "and does not go back");
+        app.handle(Key::Char('p'));
+        assert_eq!(app.screen(), Screen::Provenance);
+        assert!(!app.help(), "a screen change keeps help closed");
     }
 }

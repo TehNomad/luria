@@ -22,6 +22,7 @@ use luria_cli::interpret::run::TextSource;
 use luria_cli::prepare::prepare;
 use luria_cli::result::DesignView;
 use luria_cli::result::MutationView;
+use luria_cli::result::PrimerView;
 use luria_cli::result::PrimerWarningView;
 use luria_cli::result::ResultDocument;
 use luria_cli::review::app::{App, Key, Screen};
@@ -155,7 +156,7 @@ fn the_state_and_validation_are_on_screen() {
     );
     assert_eq!(
         screen.last().unwrap(),
-        "q quit  enter open  j/k move  p provenance  x export"
+        "q quit  enter open  j/k move  p provenance  x export  ? help"
     );
 }
 
@@ -234,9 +235,9 @@ fn every_screen_keeps_the_banner() {
             Screen::Member(0),
         ),
         (
-            "technical",
-            opened(&document, &[Key::Enter, Key::Char('t')]),
-            Screen::Technical(0),
+            "details",
+            opened(&document, &[Key::Enter, Key::Char('d')]),
+            Screen::Details(0),
         ),
         (
             "provenance",
@@ -290,8 +291,8 @@ fn a_long_screen_scrolls_and_says_where() {
         lines.len()
     );
     let n: usize = lines.len();
-    let app: App = opened(&document, &[Key::Enter, Key::Char('t'), Key::PageDown]);
-    assert_eq!(app.screen(), Screen::Technical(0));
+    let app: App = opened(&document, &[Key::Enter, Key::Char('d'), Key::PageDown]);
+    assert_eq!(app.screen(), Screen::Details(0));
     let rows: Vec<String> = screen(&app, 80, 24);
     let first: usize = 10.min(n - BODY_ROWS);
     assert_eq!(
@@ -331,11 +332,11 @@ fn scrolling_past_the_end_stops_at_the_last_page() {
     );
     let mut app: App = App::new(document);
     app.handle(Key::Enter);
-    app.handle(Key::Char('t'));
+    app.handle(Key::Char('d'));
     for _ in 0..100 {
         app.handle(Key::PageDown);
     }
-    assert_eq!(app.screen(), Screen::Technical(0));
+    assert_eq!(app.screen(), Screen::Details(0));
     let rows: Vec<String> = screen(&app, 80, 24);
     let first: usize = n - BODY_ROWS;
     assert_eq!(
@@ -347,7 +348,7 @@ fn scrolling_past_the_end_stops_at_the_last_page() {
     assert_eq!(
         rows[23],
         format!(
-            "q quit  esc back  j/k scroll  lines {}-{} of {}",
+            "q quit  esc back  j/k scroll  ? help  lines {}-{} of {}",
             first + 1,
             first + BODY_ROWS,
             n
@@ -662,43 +663,79 @@ fn warning_code(warning: &PrimerWarningView) -> String {
         .to_string()
 }
 
+/// The `message` a warning carries, as the document writes it.
+fn warning_message(warning: &PrimerWarningView) -> String {
+    let value: Value = serde_json::to_value(warning).expect("a warning serializes");
+    value["message"]
+        .as_str()
+        .expect("a warning names its message")
+        .to_string()
+}
+
+/// The character column `needle` ends at in `line`, counting characters, so two
+/// columns of the primer table can be shown to line up (M7-28).
+fn end_column(line: &str, needle: &str) -> usize {
+    let chars: Vec<char> = line.chars().collect();
+    let target: Vec<char> = needle.chars().collect();
+    let start: usize = chars
+        .windows(target.len())
+        .position(|window| window == target.as_slice())
+        .unwrap_or_else(|| panic!("{:?} holds {}", line, needle));
+    start + target.len()
+}
+
+/// One primer's row of the sequence screen's table, from the document's own
+/// length, Tm and sequence, laid out as M7-28 states: the label padded to 10, the
+/// `<n> nt` right-aligned in 6, the `{:.1} °C` right-aligned in 9, three spaces,
+/// the sequence.
+fn primer_row(label: &str, primer: &PrimerView) -> String {
+    format!(
+        "{:width$}{:>6}  {:>9}   {}",
+        label,
+        format!("{} nt", primer.length),
+        format!("{:.1} °C", primer.tm.celsius),
+        primer.sequence,
+        width = 10
+    )
+}
+
 /// The lines `member_screen` writes under 7i3's block for `native-01`'s design:
-/// the two short primer lines, the annealing temperature, then every primer
-/// warning by its code, in the order the document holds them. Every value is
-/// `design`' own field, so only the layout is typed here.
+/// the primer table with the annealing temperature, then every warning by the
+/// document's own message, in the order the document holds them (M7-28, M7-29).
+/// Every value is `design`' own field, so only the layout is typed here.
 fn native01_tail(design: &DesignView) -> Vec<String> {
     let mut lines: Vec<String> = vec![
         String::new(),
         format!(
-            "forward   5'-{}-3'  {} nt  Tm {:.1} C",
-            design.forward.sequence, design.forward.length, design.forward.tm.celsius
+            "{}{:>6}  {:>9}   sequence 5'→3'",
+            " ".repeat(10),
+            "length",
+            "Tm"
         ),
-        format!(
-            "reverse   5'-{}-3'  {} nt  Tm {:.1} C",
-            design.reverse.sequence, design.reverse.length, design.reverse.tm.celsius
-        ),
-        format!("anneal at {} C", design.annealing_temperature),
+        primer_row("forward", &design.forward),
+        primer_row("reverse", &design.reverse),
+        format!("annealing temperature {} °C", design.annealing_temperature),
     ];
-    let codes: Vec<String> = design
+    let messages: Vec<String> = design
         .forward
         .warnings
         .iter()
-        .map(|warning| format!("  forward {}", warning_code(warning)))
+        .map(|warning| format!("  forward: {}", warning_message(warning)))
         .chain(
             design
                 .reverse
                 .warnings
                 .iter()
-                .map(|warning| format!("  reverse {}", warning_code(warning))),
+                .map(|warning| format!("  reverse: {}", warning_message(warning))),
         )
         .collect();
     assert!(
-        !codes.is_empty(),
+        !messages.is_empty(),
         "native-01's design has warnings, so the screen lists them"
     );
     lines.push(String::new());
-    lines.push("warnings:".to_string());
-    lines.extend(codes);
+    lines.push("Warnings".to_string());
+    lines.extend(messages);
     lines
 }
 
@@ -716,36 +753,36 @@ fn enter_opens_the_sequence() {
     );
     assert_eq!(
         keys(&app),
-        "q quit  esc back  t technical  j/k scroll",
+        "q quit  esc back  d details  j/k scroll  ? help",
         "the sequence screen's keys, with no `i` on a short edit: {:?}",
         keys(&app)
     );
 }
 
 #[test]
-fn t_opens_the_technical_lines_and_esc_returns() {
-    let run: Run = native01("technical_lines");
-    let app: App = opened_app(app_of(&run), &[Key::Enter, Key::Char('t')]);
-    assert_eq!(app.screen(), Screen::Technical(0), "`t` opens `t`");
+fn d_opens_the_details_and_esc_returns() {
+    let run: Run = native01("details_lines");
+    let app: App = opened_app(app_of(&run), &[Key::Enter, Key::Char('d')]);
+    assert_eq!(app.screen(), Screen::Details(0), "`d` opens the details");
     let first: String = text::member(&run.document, 0)[0].clone();
     let rows: Vec<String> = screen(&app, 80, 24);
     assert_eq!(
         rows[3],
         shown(&first, 80),
-        "the technical screen shows 7c2's member text: {:?}",
+        "the details screen shows 7c2's member text: {:?}",
         rows[3]
     );
     assert_eq!(
         rows[23],
         format!(
-            "q quit  esc back  j/k scroll  lines 1-{} of {}",
+            "q quit  esc back  j/k scroll  ? help  lines 1-{} of {}",
             BODY_ROWS,
             text::member(&run.document, 0).len()
         ),
-        "the technical screen's keys, with the page it shows: {:?}",
+        "the details screen's keys, with the page it shows: {:?}",
         rows[23]
     );
-    let app: App = opened_app(app_of(&run), &[Key::Enter, Key::Char('t'), Key::Esc]);
+    let app: App = opened_app(app_of(&run), &[Key::Enter, Key::Char('d'), Key::Esc]);
     assert_eq!(
         app.screen(),
         Screen::Member(0),
@@ -806,15 +843,18 @@ fn i_expands_a_long_insertion_and_reopening_collapses_it() {
     let app: App = opened_app(app_of(&run), &[Key::Enter]);
     assert_eq!(app.screen(), Screen::Member(0));
     assert!(!app.expanded(), "the screen starts collapsed");
+    // The fixture holds the block, so its rows are the body's first rows; under
+    // them the body continues with M7-28's primer table (`the_primer_columns_line_up`).
     assert_eq!(
-        body(&app),
-        shown_rows(&collapsed),
-        "collapsed, the body is the marker block the fixture holds"
+        body(&app)[..collapsed.len()],
+        shown_rows(&collapsed)[..collapsed.len()],
+        "collapsed, the body is the marker block the fixture holds: {:?}",
+        body(&app)
     );
     assert_eq!(
         keys(&app),
         format!(
-            "q quit  esc back  t technical  j/k scroll  i expand{}",
+            "q quit  esc back  d details  j/k scroll  i expand  ? help{}",
             page(&collapsed_screen)
         ),
         "`i` is offered, and the page is named: {:?}",
@@ -832,7 +872,7 @@ fn i_expands_a_long_insertion_and_reopening_collapses_it() {
     assert_eq!(
         keys(&app),
         format!(
-            "q quit  esc back  t technical  j/k scroll  i collapse{}",
+            "q quit  esc back  d details  j/k scroll  i collapse  ? help{}",
             page(&expanded_screen)
         ),
         "expanded, `i` collapses again, and the page is named: {:?}",
@@ -847,14 +887,15 @@ fn i_expands_a_long_insertion_and_reopening_collapses_it() {
     assert_eq!(app.screen(), Screen::Member(0), "`enter` opens it again");
     assert!(!app.expanded(), "reopening starts collapsed");
     assert_eq!(
-        body(&app),
-        shown_rows(&collapsed),
-        "the marker block is back"
+        body(&app)[..collapsed.len()],
+        shown_rows(&collapsed)[..collapsed.len()],
+        "the marker block is back: {:?}",
+        body(&app)
     );
     assert_eq!(
         keys(&app),
         format!(
-            "q quit  esc back  t technical  j/k scroll  i expand{}",
+            "q quit  esc back  d details  j/k scroll  i expand  ? help{}",
             page(&collapsed_screen)
         ),
         "and `i` offers to expand again: {:?}",
@@ -886,7 +927,7 @@ fn i_does_nothing_on_a_short_edit() {
     );
     assert_eq!(
         keys(&app),
-        "q quit  esc back  t technical  j/k scroll",
+        "q quit  esc back  d details  j/k scroll  ? help",
         "so `i` is not offered, because `i` has nothing to expand: {:?}",
         keys(&app)
     );
@@ -919,6 +960,104 @@ fn the_short_primer_lines_are_the_documents() {
 }
 
 #[test]
+fn the_primer_columns_line_up() {
+    let run: Run = native01("primer_columns");
+    let design = run.document.results[0]
+        .design
+        .as_ref()
+        .expect("native-01 is designed");
+    let lines: Vec<String> = text::member_screen(
+        &run.document,
+        0,
+        Some(&run.template),
+        run.frames.first(),
+        false,
+    );
+    let header: usize = lines
+        .iter()
+        .position(|line| line.ends_with("sequence 5'→3'"))
+        .expect("the primer table names its columns");
+    assert!(
+        lines.len() > header + 2,
+        "the header is followed by two rows"
+    );
+    for (primer, offset) in [(&design.forward, 1usize), (&design.reverse, 2)] {
+        let row: &String = &lines[header + offset];
+        assert_eq!(
+            end_column(row, "nt"),
+            end_column(&lines[header], "length"),
+            "the length ends in the header's column: {:?}",
+            lines[header..header + 3].to_vec()
+        );
+        assert_eq!(
+            end_column(row, "°C"),
+            end_column(&lines[header], "Tm"),
+            "the Tm ends in the header's column: {:?}",
+            lines[header..header + 3].to_vec()
+        );
+        assert!(
+            row.contains(&format!("{} nt", primer.length)),
+            "the length is the document's own: {:?}",
+            row
+        );
+        assert!(
+            row.contains(&format!("{:.1} °C", primer.tm.celsius)),
+            "the Tm is the document's own, shown to one decimal: {:?}",
+            row
+        );
+        assert!(
+            row.ends_with(&primer.sequence),
+            "the row ends with the primer's own sequence: {:?}",
+            row
+        );
+    }
+}
+
+#[test]
+fn warnings_are_descriptive() {
+    let run: Run = native01("descriptive_warnings");
+    let design = run.document.results[0]
+        .design
+        .as_ref()
+        .expect("native-01 is designed");
+    let lines: Vec<String> = text::member_screen(
+        &run.document,
+        0,
+        Some(&run.template),
+        run.frames.first(),
+        false,
+    );
+    for (side, primer) in [("forward", &design.forward), ("reverse", &design.reverse)] {
+        assert!(
+            !primer.warnings.is_empty(),
+            "native-01's {} primer has warnings to list",
+            side
+        );
+        for warning in &primer.warnings {
+            let expected: String = format!("  {}: {}", side, warning_message(warning));
+            assert_eq!(
+                lines.iter().filter(|line| **line == expected).count(),
+                1,
+                "the warning is the document's own message, once: {:?}",
+                lines
+            );
+            let code: String = warning_code(warning);
+            assert!(
+                lines.iter().all(|line| !line.contains(&code)),
+                "no warning code is on the screen: {:?}",
+                lines
+            );
+        }
+    }
+    assert_eq!(
+        lines.iter().filter(|line| **line == "Warnings").count(),
+        1,
+        "the warnings are under one heading: {:?}",
+        lines
+    );
+}
+
+#[test]
 fn the_overview_is_members_only() {
     let document: ResultDocument = set("members_only");
     let template = document
@@ -927,36 +1066,23 @@ fn the_overview_is_members_only() {
         .as_ref()
         .expect("the set names its template");
     let target = document.target.as_ref().expect("the set has a target");
-    // Every expected value is the document's own field, so only the layout of a
-    // row is typed here.
-    let expected: Vec<String> = vec![
-        format!(
-            "template: {}, {}, {} bp",
-            template.id, template.topology, template.length
-        ),
-        format!(
-            "target: {}, {}, [{}, {})",
-            target.id, target.strand, target.intervals[0].0, target.intervals[0].1
-        ),
-        format!("members: {}", document.results.len()),
-    ];
-    let rows: Vec<String> = document
+    assert_eq!(target.strand, "+", "the set's target is on the plus strand");
+    // Every expected value is the document's own field, so only the words and the
+    // padding of the new form are typed here (M7-25, M7-26).
+    let summaries: Vec<String> = document
         .results
         .iter()
-        .enumerate()
-        .map(|(index, member)| {
-            let (cds, original_residue, residue, written_residue, original_codon, written_codon) =
+        .map(|member| {
+            let (original_residue, residue, written_residue, original_codon, written_codon) =
                 match &member.mutation {
                     MutationView::Residue {
-                        cds,
-                        residue,
                         original_residue,
+                        residue,
                         written_residue,
                         original_codon,
                         written_codon,
                         ..
                     } => (
-                        cds,
                         original_residue,
                         residue,
                         written_residue,
@@ -966,25 +1092,66 @@ fn the_overview_is_members_only() {
                     other => panic!("the set's members are residue edits: {:?}", other),
                 };
             format!(
-                "{}{}  {} {}{}{} {}->{}  designed",
-                if index == 0 { "> " } else { "  " },
-                member.name,
-                cds,
-                original_residue,
-                residue,
-                written_residue,
-                original_codon,
-                written_codon
+                "{}{}{} ({}→{})",
+                original_residue, residue, written_residue, original_codon, written_codon
             )
         })
         .collect();
+    let id_width: usize = template.id.chars().count().max(target.id.chars().count());
+    let name_width: usize = document
+        .results
+        .iter()
+        .map(|member| member.name.chars().count())
+        .max()
+        .expect("the set has a member");
+    let summary_width: usize = summaries
+        .iter()
+        .map(|summary| summary.chars().count())
+        .max()
+        .expect("the set has a member");
+    let expected: Vec<String> = [
+        vec![
+            format!(
+                "Template  {:id$}  {}, {} bp",
+                template.id,
+                template.topology,
+                template.length,
+                id = id_width
+            ),
+            // The interval `[start, end)` as 1-based inclusive bases (M7-24).
+            format!(
+                "Target    {:id$}  forward strand, bases {}–{}",
+                target.id,
+                target.intervals[0].0 + 1,
+                target.intervals[0].1,
+                id = id_width
+            ),
+            String::new(),
+            format!("Variants ({})", document.results.len()),
+        ],
+        document
+            .results
+            .iter()
+            .enumerate()
+            .map(|(index, member)| {
+                format!(
+                    "{}{:name$}  {:sum$}  designed",
+                    if index == 0 { "▶ " } else { "  " },
+                    member.name,
+                    summaries[index],
+                    name = name_width,
+                    sum = summary_width
+                )
+            })
+            .collect(),
+    ]
+    .concat();
     let lines: Vec<String> = text::overview(&document, 0);
     assert_eq!(
-        lines,
-        [expected, rows].concat(),
-        "the overview is the template line, the target line, `members` and one row per member"
+        lines, expected,
+        "the overview is the template line, the target line, `Variants` and one row per member"
     );
-    assert_eq!(lines.len(), 3 + document.results.len());
+    assert_eq!(lines.len(), 4 + document.results.len());
 }
 
 #[test]
@@ -993,7 +1160,7 @@ fn the_key_line_offers_problem_only_with_a_problem() {
     // offers no problem screen.
     let rows: Vec<String> = screen(&App::new(set("key_line_set")), 80, 24);
     assert_eq!(
-        rows[23], "q quit  enter open  j/k move  p provenance  x export",
+        rows[23], "q quit  enter open  j/k move  p provenance  x export  ? help",
         "{:?}",
         rows[23]
     );
@@ -1004,7 +1171,7 @@ fn the_key_line_offers_problem_only_with_a_problem() {
     assert_eq!(app.screen(), Screen::Overview);
     let rows: Vec<String> = screen(&app, 80, 24);
     assert_eq!(
-        rows[23], "q quit  enter open  j/k move  p provenance  x export  e problem",
+        rows[23], "q quit  enter open  j/k move  p provenance  x export  e problem  ? help",
         "{:?}",
         rows[23]
     );

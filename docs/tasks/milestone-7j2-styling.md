@@ -1,6 +1,6 @@
 # Milestone 7j2: borders, the title badge, colour and the help pop-up
 
-Status: **Draft, waits for 7j1.** Planner: Claude. Parent:
+Status: **Ready for the worker, 2026-10-21.** Planner: Claude. Parent:
 `docs/tasks/milestone-7-tui.md` §5.3b (owner answers M7-23, M7-27 and the
 styling paragraph). Changes **drawing only**: every text line 7j1 builds
 stays byte for byte what it is, so the string tests still hold.
@@ -61,7 +61,8 @@ heading text. No rule changes a character.
 While `app.help()` is true, draw the screen as usual, then a centred
 `Clear` + rounded `Block` titled ` Help `, sized to `text::help()`'s
 longest line + 4 by its line count + 2 (clamped to the frame), holding
-`text::help()`. 7j1's interim "help replaces the body" goes.
+`text::help()`. 7j1's interim "help replaces the body" goes; the key line while help
+is open stays `q quit  esc close`.
 
 ## 5. Tests, `crates/cli/tests/review_view.rs`
 

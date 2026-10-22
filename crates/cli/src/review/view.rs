@@ -51,25 +51,31 @@ pub fn draw(frame: &mut Frame, app: &App) {
     // The body is rows 3 to `height - 2`, so `height - 4` rows tall.
     let body: Rect = Rect::new(0, 3, area.width, area.height - 4);
     let rows: usize = body.height as usize;
-    let lines: Vec<String> = match app.screen() {
-        Screen::Overview => text::overview(document, app.selected()),
-        // 7i4 (plan §5.3a): `enter` on a member opens its sequence screen, 7i3's
-        // block with the short primer lines under it, expanded when `i` asked for
-        // the insertion to be written out.
-        Screen::Member(index) => text::member_screen(
-            document,
-            index,
-            app.template(),
-            app.frame(index),
-            app.expanded(),
-        ),
-        // 7i4: the technical lines (7c2's member text) are behind `t`.
-        Screen::Technical(index) => text::member(document, index),
-        Screen::Provenance => text::provenance(document),
-        Screen::Problem => text::problem(document),
-        // 7g1: the export screen's lines are the plan's names, the table's
-        // refusal when there is one, and the line the last export gave.
-        Screen::Export => text::export(app.export_plan(), app.export_message()),
+    // M7-27: `?` shows the legend in place of the open screen's lines (7j2 draws
+    // it as a pop-up).
+    let lines: Vec<String> = if app.help() {
+        text::help()
+    } else {
+        match app.screen() {
+            Screen::Overview => text::overview(document, app.selected()),
+            // 7i4 (plan §5.3a): `enter` on a member opens its sequence screen, 7i3's
+            // block with the short primer lines under it, expanded when `i` asked for
+            // the insertion to be written out.
+            Screen::Member(index) => text::member_screen(
+                document,
+                index,
+                app.template(),
+                app.frame(index),
+                app.expanded(),
+            ),
+            // 7i4, M7-30: the details (7c2's member text) are behind `d`.
+            Screen::Details(index) => text::member(document, index),
+            Screen::Provenance => text::provenance(document),
+            Screen::Problem => text::problem(document),
+            // 7g1: the export screen's lines are the plan's names, the table's
+            // refusal when there is one, and the line the last export gave.
+            Screen::Export => text::export(app.export_plan(), app.export_message()),
+        }
     };
 
     // The app's scroll has no upper bound, so the clamp is here: the last line
@@ -83,43 +89,55 @@ pub fn draw(frame: &mut Frame, app: &App) {
     // row never moves.
     frame.render_widget(Paragraph::new(shown), body);
 
-    let mut keys: String = match app.screen() {
-        Screen::Overview => "q quit  enter open  j/k move  p provenance  x export".to_string(),
-        Screen::Member(index) => {
-            // `i` is offered only where `i` expands, that is on a member whose
-            // design writes more than the inline limit, and it names the state the
-            // key brings about, so `expand` while collapsed and `collapse` while
-            // expanded (7i4).
-            let mut keys: String = "q quit  esc back  t technical  j/k scroll".to_string();
-            if expandable(document, index) {
-                keys.push_str(if app.expanded() {
-                    "  i collapse"
-                } else {
-                    "  i expand"
-                });
+    let mut keys: String = if app.help() {
+        // M7-27: with the legend open, the only keys are `q` and the one that
+        // closes it.
+        "q quit  esc close".to_string()
+    } else {
+        let mut keys: String = match app.screen() {
+            Screen::Overview => "q quit  enter open  j/k move  p provenance  x export".to_string(),
+            Screen::Member(index) => {
+                // `i` is offered only where `i` expands, that is on a member whose
+                // design writes more than the inline limit, and it names the state the
+                // key brings about, so `expand` while collapsed and `collapse` while
+                // expanded (7i4).
+                let mut keys: String = "q quit  esc back  d details  j/k scroll".to_string();
+                if expandable(document, index) {
+                    keys.push_str(if app.expanded() {
+                        "  i collapse"
+                    } else {
+                        "  i expand"
+                    });
+                }
+                keys
             }
-            keys
-        }
-        Screen::Technical(_) => "q quit  esc back  j/k scroll".to_string(),
-        Screen::Provenance | Screen::Problem => "q quit  esc back  j/k scroll".to_string(),
-        // `y` is offered only where `y` writes, that is where a plan exists, so
-        // the key line never offers an action that does nothing (7g1).
-        Screen::Export => {
-            let mut keys: String = "q quit".to_string();
-            if app.export_plan().is_some() {
-                keys.push_str("  y write");
+            Screen::Details(_) => "q quit  esc back  j/k scroll".to_string(),
+            Screen::Provenance | Screen::Problem => "q quit  esc back  j/k scroll".to_string(),
+            // `y` is offered only where `y` writes, that is where a plan exists, so
+            // the key line never offers an action that does nothing (7g1).
+            Screen::Export => {
+                let mut keys: String = "q quit".to_string();
+                if app.export_plan().is_some() {
+                    keys.push_str("  y write");
+                }
+                keys.push_str("  n back");
+                keys
             }
-            keys.push_str("  n back");
-            keys
+        };
+        // A problem is never hidden (plan §3 rule 3), so the key that opens it is on
+        // the overview's key line whenever the document has one.
+        if app.screen() == Screen::Overview
+            && (document.error.is_some() || !document.clarifications.is_empty())
+        {
+            keys.push_str("  e problem");
         }
+        // M7-27: `?` opens the legend on every result screen bar `Export`, where it
+        // does nothing, so it is offered only where it works.
+        if app.screen() != Screen::Export {
+            keys.push_str("  ? help");
+        }
+        keys
     };
-    // A problem is never hidden (plan §3 rule 3), so the key that opens it is on
-    // the overview's key line whenever the document has one.
-    if app.screen() == Screen::Overview
-        && (document.error.is_some() || !document.clarifications.is_empty())
-    {
-        keys.push_str("  e problem");
-    }
     if lines.len() > rows {
         // Where the body sits in the screen's lines, 1-based and inclusive.
         keys.push_str(&format!(

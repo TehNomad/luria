@@ -209,17 +209,59 @@ fn span_text(span: (u64, u64)) -> String {
     format!("[{}, {})", span.0, span.1)
 }
 
+/// The same interval as M7-24 says the overview and the member screen write it:
+/// 1-based inclusive, so `[42, 345)` is `43–345` and one base is one number.
+fn bases_at_text(span: (u64, u64)) -> String {
+    if span.1 - span.0 == 1 {
+        format!("{}", span.0 + 1)
+    } else {
+        format!("{}\u{2013}{}", span.0 + 1, span.1)
+    }
+}
+
+/// A member's `mutation` as M7-22 says a residue row reads it: the residues the
+/// document holds, then its codons in brackets. Every value is the document's
+/// own field.
+fn residue_summary(mutation: &MutationView) -> String {
+    match mutation {
+        MutationView::Residue {
+            original_residue,
+            residue,
+            written_residue,
+            original_codon,
+            written_codon,
+            ..
+        } => format!(
+            "{}{}{} ({}\u{2192}{})",
+            original_residue, residue, written_residue, original_codon, written_codon
+        ),
+        other => panic!("the set's members are residue edits: {:?}", other),
+    }
+}
+
+/// The character column `needle` starts at in `line`, so two rows' columns can
+/// be shown to line up (M7-26).
+fn start_column(line: &str, needle: &str) -> usize {
+    let chars: Vec<char> = line.chars().collect();
+    let target: Vec<char> = needle.chars().collect();
+    chars
+        .windows(target.len())
+        .position(|window| window == target.as_slice())
+        .unwrap_or_else(|| panic!("{:?} holds {}", line, needle))
+}
+
 /// The design of member 0, which the set's members have.
 fn design_of(document: &ResultDocument) -> &DesignView {
     document.results[0].design.as_ref().expect("a design")
 }
 
-/// The member rows: the marker (`> ` or `  `) is the only thing that makes a row
-/// recognizable, so the lines with one are the rows.
+/// The member rows: the marker (`\u{25b6} ` for the selected row, two spaces for
+/// the others) is the only thing that makes a row recognizable, so the lines with
+/// one are the rows.
 fn member_rows(lines: &[String]) -> Vec<String> {
     lines
         .iter()
-        .filter(|line| line.starts_with("> ") || line.starts_with("  "))
+        .filter(|line| line.starts_with("\u{25b6} ") || line.starts_with("  "))
         .cloned()
         .collect()
 }
@@ -232,12 +274,162 @@ fn count(lines: &[String], expected: &str) -> usize {
 
 #[test]
 fn the_overview_names_the_template_and_target() {
-    let lines = text::overview(&set("overview"), 0);
-    assert_eq!(lines[0], "template: synlin, linear, 393 bp");
-    assert_eq!(lines[1], "target: synA, +, [42, 345)");
+    let document: ResultDocument = set("overview");
+    let template = document
+        .provenance
+        .template
+        .as_ref()
+        .expect("the set names its template");
+    let target = document.target.as_ref().expect("the set has a target");
+    let lines: Vec<String> = text::overview(&document, 0);
+    // M7-25, M7-26: the ids padded to the longer of the two, the strand `+` as
+    // `forward`, the target's interval 1-based inclusive. `synlin`, `linear`,
+    // 393 bp and `synA` with CDS `[42, 345)` are facts of
+    // `tests/fixtures/genbank/synthetic-linear-record.tsv` and
+    // `synthetic-linear-cds.tsv`.
+    let width: usize = template.id.chars().count().max(target.id.chars().count());
+    assert_eq!(
+        lines[0],
+        format!(
+            "Template  {:width$}  {}, {} bp",
+            template.id,
+            template.topology,
+            template.length,
+            width = width
+        ),
+        "the template line: {:?}",
+        lines
+    );
+    assert_eq!(
+        lines[1],
+        format!(
+            "Target    {:width$}  {} strand, bases {}",
+            target.id,
+            if target.strand == "+" {
+                "forward"
+            } else {
+                "reverse"
+            },
+            bases_at_text(target.intervals[0]),
+            width = width
+        ),
+        "the target line, in words: {:?}",
+        lines
+    );
     // 7i4 (plan §5.3a M7-22): the operation is not on the overview, which names
     // the template, the target and the members only.
-    assert_eq!(lines[2], "members: 2");
+    assert_eq!(lines[2], "", "a blank between the heading and the rows");
+    assert_eq!(
+        lines[3],
+        format!("Variants ({})", document.results.len()),
+        "the members are counted in words: {:?}",
+        lines
+    );
+}
+
+#[test]
+fn the_overview_reads_in_words() {
+    let document: ResultDocument = set("words");
+    let lines: Vec<String> = text::overview(&document, 0);
+    // M7-25, M7-26: the heading reads in words, with the template's and the
+    // target's ids padded to the longer, the `+` strand as `forward`, and the
+    // CDS interval as 1-based inclusive bases: `synlin` (393 bp, `linear`) and
+    // `synA` with CDS `[42, 345)` are facts of `tests/fixtures/genbank/
+    // synthetic-linear-record.tsv` and `synthetic-linear-cds.tsv`.
+    let heading: Vec<String> = vec![
+        "Template  synlin  linear, 393 bp".to_string(),
+        "Target    synA    forward strand, bases 43\u{2013}345".to_string(),
+        String::new(),
+        "Variants (2)".to_string(),
+    ];
+    assert_eq!(
+        &lines[..heading.len()],
+        &heading[..],
+        "the heading is the document's own values in the new words: {:?}",
+        lines
+    );
+    // The rows, with every value the document's own field and only the marker,
+    // the padding and the words typed here.
+    let summaries: Vec<String> = document
+        .results
+        .iter()
+        .map(|member| residue_summary(&member.mutation))
+        .collect();
+    let name_width: usize = document
+        .results
+        .iter()
+        .map(|member| member.name.chars().count())
+        .max()
+        .expect("the set has members");
+    let summary_width: usize = summaries
+        .iter()
+        .map(|summary| summary.chars().count())
+        .max()
+        .expect("the set has members");
+    for (index, summary) in summaries.iter().enumerate() {
+        let marker: &str = if index == 0 { "\u{25b6} " } else { "  " };
+        assert_eq!(
+            lines[heading.len() + index],
+            format!(
+                "{marker}{:name$}  {:sum$}  designed",
+                document.results[index].name,
+                summary,
+                name = name_width,
+                sum = summary_width,
+                marker = marker
+            ),
+            "row {} reads in words: {:?}",
+            index,
+            lines
+        );
+    }
+}
+
+#[test]
+fn rows_line_up() {
+    let document: ResultDocument = set("line_up");
+    let lines: Vec<String> = text::overview(&document, 1);
+    let rows: Vec<String> = member_rows(&lines);
+    assert_eq!(rows.len(), 2, "one row per member: {:?}", lines);
+    let summaries: Vec<String> = document
+        .results
+        .iter()
+        .map(|member| residue_summary(&member.mutation))
+        .collect();
+    let columns: Vec<usize> = rows
+        .iter()
+        .enumerate()
+        .map(|(index, row)| start_column(row, &summaries[index]))
+        .collect();
+    assert_eq!(
+        columns[0], columns[1],
+        "the name is padded to the longest, so both summaries start in the same column: {:?}",
+        rows
+    );
+    let outcomes: Vec<usize> = rows
+        .iter()
+        .map(|row| start_column(row, "designed"))
+        .collect();
+    assert_eq!(
+        outcomes[0], outcomes[1],
+        "and the summary is padded to the longest, so both outcomes start in the same column: {:?}",
+        rows
+    );
+}
+
+#[test]
+fn the_help_holds_the_legend() {
+    let lines: Vec<String> = text::help();
+    assert!(
+        lines.iter().any(|line| line.starts_with("  protein")),
+        "the help explains the protein line: {:?}",
+        lines
+    );
+    assert!(
+        lines.iter().any(|line| line.starts_with("  lower case")),
+        "the help explains what lower case means: {:?}",
+        lines
+    );
 }
 
 #[test]
@@ -247,48 +439,96 @@ fn each_member_has_one_row_and_one_marker() {
     let rows = member_rows(&lines);
     assert_eq!(rows.len(), 2, "one row per member: {:?}", lines);
 
-    let marked: Vec<&String> = rows.iter().filter(|row| row.starts_with("> ")).collect();
+    let marked: Vec<&String> = rows
+        .iter()
+        .filter(|row| row.starts_with("\u{25b6} "))
+        .collect();
     assert_eq!(marked.len(), 1, "exactly one marker: {:?}", rows);
     assert_eq!(
         *marked[0], rows[1],
         "the marker is on the member at `selected`"
     );
 
-    let prefix: &str = "  A42G  synA A42G GCA->";
-    assert!(rows[0].starts_with(prefix), "the first row: {:?}", rows[0]);
-    assert!(
-        rows[0][prefix.len()..].starts_with(&written_codon(&document.results[0].mutation)),
-        "the written codon is the document's own: {:?}",
-        rows[0]
-    );
+    // M7-26: the row is the marker, the name padded to the longest name, the
+    // summary padded to the longest summary and the outcome; every value is the
+    // document's own field.
+    let summaries: Vec<String> = document
+        .results
+        .iter()
+        .map(|member| residue_summary(&member.mutation))
+        .collect();
+    let name_width: usize = document
+        .results
+        .iter()
+        .map(|member| member.name.chars().count())
+        .max()
+        .expect("the set has members");
+    let summary_width: usize = summaries
+        .iter()
+        .map(|summary| summary.chars().count())
+        .max()
+        .expect("the set has members");
+    for (index, summary) in summaries.iter().enumerate() {
+        let marker: &str = if index == 1 { "\u{25b6} " } else { "  " };
+        assert_eq!(
+            rows[index],
+            format!(
+                "{marker}{:name$}  {:sum$}  designed",
+                document.results[index].name,
+                summary,
+                name = name_width,
+                sum = summary_width,
+                marker = marker
+            ),
+            "row {} is padded to line up: {:?}",
+            index,
+            rows
+        );
+    }
     assert!(
         rows[0].ends_with("designed"),
         "the row ends with its outcome, and its warnings are not counted on the row: {:?}",
         rows[0]
-    );
-    assert!(
-        rows[1].starts_with("> W87A  synA W87A TGG->"),
-        "{:?}",
-        rows[1]
     );
 }
 
 #[test]
 fn a_design_failure_is_on_the_overview_row() {
     let document = design_failure("failure_row");
-    let rows = member_rows(&text::overview(&document, 0));
-    assert_eq!(rows.len(), 1);
-    assert!(
-        rows[0].contains(&format!(
-            "design failed: {}",
-            design_failure_code(&document)
-        )),
-        "the row shows the document's own design failure code: {:?}",
-        rows[0]
+    let rows: Vec<String> = member_rows(&text::overview(&document, 0));
+    assert_eq!(rows.len(), 1, "one row for the one member: {:?}", rows);
+    // M7-26: a design failure reads `no primer pair`; the name, the bases and the
+    // edited bases are the document's own fields. `T99C` and its interval
+    // `[99, 100)` are the request this helper writes.
+    let (original, written, span) = match &document.results[0].mutation {
+        MutationView::Substitution {
+            original,
+            written,
+            interval,
+            ..
+        } => (original.clone(), written.clone(), *interval),
+        other => panic!("the failure's member is a substitution: {:?}", other),
+    };
+    assert_eq!(
+        rows[0],
+        format!(
+            "\u{25b6} {}  {}\u{2192}{} at {}  no primer pair",
+            document.results[0].name,
+            original,
+            written,
+            bases_at_text(span)
+        ),
+        "the row states the failure in words: {:?}",
+        rows
     );
     assert!(
         !rows[0].contains("designed"),
         "a design failure is shown as a failure, never as a design: {:?}",
+        rows[0]
+    );
+    assert!(
+        !rows[0].contains(design_failure_code(&document)),
+        "the row shows the words, not the document's failure code: {:?}",
         rows[0]
     );
 }
@@ -442,11 +682,25 @@ fn the_member_screen_names_the_edit() {
     // `tests/fixtures/genbank/synthetic-linear-cds.tsv` and
     // `synthetic-linear-residues.tsv`; the written codon and the edited
     // construct are the document's own fields.
+    // M7-22: the summary is the residues and the codons the document holds; `GCA`
+    // is codon 42 of `tests/fixtures/genbank/synthetic-linear-residues.tsv`.
+    let (original_residue, residue, written_residue) = match &member.mutation {
+        MutationView::Residue {
+            original_residue,
+            residue,
+            written_residue,
+            ..
+        } => (original_residue.clone(), *residue, written_residue.clone()),
+        other => panic!("the member's mutation is a residue: {:?}", other),
+    };
     assert_eq!(
         count(
             &lines,
             &format!(
-                "mutation: synA A42G GCA->{}",
+                "mutation: {}{}{} (GCA\u{2192}{})",
+                original_residue,
+                residue,
+                written_residue,
                 written_codon(&member.mutation)
             )
         ),
