@@ -1,6 +1,6 @@
 # Milestone 7k8: `luria new`'s unknown-option message names every option
 
-Status: **Ready for the worker, 2026-10-22.** Planner: Claude. Follows
+Status: **Implemented, 2026-10-22.** Planner: Claude. Follows
 7k7, which added `--backend`, `--endpoint`, `--model` and
 `--allow-remote` to `luria new` but left the old message.
 

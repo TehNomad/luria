@@ -222,7 +222,7 @@ fn new_with_an_unknown_word_is_a_usage_error_naming_it() {
     assert_eq!(
         String::from_utf8(output.stderr).unwrap(),
         format!(
-            "luria: 'new' takes only --design and --export, got '--bogus'\n\n{}",
+            "luria: 'new' takes only --design, --export, --backend, --endpoint, --model and --allow-remote, got '--bogus'\n\n{}",
             luria_cli::args::USAGE
         )
     );

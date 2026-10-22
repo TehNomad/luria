@@ -438,7 +438,7 @@ fn parse_new(words: &[String]) -> Result<Command, UsageError> {
         }
 
         return reject(format!(
-            "'new' takes only --design and --export, got '{}'",
+            "'new' takes only --design, --export, --backend, --endpoint, --model and --allow-remote, got '{}'",
             word
         ));
     }
