@@ -1,6 +1,11 @@
 # Milestone 7j2: borders, the title badge, colour and the help pop-up
 
-Status: **Ready for the worker, 2026-10-21.** Planner: Claude. Parent:
+Status: **Implemented 2026-10-21** by w7j2 (ran out of context before
+clippy) and w7j2b (two test lints). The planner fixed two
+`needless_borrow` lints in `view.rs` (`&document.state` and
+`&document.experimental_validation` passed without `&`). Proofs 1 and 2
+failed as required. Test indices now read the body inside the border:
+`BODY_ROWS` 21, inner width 78. Planner: Claude. Parent:
 `docs/tasks/milestone-7-tui.md` §5.3b (owner answers M7-23, M7-27 and the
 styling paragraph). Changes **drawing only**: every text line 7j1 builds
 stays byte for byte what it is, so the string tests still hold.

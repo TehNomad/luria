@@ -6,6 +6,12 @@
 //! applied to the same document, so a row is checked against the line the screen
 //! must show, not against what running the screen gave.
 //!
+//! 7j2 draws the body inside a rounded border: the frame is rows 0 to
+//! `height - 2`, row 0 is its title and holds the badge, the body is the frame's
+//! inner area, rows 1 to `1 + BODY_ROWS - 1` from column 1 (78 columns wide at
+//! 80x24), and row `height - 1` is the key line. The helpers below read that
+//! layout, so most tests read their body rows through them.
+//!
 //! The result documents are `luria_cli::run::run` on `edit-a42g.json` against
 //! `synthetic-linear.gb`, in a directory under `CARGO_TARGET_TMPDIR` as
 //! `tests/end_to_end.rs`'s `workspace` does. `state` `verified` and
@@ -36,6 +42,7 @@ use luria_cli::run::run;
 use luria_cli::run::run_with_constructs;
 use luria_nl::backend::ScriptedBackend;
 use ratatui::backend::TestBackend;
+use ratatui::style::{Color, Modifier, Style};
 use ratatui::Terminal;
 use serde_json::{json, Value};
 use std::fs;
@@ -78,6 +85,16 @@ fn failed(test: &str) -> ResultDocument {
     outcome.document
 }
 
+/// A `needs_clarification` document: `verified`'s run, with its state written as
+/// that value, as `the_screen_shows_the_document_not_a_literal` sets it. The
+/// validation stays `not_performed`.
+fn needs_clarification(test: &str) -> ResultDocument {
+    let mut document: ResultDocument = verified(test);
+    document.state = "needs_clarification";
+    assert_eq!(document.experimental_validation, "not_performed");
+    document
+}
+
 /// Draw `app` on a `width` by `height` test backend, and return every row as
 /// the symbols of its cells, in screen order.
 fn rows(app: &App, width: u16, height: u16) -> Vec<String> {
@@ -98,6 +115,20 @@ fn screen(app: &App, width: u16, height: u16) -> Vec<String> {
     rows(app, width, height)
         .iter()
         .map(|row| row.trim_end().to_string())
+        .collect()
+}
+
+/// `app` drawn on a `width` by `height` test backend, with the style of every
+/// cell in screen order (7j2: colour is read off cells, not off rows).
+fn styles(app: &App, width: u16, height: u16) -> Vec<Vec<Style>> {
+    let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
+    terminal.draw(|frame| view::draw(frame, app)).unwrap();
+    let buffer = terminal.backend().buffer();
+    let width: usize = buffer.area.width as usize;
+    buffer
+        .content
+        .chunks(width)
+        .map(|cells| cells.iter().map(|cell| cell.style()).collect())
         .collect()
 }
 
@@ -133,24 +164,29 @@ fn shown(line: &str, width: usize) -> String {
     cut.trim_end().to_string()
 }
 
-/// The body's rows at 80x24: rows 3 to `height - 2`, so 20 of the 24 rows.
-const BODY_ROWS: usize = 20;
+/// The body's rows at 80x24 (7j2): the frame's inner area, rows 1 to 21, so 21
+/// of the 24 rows, since the two border rows and the key row leave `height - 3`.
+const BODY_ROWS: usize = 21;
+/// The body's width at 80x24: the frame's inner area, so 78 of the 80 columns.
+const INNER_WIDTH: usize = 78;
 
 #[test]
 fn the_state_and_validation_are_on_screen() {
     let app = App::new(verified("on_screen"));
     let screen = screen(&app, 80, 24);
+    // 7j2: the state and the validation are the badge in row 0's title, built
+    // from the document's own fields, once each.
     assert_eq!(
         screen
             .iter()
-            .filter(|row| **row == "state: verified")
+            .filter(|row| row.contains(" ✓ verified "))
             .count(),
         1
     );
     assert_eq!(
         screen
             .iter()
-            .filter(|row| **row == "experimental validation: not_performed")
+            .filter(|row| row.contains(" · not tested at the bench "))
             .count(),
         1
     );
@@ -163,8 +199,13 @@ fn the_state_and_validation_are_on_screen() {
 #[test]
 fn a_failed_result_shows_its_state() {
     let screen = screen(&App::new(failed("failed_state")), 80, 24);
+    // 7j2: the badge's word is the document's own `state`, so the failed badge
+    // is on row 0.
     assert_eq!(
-        screen.iter().filter(|row| **row == "state: failed").count(),
+        screen
+            .iter()
+            .filter(|row| row.contains(" ✗ failed "))
+            .count(),
         1
     );
     assert!(
@@ -204,28 +245,31 @@ fn the_screen_shows_the_document_not_a_literal() {
     let mut document = verified("literal");
     document.state = "needs_clarification";
     document.experimental_validation = "performed elsewhere";
-    let screen = screen(&App::new(document), 80, 24);
+    // 7j2: both words are in row 0's badge, and the state word is the document's
+    // own, as is the validation, whose value is not `not_performed`. A value this
+    // long is cut at the frame's inner width on an 80-column screen, as a long
+    // body line is, so the screen is drawn 100 columns wide.
+    let screen = screen(&App::new(document), 100, 24);
     assert!(
-        screen.contains(&"state: needs_clarification".to_string()),
+        screen[0].contains(" ? needs clarification "),
         "{:?}",
-        screen
+        screen[0]
     );
     assert!(
-        screen.contains(&"experimental validation: performed elsewhere".to_string()),
+        screen[0].contains(" · experimental validation: performed elsewhere "),
         "{:?}",
-        screen
+        screen[0]
     );
 }
 
 #[test]
 fn every_screen_keeps_the_banner() {
     let document: ResultDocument = set("banner");
+    // 7j2: the badge in the frame's title row carries the state word and the
+    // validation, both the document's own fields.
     let banner: Vec<String> = vec![
-        format!("state: {}", document.state),
-        format!(
-            "experimental validation: {}",
-            document.experimental_validation
-        ),
+        format!(" {} ", document.state),
+        " · not tested at the bench ".to_string(),
     ];
     for (name, app, expected) in [
         ("overview", opened(&document, &[]), Screen::Overview),
@@ -247,12 +291,12 @@ fn every_screen_keeps_the_banner() {
     ] {
         assert_eq!(app.screen(), expected, "the {} screen is open", name);
         let rows: Vec<String> = screen(&app, 80, 24);
-        assert_eq!(
-            &rows[0..2],
-            &banner[..],
-            "the banner is rows 0 and 1 of the {} screen: {:?}",
+        assert!(
+            rows[0].contains(&banner[0]) && rows[0].contains(&banner[1]),
+            "the badge in row 0 of the {} screen is the document's own state and \
+             validation: {:?}",
             name,
-            &rows[0..2]
+            rows[0]
         );
     }
 }
@@ -263,19 +307,18 @@ fn the_body_is_the_text_of_the_screen() {
     let lines: Vec<String> = text::provenance(&document);
     let app: App = opened(&document, &[Key::Char('p')]);
     assert_eq!(app.screen(), Screen::Provenance);
-    let rows: Vec<String> = screen(&app, 80, 24);
-    assert_eq!(rows[2], "", "row 2 is blank");
-    for row in 0..BODY_ROWS {
+    // 7j2: the body is the frame's inner area, so its rows are read through
+    // `body`, at the body's own width, and row 2 is a body row, not a blank.
+    let rows: Vec<String> = body(&app);
+    for (row, row_line) in rows.iter().enumerate().take(BODY_ROWS) {
         let expected: String = lines
             .get(row)
-            .map(|line| shown(line, 80))
+            .map(|line| shown(line, INNER_WIDTH))
             .unwrap_or_default();
         assert_eq!(
-            rows[3 + row],
-            expected,
+            row_line, &expected,
             "body row {} shows the screen's line {}",
-            3 + row,
-            row
+            row, row
         );
     }
 }
@@ -295,12 +338,14 @@ fn a_long_screen_scrolls_and_says_where() {
     assert_eq!(app.screen(), Screen::Details(0));
     let rows: Vec<String> = screen(&app, 80, 24);
     let first: usize = 10.min(n - BODY_ROWS);
+    // 7j2: the body's first row is row 1 of the frame, read through `body`; the
+    // key line is row 23, that is `height - 1`.
     assert_eq!(
-        rows[3],
-        shown(&lines[first], 80),
+        body(&app)[0],
+        shown(&lines[first], INNER_WIDTH),
         "the first body row is line {} of the screen: {:?}",
         first,
-        rows[3]
+        body(&app)[0]
     );
     let key_line: &String = &rows[23];
     assert!(
@@ -339,11 +384,12 @@ fn scrolling_past_the_end_stops_at_the_last_page() {
     assert_eq!(app.screen(), Screen::Details(0));
     let rows: Vec<String> = screen(&app, 80, 24);
     let first: usize = n - BODY_ROWS;
+    // 7j2: the body's last row, `body`'s row `BODY_ROWS - 1`.
     assert_eq!(
-        rows[3 + BODY_ROWS - 1],
-        shown(&lines[n - 1], 80),
+        body(&app)[BODY_ROWS - 1],
+        shown(&lines[n - 1], INNER_WIDTH),
         "the last body row is the screen's last line: {:?}",
-        rows[3 + BODY_ROWS - 1]
+        body(&app)[BODY_ROWS - 1]
     );
     assert_eq!(
         rows[23],
@@ -630,25 +676,43 @@ fn opened_app(app: App, keys: &[Key]) -> App {
     app
 }
 
-/// The body's rows at 80x24: rows 3 to `3 + BODY_ROWS - 1`.
+/// The body's rows at 80x24 (7j2): the frame's inner rows, read from column 1
+/// (the inner area starts one column inside the border), cut to `INNER_WIDTH`
+/// columns, with the padding removed, so a row is the text the screen shows.
 fn body(app: &App) -> Vec<String> {
-    let rows: Vec<String> = screen(app, 80, 24);
-    rows[3..3 + BODY_ROWS].to_vec()
+    inner_rows(screen(app, 80, 24))
 }
 
-/// The key line at 80x24.
+/// The same body rows for a proposal screen.
+fn proposal_body(app: &ProposalApp) -> Vec<String> {
+    inner_rows(proposal_screen(app, 80, 24))
+}
+
+/// A screen's body rows: rows 1 to `1 + BODY_ROWS - 1`, from column 1, at
+/// `INNER_WIDTH` columns, with the border cut off and the padding removed.
+fn inner_rows(rows: Vec<String>) -> Vec<String> {
+    rows[1..1 + BODY_ROWS]
+        .iter()
+        .map(|row| {
+            let inner: String = row.chars().skip(1).take(INNER_WIDTH).collect::<String>();
+            inner.trim_end().to_string()
+        })
+        .collect()
+}
+
+/// The key line at 80x24: row `height - 1` (7j2), that is row 23 of the 24 rows.
 fn keys(app: &App) -> String {
-    screen(app, 80, 24)[23].clone()
+    screen(app, 80, 24)[24 - 1].clone()
 }
 
 /// The first `BODY_ROWS` rows of `app`' body as the screen shows the fixture's
-/// lines at width 80, with the rows past the screen's last line blank.
+/// lines at the body's width, with the rows past the screen's last line blank.
 fn shown_rows(lines: &[String]) -> Vec<String> {
     (0..BODY_ROWS)
         .map(|row| {
             lines
                 .get(row)
-                .map(|line| shown(line, 80))
+                .map(|line| shown(line, INNER_WIDTH))
                 .unwrap_or_default()
         })
         .collect()
@@ -747,7 +811,7 @@ fn enter_opens_the_sequence() {
     let first: String = fixture_lines("member-native-01.txt")[0].clone();
     assert_eq!(
         body(&app)[0],
-        shown(&first, 80),
+        shown(&first, INNER_WIDTH),
         "the first body row is the first line of the sequence block: {:?}",
         body(&app)[0]
     );
@@ -766,11 +830,12 @@ fn d_opens_the_details_and_esc_returns() {
     assert_eq!(app.screen(), Screen::Details(0), "`d` opens the details");
     let first: String = text::member(&run.document, 0)[0].clone();
     let rows: Vec<String> = screen(&app, 80, 24);
+    // 7j2: the body's first row, read through `body` at the body's width.
     assert_eq!(
-        rows[3],
-        shown(&first, 80),
+        body(&app)[0],
+        shown(&first, INNER_WIDTH),
         "the details screen shows 7c2's member text: {:?}",
-        rows[3]
+        body(&app)[0]
     );
     assert_eq!(
         rows[23],
@@ -791,7 +856,7 @@ fn d_opens_the_details_and_esc_returns() {
     let first: String = fixture_lines("member-native-01.txt")[0].clone();
     assert_eq!(
         body(&app)[0],
-        shown(&first, 80),
+        shown(&first, INNER_WIDTH),
         "and the sequence block is there again: {:?}",
         body(&app)[0]
     );
@@ -1292,22 +1357,21 @@ fn a_proposal_says_it_is_not_a_result() {
         let (dir, document, request) = proposal_of("banner", case);
         let rows: Vec<String> =
             proposal_screen(&ProposalApp::new(document.clone(), request), 80, 24);
-        assert_eq!(
-            rows[0],
-            format!("proposal: {}", document.state),
-            "row 0 is the banner built from the document's own state: {:?}",
+        // 7j2: row 0 is the frame's title, whose badge says the screen is a
+        // proposal with nothing run, and is never a result's badge (plan §3
+        // rule 3). Row 1 is a body row, so the old blank-row index is gone.
+        assert!(
+            rows[0].contains(" PROPOSAL ") && rows[0].contains(" · nothing has run yet "),
+            "row 0 says the screen is a proposal and that nothing has run: {:?}",
             rows[0]
         );
-        assert_eq!(
-            rows[1], "nothing has run yet: this is a proposal, not a result",
-            "row 1 says nothing has run: a proposal is never shown as a result (plan §3 rule 3)"
-        );
         assert!(
-            !rows[0].starts_with("state:") && !rows[1].contains("experimental validation"),
-            "the result's banner is not on a proposal's screen: {:?}",
-            &rows[0..2]
+            !rows[0].contains("state:")
+                && !rows[0].contains("experimental validation")
+                && !rows[0].contains(" verified "),
+            "the result's badge is not on a proposal's screen: {:?}",
+            rows[0]
         );
-        assert_eq!(rows[2], "", "row 2 is blank, as every result screen's is");
         let _ = fs::remove_dir_all(&dir);
     }
 }
@@ -1321,22 +1385,26 @@ fn the_confirmation_names_the_file() {
     let app: ProposalApp = opened_proposal(&document, request.clone(), &[Key::Char('a')]);
     assert_eq!(app.screen(), ProposalScreen::Confirm);
     let rows: Vec<String> = proposal_screen(&app, 80, 24);
+    // 7j2: the body is read through `proposal_body`, so the confirmation's rows
+    // are body rows 0, 1 and 2, and the key line is row 23 = `height - 1`.
+    let body_rows: Vec<String> = proposal_body(&app);
     assert_eq!(
-        rows[3],
+        body_rows[0],
         format!(
             "write the request to {} and run luria q5 design on it?",
             request.display()
         ),
         "the confirmation names the file the approval writes (plan §3 rule 4): {:?}",
-        rows[3]
+        body_rows[0]
     );
-    assert_eq!(rows[4], "", "a blank line between the file and the keys");
-    assert_eq!(rows[5], "y yes  n no");
+    assert_eq!(
+        body_rows[1], "",
+        "a blank line between the file and the keys"
+    );
+    assert_eq!(body_rows[2], "y yes  n no");
     assert_eq!(rows[23], "q quit  y yes  n no");
     assert!(
-        rows[3..BODY_ROWS + 3]
-            .iter()
-            .all(|row| !row.contains("proposal:")),
+        body_rows.iter().all(|row| !row.contains("proposal:")),
         "the confirmation shows the file, not the proposal: {:?}",
         rows
     );
@@ -1367,12 +1435,14 @@ fn approve_is_offered_only_for_a_proposal() {
         "a proposal that names its request offers `a`, and says where its body sits: {:?}",
         rows[23]
     );
+    // 7j2: the body's rows, read through `proposal_body` at the body's width.
+    let body_rows: Vec<String> = proposal_body(&app);
     for row in 0..BODY_ROWS {
         assert_eq!(
-            rows[3 + row],
-            shown(&lines[row], 80),
+            body_rows[row],
+            shown(&lines[row], INNER_WIDTH),
             "body row {} shows the proposal's line {}",
-            3 + row,
+            row,
             row
         );
     }
@@ -1406,4 +1476,173 @@ fn approve_is_offered_only_for_a_proposal() {
     );
     let _ = fs::remove_dir_all(&proposed_dir);
     let _ = fs::remove_dir_all(&asked_dir);
+}
+
+// 7j2's styling: the badge, its colour, the highlight of the edited bases, and
+// `?`'s help as a pop-up. Nothing here changes a text line: every row is read
+// from the same `TestBackend` buffer the screen's own tests read.
+
+#[test]
+fn the_badge_names_the_state() {
+    // §5.1 rule 1: the badge's word is the document's own `state`, not a word
+    // typed into the view. Hard-coding the badge as `verified` fails this on the
+    // failed and the needs-clarification documents.
+    for (document, badge) in [
+        (verified("badge_verified"), "✓ verified"),
+        (failed("badge_failed"), "✗ failed"),
+        (
+            needs_clarification("badge_clarify"),
+            "? needs clarification",
+        ),
+    ] {
+        let rows: Vec<String> = screen(&App::new(document), 80, 24);
+        assert!(
+            rows[0].contains(&format!(" {} ", badge)),
+            "row 0's badge names the document's own state: {:?}",
+            rows[0]
+        );
+        assert!(
+            rows[0].contains(" not tested at the bench "),
+            "row 0 says the document's own validation: {:?}",
+            rows[0]
+        );
+    }
+}
+
+#[test]
+fn the_badge_is_coloured() {
+    for (document, symbol, colour) in [
+        (verified("badge_colour_verified"), '✓', Color::Green),
+        (failed("badge_colour_failed"), '✗', Color::Red),
+        (
+            needs_clarification("badge_colour_clarify"),
+            '?',
+            Color::Yellow,
+        ),
+    ] {
+        let app: App = App::new(document);
+        let rows: Vec<String> = screen(&app, 80, 24);
+        let styles: Vec<Vec<Style>> = styles(&app, 80, 24);
+        let column: usize = rows[0]
+            .chars()
+            .position(|ch| ch == symbol)
+            .unwrap_or_else(|| panic!("row 0's badge starts with {}: {:?}", symbol, rows[0]));
+        assert_eq!(
+            styles[0][column].bg,
+            Some(colour),
+            "the cell under the badge's first letter is on the colour §2 names: {:?}",
+            styles[0][column]
+        );
+    }
+}
+
+#[test]
+fn the_proposal_badge_is_not_a_result() {
+    let (dir, document, request) = proposal_of("proposal_badge", "two-separate");
+    let rows: Vec<String> = proposal_screen(&ProposalApp::new(document, request), 80, 24);
+    assert!(
+        rows[0].contains("PROPOSAL"),
+        "a proposal's badge says what the screen is: {:?}",
+        rows[0]
+    );
+    assert!(
+        !rows[0].contains("verified"),
+        "a proposal is never shown as a verified result (plan §3 rule 3): {:?}",
+        rows[0]
+    );
+    let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn edited_bases_are_highlighted() {
+    let run: Run = native01("highlighted");
+    let app: App = opened_app(app_of(&run), &[Key::Enter]);
+    let rows: Vec<String> = rows(&app, 80, 24);
+    let styles: Vec<Vec<Style>> = styles(&app, 80, 24);
+    let row: usize = rows
+        .iter()
+        .position(|line| line.starts_with("\u{2502}template  "))
+        .expect("the sequence screen's template row");
+    let cells: Vec<char> = rows[row].chars().collect();
+    let lower: Vec<char> = "gat".chars().collect();
+    let start: usize = cells
+        .windows(lower.len())
+        .position(|window| window == lower.as_slice())
+        .expect("the bases the edit writes, in lower case on the template row");
+    for column in start..start + lower.len() {
+        let style: Style = styles[row][column];
+        assert!(
+            style.has_modifier(Modifier::BOLD) && style.fg == Some(Color::Yellow),
+            "the edited base {} is bold yellow: {:?}",
+            cells[column],
+            style
+        );
+    }
+    let upper: usize = cells
+        .iter()
+        .position(|ch| ch.is_ascii_uppercase())
+        .expect("an upper-case template base on the same row");
+    let style: Style = styles[row][upper];
+    assert!(
+        !style.has_modifier(Modifier::BOLD) && style.fg != Some(Color::Yellow),
+        "an upper-case template base is not highlighted as an edited base: {:?}",
+        style
+    );
+}
+
+#[test]
+fn help_is_a_pop_up() {
+    let document: ResultDocument = set("help_pop_up");
+    let app: App = opened(&document, &[Key::Char('?')]);
+    assert!(app.help(), "`?` opens the legend");
+    let lines: Vec<String> = text::help();
+    let pop_width: usize = lines
+        .iter()
+        .map(|line| line.chars().count())
+        .max()
+        .expect("the legend has lines")
+        + 4;
+    let pop_height: usize = lines.len() + 2;
+    // A frame wider than the pop-up, so the screen's own text shows outside it.
+    let (screen_width, screen_height) = (100usize, 24usize);
+    let rows: Vec<String> = rows(&app, screen_width as u16, screen_height as u16);
+    let x: usize = (screen_width - pop_width) / 2;
+    let y: usize = (screen_height - pop_height) / 2;
+    assert!(
+        x + pop_width <= screen_width && y + pop_height <= screen_height,
+        "the pop-up is clamped to the frame: {:?}",
+        rows[y]
+    );
+    // §5.1 rule 2: the pop-up clears what is under it, so its rows hold the
+    // legend's lines and nothing of the screen, and the body stays where the
+    // pop-up is not.
+    let first: String = text::overview(&document, 0)[0].clone();
+    let outside: String = rows[y].chars().skip(1).take(x - 1).collect::<String>();
+    assert_eq!(
+        outside.trim_end(),
+        shown(&first, x - 1),
+        "the body's first row shows the screen's own text outside the pop-up: {:?}",
+        rows[y]
+    );
+    for (index, line) in lines.iter().enumerate() {
+        let row: String = rows[y + 1 + index]
+            .chars()
+            .skip(x + 1)
+            .take(pop_width - 2)
+            .collect::<String>();
+        assert_eq!(
+            row,
+            format!("{:width$}", line, width = pop_width - 2),
+            "pop-up row {} holds the legend's line {:?} and nothing under it: {:?}",
+            index,
+            line,
+            row
+        );
+    }
+    assert_eq!(
+        rows[screen_height - 1].trim_end(),
+        "q quit  esc close",
+        "the key line stays the help key line, outside the pop-up: {:?}",
+        rows[screen_height - 1]
+    );
 }
