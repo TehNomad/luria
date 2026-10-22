@@ -21,7 +21,8 @@ reading is zero-based half-open, as a request holds them (D006):
                                             form's choice (`policy`)
 * `D404N:AAC`                           -> residue, codon AAC
 
-Bases are A, C, G, T in either case, written upper case in the reading;
+Positions are ASCII digits only (not other Unicode digits). Bases are
+A, C, G, T in either case, written upper case in the reading;
 X must have exactly B-A+1 bases. Words and separators are matched
 case-insensitively; runs of spaces count as one; leading and trailing
 spaces are ignored. Refusal codes:
@@ -101,9 +102,13 @@ def is_dna(text):
     return text != "" and all(c in "ACGTacgt" for c in text)
 
 
+def ascii_digits(text):
+    return text != "" and all("0" <= c <= "9" for c in text)
+
+
 def position(text, allow_zero=False):
-    """A decimal position: (value, None) or (None, refusal)."""
-    if not text.isdigit():
+    """A decimal position of ASCII digits: (value, None) or (None, refusal)."""
+    if not ascii_digits(text):
         return None, "unreadable"
     if len(text) > 1 and text[0] == "0":
         return None, "zero_position"
@@ -136,7 +141,7 @@ def read(line):
         return refused("empty")
 
     # residue: optional p., letter(s), number, letter(s), optional :codon
-    m = re.fullmatch(r"(?:p\.)?([A-Za-z]{1,3}|\*|\?)(\d+|\?)([A-Za-z]{1,3}|\*|\?)(?::(\S+))?", text)
+    m = re.fullmatch(r"(?:p\.)?([A-Za-z]{1,3}|\*|\?)([0-9]+|\?)([A-Za-z]{1,3}|\*|\?)(?::(\S+))?", text)
     if m and not text.lower().startswith(("del", "ins")):
         original, number, target, codon = m.groups()
         # a stop first, then an unstated part, then 6's notation

@@ -11,6 +11,7 @@ pub mod request;
 pub mod result;
 pub mod review;
 pub mod run;
+pub mod shorthand;
 pub mod version;
 pub mod write;
 
