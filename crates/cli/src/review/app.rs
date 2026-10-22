@@ -32,6 +32,8 @@ pub enum Key {
     Left,
     Right,
     Esc,
+    /// `ctrl-c` (M7-43): `terminal` maps `c` with the control modifier to it.
+    CtrlC,
     Other,
 }
 
@@ -209,7 +211,8 @@ impl App {
         self.scroll
     }
 
-    /// `q` quits from every screen. Every other key follows the table of §3.3:
+    /// `q` quits from every screen, and so does `ctrl-c`, which writes nothing
+    /// (M7-43). Every other key follows the table of §3.3:
     /// `Esc` and `Backspace` go back, `Enter` opens the selected member, `j`
     /// `k` `c` `p` `e` `x` move, `d` opens the details of the open member, `?`
     /// opens the help legend, `y` on the export screen asks for the write when a
@@ -221,6 +224,11 @@ impl App {
     /// scroll the body, and a screen change puts the new screen at its top
     /// (7c3 §3.1, 7g1).
     pub fn handle(&mut self, key: Key) -> Action {
+        // M7-43: `ctrl-c` quits from every screen, help open or not, and writes
+        // nothing, exactly as `q` does.
+        if key == Key::CtrlC {
+            return Action::Quit;
+        }
         if key == Key::Char('q') {
             return Action::Quit;
         }
@@ -559,6 +567,34 @@ mod tests {
         assert_eq!(app.screen(), Screen::Overview);
         assert_eq!(app.handle(Key::Char('e')), Action::Continue);
         assert_eq!(app.screen(), Screen::Problem);
+    }
+
+    // M7-43: `ctrl-c` quits from every screen the app has, help open or not, and
+    // writes nothing.
+    #[test]
+    fn ctrl_c_quits_from_every_screen() {
+        let screens: Vec<(ResultDocument, Vec<Key>)> = vec![
+            (document_with(2), Vec::new()),
+            (document_with(2), vec![Key::Enter]),
+            (document_with(2), vec![Key::Enter, Key::Char('d')]),
+            (document_with(2), vec![Key::Char('p')]),
+            (document_with(2), vec![Key::Char('x')]),
+            (document_with(2), vec![Key::Enter, Key::Char('?')]),
+            (document_with_error(), Vec::new()),
+            (document_with_error(), vec![Key::Esc, Key::Char('e')]),
+        ];
+        for (document, keys) in screens {
+            let mut app: App = App::new(document);
+            for key in keys {
+                app.handle(key);
+            }
+            assert_eq!(
+                app.handle(Key::CtrlC),
+                Action::Quit,
+                "`ctrl-c` quits from {:?}",
+                app.screen()
+            );
+        }
     }
 
     #[test]

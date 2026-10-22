@@ -828,9 +828,9 @@ with the legend and the keys.
 | Provenance | The package, every algorithm and version, the request and template digests, what a GenBank record imported and did not, the buffer | `j`/`k` scroll |
 | Problem | The error and its details, or the clarifications and candidates | `p` provenance |
 
-`esc` goes back, and quits from the overview; `q` quits from anywhere;
-`PgUp`, `PgDn` and `Home` scroll. The variant screen reads the template
-again and draws it only when its digest is the one the result reports.
+`esc` goes back, and quits from the overview; `q` or `ctrl-c` quits from
+anywhere; `PgUp`, `PgDn` and `Home` scroll. The variant screen reads the
+template again and draws it only when its digest is the one the result reports.
 The protein is the one luria-core reads from the edited construct, in
 the CDS's frame, on past a frameshift, ending at the first stop codon;
 the construct is used only when its digest is the variant's. An
@@ -921,9 +921,9 @@ It needs a terminal on stdin and stdout, and a screen of at least 80 by
 | Save as | The request file's name. |
 
 `tab` and `shift-tab` move between fields, `←`/`→` change a choice,
-`enter` on `[ Review ]` builds the request, and `esc` quits. A field
-that is missing or a line luria cannot read is named in red, and the
-cursor moves to it.
+`enter` on `[ Review ]` builds the request, and `esc` quits. `ctrl-c`
+quits from any screen, writing nothing. A field that is missing or a
+line luria cannot read is named in red, and the cursor moves to it.
 
 ### 12.2 The mutation shorthand
 

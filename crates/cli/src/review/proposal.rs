@@ -100,13 +100,18 @@ impl ProposalApp {
         self.scroll = 0;
     }
 
-    /// `q` quits from every screen, `Esc` quits only when reading. The keys of
+    /// `q` quits from every screen, and so does `ctrl-c` (M7-43), which writes
+    /// nothing. `Esc` quits only when reading. The keys of
     /// 7c3 scroll the reading screen. `a` opens the confirmation only for a
     /// `proposed` document that names its request; `y` asks for the approval,
     /// and the confirmation stays open until the shell reports, so the user sees
     /// what was named while it runs. `n` and `Backspace` go back. Every other
     /// key changes nothing. A screen change puts the new screen at its top.
     pub fn handle(&mut self, key: Key) -> ProposalAction {
+        // M7-43: `ctrl-c` quits from every screen, writing nothing.
+        if key == Key::CtrlC {
+            return ProposalAction::Quit;
+        }
         if key == Key::Char('q') {
             return ProposalAction::Quit;
         }
@@ -289,6 +294,43 @@ mod tests {
         let mut reading: ProposalApp = app_of("proposed", true);
         assert_eq!(reading.handle(Key::Char('y')), ProposalAction::Continue);
         assert_eq!(reading.screen(), ProposalScreen::Reading);
+    }
+
+    // M7-43: `ctrl-c` quits from every screen the proposal app has, writing
+    // nothing, where `Esc` quits only when reading and goes back on the
+    // confirmation. A run that asks has nothing to approve, so its `ctrl-c` quits
+    // from the reading screen it stays on.
+    #[test]
+    fn ctrl_c_quits_from_every_screen() {
+        for (state, with_request) in [("proposed", true), ("needs_clarification", false)] {
+            let mut reading: ProposalApp = app_of(state, with_request);
+            assert_eq!(
+                reading.handle(Key::CtrlC),
+                ProposalAction::Quit,
+                "{}: `ctrl-c` quits from the proposal",
+                state
+            );
+        }
+
+        // `a` opens the confirmation only for a proposal naming its request, so
+        // the confirmation is reached on the document that can be approved.
+        let mut confirming: ProposalApp = app_of("proposed", true);
+        confirming.handle(Key::Char('a'));
+        assert_eq!(confirming.screen(), ProposalScreen::Confirm);
+        assert_eq!(
+            confirming.handle(Key::CtrlC),
+            ProposalAction::Quit,
+            "`ctrl-c` quits from the confirmation too, writing nothing"
+        );
+
+        let mut confirming: ProposalApp = app_of("proposed", true);
+        confirming.handle(Key::Char('a'));
+        assert_eq!(
+            confirming.handle(Key::Esc),
+            ProposalAction::Continue,
+            "`Esc` goes back from the confirmation, where `ctrl-c` quits"
+        );
+        assert_eq!(confirming.screen(), ProposalScreen::Reading);
     }
 
     #[test]

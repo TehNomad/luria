@@ -14,12 +14,17 @@ use crate::review::app::{Action, App, Key};
 use crate::review::proposal::{ProposalAction, ProposalApp};
 use crate::review::view;
 use crate::review::Approved;
-use crossterm::event::{read, Event, KeyCode, KeyEventKind};
+use crossterm::event::{read, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 
 /// The key a crossterm press is, as the apps see it: the same mapping for the
-/// result screen and the proposal screen, so both read the same keys.
-fn key_of(code: KeyCode) -> Key {
-    match code {
+/// result screen and the proposal screen, so both read the same keys. `c` with
+/// the control modifier is `ctrl-c` (M7-43); every other key is mapped from its
+/// code, with the modifiers ignored.
+fn key_of(key: KeyEvent) -> Key {
+    if key.code == KeyCode::Char('c') && key.modifiers == KeyModifiers::CONTROL {
+        return Key::CtrlC;
+    }
+    match key.code {
         KeyCode::Char(c) => Key::Char(c),
         KeyCode::Up => Key::Up,
         KeyCode::Down => Key::Down,
@@ -71,7 +76,7 @@ pub fn run(
                 break;
             }
             Ok(Event::Key(key)) if key.kind == KeyEventKind::Press => {
-                match app.handle(key_of(key.code)) {
+                match app.handle(key_of(key)) {
                     Action::Quit => break,
                     // `y` asked for the write: the outcome is shown on the
                     // export screen, and the loop draws it.
@@ -128,7 +133,7 @@ pub fn run_proposal(
                 break;
             }
             Ok(Event::Key(key)) if key.kind == KeyEventKind::Press => {
-                match app.handle(key_of(key.code)) {
+                match app.handle(key_of(key)) {
                     ProposalAction::Quit => break,
                     ProposalAction::Approve => match approve(&app) {
                         Ok(given) => {

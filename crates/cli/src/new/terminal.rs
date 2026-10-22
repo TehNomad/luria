@@ -8,8 +8,9 @@
 //! an approval ends the session with the run it made. Quitting before `y` writes
 //! nothing, which is 7f2's rule. With words typed (7k7, M7-40) the same session
 //! draws the proposal screen: `interpret` is called once, `review::approve` runs
-//! on `a` then `y`, and `q` goes back to the form with its values kept. There is
-//! no unit test here, as there is none in `review/terminal`: the form, the
+//! on `a` then `y`, and `q` goes back to the form with its values kept, while
+//! `ctrl-c` ends the session (M7-43). There is no unit test here, as there is
+//! none in `review/terminal`: the form, the
 //! confirmation and the drawing are tested in `new/form`, `new/view` and
 //! `new/confirm`.
 
@@ -26,7 +27,8 @@ use crate::review::view::draw_proposal;
 use crate::review::Approved;
 
 use crossterm::event::{
-    read, DisableBracketedPaste, EnableBracketedPaste, Event, KeyCode, KeyEventKind,
+    read, DisableBracketedPaste, EnableBracketedPaste, Event, KeyCode, KeyEvent, KeyEventKind,
+    KeyModifiers,
 };
 use crossterm::execute;
 
@@ -35,9 +37,13 @@ use std::path::{Path, PathBuf};
 
 /// The key a crossterm press is, as the apps see it: `review::terminal`'s own
 /// mapping, private there, copied so the form and the confirmation read the same
-/// keys the review screens do.
-fn key_of(code: KeyCode) -> Key {
-    match code {
+/// keys the review screens do. `c` with the control modifier is `ctrl-c` (M7-43);
+/// every other key is mapped from its code, with the modifiers ignored.
+fn key_of(key: KeyEvent) -> Key {
+    if key.code == KeyCode::Char('c') && key.modifiers == KeyModifiers::CONTROL {
+        return Key::CtrlC;
+    }
+    match key.code {
         KeyCode::Char(c) => Key::Char(c),
         KeyCode::Up => Key::Up,
         KeyCode::Down => Key::Down,
@@ -159,7 +165,7 @@ pub fn run_new(
                 }
             }
             Ok(Event::Key(key)) if key.kind == KeyEventKind::Press => {
-                let pressed: Key = key_of(key.code);
+                let pressed: Key = key_of(key);
                 let mut back: bool = false;
                 match (&mut confirm, &mut proposal) {
                     (Some(app), _) => match app.handle(pressed) {
@@ -180,8 +186,14 @@ pub fn run_new(
                     (None, Some(app)) => match app.handle(pressed) {
                         // `q` or `esc` goes back to the form, whose values are
                         // kept, so the model is not called again until the next
-                        // `[ Review ]` (contract §2.4).
-                        ProposalAction::Quit => proposal = None,
+                        // `[ Review ]` (contract §2.4). `ctrl-c` ends the session
+                        // instead, as it does on every screen (M7-43).
+                        ProposalAction::Quit => {
+                            if pressed == Key::CtrlC {
+                                break;
+                            }
+                            proposal = None;
+                        }
                         ProposalAction::Approve => {
                             let template: PathBuf = words_template
                                 .clone()

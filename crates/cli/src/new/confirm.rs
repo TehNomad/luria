@@ -136,11 +136,17 @@ impl ConfirmApp {
         self.scroll = 0;
     }
 
-    /// `q` quits from every screen, writing nothing. `esc` on reading goes back
-    /// to the form; `a` opens the confirmation, which `y` approves and `n` or
-    /// `esc` leaves. The keys of 7c3 scroll the reading screen. Every other key
-    /// changes nothing, and a screen change puts the new screen at its top.
+    /// `q` quits from every screen, writing nothing, and so does `ctrl-c` (M7-43).
+    /// `esc` on reading goes back to the form; `a` opens the confirmation, which
+    /// `y` approves and `n` or `esc` leaves. The keys of 7c3 scroll the reading
+    /// screen. Every other key changes nothing, and a screen change puts the new
+    /// screen at its top.
     pub fn handle(&mut self, key: Key) -> ConfirmAction {
+        // M7-43: `ctrl-c` quits from every screen, writing nothing, where `Esc`
+        // goes back.
+        if key == Key::CtrlC {
+            return ConfirmAction::Quit;
+        }
         if key == Key::Char('q') {
             return ConfirmAction::Quit;
         }
@@ -349,5 +355,73 @@ pub fn approve_new(planned: &Planned) -> Result<Approved, String> {
             None => format!("could not write {}: {}", name_of(&planned.request), reason),
         }),
         Ok(()) => Ok(review::run_approved(&planned.request)),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::new::{CdsChoice, CodonChoice, Form, TemplateInput};
+    use crate::request::{StrandSpec, TopologySpec};
+
+    /// A planned approval from a filled form: `plan` is pure and writes nothing,
+    /// so `cwd` is a path no test touches, and the key rule uses only `screen`.
+    fn planned() -> Planned {
+        let form: Form = Form {
+            template: TemplateInput::Paste {
+                text: "ATGGCT".to_string(),
+                name: "syn".to_string(),
+                save_as: "syn.fa".to_string(),
+                topology: TopologySpec::Linear,
+                cds: CdsChoice::Whole(StrandSpec::Plus),
+            },
+            lines: vec!["M1A".to_string()],
+            codon: CodonChoice::DefaultPolicy,
+            overlap: Some(15),
+        };
+        plan(
+            new::build(&form).expect("the form builds"),
+            None,
+            Path::new("here"),
+            "syn.json",
+        )
+    }
+
+    // M7-43: `ctrl-c` quits from both screens the confirmation has, writing
+    // nothing. `Esc` does not quit on either: on reading it goes back to the
+    // form, and on the confirmation it goes back to reading.
+    #[test]
+    fn ctrl_c_quits_from_every_screen_where_esc_goes_back() {
+        let mut reading: ConfirmApp = ConfirmApp::new(planned());
+        assert_eq!(
+            reading.handle(Key::CtrlC),
+            ConfirmAction::Quit,
+            "`ctrl-c` quits from the request screen"
+        );
+
+        let mut confirming: ConfirmApp = ConfirmApp::new(planned());
+        confirming.handle(Key::Char('a'));
+        assert_eq!(confirming.screen(), ConfirmScreen::Confirm);
+        assert_eq!(
+            confirming.handle(Key::CtrlC),
+            ConfirmAction::Quit,
+            "`ctrl-c` quits from the confirmation too, writing nothing"
+        );
+
+        let mut reading: ConfirmApp = ConfirmApp::new(planned());
+        assert_eq!(
+            reading.handle(Key::Esc),
+            ConfirmAction::Back,
+            "`Esc` on the request screen goes back to the form, not quit"
+        );
+
+        let mut confirming: ConfirmApp = ConfirmApp::new(planned());
+        confirming.handle(Key::Char('a'));
+        assert_eq!(
+            confirming.handle(Key::Esc),
+            ConfirmAction::Continue,
+            "`Esc` on the confirmation goes back to reading, not quit"
+        );
+        assert_eq!(confirming.screen(), ConfirmScreen::Reading);
     }
 }

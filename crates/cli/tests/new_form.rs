@@ -388,3 +388,90 @@ fn escape_quits() {
     tab_to(&mut form, Field::Mutations);
     assert_eq!(form.handle(Key::Esc), FormAction::Quit, "esc quits");
 }
+
+// M7-43: `ctrl-c` quits from a text field as `esc` does, and types nothing: on
+// a field it is not the `c` a field takes as input.
+#[test]
+fn ctrl_c_quits_from_a_text_field() {
+    let mut form = sid1(&["D404N"], "15");
+    tab_to(&mut form, Field::Mutations);
+    let typed: Vec<Preview> = form.previews();
+    assert_eq!(
+        form.handle(Key::CtrlC),
+        FormAction::Quit,
+        "`ctrl-c` quits from the mutation box"
+    );
+    assert_eq!(
+        form.previews(),
+        typed,
+        "`ctrl-c` types nothing in the field it quits from"
+    );
+    assert_eq!(form.overlap(), "15", "the rest of the form is as it was");
+}
+
+// M7-44: `Overlap` takes any number of digits, so a length past `i64` is too
+// large to read. `[ Review ]` reads that blocker first, so the shorthand does
+// not build, the words are not sent to the model, and the value is never read as
+// a number at all: the refusal names `Overlap` with the message, on both paths.
+#[test]
+fn an_overlap_too_large_is_a_blocker() {
+    const TOO_LARGE: &str = "99999999999999999999";
+    const MESSAGE: &str =
+        "the minimum annealing overlap is too large; write a length in nucleotides";
+
+    let mut form = sid1(&["D404N"], TOO_LARGE);
+    tab_to(&mut form, Field::Review);
+    assert_eq!(
+        form.handle(Key::Enter),
+        FormAction::Continue,
+        "an overlap past `i64` does not build"
+    );
+    let blocker = form.blocker().expect("the refusal names a field");
+    assert_eq!(blocker.0, Field::Overlap, "the refusal is on the overlap");
+    assert_eq!(blocker.1, None, "the refusal is not about a mutation line");
+    assert_eq!(
+        blocker.2, MESSAGE,
+        "the refusal says the value is too large"
+    );
+    assert_eq!(
+        form.focus(),
+        Field::Overlap,
+        "focus moves to the field the refusal names"
+    );
+
+    // The same with words typed on a GenBank template, as `new_words.rs` builds
+    // it: `[ Review ]` refuses before the words' design is built, so the message
+    // is the same, and `words_profile` never panics on the value.
+    let mut form = NewForm::new(None, true);
+    tab_to(&mut form, Field::File);
+    type_text(&mut form, "synthetic-linear.gb");
+    assert_eq!(
+        form.handle(Key::Tab),
+        FormAction::Load("synthetic-linear.gb".to_string()),
+        "leaving File with a path asks the loop to read it"
+    );
+    form.loaded(
+        "synthetic-linear.gb",
+        Ok(read_file("genbank/synthetic-linear.gb")),
+    );
+    tab_to(&mut form, Field::Words);
+    type_text(&mut form, "delete base 42");
+    tab_to(&mut form, Field::Overlap);
+    type_text(&mut form, TOO_LARGE);
+    tab_to(&mut form, Field::Review);
+    assert_eq!(
+        form.handle(Key::Enter),
+        FormAction::Continue,
+        "an overlap past `i64` does not send the words to the model"
+    );
+    let blocker = form.blocker().expect("the refusal names a field");
+    assert_eq!(
+        blocker.0,
+        Field::Overlap,
+        "the words path reads the same blocker"
+    );
+    assert_eq!(
+        blocker.2, MESSAGE,
+        "the same message, with no panic in the words' design"
+    );
+}

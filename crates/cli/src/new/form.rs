@@ -344,10 +344,14 @@ impl NewForm {
         form
     }
 
-    /// One key. `Esc` quits from any field (`esc quit` on the form's legend);
-    /// the rest move focus, edit text, toggle a choice, and `Enter` on
-    /// `[ Review ]` builds.
+    /// One key. `Esc` quits from any field (`esc quit` on the form's legend), and
+    /// so does `ctrl-c`, which types nothing (M7-43); the rest move focus, edit
+    /// text, toggle a choice, and `Enter` on `[ Review ]` builds.
     pub fn handle(&mut self, key: Key) -> FormAction {
+        // M7-43: `ctrl-c` quits from any field, typing nothing, as `Esc` does.
+        if key == Key::CtrlC {
+            return FormAction::Quit;
+        }
         if key == Key::Esc {
             return FormAction::Quit;
         }
@@ -653,8 +657,8 @@ impl NewForm {
     /// policy" is chosen, and unstated when it is "typed per mutation", so the
     /// text must state one; and residues counted from the CDS's first codon, as
     /// the shorthand path counts them (docs/cli.md §12.2). `[ Review ]` reaches
-    /// `Interpret` only after `form_blocker`, so `Overlap` is written and holds
-    /// digits only.
+    /// `Interpret` only after `form_blocker`, so `Overlap` is written, holds
+    /// digits only, and is one `i64` can read (M7-44).
     pub fn words_profile(&self) -> ProfileDocument {
         ProfileDocument {
             design: Some(DesignSpec {
@@ -843,6 +847,17 @@ impl NewForm {
                 Field::Overlap,
                 None,
                 "the minimum annealing overlap is empty; write a length in nucleotides".to_string(),
+            ));
+        }
+        // M7-44: `Overlap` takes digits, any number of them, so a length past
+        // `i64` is too large to read. This comes first, so every value read
+        // below fits.
+        if self.overlap.text().parse::<i64>().is_err() {
+            return Some((
+                Field::Overlap,
+                None,
+                "the minimum annealing overlap is too large; write a length in nucleotides"
+                    .to_string(),
             ));
         }
         if self.save_as.text().is_empty() {

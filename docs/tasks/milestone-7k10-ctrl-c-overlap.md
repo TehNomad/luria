@@ -1,6 +1,6 @@
 # Milestone 7k10: Ctrl-C quits; an overlap too large to read is a blocker
 
-Status: **Ready for the worker, 2026-10-22.** Planner: Claude. Owner
+Status: **Implemented, 2026-10-22.** Planner: Claude. Owner
 answers M7-43 and M7-44 (2026-10-22), from the planner's code review.
 
 ## 1. What and why
