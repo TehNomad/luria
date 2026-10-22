@@ -47,7 +47,9 @@ Refusal codes (refusals.tsv): `no_mutations`, `line_refused` (shorthand.py
 refused a line), `from_mismatch`, `outside_template` (a position past the
 template's end, or a CDS outside it), `insertion_at_end` (core refuses an
 insertion at either end, D032), `missing_codon`,
-`missing_overlap`, `duplicate_name`. Columns: case_id, code, line (the
+`missing_overlap`, `duplicate_name`, `template_unreadable` (the
+template's text is not a sequence luria reads: here, a paste holding a
+digit, which is no IUPAC letter). Columns: case_id, code, line (the
 1-based mutation line that is refused, or `-`).
 
 Run from the repository root:
@@ -164,6 +166,8 @@ def build(form):
     else:
         bases = (fasta_bases(source["file"]) if source["kind"] == "fasta"
                  else "".join(source["paste"].split()).upper())
+        if not bases or not all(c in "ACGTRYSWKMBDHVN" for c in bases):
+            raise Refused("template_unreadable")
         tid = source["name"]
         cds_id = tid
         if source["cds"] == "whole":
@@ -254,6 +258,7 @@ REFUSED = [
     ("no-codon", sid1(codon="typed")),
     ("no-overlap", sid1(overlap=None)),
     ("same-twice", sid1(lines=["D404N", "d404n"])),
+    ("paste-not-dna", syn_paste(template=dict(syn_paste()["template"], paste="ATGGCT1GGAATC"))),
     ("cds-outside", syn_paste(template=dict(syn_paste()["template"], cds=(1, 101)))),
 ]
 

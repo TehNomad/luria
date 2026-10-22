@@ -58,6 +58,10 @@ pub struct Built {
 pub enum BuildRefusal {
     NoMutations, LineRefused, FromMismatch, OutsideTemplate,
     InsertionAtEnd, MissingCodon, MissingOverlap, DuplicateName,
+    /// Core refused the template's text (`read_fasta`, `read_genbank`,
+    /// `normalize` or the name's `Identifier`). Added 2026-10-21 on w7k2's
+    /// question: `build` never panics on what a user typed.
+    TemplateUnreadable,
 }
 impl BuildRefusal { pub fn code(self) -> &'static str; pub fn message(self) -> &'static str; }
 
@@ -79,6 +83,9 @@ everything it already does:
 - Each line: `crate::shorthand::parse_line`, with `LineRefused` and its line
   for any refusal.
 - The paste's FASTA text: `luria_core::fasta::render_fasta`.
+- `TopologySpec` to core's `SequenceTopology`: `prepare.rs`'s
+  `topology_of` is private; write the same two-arm `match` in `new.rs`
+  (approved: no domain logic).
 - The request is built as a `RequestDocument` value. A test then renders it
   with `result::request_echo` and compares it as JSON with the fixture; and
   `request::parse_request` of that rendering must give the same document
