@@ -166,3 +166,25 @@ git status --short
 
 Report each result, the §3.1 proofs, and every existing assertion changed
 with its §2 reason.
+
+## 6. Planner answers to w7m1 (2026-10-22)
+
+- `terminal.size()` does not exist in ratatui 0.30; reading the size with
+  `terminal.backend().size()` and skipping the clamp when it cannot be read
+  is accepted.
+- Details has exactly one empty line between the member's lines and the
+  provenance: `details()` adds the empty line only when `member()`'s last
+  line is not already empty.
+- Approved assertion changes beyond §3, each because Details is now
+  `text::details` (§2.2) or help is per screen (§2.4):
+  `tests/review_view.rs` `a_long_screen_scrolls_and_says_where`,
+  `scrolling_past_the_end_stops_at_the_last_page` and
+  `d_opens_the_details_and_esc_returns` count and compare against
+  `text::details(&document, 0)`; `every_screen_keeps_the_banner` drops
+  the provenance case; `the_body_is_the_text_of_the_screen` opens Details
+  (`enter`, `d`) and compares with `text::details`; `help_is_a_pop_up`
+  draws help on `Screen::Member(0)` with
+  `text::help(Screen::Member(0), false, expandable)` and compares the rows
+  outside the pop-up with that screen's body lines.
+  `review/app.rs`'s `scrolling_moves_and_stops_at_zero` opening Details
+  by `enter`, `d` is accepted.
