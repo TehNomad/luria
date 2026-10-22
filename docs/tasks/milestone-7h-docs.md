@@ -1,7 +1,7 @@
 # Milestone 7h: the documentation, and D046
 
-Status: **Draft, 2026-10-21; waits for the owner to confirm the plan's
-§8a choices, which D046 records.** Planner: Claude. Parent:
+Status: **Ready for the worker, 2026-10-21** (the owner confirmed the
+plan's §8a choices). Planner: Claude. Parent:
 `docs/tasks/milestone-7-tui.md` §6 (7h).
 
 ## 1. What and why
@@ -82,9 +82,9 @@ After `Build the TUI around the same application capabilities and typed
 operations.` add a blank line and:
 
 ```
-Implemented: luria review, its result, proposal, member (sequence and
-mutant protein), technical, provenance and
-export screens, and an IDT order table, docs/cli.md section 11 (D046).
+Implemented: luria review, its result, proposal, variant (sequence and
+protein), details, provenance and export screens, and an IDT order
+table, docs/cli.md section 11 (D046).
 ```
 
 ### 2.4 `docs/decisions.md`

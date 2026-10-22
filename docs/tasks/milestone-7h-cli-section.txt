@@ -2,9 +2,9 @@
 ## 11. Reviewing in the terminal: `luria review`
 
 `luria review` shows a result, or a proposal, on a full-screen terminal
-view, so you can read it before you rely on it. It computes nothing of
-its own: every value on screen is a field of the documents §8 and §10.5
-describe. The decisions behind it are D046 and
+view, so you can read it before you rely on it. Every value on screen is
+a field of the documents §8 and §10.5 describe, except the variant's
+protein, which luria-core reads from the edited construct. The decisions behind it are D046 and
 `docs/tasks/milestone-7-tui.md`.
 
 ```
@@ -21,23 +21,28 @@ Both forms need a terminal on stdin and stdout, and a screen of at least
 
 `luria review REQUEST.json` runs the request as `luria q5 design` does
 and opens on the overview, or on the problem screen when the result
-failed or asks a question. The state and the experimental validation
-are on the top two rows of every screen.
+failed or asks a question. Every screen sits in one frame whose title
+shows the state as a coloured badge (`✓ verified`, `✗ failed`, `?
+needs clarification`) and the experimental validation (`not tested at
+the bench`). Positions on screen are 1-based and inclusive, as GenBank
+writes them (`GAT→AAC at 1210–1212`, `insert GAT after 1209`); the
+request and result files stay zero-based (§3). `?` opens a help pop-up
+with the legend and the keys.
 
 | Screen | What it shows | Keys |
 | --- | --- | --- |
-| Overview | The template, the target CDS, any operation warnings, one row per member with its mutation and whether it was designed | `j`/`k` move, `enter` open, `p` provenance, `e` problem, `x` export |
-| Member | The forward primer above the top strand, the mutant protein between the strands, the bottom strand, the reverse primer below it written 3'->5'; edited bases and primer bases that do not anneal in lower case; then each primer 5'->3' with its length and Tm, the annealing temperature and any warnings by code | `t` technical, `i` expand or collapse a long insertion, `j`/`k` scroll |
-| Technical | The edit, its warnings, and each primer with its parts, Tm basis and warnings; or why no pair was designed | `j`/`k` scroll |
+| Overview | The template, the target CDS and its strand, any operation warnings, and the variants, one row each with its edit and whether a primer pair was designed | `j`/`k` move, `enter` open, `p` provenance, `e` problem, `x` export |
+| Variant | The forward primer above the top strand, the variant's protein between the strands, the bottom strand, the reverse primer below it written 3'→5'; edited bases and primer bases that do not anneal in lower case and coloured; then a table of each primer's length, Tm (one decimal) and sequence 5'→3', the annealing temperature, and each warning in words | `d` details, `i` expand or collapse a long insertion, `j`/`k` scroll |
+| Details | Everything the result records for the variant: the edit, its warnings by code, and each primer with its parts, Tm basis and warnings; or why no pair was designed | `j`/`k` scroll |
 | Provenance | The package, every algorithm and version, the request and template digests, what a GenBank record imported and did not, the buffer | `j`/`k` scroll |
 | Problem | The error and its details, or the clarifications and candidates | `p` provenance |
 
 `esc` goes back, and quits from the overview; `q` quits from anywhere;
-`PgUp`, `PgDn` and `Home` scroll. The member screen reads the template
+`PgUp`, `PgDn` and `Home` scroll. The variant screen reads the template
 again and draws it only when its digest is the one the result reports.
 The protein is the one luria-core reads from the edited construct, in
 the CDS's frame, on past a frameshift, ending at the first stop codon;
-the construct is used only when its digest is the member's. An
+the construct is used only when its digest is the variant's. An
 insertion longer than 30 bases is shown by its boundaries until `i`
 expands it, and starts collapsed each time the screen opens.
 
@@ -49,7 +54,8 @@ any questions or error first, then the proposed request exactly as it
 will be written, where each value came from, the model's reading with
 each quote, and everything sent to and received from the model.
 
-Nothing is written and nothing runs until you press `a`, then `y` on a
+Its frame's badge is `PROPOSAL`, never a result's. Nothing is written
+and nothing runs until you press `a`, then `y` on a
 screen that names the file. luria then writes the request to
 `--request`, under `--write-request`'s rules (beside the template,
 never replacing a file), runs `luria q5 design` on that file, and shows

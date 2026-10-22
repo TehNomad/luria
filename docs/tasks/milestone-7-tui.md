@@ -383,7 +383,10 @@ Proposed rules:
 - HTTPS, the Anthropic backend, annotated sites (the two `later-*` files).
 - Mouse support, themes, configuration files.
 
-## 8a. Planner choices made during implementation, to be confirmed
+## 8a. Planner choices made during implementation
+
+Confirmed by the owner, 2026-10-21, with the §5.3a Tm rounding (one
+decimal on the member screen) and M7-20's frame rules.
 
 - **`--request FILE.json` is required in the interpret form of `luria
   review`** (7f2, drafted 2026-10-21). §1's command line names no place
