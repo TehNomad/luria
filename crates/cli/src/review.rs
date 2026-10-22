@@ -85,12 +85,17 @@ pub fn approve(
         return Err(format!("could not write {}: {}", name, reason));
     }
 
-    // The design runs from the file just written, and the template is read
-    // again, so the context screen draws the sequence this result was computed
-    // on and no other (7d, D005) - the same as `emit_review` does. The run's
-    // own edited constructs are kept beside it, so the member screen shows the
-    // protein core made for each member and not a translation of its own
-    // (7i2, plan §5.3a, M7-21).
+    Ok(run_approved(request))
+}
+
+/// The design run from a request file on disk, the code `approve` does after its
+/// write, shared with `new`'s approval (7k5): `run_with_constructs`, so the
+/// result's request digest names a file on disk (plan §3 rule 4), and the
+/// template read again, so the context screen draws the sequence this result was
+/// computed on and no other (7d, D005). The run's own edited constructs are kept
+/// beside it, so the member screen shows the protein core made for each member
+/// and not a translation of its own (7i2, plan §5.3a, M7-21).
+pub(crate) fn run_approved(request: &Path) -> Approved {
     let (outcome, constructs): (Outcome, Vec<(String, Sequence)>) = run_with_constructs(request);
     let (letters, frames): (Option<Vec<char>>, Vec<MemberFrame>) = match prepare(request) {
         Ok(prepared) => (
@@ -104,11 +109,11 @@ pub fn approve(
         ),
         Err(_problem) => (None, Vec::new()),
     };
-    Ok(Approved {
+    Approved {
         document: outcome.document,
         template: letters,
         frames,
-    })
+    }
 }
 
 /// One member's mutant protein: each residue core read, from

@@ -55,7 +55,9 @@ use luria_core::genbank::{read_genbank, GenBankRecord};
 use luria_core::identity::Identifier;
 use luria_core::sequence::{Sequence, SequenceTopology};
 
+pub mod confirm;
 pub mod form;
+pub mod terminal;
 pub mod text;
 pub mod view;
 

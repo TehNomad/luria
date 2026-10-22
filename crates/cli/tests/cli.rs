@@ -209,3 +209,43 @@ fn a_failed_write_to_stdout_exits_1() {
         assert_eq!(output.status.code(), Some(1), "{:?}", arguments);
     }
 }
+
+// Milestone 7k5: `new` takes no file on the command line, so any word other than
+// `--design` and `--export` is a usage error naming it (contract §2.1), and the
+// screen needs a terminal on both streams, as 7a's rule states, checked before
+// the form opens, so nothing is read and nothing is written (§3 rule 7, exit 2).
+#[test]
+fn new_with_an_unknown_word_is_a_usage_error_naming_it() {
+    let output = luria(&["new", "--bogus"]);
+    assert_eq!(output.status.code(), Some(2));
+    assert!(output.stdout.is_empty());
+    assert_eq!(
+        String::from_utf8(output.stderr).unwrap(),
+        format!(
+            "luria: 'new' takes only --design and --export, got '--bogus'\n\n{}",
+            luria_cli::args::USAGE
+        )
+    );
+}
+
+#[test]
+fn new_without_a_terminal_is_a_usage_error() {
+    let output = Command::new(env!("CARGO_BIN_EXE_luria"))
+        .args(["new"])
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .output()
+        .expect("the luria executable runs");
+
+    assert_eq!(output.status.code(), Some(2));
+    assert!(output.stdout.is_empty());
+    assert_eq!(
+        String::from_utf8(output.stderr).unwrap(),
+        format!(
+            "luria: 'review' needs a terminal on stdin and stdout; 'q5 design' writes the same result as JSON\n\n{}",
+            luria_cli::args::USAGE
+        ),
+        "7a's usage error, reused by `new` (contract §2.4)"
+    );
+}

@@ -34,6 +34,10 @@ pub enum Command {
         request: PathBuf,
         export: Option<PathBuf>,
     },
+    New {
+        design: Option<PathBuf>,
+        export: Option<PathBuf>,
+    },
 }
 
 /// A command line luria can't act on. `message` is one line, no trailing
@@ -53,6 +57,7 @@ pub const USAGE: &str = "usage:
   luria review --template FILE.gb (--text TEXT | --text-file FILE)
       --backend openai-compatible --endpoint URL --model NAME
       --request FILE.json [--design PROFILE.json] [--allow-remote] [--export DIR]
+  luria new [--design PROFILE.json] [--export DIR]
   luria version
   luria help
 
@@ -61,7 +66,8 @@ workflow and writes one JSON result document to stdout. 'q5 interpret'
 asks a language model what a request in words means and writes the
 proposed request, or its questions, as one JSON document. 'review' runs a
 request, or interprets a request in words and runs it once you approve, and
-shows the result in the terminal. See docs/cli.md.
+shows the result in the terminal. 'new' takes a template and mutations in a
+form and runs them once you approve. See docs/cli.md.
 ";
 
 /// The reason `word` gives, as a `UsageError`. The value type is the command
@@ -116,6 +122,9 @@ pub fn parse(arguments: &[String]) -> Result<Command, UsageError> {
     }
     if word == "review" {
         return parse_review(rest);
+    }
+    if word == "new" {
+        return parse_new(rest);
     }
     reject(format!("unknown command '{}'", word))
 }
@@ -301,6 +310,79 @@ fn parse_review(words: &[String]) -> Result<Command, UsageError> {
         }),
         None => reject("'review' needs a request file".to_string()),
     }
+}
+
+/// Read `new`'s arguments: the form opens with no path typed, so `--design` is
+/// the `--design` profile 7k3 fills `Overlap` and `Codon` from, and `--export`
+/// is 7g1's directory the result screen writes to, taken exactly as `review`
+/// takes it. There is no request file and no template on the command line, so
+/// any other word, a repeated option, an option without its value and an empty
+/// path are all usage errors naming the word. `--` ends the options, as in
+/// `q5 design`, and the first error found is the one reported.
+fn parse_new(words: &[String]) -> Result<Command, UsageError> {
+    let mut design: Option<String> = None;
+    let mut export: Option<String> = None;
+    let mut options_end: bool = false;
+    let last: usize = words.len();
+    let mut index: usize = 0;
+
+    while index < last {
+        let word: &str = &words[index];
+
+        if word == "--" && !options_end {
+            options_end = true;
+            index += 1;
+            continue;
+        }
+
+        if !options_end && word == "--design" {
+            match design {
+                Some(_) => return reject("--design is given more than once".to_string()),
+                None => {
+                    index += 1;
+                    if index == last {
+                        return reject("--design needs a profile file".to_string());
+                    }
+                    let value: &str = &words[index];
+                    if value.is_empty() {
+                        return reject("an empty path is not a file".to_string());
+                    }
+                    design = Some(value.to_string());
+                }
+            }
+            index += 1;
+            continue;
+        }
+
+        if !options_end && word == "--export" {
+            match export {
+                Some(_) => return reject("--export is given more than once".to_string()),
+                None => {
+                    index += 1;
+                    if index == last {
+                        return reject("--export needs a directory".to_string());
+                    }
+                    let value: &str = &words[index];
+                    if value.is_empty() {
+                        return reject("an empty path is not a file".to_string());
+                    }
+                    export = Some(value.to_string());
+                }
+            }
+            index += 1;
+            continue;
+        }
+
+        return reject(format!(
+            "'new' takes only --design and --export, got '{}'",
+            word
+        ));
+    }
+
+    Ok(Command::New {
+        design: design.map(PathBuf::from),
+        export: export.map(PathBuf::from),
+    })
 }
 
 /// Whether `option` names a file or directory, whose value cannot be empty.

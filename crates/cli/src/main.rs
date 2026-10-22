@@ -3,6 +3,7 @@
 
 use std::env;
 use std::ffi::OsString;
+use std::fs;
 use std::io::{stderr, stdin, stdout, IsTerminal, Write};
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -15,6 +16,9 @@ use luria_cli::interpret::document::render_interpretation;
 use luria_cli::interpret::run::{
     interpret, request_location_problem, InterpretInput, InterpretOutcome, TextSource,
 };
+use luria_cli::new;
+use luria_cli::new::form::NewForm;
+use luria_cli::request::{parse_profile, ProfileDocument};
 use luria_cli::result::render;
 use luria_cli::review;
 use luria_cli::review::app::App;
@@ -300,6 +304,90 @@ fn emit_review_interpret(
     }
 }
 
+/// `luria new`: the form, the confirmation, and the design an approval runs
+/// (milestone 7k5, contract 7k5 §2.4). 7a's rule is checked first, because
+/// without a terminal on both streams the screen cannot open, and a refusal is
+/// 7a's usage error with nothing read (plan §3 rule 7, §3.7, exit 2). `--design`
+/// is read with `parse_profile`, and a refusal is exit 4 with its message,
+/// before the screen opens, as `emit_review_interpret` gives exit 4 for the
+/// request location. The form opens with no backend, so the `In words` box stays
+/// disabled whatever the command line says (M7-36, 7k7), and nothing is written
+/// until `a` then `y` (plan §3 rule 4). The request the approval wrote is the
+/// file the export names, and the plan is built from the document the screen
+/// shows, so the result screens are 7a's, opened exactly as
+/// `emit_review_interpret` opens them (7g1). The exit status is 0 whatever the
+/// result's state, and 1 when the terminal itself failed.
+fn emit_new(design: Option<PathBuf>, export: Option<PathBuf>) -> ExitStatus {
+    match review::terminal_problem(stdin().is_terminal(), stdout().is_terminal()) {
+        Some(problem) => report_usage(problem),
+        None => {
+            let profile: Option<ProfileDocument> = match design.as_deref() {
+                None => None,
+                Some(path) => match fs::read_to_string(path) {
+                    Err(problem) => {
+                        write_err(
+                            format!("luria: cannot read the design profile: {}\n", problem)
+                                .as_str(),
+                        );
+                        return ExitStatus::MalformedInput;
+                    }
+                    Ok(text) => match parse_profile(&text) {
+                        Err(error) => {
+                            write_err(format!("luria: {}\n", error.message).as_str());
+                            return ExitStatus::MalformedInput;
+                        }
+                        Ok(found) => Some(found),
+                    },
+                },
+            };
+            // The directory the template path and the written files are relative
+            // to (contract §2.4).
+            let cwd: PathBuf = match env::current_dir() {
+                Ok(there) => there,
+                Err(problem) => {
+                    write_err(format!("luria: {}\n", problem).as_str());
+                    return ExitStatus::Internal;
+                }
+            };
+            let mut written: Option<PathBuf> = None;
+            match new::terminal::run_new(NewForm::new(profile.as_ref(), false), &cwd, &mut written)
+            {
+                // Quit before `y`: nothing was written and nothing ran, so 0 is
+                // the honest status (7f2 §1).
+                Ok(None) => ExitStatus::Success,
+                Ok(Some(approved)) => {
+                    let request: PathBuf = written.expect("an approval wrote the request it ran");
+                    let plan: Option<ExportPlan> = export
+                        .as_deref()
+                        .map(|directory| export_plan(&approved.document, &request, directory));
+                    match review::terminal::run(
+                        App::new(approved.document)
+                            .with_template(approved.template)
+                            .with_frames(approved.frames)
+                            .with_export(plan),
+                        &mut |app: &App| match app.export_plan() {
+                            Some(plan) => write_export(plan, app.document()),
+                            None => Err("no export directory was given".to_string()),
+                        },
+                    ) {
+                        Ok(()) => ExitStatus::Success,
+                        Err(problem) => {
+                            write_err(
+                                format!("luria: the terminal failed: {}\n", problem).as_str(),
+                            );
+                            ExitStatus::Internal
+                        }
+                    }
+                }
+                Err(problem) => {
+                    write_err(format!("luria: the terminal failed: {}\n", problem).as_str());
+                    ExitStatus::Internal
+                }
+            }
+        }
+    }
+}
+
 /// Report a usage error on stderr, with the usage text repeated (plan §3.7,
 /// exit code 2: text on stderr, nothing on stdout).
 fn report_usage(problem: UsageError) -> ExitStatus {
@@ -357,6 +445,7 @@ fn main() -> ExitCode {
                 request,
                 export,
             ),
+            Ok(Command::New { design, export }) => emit_new(design, export),
             Err(problem) => report_usage(problem),
         },
     };

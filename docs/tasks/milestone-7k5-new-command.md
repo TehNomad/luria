@@ -1,6 +1,14 @@
 # Milestone 7k5: the `luria new` command
 
-Status: **Ready for the worker, 2026-10-22.** Planner: Claude. Parent:
+Status: **Implemented 2026-10-22.** Proofs 2 and 3 failed as required;
+proof 1 fails only with both the location check and `create_new`
+disabled, since the location check refuses first. Accepted:
+`run_new(form, cwd, &mut written)` returns the request path for the
+export plan; a failure returns to the Reading screen, as 7f2 does.
+Known gaps: without a terminal, `luria new` prints the review's message
+(it names `'review'`), to be fixed in a follow-up; the GenBank path and an
+already-taken paste file name are untested; the terminal loop is the
+owner's hand test. Planner: Claude. Parent:
 `docs/tasks/milestone-7k-new.md` §1, §2 (rules 4 to 6), M7-31, M7-37.
 Builds on 7k2 (`new::build`), 7k3 (`NewForm`), 7k4 (`draw_form`) and the
 review's proposal pattern (7f2: nothing written before `a` then `y`).
