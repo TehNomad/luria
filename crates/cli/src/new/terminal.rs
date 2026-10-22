@@ -17,6 +17,8 @@ use crate::interpret::document::InterpretationDocument;
 use crate::new::confirm::{approve_new, draw_confirm, plan, ConfirmAction, ConfirmApp};
 use crate::new::form::{FormAction, NewForm, Source};
 use crate::new::view::draw_form;
+use crate::new::view::draw_waiting;
+use crate::request::ProfileDocument;
 use crate::review::app::Key;
 use crate::review::approve;
 use crate::review::proposal::{ProposalAction, ProposalApp};
@@ -96,14 +98,16 @@ fn request_path(form: &NewForm, cwd: &Path) -> PathBuf {
 ///
 /// `interpret` is called only on `FormAction::Interpret`, which the form gives
 /// when the words box holds text with a GenBank template loaded (M7-40): the
-/// template path as typed, and the words as typed. Its document is the proposal
-/// drawn in this session, and the approval of it is `review::approve`, exactly as
-/// `luria review --template` runs it (7f2). The loop is the owner's hand test.
+/// template path as typed, the words as typed, and the design the form shows
+/// (M7-41), which the closure gives `interpret_with_profile`. Its document is the
+/// proposal drawn in this session, and the approval of it is `review::approve`,
+/// exactly as `luria review --template` runs it (7f2). The loop is the owner's
+/// hand test.
 pub fn run_new(
     form: NewForm,
     cwd: &Path,
     written: &mut Option<PathBuf>,
-    interpret: &mut dyn FnMut(&str, &str) -> InterpretationDocument,
+    interpret: &mut dyn FnMut(&str, &str, ProfileDocument) -> InterpretationDocument,
 ) -> std::io::Result<Option<Approved>> {
     let mut terminal = match ratatui::try_init() {
         Ok(opened) => opened,
@@ -210,10 +214,19 @@ pub fn run_new(
                                 &form.save_as(),
                             )));
                         }
-                        FormAction::Interpret { template, text } => {
+                        FormAction::Interpret {
+                            template,
+                            text,
+                            profile,
+                        } => {
+                            // The call can take minutes, so the form is drawn once
+                            // with the line that says the model is being asked, and
+                            // this screen answers when the reply comes back.
+                            let _ = terminal.draw(|frame| draw_waiting(frame, &form));
                             // The model is spoken to once per `[ Review ]`, and
                             // the request is the path the approval will write.
-                            let document: InterpretationDocument = interpret(&template, &text);
+                            let document: InterpretationDocument =
+                                interpret(&template, &text, profile);
                             words_template = Some(PathBuf::from(&template));
                             proposal = Some(ProposalApp::new(document, request_path(&form, cwd)));
                         }

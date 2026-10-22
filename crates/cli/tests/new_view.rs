@@ -106,6 +106,22 @@ fn cursor(form: &NewForm, width: u16, height: u16) -> Position {
     terminal.backend().cursor_position()
 }
 
+/// `form` drawn by `draw_waiting` on a `width` by `height` test backend, read
+/// back as rows, as `rows` reads `draw_form`'s.
+fn waiting_rows(form: &NewForm, width: u16, height: u16) -> Vec<String> {
+    let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
+    terminal
+        .draw(|frame| view::draw_waiting(frame, form))
+        .unwrap();
+    let buffer = terminal.backend().buffer();
+    let width: usize = buffer.area.width as usize;
+    buffer
+        .content
+        .chunks(width)
+        .map(|cells| cells.iter().map(|cell| cell.symbol()).collect())
+        .collect()
+}
+
 #[test]
 fn the_form_has_its_badge() {
     let form: NewForm = sid1(&["D404N"], "15");
@@ -213,5 +229,31 @@ fn a_genbank_need_is_dim() {
     assert!(
         styles(&form, 80, 24)[row][column].has_modifier(Modifier::DIM),
         "the hint is dim in the view, as `needs --backend` is"
+    );
+}
+
+// 7k9 §2.4: the screen the loop shows while it waits for the model names the
+// call on the key line, and is `draw_form`'s screen in every other row, so the
+// user sees the form they typed while the call runs.
+#[test]
+fn waiting_names_the_model_call() {
+    const KEYS: &str = "asking the model; this screen answers when it replies";
+    let form: NewForm = sid1(&["D404N"], "15");
+    let drawn: Vec<String> = rows(&form, 80, 24);
+    let waiting: Vec<String> = waiting_rows(&form, 80, 24);
+    assert_eq!(
+        waiting[23].trim_end(),
+        KEYS,
+        "the key line says the model is being asked: {:?}",
+        waiting[23]
+    );
+    assert_eq!(
+        waiting[..23],
+        drawn[..23],
+        "every row but the key line is the form's own screen"
+    );
+    assert_ne!(
+        waiting[23], drawn[23],
+        "the key line is the only row that differs"
     );
 }

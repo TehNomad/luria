@@ -18,7 +18,10 @@
 //!   previews green, `✗` previews red, `needs --backend` dim, `[ Review ]` bold
 //!   and reversed when focused, the blocker line bold red;
 //! - the cursor is `frame.set_cursor_position` at the text field's column on its
-//!   line, so the terminal shows where a typed character goes.
+//!   line, so the terminal shows where a typed character goes;
+//! - `draw_waiting` draws the same screen with the key line saying the model is
+//!   being asked, and no cursor, so the screen shown while the call waits differs
+//!   only in that line.
 
 use crate::new::form::Field;
 use crate::new::form::NewForm;
@@ -62,6 +65,31 @@ const LABELS: [&str; 13] = [
 /// in the focused text field. Below 80x24 the screen says how small it is and
 /// shows nothing of the form.
 pub fn draw_form(frame: &mut Frame, form: &NewForm) {
+    draw_form_with(
+        frame,
+        form,
+        "tab next  shift-tab back  ←/→ choose  enter review  esc quit",
+        true,
+    );
+}
+
+/// Draw `form` exactly as `draw_form` does, except that the key line says the
+/// model is being asked, and no cursor is set: the screen the loop shows while
+/// it waits for the reply, which can take minutes (`REQUEST_TIMEOUT_SECONDS`).
+pub fn draw_waiting(frame: &mut Frame, form: &NewForm) {
+    draw_form_with(
+        frame,
+        form,
+        "asking the model; this screen answers when it replies",
+        false,
+    );
+}
+
+/// The form's screen: the frame with the ` NEW DESIGN ` badge, the body scrolled
+/// so the focused field's line is visible, the key line `keys`, and, when
+/// `with_cursor` is set, the cursor in the focused text field. Below 80x24 the
+/// screen says how small it is and shows nothing of the form.
+fn draw_form_with(frame: &mut Frame, form: &NewForm, keys: &str, with_cursor: bool) {
     let area: Rect = frame.area();
     if too_small(frame, area) {
         return;
@@ -96,17 +124,17 @@ pub fn draw_form(frame: &mut Frame, form: &NewForm) {
     frame.render_widget(Paragraph::new(shown), inner);
 
     frame.render_widget(
-        Paragraph::new(key_line(
-            "tab next  shift-tab back  ←/→ choose  enter review  esc quit",
-        )),
+        Paragraph::new(key_line(keys)),
         Rect::new(0, area.height - 1, area.width, 1),
     );
 
-    if let Some(column) = body.cursor {
-        frame.set_cursor_position(Position::new(
-            inner.x + column as u16,
-            inner.y + (body.focus_line - first) as u16,
-        ));
+    if with_cursor {
+        if let Some(column) = body.cursor {
+            frame.set_cursor_position(Position::new(
+                inner.x + column as u16,
+                inner.y + (body.focus_line - first) as u16,
+            ));
+        }
     }
 }
 

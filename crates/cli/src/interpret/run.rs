@@ -358,19 +358,19 @@ pub fn write_request_file(path: &Path, text: &str) -> Result<(), String> {
     }
 }
 
-/// `luria q5 interpret`, in the order of §3.6: every local input is checked
-/// first, the model is spoken to once, its reply is read, the request is
-/// built, and only a proposed request is written.
-pub fn interpret(input: &InterpretInput, backend: &mut dyn Backend) -> InterpretOutcome {
-    let info: BackendInfo = backend.describe();
-    let mut answered: InterpretationDocument = base(&info);
-
-    // Step 1: the user's text, however it was given, and its cap.
+/// Step 1: the user's text, however it was given, and its cap. The `Err` is the
+/// refusal this run makes, with the document as it stands, so nothing after
+/// step 1 runs.
+#[allow(clippy::result_large_err)]
+fn read_text(
+    input: &InterpretInput,
+    answered: &InterpretationDocument,
+) -> Result<String, InterpretOutcome> {
     let given: String = match &input.text {
         TextSource::Inline(value) => {
             if value.len() > MAX_TEXT_BYTES {
-                return refused(
-                    &answered,
+                return Err(refused(
+                    answered,
                     "input_too_large".to_string(),
                     None,
                     format!(
@@ -378,23 +378,23 @@ pub fn interpret(input: &InterpretInput, backend: &mut dyn Backend) -> Interpret
                         MAX_TEXT_BYTES
                     ),
                     ExitStatus::MalformedInput,
-                );
+                ));
             }
             value.clone()
         }
         TextSource::File(written) => match read_capped(written, MAX_TEXT_BYTES) {
             Err(ReadFailure::Io(reason)) => {
-                return refused(
-                    &answered,
+                return Err(refused(
+                    answered,
                     "text_unreadable".to_string(),
                     None,
                     format!("cannot read the text file: {}", reason),
                     ExitStatus::MalformedInput,
-                );
+                ));
             }
             Err(ReadFailure::Over) => {
-                return refused(
-                    &answered,
+                return Err(refused(
+                    answered,
                     "input_too_large".to_string(),
                     None,
                     format!(
@@ -402,17 +402,17 @@ pub fn interpret(input: &InterpretInput, backend: &mut dyn Backend) -> Interpret
                         MAX_TEXT_BYTES
                     ),
                     ExitStatus::MalformedInput,
-                );
+                ));
             }
             Ok(found) => match String::from_utf8(found) {
                 Err(_problem) => {
-                    return refused(
-                        &answered,
+                    return Err(refused(
+                        answered,
                         "text_unreadable".to_string(),
                         None,
                         "the text file is not UTF-8".to_string(),
                         ExitStatus::MalformedInput,
-                    );
+                    ));
                 }
                 Ok(contents) => contents.clone(),
             },
@@ -420,66 +420,112 @@ pub fn interpret(input: &InterpretInput, backend: &mut dyn Backend) -> Interpret
     };
     let text: String = without_break(&given);
     if text.trim().is_empty() {
-        return refused(
-            &answered,
+        return Err(refused(
+            answered,
             "text_empty".to_string(),
             None,
             "the text is empty".to_string(),
             ExitStatus::MalformedInput,
-        );
+        ));
     }
+    Ok(text)
+}
 
-    // Step 2: the design profile, when one was given.
-    let profile: Option<ProfileDocument> = match &input.profile {
-        None => None,
+/// Step 2: the design profile, when one was given. `Ok(None)` is no profile;
+/// the `Err` is the refusal this run makes, as in step 1.
+#[allow(clippy::result_large_err)]
+fn read_profile(
+    input: &InterpretInput,
+    answered: &InterpretationDocument,
+) -> Result<Option<ProfileDocument>, InterpretOutcome> {
+    match &input.profile {
+        None => Ok(None),
         Some(written) => match read_capped(written, MAX_PROFILE_BYTES) {
-            Err(ReadFailure::Io(reason)) => {
-                return refused(
-                    &answered,
+            Err(ReadFailure::Io(reason)) => Err(refused(
+                answered,
+                "profile_unreadable".to_string(),
+                None,
+                format!("cannot read the design profile: {}", reason),
+                ExitStatus::MalformedInput,
+            )),
+            Err(ReadFailure::Over) => Err(refused(
+                answered,
+                "input_too_large".to_string(),
+                None,
+                format!(
+                    "the design profile is more than {} bytes, the most luria reads",
+                    MAX_PROFILE_BYTES
+                ),
+                ExitStatus::MalformedInput,
+            )),
+            Ok(found) => match String::from_utf8(found) {
+                Err(_problem) => Err(refused(
+                    answered,
                     "profile_unreadable".to_string(),
                     None,
-                    format!("cannot read the design profile: {}", reason),
+                    "the design profile is not UTF-8".to_string(),
                     ExitStatus::MalformedInput,
-                );
-            }
-            Err(ReadFailure::Over) => {
-                return refused(
-                    &answered,
-                    "input_too_large".to_string(),
-                    None,
-                    format!(
-                        "the design profile is more than {} bytes, the most luria reads",
-                        MAX_PROFILE_BYTES
-                    ),
-                    ExitStatus::MalformedInput,
-                );
-            }
-            Ok(found) => match String::from_utf8(found) {
-                Err(_problem) => {
-                    return refused(
-                        &answered,
-                        "profile_unreadable".to_string(),
-                        None,
-                        "the design profile is not UTF-8".to_string(),
-                        ExitStatus::MalformedInput,
-                    );
-                }
+                )),
                 Ok(contents) => match parse_profile(&contents) {
-                    Err(problem) => {
-                        return refused(
-                            &answered,
-                            "profile_invalid".to_string(),
-                            None,
-                            format!("{}: {}", problem.path, problem.message),
-                            ExitStatus::MalformedInput,
-                        );
-                    }
-                    Ok(found_profile) => Some(found_profile.clone()),
+                    Err(problem) => Err(refused(
+                        answered,
+                        "profile_invalid".to_string(),
+                        None,
+                        format!("{}: {}", problem.path, problem.message),
+                        ExitStatus::MalformedInput,
+                    )),
+                    Ok(found_profile) => Ok(Some(found_profile.clone())),
                 },
             },
         },
-    };
+    }
+}
 
+/// `luria q5 interpret`, in the order of §3.6: every local input is checked
+/// first, the model is spoken to once, its reply is read, the request is
+/// built, and only a proposed request is written.
+pub fn interpret(input: &InterpretInput, backend: &mut dyn Backend) -> InterpretOutcome {
+    let info: BackendInfo = backend.describe();
+    let answered: InterpretationDocument = base(&info);
+    let text: String = match read_text(input, &answered) {
+        Err(outcome) => return outcome,
+        Ok(found) => found,
+    };
+    let profile: Option<ProfileDocument> = match read_profile(input, &answered) {
+        Err(outcome) => return outcome,
+        Ok(found) => found,
+    };
+    run(input, &text, profile, answered, backend)
+}
+
+/// `luria q5 interpret` with the design profile given as a value, as the `luria
+/// new` form passes the values it shows (M7-41): steps 1 and 3 to 8 exactly as
+/// `interpret` runs them, with step 2 skipped, so no profile file is read. The
+/// profile in the input and one given here are the same value read twice.
+pub fn interpret_with_profile(
+    input: &InterpretInput,
+    profile: ProfileDocument,
+    backend: &mut dyn Backend,
+) -> InterpretOutcome {
+    assert!(input.profile.is_none(), "a profile is given twice");
+    let info: BackendInfo = backend.describe();
+    let answered: InterpretationDocument = base(&info);
+    let text: String = match read_text(input, &answered) {
+        Err(outcome) => return outcome,
+        Ok(found) => found,
+    };
+    run(input, &text, Some(profile), answered, backend)
+}
+
+/// Steps 3 to 8, from step 1's text and step 2's profile: the body both public
+/// functions run, so the two differ only in where the profile came from.
+fn run(
+    input: &InterpretInput,
+    text: &str,
+    profile: Option<ProfileDocument>,
+    mut answered: InterpretationDocument,
+    backend: &mut dyn Backend,
+) -> InterpretOutcome {
     // Step 3: the template: its name alone, its bytes, its FASTA refusal, then
     // the record and its CDS catalogue.
     let file: String = match input.template.file_name() {
@@ -589,7 +635,7 @@ pub fn interpret(input: &InterpretInput, backend: &mut dyn Backend) -> Interpret
     // Step 5: the prompt the model is given, and the one call. `messages` is
     // set before the call, so a refusal still shows what would have been sent.
     let lines: Vec<CdsLine> = listing.iter().map(line_of).collect();
-    let sent: Prompt = prompt(&text, &lines);
+    let sent: Prompt = prompt(text, &lines);
     answered.interpretation.messages = Some(sent.clone());
     let reply: String = match backend.complete(&sent) {
         Err(problem) => {
@@ -629,7 +675,7 @@ pub fn interpret(input: &InterpretInput, backend: &mut dyn Backend) -> Interpret
 
     // Step 7: what luria makes of what the model said, which it does not
     // believe on its own (D003).
-    match build(&text, &extraction, &listing, profile.as_ref(), &facts) {
+    match build(text, &extraction, &listing, profile.as_ref(), &facts) {
         Built::Ungrounded(problem) => {
             answered.interpretation.ungrounded = Some(ungrounded_view(&problem));
             refused(

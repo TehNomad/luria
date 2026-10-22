@@ -188,6 +188,47 @@ fn a_pasted_template_builds_its_request() {
     );
 }
 
+// §3.1 rule 3 (contract §2.2): many terminals send a bracketed paste's line
+// breaks as `\r`, so a lone `\r` is one line break, and `\r\n` is one, each read
+// exactly as `\n` is: the pasted lines are the same lines.
+#[test]
+fn a_paste_with_carriage_returns_reads_as_lines() {
+    let typed: String = typed_paste();
+    let mut form = NewForm::new(None, false);
+    // Source = paste, as the `Source` field's toggle gives it.
+    form.handle(Key::Right);
+    tab_to(&mut form, Field::Paste);
+    form.paste(&typed);
+    let with_breaks: String = form.paste_text();
+    assert_eq!(
+        with_breaks.lines().count(),
+        2,
+        "the `\\n` paste reads as the two lines it typed"
+    );
+
+    // The same text with every `\n` sent as a lone `\r`.
+    let mut form = NewForm::new(None, false);
+    form.handle(Key::Right);
+    tab_to(&mut form, Field::Paste);
+    form.paste(&typed.replace('\n', "\r"));
+    assert_eq!(
+        form.paste_text(),
+        with_breaks,
+        "a lone `\\r` is one line break"
+    );
+
+    // The same text with every `\n` sent as `\r\n`.
+    let mut form = NewForm::new(None, false);
+    form.handle(Key::Right);
+    tab_to(&mut form, Field::Paste);
+    form.paste(&typed.replace("\n", "\r\n"));
+    assert_eq!(
+        form.paste_text(),
+        with_breaks,
+        "`\\r\\n` is one line break, not two"
+    );
+}
+
 #[test]
 fn a_genbank_file_offers_its_usable_cds() {
     let mut form = NewForm::new(None, false);

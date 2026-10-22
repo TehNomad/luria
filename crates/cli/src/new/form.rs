@@ -36,7 +36,8 @@
 //! - with words typed (M7-40), `[ Review ]` asks the loop to send them through
 //!   `interpret`: words and lines are one or the other, not both, words need a
 //!   GenBank template, whose CDS list the model is shown, and the form gives
-//!   `Interpret` with the path as typed in `File` and builds nothing;
+//!   `Interpret` with the path as typed in `File` and the profile of the values
+//!   it shows (M7-41, M7-42), and builds nothing;
 //! - `SaveAs` is filled from the name, and the name the user typed is never
 //!   replaced (M7-37); a paste's FASTA is `<name>.fa`, shown read-only beside it.
 
@@ -49,9 +50,15 @@ use crate::new::Built;
 use crate::new::CdsChoice;
 use crate::new::CodonChoice;
 use crate::new::TemplateInput;
+use crate::request::BufferSpec;
+use crate::request::CodonSpec;
+use crate::request::DesignSpec;
+use crate::request::NumberingSpec;
 use crate::request::PlacementSpec;
+use crate::request::PolicySpec;
 use crate::request::ProfileDocument;
 use crate::request::StrandSpec;
+use crate::request::StyleSpec;
 use crate::request::TopologySpec;
 use crate::review::app::Key;
 use crate::shorthand::parse_line;
@@ -114,10 +121,13 @@ pub enum FormAction {
     Review(Box<Built>),
     /// `[ Review ]` with words typed and a GenBank template loaded (M7-40): the
     /// loop sends `text` through `interpret` with the template at `template`,
-    /// the path typed in `File`, and shows the proposal. The form built nothing.
+    /// the path typed in `File`, and shows the proposal. `profile` is the design
+    /// the form shows, which the words are read with (M7-41). The form built
+    /// nothing.
     Interpret {
         template: String,
         text: String,
+        profile: ProfileDocument,
     },
 }
 
@@ -426,11 +436,23 @@ impl NewForm {
 
     /// Bracketed paste: the text goes into the focused text field as typed
     /// characters would, newlines kept in multi-line fields and dropped in
-    /// single-line ones.
+    /// single-line ones. Many terminals send a paste's line breaks as `\r`, so a
+    /// lone `\r` is one line break, and `\r\n` is one break, read exactly as `\n`
+    /// is (M7-42): a FASTA pasted from such a terminal keeps its lines.
     pub fn paste(&mut self, text: &str) {
         let multi: bool = is_multi(self.focus);
-        for ch in text.chars() {
-            if ch == '\n' {
+        let mut chars: std::iter::Peekable<std::str::Chars> = text.chars().peekable();
+        while let Some(ch) = chars.next() {
+            let brake: bool = if ch == '\r' {
+                // `\r\n` is one break, so the `\n` of the pair goes with it.
+                if chars.peek() == Some(&'\n') {
+                    chars.next();
+                }
+                true
+            } else {
+                ch == '\n'
+            };
+            if brake {
                 if multi {
                     if let Some(field) = self.text_mut(self.focus) {
                         field.enter();
@@ -625,6 +647,35 @@ impl NewForm {
         self.codon
     }
 
+    /// The design the words are read with (M7-41, M7-42): the overlap as typed,
+    /// with placement `inline`, the only one `luria new` supports (D029), and
+    /// `q5 new`'s own policy, style and buffer; the codon `default` when "default
+    /// policy" is chosen, and unstated when it is "typed per mutation", so the
+    /// text must state one; and residues counted from the CDS's first codon, as
+    /// the shorthand path counts them (docs/cli.md §12.2). `[ Review ]` reaches
+    /// `Interpret` only after `form_blocker`, so `Overlap` is written and holds
+    /// digits only.
+    pub fn words_profile(&self) -> ProfileDocument {
+        ProfileDocument {
+            design: Some(DesignSpec {
+                policy: PolicySpec::LuriaNative,
+                style: StyleSpec::Q5Polymerase,
+                min_annealing_overlap: self
+                    .overlap
+                    .text()
+                    .parse::<i64>()
+                    .expect("the overlap is digits"),
+                placement: PlacementSpec::Inline,
+                buffer: BufferSpec::Q5Reaction,
+            }),
+            codon: match self.codon {
+                CodonChoice::DefaultPolicy => Some(CodonSpec::Default),
+                CodonChoice::TypedPerMutation => None,
+            },
+            numbering: Some(NumberingSpec::FromCdsStart),
+        }
+    }
+
     /// The overlap as typed, digits only.
     pub fn overlap(&self) -> String {
         self.overlap.text()
@@ -722,6 +773,7 @@ impl NewForm {
             return FormAction::Interpret {
                 template: self.file.text(),
                 text: self.words(),
+                profile: self.words_profile(),
             };
         }
         match build(&self.build_form()) {

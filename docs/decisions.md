@@ -1590,7 +1590,7 @@ owner's, after using the earlier versions.
 ## D047: Entering a design in the terminal (Milestone 7, `luria new`)
 
 Status: approved by the owner, 2026-10-21 and 2026-10-22
-(`docs/tasks/milestone-7k-new.md`, answers M7-31 to M7-40). Applies D003,
+(`docs/tasks/milestone-7k-new.md`, answers M7-31 to M7-42). Applies D003,
 D005, D006, D012, D029, D034, D044 and D046.
 
 Decision:
@@ -1617,8 +1617,10 @@ Decision:
   the template. Several lines are separate variants (M7-34).
 * **Words** (M7-33, M7-36, M7-40). With `--backend`, words are sent
   through `luria q5 interpret`'s path unchanged, and need a GenBank
-  template (M6-7); words and mutation lines are not combined. Without a
-  backend the box is shown and disabled.
+  template (M6-7); words and mutation lines are not combined. The form's
+  overlap and codon choice are the design they are read with, and residues
+  count from the CDS start (M7-41, M7-42). Without a backend the box is shown
+  and disabled.
 * **Nothing scientific defaulted silently** (M7-34, M7-39). The overlap
   is empty until the user or a `--design` profile gives it; the codon
   choice is shown; placement is shown as a fixed `inline`, the only

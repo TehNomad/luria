@@ -1,6 +1,6 @@
 # Milestone 7k9: words use the form's values; pasted line ends; a waiting line
 
-Status: **Ready for the worker, 2026-10-22.** Planner: Claude. Follows
+Status: **Implemented, 2026-10-22.** Planner: Claude. Follows
 7k7 and 7k8. Findings from the planner's code review of the untested
 terminal paths, with owner answers M7-41 and M7-42.
 
@@ -171,3 +171,14 @@ git status --short
 
 Report each result, the §3.1 proofs, every existing assertion changed,
 and anything that did not match.
+
+## 6. Implementation notes (planner, 2026-10-22)
+
+- 1109 tests passed, 0 failed, 1 ignored; fmt, clippy, diff check clean;
+  fixtures 19 of 19. The three §3.1 proofs failed as required.
+- `interpret` is split into `read_text`, `read_profile` and `run`; both
+  public functions call them, with `#[allow(clippy::result_large_err)]`
+  on the two helpers (the one addition not named here).
+- Found in review, not fixed here: `words_profile` panics if Overlap holds
+  more digits than an `i64` takes (the form checks only that it is not
+  empty). The shorthand path's `new::build` refuses such a value instead.

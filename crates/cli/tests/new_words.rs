@@ -10,8 +10,11 @@
 //! One test runs the case through `interpret` with `luria_nl::backend::ScriptedBackend`
 //! and the case's reply, exactly as `crates/cli/tests/review_proposal.rs` and
 //! `crates/cli/tests/review_approve.rs` run it, then approves the document: that
-//! pins that `luria new` reaches the same `review::approve` path 7f2 uses. No test
-//! makes a network call, and the terminal loop itself is the owner's hand test.
+//! pins that `luria new` reaches the same `review::approve` path 7f2 uses. With
+//! no `--design` profile, the `Interpret` profile is the form's own values (M7-41,
+//! M7-42), so the case's reply is read with the typed overlap, the codon choice
+//! and counting from the CDS start. No test makes a network call, and the terminal
+//! loop itself is the owner's hand test.
 //!
 //! Every expected value is one the corpus holds on its own: the row is
 //! `tests/fixtures/nl/cases.tsv`'s own columns, recorded in
@@ -21,10 +24,13 @@
 
 use luria_cli::interpret::document::InterpretationDocument;
 use luria_cli::interpret::run::interpret;
+use luria_cli::interpret::run::interpret_with_profile;
 use luria_cli::interpret::run::InterpretInput;
 use luria_cli::interpret::run::TextSource;
 use luria_cli::new::form::{Field, FormAction, NewForm};
+use luria_cli::new::CodonChoice;
 use luria_cli::request::parse_profile;
+use luria_cli::request::DesignSpec;
 use luria_cli::request::OperationSpec;
 use luria_cli::request::ProfileDocument;
 use luria_cli::review::app::Key;
@@ -140,6 +146,30 @@ fn words_form(row: &[String]) -> NewForm {
     form
 }
 
+/// A form with **no** `--design` profile (M7-41): the case's template typed in
+/// `File` and loaded as the loop answers `Load`, the case's words typed into
+/// `Words`, `15` typed in Overlap, and the codon left at "default policy", so
+/// every value the `Interpret` profile carries is one the form shows. `[ Review ]`
+/// is left on the button.
+fn words_form_without_profile(row: &[String]) -> NewForm {
+    let mut form = NewForm::new(None, true);
+    tab_to(&mut form, Field::File);
+    type_text(&mut form, &row[1]);
+    assert_eq!(
+        form.handle(Key::Tab),
+        FormAction::Load(row[1].clone()),
+        "leaving File with a path asks the loop to read it"
+    );
+    form.loaded(&row[1], Ok(read(&format!("{}{}", GENBANK, row[1]))));
+    tab_to(&mut form, Field::Words);
+    type_text(&mut form, &text_of(row));
+    tab_to(&mut form, Field::Overlap);
+    type_text(&mut form, "15");
+    // "default policy" is the form's starting choice, so nothing is toggled.
+    tab_to(&mut form, Field::Review);
+    form
+}
+
 /// The `sid-1` form, as `new_form.rs` builds it, with a backend: the file loaded
 /// as the loop answers `Load`, the name typed over the stem, `lines` typed into
 /// the mutation box, and `overlap` typed last.
@@ -170,20 +200,121 @@ fn sid1(lines: &[&str], overlap: &str) -> NewForm {
 }
 
 // §3.1 rule 1 and 2: `[ Review ]` with words typed asks the loop to send them
-// through `interpret`, with the template as it was typed in `File` and the words
-// as they were typed, and builds nothing.
+// through `interpret`, with the template as it was typed in `File`, the words
+// as they were typed, and the design the form shows, which for this case is the
+// `--design` profile it opened with (M7-41).
 #[test]
 fn words_with_a_genbank_file_ask_to_interpret() {
     let row: Vec<String> = row_of("two-separate");
     let mut form = words_form(&row);
+    let given: ProfileDocument =
+        parse_profile(&read(&format!("{}profile/{}", NL, row[4]))).expect("a profile");
     assert_eq!(
         form.handle(Key::Enter),
         FormAction::Interpret {
             template: row[1].clone(),
             text: text_of(&row),
+            profile: given,
         },
         "the words go to the model with the GenBank template as typed in File"
     );
+}
+
+// §3.1 rule 2 (contract §2.2, M7-41, M7-42): with no `--design`, the form's own
+// values are the design the words are read with, so the case that asks about
+// every unstated value is proposed, with no questions, and gives the request the
+// corpus states for this edit under overlap 15, codon default and numbering from
+// the CDS start.
+#[test]
+fn words_without_a_profile_use_the_forms_values() {
+    let row: Vec<String> = row_of("no-profile");
+    let dir: PathBuf = workspace("values", &row);
+    let mut form = words_form_without_profile(&row);
+    let (typed, words, profile): (String, String, ProfileDocument) = match form.handle(Key::Enter) {
+        FormAction::Interpret {
+            template,
+            text,
+            profile,
+        } => (template, text, profile),
+        other => panic!("the words form gave {:?} instead of the Interpret", other),
+    };
+
+    // The loop's closure, as `emit_new` builds it: the case's reply, with
+    // `write_request: None`, so the run writes nothing.
+    let reply: String = read(&format!("{}reply/{}", NL, row[3]));
+    let mut backend: ScriptedBackend = ScriptedBackend::new("scripted-corpus", vec![Ok(reply)]);
+    let input: InterpretInput = InterpretInput {
+        template: dir.join(&typed),
+        text: TextSource::Inline(words),
+        profile: None,
+        write_request: None,
+    };
+    let document: InterpretationDocument =
+        interpret_with_profile(&input, profile, &mut backend).document;
+    assert_eq!(
+        document.state, "proposed",
+        "the form's values answer what the text leaves unstated"
+    );
+    assert_eq!(document.questions, [].to_vec(), "nothing is asked");
+    let request: Value =
+        serde_json::to_value(document.request.as_ref().expect("a proposed request"))
+            .expect("the request is JSON");
+    assert_eq!(
+        request,
+        fixture("nl/request/edit-a42g.json"),
+        "the request the corpus states for this edit under overlap 15, codon default and numbering from the CDS start"
+    );
+    let _ = fs::remove_dir_all(&dir);
+}
+
+// §3.1 rule 1 (contract §2.2): the overlap the user types is the profile's
+// overlap, over the value `--design` opened the form with.
+#[test]
+fn a_typed_overlap_wins_over_the_profile() {
+    let row: Vec<String> = row_of("two-separate");
+    let mut form = words_form(&row);
+    // `--design` filled Overlap with 15, and the user types 20 over it.
+    tab_to(&mut form, Field::Overlap);
+    for _ in 0..form.overlap().chars().count() {
+        form.handle(Key::Backspace);
+    }
+    type_text(&mut form, "20");
+    tab_to(&mut form, Field::Review);
+    match form.handle(Key::Enter) {
+        FormAction::Interpret { profile, .. } => {
+            let design: DesignSpec = profile.design.expect("the form states its design");
+            assert_eq!(
+                design.min_annealing_overlap, 20,
+                "the typed overlap is the overlap the words are read with"
+            );
+        }
+        other => panic!("the words form gave {:?} instead of the Interpret", other),
+    }
+}
+
+// §3.1 rule 2's codon half (contract §2.2): "typed per mutation" leaves the codon
+// unstated, so the text must state a codon or the model path asks.
+#[test]
+fn typed_codons_leave_the_codon_unstated() {
+    let row: Vec<String> = row_of("two-separate");
+    let mut form = words_form(&row);
+    tab_to(&mut form, Field::Codon);
+    form.handle(Key::Char(' '));
+    assert_eq!(
+        form.codon(),
+        CodonChoice::TypedPerMutation,
+        "the choice is toggled on the Codon field"
+    );
+    tab_to(&mut form, Field::Review);
+    match form.handle(Key::Enter) {
+        FormAction::Interpret { profile, .. } => {
+            assert_eq!(
+                profile.codon, None,
+                "codons typed per mutation leave the codon unstated"
+            );
+        }
+        other => panic!("the words form gave {:?} instead of the Interpret", other),
+    }
 }
 
 // §3.1 rule 1: words and mutation lines together are refused, with the blocker on
@@ -239,7 +370,11 @@ fn the_interpreted_request_is_the_corpus_request() {
     let dir: PathBuf = workspace("request", &row);
     let mut form = words_form(&row);
     let (typed, words): (String, String) = match form.handle(Key::Enter) {
-        FormAction::Interpret { template, text } => (template, text),
+        FormAction::Interpret {
+            template,
+            text,
+            profile: _,
+        } => (template, text),
         other => panic!("the words form gave {:?} instead of the Interpret", other),
     };
 

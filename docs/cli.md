@@ -914,7 +914,7 @@ It needs a terminal on stdin and stdout, and a screen of at least 80 by
 | Name, Shape | For FASTA or a paste: the template's name and whether it is linear or circular. A GenBank record gives its own. |
 | CDS | For FASTA or a paste: the whole sequence, or its first and last base (1-based, inclusive), and its strand. For GenBank: one of the record's CDSs that luria can use. Never guessed. |
 | Mutations | One per line, in the shorthand of §12.2. Each line shows what luria reads it as, or why it cannot. |
-| In words | Your request in words, sent to your model as `luria q5 interpret` does (§10). Only with `--backend`, and only with a GenBank template. Use words or mutation lines, not both. |
+| In words | Your request in words, sent to your model as `luria q5 interpret` does (§10). Only with `--backend`, and only with a GenBank template. Use words or mutation lines, not both. The form's overlap and codon choice go with them, and residues count from the CDS's first codon unless your words say otherwise. |
 | Primers | `inline`, shown and fixed: confine-to-tail placement is not supported yet (D029). |
 | Overlap | The minimum annealing overlap in nucleotides. Empty until you or `--design` give it. |
 | Codon | For a residue change without a codon: the default codon policy, or a codon on each line (`D404N:AAC`). |
