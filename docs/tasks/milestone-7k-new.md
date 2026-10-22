@@ -16,6 +16,8 @@ typed operations). Owner answers so far, 2026-10-21:
 | M7-40 | Words and shorthand | **Either one, not both** (2026-10-22). Words go through `interpret` and the existing proposal screen, as `luria review --template` does; they need a GenBank template (M6-7). Supersedes §2 rule 1's "joined" wording. |
 | M7-41 | Words and the form's values | **The form's overlap and codon choice are the design words are read with** (2026-10-22), so a words proposal needs no `--design`. Found in the planner's code review (7k9). |
 | M7-42 | Words and numbering | **Residues count from the CDS start** unless the words say otherwise (2026-10-22), as the shorthand does (7k9). |
+| M7-43 | Ctrl-C | **Quits from any screen, writing nothing** (2026-10-22), in `luria new` and `luria review` (7k10). |
+| M7-44 | Overlap too large | **A blocker on Overlap**, not a panic or a wrong value (2026-10-22, 7k10). |
 | M7-38 | Branch | **Continue on `feat/milestone-7`.** |
 | M7-34 | Choices on the form | **Primer placement** (`inline` or `confine_to_tail`) with the minimum annealing overlap, and **codon choice** (the default policy, or a typed codon). Composition is not offered: several mutations are always separate variants, the only composition `q5 design` accepts. |
 
