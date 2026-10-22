@@ -104,8 +104,9 @@ notation or a range of residues is refused with a reason.
 | 7k2 | `NewForm` state: fields, focus, typed text, paste, validation messages; pure | unit tests |
 | 7k3 | Building a request document from a valid form (FASTA, GenBank, paste) | request round-trip through `request.rs`, fixture requests |
 | 7k4 | The form's text and drawing, in 7j2's frame | test backend |
-| 7k5 | `luria new` wiring: args, the free-text path, hand-over to proposal and review, writing the paste | args tests; the loop by the owner's hand test |
+| 7k5 | `luria new` wiring: args, the confirmation screen, writing the paste and request, hand-over to review (shorthand only) | args tests; the loop by the owner's hand test |
 | 7k6 | Docs: `docs/cli.md` §12, D047 | documented-usage test |
+| 7k7 | Free text with `--backend`: the "In words" box through 6's interpret path, its mutations joined to the shorthand's (planner split from 7k5, 2026-10-22, to keep 7k5 reviewable) | interpret corpus cases through the scripted backend |
 
 ## 5. Open questions
 
