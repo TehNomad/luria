@@ -92,10 +92,12 @@ pub fn draw_form(frame: &mut Frame, form: &NewForm);
 ```
 
 - Too small (under 80x24): the review's notice, reused.
-- 7j2's rounded frame, title ` luria new ` then the badge ` NEW DESIGN `
+- 7j2's rounded frame (`frame_block`), title ` luria new ` then the badge ` NEW DESIGN `
   (black on cyan, as `PROPOSAL`) then ` · nothing is written until you
-  approve `. Make the review's `frame_block`, `title_line`, `too_small`
-  and `key_line` `pub(crate)` and reuse them; add nothing to `review/`.
+  approve `. Make the review's `frame_block`, `too_small` and `key_line`
+  `pub(crate)` and reuse them; add nothing to `review/`. The title `Line`
+  is built in `new/view.rs`, because `title_line` writes ` luria review `
+  (accepted 2026-10-22).
 - The body scrolls so `focus_line` is visible.
 - Style: labels dim; the focused field's label bold and reversed; `◉`
   green; `✓` lines green, `✗` lines red; `needs --backend` dim; `[ Review ]`
@@ -171,7 +173,9 @@ On a 80x24 `TestBackend`:
    written until you approve`, and not `verified`.
 7. `the_cursor_sits_in_the_focused_field`: after typing `sid` into
    `File`, the backend's cursor is at the column after `sid` on the
-   `File` row (2 for the border, 11 for the label, then 3).
+   `File` row: column 15 (1 for the border, 11 for the label, then 3).
+   Corrected 2026-10-22: the contract first said 2 for the border and
+   16 in all; w7k4f measured the frame's inner area starting at column 1.
 8. `a_refused_preview_is_red`: the `✗` cell of test 3's preview line has a
    red foreground.
 
