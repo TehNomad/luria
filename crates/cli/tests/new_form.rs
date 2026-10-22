@@ -1,0 +1,349 @@
+//! Milestone 7k3's proof (contract 7k3 §4): the `luria new` form driven with
+//! `Key` values and `paste`, as a user drives it, builds the request documents
+//! `tests/fixtures/new/request-*.json` holds. Templates are read from
+//! `tests/fixtures/` at test time and given to the form through
+//! `NewForm::loaded`, which is the loop's answer to the `FormAction::Load` the
+//! form asks for; the form reads no file and draws nothing, so the form's text
+//! is the file's text, not a copy. The form inputs are `requests.py`'s `BUILT`
+//! cases, written out in Rust as the keys a user presses. The request is
+//! rendered with `result::request_echo` and compared as a `serde_json::Value`
+//! with the fixture.
+
+use luria_cli::new::form::Field;
+use luria_cli::new::form::FormAction;
+use luria_cli::new::form::NewForm;
+use luria_cli::new::form::Preview;
+use luria_cli::new::Built;
+use luria_cli::request::RequestDocument;
+use luria_cli::result::request_echo;
+use luria_cli::result::RequestEcho;
+use luria_cli::review::app::Key;
+use luria_cli::shorthand::Reading;
+use luria_cli::shorthand::Refusal;
+use serde_json::Value;
+use std::fs;
+
+const FIXTURES: &str = "../../tests/fixtures/";
+const SID1: &str = "example-construct/input/sid-1_cDNA.fa";
+
+/// `requests.py`'s `SYN`: the 100 bases of the pasted sequence.
+const SYN: &str = "ATGGCTTGGAATCAGCAGCAGCCGAGCGGCTCGCGGACGCATGGCTTGGAATCAGCAGCA\
+                   GCCGAGCGGCTCGCGGACGCATGGCTTGGAATCAGCAGCA";
+
+/// One fixture template, read at test time (contract §4).
+fn read_file(relative: &str) -> String {
+    let path: String = format!("{}{}", FIXTURES, relative);
+    fs::read_to_string(&path).unwrap_or_else(|problem| panic!("cannot read {}: {}", path, problem))
+}
+
+/// One fixture as the JSON value it holds (key order free, contract §4).
+fn fixture(relative: &str) -> Value {
+    serde_json::from_str(&read_file(relative)).expect("the fixture is JSON")
+}
+
+/// The request the form built, as the JSON `request_echo` writes it.
+fn rendered(request: &RequestDocument) -> Value {
+    let echo: RequestEcho = request_echo(request);
+    serde_json::to_value(&echo).expect("the echo is JSON")
+}
+
+/// Types `text` one character at a time, as a user presses the keys.
+fn type_text(form: &mut NewForm, text: &str) {
+    for ch in text.chars() {
+        form.handle(Key::Char(ch));
+    }
+}
+
+/// `Tab` forward until focus reaches `wanted`. The actions the form gives on the
+/// way are the form's own, and the tests answer the `Load` of `File` where they
+/// need to, before calling this.
+fn tab_to(form: &mut NewForm, wanted: Field) {
+    for _ in 0..30 {
+        if form.focus() == wanted {
+            return;
+        }
+        form.handle(Key::Tab);
+    }
+    panic!("focus never reached {:?}", wanted);
+}
+
+/// The `tab_to` cap is well past the fields, so every field is reached: a field
+/// focus never reaches is left out, which is what the skipping tests look for.
+fn focus_sequence(form: &mut NewForm, steps: usize) -> Vec<Field> {
+    let mut seen: Vec<Field> = vec![form.focus()];
+    for _ in 0..steps {
+        form.handle(Key::Tab);
+        seen.push(form.focus());
+    }
+    seen
+}
+
+/// The pasted text of `requests.py`'s `syn_paste`: `SYN[:50]`, a newline and
+/// two spaces, then `SYN[50:]` lower case.
+fn typed_paste() -> String {
+    format!("{}\n  {}", &SYN[..50], SYN[50..].to_lowercase())
+}
+
+/// The form with the `sid-1` file loaded as the loop answers `Load`: the path
+/// typed in `File`, the name `sid-1` typed over the stem the load filled, and
+/// `lines` typed into the mutation box, each line's `Enter` starting the next.
+/// `overlap` is typed last, so a case can leave it empty (contract §4.5).
+fn sid1(lines: &[&str], overlap: &str) -> NewForm {
+    let mut form = NewForm::new(None, false);
+    tab_to(&mut form, Field::File);
+    type_text(&mut form, "sid-1_cDNA.fa");
+    assert_eq!(
+        form.handle(Key::Tab),
+        FormAction::Load("sid-1_cDNA.fa".to_string()),
+        "leaving File with a path asks the loop to read it"
+    );
+    form.loaded("sid-1_cDNA.fa", Ok(read_file(SID1)));
+    tab_to(&mut form, Field::Name);
+    let filled: usize = form.name().chars().count();
+    for _ in 0..filled {
+        form.handle(Key::Backspace);
+    }
+    type_text(&mut form, "sid-1");
+    tab_to(&mut form, Field::Mutations);
+    for line in lines.iter() {
+        type_text(&mut form, line);
+        form.handle(Key::Enter);
+    }
+    tab_to(&mut form, Field::Overlap);
+    type_text(&mut form, overlap);
+    form
+}
+
+/// `[ Review ]`: the built request, insisting it is the action the contract
+/// names, and returning what was built.
+fn review(form: &mut NewForm) -> Built {
+    tab_to(form, Field::Review);
+    match form.handle(Key::Enter) {
+        FormAction::Review(placed) => *placed,
+        other => panic!("Review gave {:?} instead of the built request", other),
+    }
+}
+
+#[test]
+fn typing_the_sid1_set_form_builds_its_request() {
+    let mut form = sid1(
+        &[
+            "D404N",
+            "del 1210-1212",
+            "",
+            "ins GAT after 1209",
+            "1210 G>A",
+            "1210-1212 GAT>AAC",
+        ],
+        "15",
+    );
+    // The CDS stays the whole sequence, forward, and the codon the default
+    // policy, so nothing is toggled: the form's own starting values.
+    let built: Built = review(&mut form);
+    assert_eq!(
+        rendered(&built.request),
+        fixture("new/request-sid1-set.json"),
+        "the request the sid1-set form builds"
+    );
+    assert_eq!(built.paste, None, "a file template writes no paste");
+}
+
+#[test]
+fn a_pasted_template_builds_its_request() {
+    let mut form = NewForm::new(None, false);
+    // Source = paste: the `Source` field's toggle, so `File` is skipped.
+    form.handle(Key::Right);
+    assert_eq!(form.focus(), Field::Source);
+    tab_to(&mut form, Field::Paste);
+    form.paste(&typed_paste());
+    tab_to(&mut form, Field::Name);
+    type_text(&mut form, "syn");
+    // The CDS is the form's own bases: the `Cds` field toggles whole to bases.
+    tab_to(&mut form, Field::Cds);
+    form.handle(Key::Right);
+    tab_to(&mut form, Field::First);
+    type_text(&mut form, "1");
+    tab_to(&mut form, Field::Last);
+    type_text(&mut form, "99");
+    // The strand stays forward, so nothing is toggled on `Strand`.
+    tab_to(&mut form, Field::Mutations);
+    type_text(&mut form, "del 46");
+    form.handle(Key::Enter);
+    type_text(&mut form, "51-53 ATC>TT");
+    // A codon typed per mutation, and the overlap.
+    tab_to(&mut form, Field::Codon);
+    form.handle(Key::Right);
+    tab_to(&mut form, Field::Overlap);
+    type_text(&mut form, "15");
+    let built: Built = review(&mut form);
+    assert_eq!(
+        rendered(&built.request),
+        fixture("new/request-syn-paste.json"),
+        "the request the syn-paste form builds"
+    );
+    assert_eq!(
+        built.paste,
+        Some(("syn.fa".to_string(), read_file("new/paste-syn-paste.fa"))),
+        "a paste's FASTA is the file 7k5 writes beside the request"
+    );
+}
+
+#[test]
+fn a_genbank_file_offers_its_usable_cds() {
+    let mut form = NewForm::new(None, false);
+    tab_to(&mut form, Field::File);
+    type_text(&mut form, "synthetic-linear.gb");
+    assert_eq!(
+        form.handle(Key::Tab),
+        FormAction::Load("synthetic-linear.gb".to_string()),
+        "leaving File with a path asks the loop to read it"
+    );
+    form.loaded(
+        "synthetic-linear.gb",
+        Ok(read_file("genbank/synthetic-linear.gb")),
+    );
+    // The CDS list is 6c's catalogue, usable entries only, and the form's
+    // choice starts at its first entry.
+    let list: Vec<String> = form
+        .cds_list()
+        .iter()
+        .map(|entry| entry.id.clone())
+        .collect();
+    assert_eq!(
+        list,
+        vec!["synA".to_string()],
+        "the usable CDSs of the record"
+    );
+    assert_eq!(
+        form.cds_index(),
+        0,
+        "the CDS list starts at its first entry"
+    );
+    // `Tab` skips `Name`, `Shape` and `Strand` for a GenBank record (rule 4).
+    let seen: Vec<Field> = focus_sequence(&mut form, 20);
+    for field in [Field::Name, Field::Shape, Field::Strand] {
+        assert!(
+            !seen.contains(&field),
+            "focus reached {:?} on a GenBank record",
+            field
+        );
+    }
+    tab_to(&mut form, Field::Mutations);
+    type_text(&mut form, "A42G");
+    form.handle(Key::Enter);
+    type_text(&mut form, "W87A");
+    tab_to(&mut form, Field::Overlap);
+    type_text(&mut form, "20");
+    let built: Built = review(&mut form);
+    assert_eq!(
+        rendered(&built.request),
+        fixture("new/request-synlin-genbank.json"),
+        "the request the synlin-genbank form builds, whose id is the LOCUS name"
+    );
+}
+
+#[test]
+fn previews_follow_every_edit() {
+    let mut form = NewForm::new(None, false);
+    tab_to(&mut form, Field::Mutations);
+    // A line that is not one luria reads is shown as its refusal.
+    type_text(&mut form, "D404");
+    assert_eq!(
+        form.previews(),
+        vec![Preview {
+            line: 1,
+            reading: Some(Err(Refusal::Unreadable)),
+        }],
+        "the preview of a line that does not read"
+    );
+    // The residue's target makes the line read.
+    type_text(&mut form, "N");
+    assert_eq!(
+        form.previews(),
+        vec![Preview {
+            line: 1,
+            reading: Some(Ok(Reading::Residue {
+                number: 404,
+                from: 'D',
+                to: 'N',
+                codon: None,
+            })),
+        }],
+        "the preview of the residue line"
+    );
+    // `Backspace` takes the target away again, so the preview is recomputed on
+    // the edit, not only on what is typed.
+    form.handle(Key::Backspace);
+    assert_eq!(
+        form.previews(),
+        vec![Preview {
+            line: 1,
+            reading: Some(Err(Refusal::Unreadable)),
+        }],
+        "the preview after Backspace"
+    );
+}
+
+#[test]
+fn review_without_an_overlap_names_the_field() {
+    let mut form = sid1(&["D404N"], "");
+    tab_to(&mut form, Field::Review);
+    assert_eq!(
+        form.handle(Key::Enter),
+        FormAction::Continue,
+        "an empty overlap does not build"
+    );
+    let blocker = form.blocker().expect("the refusal names a field");
+    assert_eq!(
+        blocker.0,
+        Field::Overlap,
+        "the overlap is the missing value"
+    );
+    assert_eq!(blocker.1, None, "the refusal is not about a mutation line");
+    assert!(!blocker.2.is_empty(), "the refusal says the reason");
+    assert_eq!(
+        form.focus(),
+        Field::Overlap,
+        "focus moves to the field the refusal names"
+    );
+}
+
+#[test]
+fn a_refused_line_is_named() {
+    let mut form = sid1(&["D404N", "D404*"], "15");
+    tab_to(&mut form, Field::Review);
+    assert_eq!(
+        form.handle(Key::Enter),
+        FormAction::Continue,
+        "a line luria cannot read does not build"
+    );
+    let blocker = form.blocker().expect("the refusal names a field");
+    assert_eq!(blocker.0, Field::Mutations, "the refusal is on the box");
+    assert_eq!(blocker.1, Some(2), "the refusal names the second line");
+    assert_eq!(form.focus(), Field::Mutations, "focus moves to the box");
+}
+
+#[test]
+fn words_is_skipped_without_a_backend() {
+    for backend in [false, true] {
+        let mut form = NewForm::new(None, backend);
+        assert_eq!(
+            form.words_enabled(),
+            backend,
+            "the form says if Words is on"
+        );
+        let seen: Vec<Field> = focus_sequence(&mut form, 20);
+        assert_eq!(
+            seen.contains(&Field::Words),
+            backend,
+            "Words is reached exactly when a backend was given"
+        );
+    }
+}
+
+#[test]
+fn escape_quits() {
+    let mut form = NewForm::new(None, false);
+    tab_to(&mut form, Field::Mutations);
+    assert_eq!(form.handle(Key::Esc), FormAction::Quit, "esc quits");
+}

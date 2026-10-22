@@ -28,6 +28,11 @@ fn key_of(code: KeyCode) -> Key {
         KeyCode::Home => Key::Home,
         KeyCode::Enter => Key::Enter,
         KeyCode::Backspace => Key::Backspace,
+        KeyCode::Delete => Key::Delete,
+        KeyCode::Tab => Key::Tab,
+        KeyCode::BackTab => Key::BackTab,
+        KeyCode::Left => Key::Left,
+        KeyCode::Right => Key::Right,
         KeyCode::Esc => Key::Esc,
         _ => Key::Other,
     }

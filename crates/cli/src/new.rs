@@ -55,6 +55,8 @@ use luria_core::genbank::{read_genbank, GenBankRecord};
 use luria_core::identity::Identifier;
 use luria_core::sequence::{Sequence, SequenceTopology};
 
+pub mod form;
+
 /// Where the template comes from.
 #[derive(Clone, Debug, PartialEq)]
 pub enum TemplateInput {
