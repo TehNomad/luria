@@ -11,8 +11,11 @@ reading is zero-based half-open, as a request holds them (D006):
 
 * `N X>Y`             one base N        -> substitution [N-1, N) X -> Y
 * `A-B X>Y`           bases A..B        -> substitution [A-1, B) when X and Y
-                                            have the same length, else
-                                            replacement [A-1, B)
+                                            are one base each, else
+                                            replacement [A-1, B) (a request's
+                                            substitution is one base only;
+                                            native-01's GAT>AAC is a
+                                            replacement)
 * `del A-B`, `del N`  deletion          -> deletion [A-1, B)
 * `ins S after N`     insertion         -> insertion at point N (between
                                             base N and base N+1); `after 0`
@@ -223,7 +226,7 @@ def read(line):
             return refused("length_mismatch")
         if bases(x) == bases(y):
             return refused("same_bases")
-        kind = "substitution" if len(x) == len(y) else "replacement"
+        kind = "substitution" if len(x) == 1 and len(y) == 1 else "replacement"
         return (kind, str(a - 1), str(b), bases(x), bases(y), "-")
 
     return refused("unreadable")

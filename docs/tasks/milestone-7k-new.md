@@ -12,6 +12,7 @@ typed operations). Owner answers so far, 2026-10-21:
 | M7-35 | The shorthand | **As §3 drafts it**, 1-based inclusive template positions; residues as 6's notation. |
 | M7-36 | Free text without `--backend` | **Shown, disabled**, saying it needs `--backend`. |
 | M7-37 | Where files go | **Beside the template** for a file template (as `--write-request` requires); for a paste, the pasted `.fa` and the request both in the **current directory**. Names editable on the form; never replacing a file. |
+| M7-39 | Placement on the form | **Shown as a fixed `inline`**, with a note that confine-to-tail is not supported yet (D029: `q5 design` refuses it); the overlap stays editable. Found when the planner ran the 7k2 fixtures through `q5 design`. |
 | M7-38 | Branch | **Continue on `feat/milestone-7`.** |
 | M7-34 | Choices on the form | **Primer placement** (`inline` or `confine_to_tail`) with the minimum annealing overlap, and **codon choice** (the default policy, or a typed codon). Composition is not offered: several mutations are always separate variants, the only composition `q5 design` accepts. |
 
@@ -37,7 +38,7 @@ One form, then the screens that exist already:
 │            ✓ delete bases 1210–1212                                      │
 │ In words   (only with --backend)                                         │
 │                                                                          │
-│ Primers    ◉ inline  ○ confine to tail    overlap [15] nt                │
+│ Primers    inline (confine to tail not supported yet)   overlap [15] nt  │
 │ Codon      ◉ default policy  ○ type per mutation (D404N:AAC)             │
 │ Save as    sid-1-d404n.json                                              │
 ╰──────────────────────────────────────────────────────────────────────────╯
@@ -87,7 +88,7 @@ One mutation per line; names are generated (`D404N`, `del-1210-1212`,
 | `D404N` | residue 404 D→N, codon by the form's codon choice | `residue`, `policy: default` |
 | `D404N:AAC` | the same, codon `AAC` | `residue`, `codon` |
 | `1210 G>A` | base 1210 G→A | `substitution` |
-| `1210-1212 GAT>AAC` | bases 1210–1212 replaced | `replacement` (or `substitution` when equal length, as `q5 design` already reads it) |
+| `1210-1212 GAT>AAC` | bases 1210–1212 replaced | `replacement` (a request's `substitution` is one base only, so any range is a replacement, as `native-01` is) |
 | `del 1210-1212` | delete bases 1210–1212 | `deletion` (the `from` bases read from the template and shown) |
 | `ins GAT after 1209` | insert after base 1209 | `insertion` (`before`/`after` read from the template and shown) |
 
@@ -110,5 +111,5 @@ notation or a range of residues is refused with a reason.
 
 None. Planner defaults, to be confirmed later: generated member names
 (`D404N`, `G1210A`, `del1210-1212`, `ins1209GAT`); the form's own default
-for placement and overlap is **empty**, filled only from `--design` or
+for the overlap is **empty**, filled only from `--design` or
 by the user (rule 2).

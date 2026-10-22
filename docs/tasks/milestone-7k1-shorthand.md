@@ -99,7 +99,7 @@ Disable each once, run, restore; report the failing rows.
 1. The 1-based conversion (store `A` instead of `A-1`): substitution,
    replacement and deletion rows fail.
 2. The stop check before notation: `D404*`, `D404X`, `Asp404Ter` fail.
-3. The same-length rule choosing substitution: `1210-1212 GAT>AAC`
+3. The same-length rule choosing substitution (superseded by 7k1b: only one base to one base is a substitution): `1210-1212 GAT>AAC`
    fails.
 
 ## 4. Do not

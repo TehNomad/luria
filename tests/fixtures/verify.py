@@ -51,6 +51,7 @@ CHECKS = [
     "review/reference/frame.py",
     "review/reference/member.py",
     "new/reference/shorthand.py",
+    "new/reference/requests.py",
 ]
 
 

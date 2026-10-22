@@ -26,10 +26,10 @@ Ala42G	refused	-	-	unreadable	-	-
 1210 G>G	refused	-	-	same_bases	-	-
 1210 GA>T	refused	-	-	length_mismatch	-	-
 1210 N>A	refused	-	-	not_dna	-	-
-1210-1212 GAT>AAC	substitution	1209	1212	GAT	AAC	-
+1210-1212 GAT>AAC	replacement	1209	1212	GAT	AAC	-
 1210-1212 GAT>TT	replacement	1209	1212	GAT	TT	-
 1210-1212 GAT>AACAAC	replacement	1209	1212	GAT	AACAAC	-
-1210–1212 GAT>AAC	substitution	1209	1212	GAT	AAC	-
+1210–1212 GAT>AAC	replacement	1209	1212	GAT	AAC	-
 1212-1210 GAT>AAC	refused	-	-	reversed_range	-	-
 1210-1212 GA>AAC	refused	-	-	length_mismatch	-	-
 1210-1210 G>A	substitution	1209	1210	G	A	-
