@@ -144,3 +144,15 @@ git status --short
 
 Report each result, the §3.1 proofs, and every existing assertion
 changed.
+
+## 6. Planner answers to w7m3b (2026-10-22)
+
+The first worker, w7m3, wrote most of §2.1 to §2.4 and ran out of
+context. w7m3b is finishing it. Approved beyond §3:
+
+- `tests/new_text.rs` `a_refusal_is_shown_and_named`: the form's last line
+  is `✗ line 2: ` followed by `Refusal::Stop.message()`, the refusal's own
+  message (§2.2 step 1), instead of `BuildRefusal::LineRefused`'s.
+- `tests/new_words.rs` `typed_codons_leave_the_codon_unstated` is rewritten
+  as `the_words_profile_states_the_default_codon`, testing §2.1's rule that
+  `words_profile()`'s codon is `Some(CodonSpec::Default)`.
