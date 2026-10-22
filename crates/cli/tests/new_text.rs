@@ -12,7 +12,6 @@ use luria_cli::new::form::NewForm;
 use luria_cli::new::text::form_lines;
 use luria_cli::new::text::reading_words;
 use luria_cli::new::text::FormText;
-use luria_cli::new::BuildRefusal;
 use luria_cli::review::app::Key;
 use luria_cli::shorthand::parse_line;
 use luria_cli::shorthand::Reading;
@@ -49,7 +48,8 @@ fn tab_to(form: &mut NewForm, wanted: Field) {
 /// The form with the `sid-1` file loaded as the loop answers `Load`: the path
 /// typed in `File`, the name `sid-1` typed over the stem the load filled, and
 /// `lines` typed into the mutation box, each line's `Enter` starting the next,
-/// so the box ends with an empty line. `overlap` is typed last.
+/// so the box ends with an empty line. `overlap` is typed last, over the 15 nt
+/// M7-45 prefills `Overlap` with.
 fn sid1(lines: &[&str], overlap: &str) -> NewForm {
     let mut form = NewForm::new(None, false);
     tab_to(&mut form, Field::File);
@@ -72,6 +72,12 @@ fn sid1(lines: &[&str], overlap: &str) -> NewForm {
         form.handle(Key::Enter);
     }
     tab_to(&mut form, Field::Overlap);
+    // M7-45: the prefilled 15 is typed over, so `overlap` is the value the case
+    // states, empty included.
+    let prefilled: usize = form.overlap().chars().count();
+    for _ in 0..prefilled {
+        form.handle(Key::Backspace);
+    }
     type_text(&mut form, overlap);
     form
 }
@@ -107,7 +113,7 @@ fn the_sid1_form_reads_as_drawn() {
         "15",
     );
     let body: FormText = form_lines(&form);
-    let expected: [&str; 28] = [
+    let expected: [&str; 26] = [
         "Template   ◉ file  ○ paste",
         "  File     sid-1_cDNA.fa",
         "           sid-1_cDNA.fa, FASTA",
@@ -128,11 +134,9 @@ fn the_sid1_form_reads_as_drawn() {
         "           ✓ 4  insert GAT after 1209",
         "           ✓ 5  base 1210 G→A",
         "           ✓ 6  bases 1210–1212 GAT→AAC",
-        "In words   needs --backend",
         "",
         "Primers    inline (confine to tail not supported yet)",
         "Overlap    15 nt",
-        "Codon      ◉ default policy  ○ typed per mutation (D404N:AAC)",
         "Save as    sid-1.request.json",
         "",
         "           [ Review ]",
@@ -183,10 +187,12 @@ fn a_refusal_is_shown_and_named() {
         body.lines[9].clone()
     );
     let last: &String = body.lines.last().expect("the form has lines");
+    // §2.2 step 1: the blocker on `Mutations` carries the refusal's own message,
+    // so the last line names the second line's stop refusal, not `line_refused`.
     assert_eq!(
         last,
-        &format!("✗ line 2: {}", BuildRefusal::LineRefused.message()),
-        "the last line names the line the blocker is about"
+        &format!("✗ line 2: {}", Refusal::Stop.message()),
+        "the last line names the line the blocker is about, with the refusal's own message"
     );
 }
 

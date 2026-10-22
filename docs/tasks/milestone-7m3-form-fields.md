@@ -1,7 +1,6 @@
 # Milestone 7m3: the form's fields after the owner's hand test
 
-Status: **Ready for the worker, 2026-10-22.** (One worker at a time: each runs the whole
-test suite). Planner: Claude. Parent: `docs/tasks/milestone-7m-polish.md`,
+Status: **Implemented, 2026-10-22.** Planner: Claude. Parent: `docs/tasks/milestone-7m-polish.md`,
 M7-45, M7-46, M7-47 and M7-51.
 
 ## 1. The owner's answers this contract applies
@@ -156,3 +155,15 @@ context. w7m3b is finishing it. Approved beyond §3:
 - `tests/new_words.rs` `typed_codons_leave_the_codon_unstated` is rewritten
   as `the_words_profile_states_the_default_codon`, testing §2.1's rule that
   `words_profile()`'s codon is `Some(CodonSpec::Default)`.
+
+## 7. Implementation notes (planner, 2026-10-22)
+
+- 1129 tests passed, 0 failed, 1 ignored; fmt, clippy, diff check clean;
+  fixtures 19 of 19. Both §3.1 proofs failed as required.
+- Deleted, because M7-47 removed their rules: `new_form.rs`
+  `words_is_skipped_without_a_backend` and `new_words.rs`
+  `words_and_lines_together_are_refused`. Renamed:
+  `words_with_a_genbank_file_ask_to_interpret` is §3 test 4,
+  `unreadable_lines_go_to_the_model`.
+- Untested: page keys in `Paste` (they share `Mutations`' path) and the
+  terminal loop.

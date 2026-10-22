@@ -15,14 +15,16 @@
 //! - focus: `Tab`/`Down` to the next visible field, `BackTab`/`Up` to the
 //!   previous, wrapping; a field that does not apply is skipped, so `Paste` is
 //!   skipped with Source = file, `File` with Source = paste, `Name`, `Shape` and
-//!   `Strand` with a GenBank file, `First`/`Last` unless the CDS is typed bases,
-//!   and `Words` without a backend (M7-36);
-//! - inside `Paste`, `Mutations` and `Words`, `Up`/`Down` move between lines and
-//!   focus leaves the field only on `Tab`/`BackTab`;
-//! - `Source`, `Shape`, `Cds`, `Strand` and `Codon` are choices: `Left`, `Right`
-//!   or space gives the other value, and on a GenBank record `Cds` walks the
-//!   catalogue's usable entries only, since an unusable CDS cannot be picked
-//!   (plan rule 4, 6c);
+//!   `Strand` with a GenBank file, and `First`/`Last` unless the CDS is typed
+//!   bases;
+//! - inside `Paste` and `Mutations`, `Up`/`Down` move between lines and focus
+//!   leaves the field only on `Tab`/`BackTab`; `PageDown`/`PageUp` move the
+//!   cursor 10 lines in those two boxes, and put focus on the first or the last
+//!   field anywhere else (M7-51);
+//! - `Source`, `Shape`, `Cds` and `Strand` are choices: `Left`, `Right` or space
+//!   gives the other value, and on a GenBank record `Cds` walks the catalogue's
+//!   usable entries only, since an unusable CDS cannot be picked (plan rule 4,
+//!   6c);
 //! - text: printable characters insert at the cursor, `Backspace`, `Delete`,
 //!   `Left`, `Right` edit, `Enter` starts a line in a multi-line field and moves
 //!   to the next field in a single-line one, and `Overlap`, `First` and `Last`
@@ -31,13 +33,19 @@
 //!   what `shorthand::parse_line` says about it, and nothing for a blank line,
 //!   so the screen shows what each line means (plan §2 rule 1);
 //! - `[ Review ]` checks the form's own blockers first, in order, moving focus
-//!   to the field it names (plan §2 rule 2), then `new::build`, whose refusal
-//!   names the field it concerns;
-//! - with words typed (M7-40), `[ Review ]` asks the loop to send them through
-//!   `interpret`: words and lines are one or the other, not both, words need a
-//!   GenBank template, whose CDS list the model is shown, and the form gives
-//!   `Interpret` with the path as typed in `File` and the profile of the values
-//!   it shows (M7-41, M7-42), and builds nothing;
+//!   to the field it names (plan §2 rule 2), then a mutation line luria reads but
+//!   refuses, then the box read in words, then `new::build`, whose refusal names
+//!   the field it concerns;
+//! - one `Mutations` box (M7-47): a line luria cannot read at all, refusal
+//!   `unreadable`, makes the whole box words (`reads_as_words`). With a backend
+//!   `[ Review ]` asks the loop to send the box through `interpret`, which needs
+//!   a GenBank template whose CDS list the model is shown (M7-41, M7-42), and
+//!   gives `Interpret` with the path as typed in `File`, building nothing; without
+//!   one the box is a blocker that names `--backend`. A line luria reads but
+//!   refuses stays a red error and is never sent to the model;
+//! - `Overlap` opens at 15 nt, which a `--design` profile's value replaces
+//!   (M7-45), and the codon a line types is used, so `new::build` is always given
+//!   the default codon policy (M7-46);
 //! - `SaveAs` is filled from the name, and the name the user typed is never
 //!   replaced (M7-37); a paste's FASTA is `<name>.fa`, shown read-only beside it.
 
@@ -82,15 +90,13 @@ pub enum Field {
     Last,      // 1-based CDS end (CdsChoice::Bases only)
     Strand,    // forward or reverse (FASTA and paste only)
     Mutations, // multi-line
-    Words,     // free text; skipped by focus without a backend
-    Codon,     // default policy, or typed per mutation
-    Overlap,   // digits
+    Overlap,   // digits, 15 nt at opening (M7-45)
     SaveAs,    // the request file's name
     Review,    // the button
 }
 
-/// The fields in focus order: the order the screen's rows are in.
-const ORDER: [Field; 15] = [
+/// The fields in focus order: the order the screen's rows are in (M7-45).
+const ORDER: [Field; 13] = [
     Field::Source,
     Field::File,
     Field::Paste,
@@ -101,8 +107,6 @@ const ORDER: [Field; 15] = [
     Field::Last,
     Field::Strand,
     Field::Mutations,
-    Field::Words,
-    Field::Codon,
     Field::Overlap,
     Field::SaveAs,
     Field::Review,
@@ -119,11 +123,11 @@ pub enum FormAction {
     Load(String),
     /// `[ Review ]` with every field valid.
     Review(Box<Built>),
-    /// `[ Review ]` with words typed and a GenBank template loaded (M7-40): the
-    /// loop sends `text` through `interpret` with the template at `template`,
-    /// the path typed in `File`, and shows the proposal. `profile` is the design
-    /// the form shows, which the words are read with (M7-41). The form built
-    /// nothing.
+    /// `[ Review ]` with the mutation box read in words (M7-47): the loop sends
+    /// the whole box through `interpret` with the template at `template`, the path
+    /// typed in `File`, and shows the proposal. `profile` is the design the form
+    /// shows, which the words are read with (M7-41), and `text` is every mutation
+    /// line joined with newlines. The form built nothing.
     Interpret {
         template: String,
         text: String,
@@ -257,10 +261,23 @@ impl Text {
         self.set_line(self.line.saturating_sub(1));
     }
 
+    /// `PageUp`: the cursor moves `steps` lines up, clamped to the first line,
+    /// the column clamped to that line's length (M7-51).
+    fn up_by(&mut self, steps: usize) {
+        self.set_line(self.line.saturating_sub(steps));
+    }
+
     /// `Down`: the cursor moves to the next line, the last line being its own.
     fn down(&mut self) {
         let last: usize = self.lines.len() - 1;
         self.set_line((self.line + 1).min(last));
+    }
+
+    /// `PageDown`: the cursor moves `steps` lines down, clamped to the last line
+    /// (M7-51).
+    fn down_by(&mut self, steps: usize) {
+        let last: usize = self.lines.len() - 1;
+        self.set_line((self.line + steps).min(last));
     }
 
     /// Moves the cursor to line `to`, keeping its column where the line has room.
@@ -287,8 +304,6 @@ pub struct NewForm {
     first: Text,
     last: Text,
     mutations: Text,
-    words: Text,
-    codon: CodonChoice,
     overlap: Text,
     save_as: Text,
     /// Whether the user has typed in `SaveAs`, after which the form fills
@@ -305,10 +320,11 @@ pub struct NewForm {
 }
 
 impl NewForm {
-    /// The form opens on `Source` with nothing typed. `overlap` and `codon` come
-    /// from `--design` when given (plan §2 rule 2), else empty; `backend` says
-    /// whether `Words` is enabled (M7-36). A profile's codon is `"default"`,
-    /// which is the form's own default choice, so it changes nothing.
+    /// The form opens on `Source` with nothing typed. `Overlap` opens at 15 nt
+    /// (M7-45), which a `--design` profile's `min_annealing_overlap` replaces; the
+    /// profile's placement is the one shown as `inline` (M7-39). `backend` says
+    /// whether `--backend` was given, which is whether words can be read at all
+    /// (M7-47).
     pub fn new(profile: Option<&ProfileDocument>, backend: bool) -> NewForm {
         let mut form = NewForm {
             source: Source::File,
@@ -323,8 +339,6 @@ impl NewForm {
             first: Text::empty(),
             last: Text::empty(),
             mutations: Text::empty(),
-            words: Text::empty(),
-            codon: CodonChoice::DefaultPolicy,
             overlap: Text::empty(),
             save_as: Text::empty(),
             save_touched: false,
@@ -335,6 +349,8 @@ impl NewForm {
             profile_placement: None,
             blocker: None,
         };
+        // M7-45: the prefilled overlap, so the value is shown and editable.
+        form.overlap.set("15".to_string());
         if let Some(chosen) = profile {
             if let Some(design) = &chosen.design {
                 form.overlap.set(design.min_annealing_overlap.to_string());
@@ -345,8 +361,10 @@ impl NewForm {
     }
 
     /// One key. `Esc` quits from any field (`esc quit` on the form's legend), and
-    /// so does `ctrl-c`, which types nothing (M7-43); the rest move focus, edit
-    /// text, toggle a choice, and `Enter` on `[ Review ]` builds.
+    /// so does `ctrl-c`, which types nothing (M7-43); `PageDown`/`PageUp` move 10
+    /// lines in the paste and mutation boxes, and to the ends elsewhere (M7-51);
+    /// the rest move focus, edit text, toggle a choice, and `Enter` on
+    /// `[ Review ]` builds.
     pub fn handle(&mut self, key: Key) -> FormAction {
         // M7-43: `ctrl-c` quits from any field, typing nothing, as `Esc` does.
         if key == Key::CtrlC {
@@ -356,6 +374,11 @@ impl NewForm {
             return FormAction::Quit;
         }
         let from: Field = self.focus;
+        // M7-51: the page keys, on every field, read one rule: the cursor in the
+        // two multi-line boxes, focus at the ends everywhere else.
+        if key == Key::PageUp || key == Key::PageDown {
+            return self.paged(key, from);
+        }
         if from == Field::Review {
             if key == Key::Enter {
                 return self.review();
@@ -641,24 +664,30 @@ impl NewForm {
         self.mutations.lines.clone()
     }
 
-    /// The free text typed in `Words` (M7-36: 7k5 sends it to the model).
-    pub fn words(&self) -> String {
-        self.words.text()
+    /// The free text in `Mutations` read in words, which is what `Interpret`
+    /// sends to the model (M7-47): true when some non-blank mutation line is one
+    /// luria cannot read at all, refusal `unreadable`. A line luria reads but
+    /// refuses does not make the box words.
+    pub fn reads_as_words(&self) -> bool {
+        self.mutations.lines.iter().any(|line| {
+            !line.trim().is_empty() && matches!(parse_line(line), Err(Refusal::Unreadable))
+        })
     }
 
-    /// The codon choice.
-    pub fn codon(&self) -> CodonChoice {
-        self.codon
+    /// Whether `--backend` was given, which is whether words can be read at all
+    /// (M7-47).
+    pub fn backend(&self) -> bool {
+        self.backend
     }
 
     /// The design the words are read with (M7-41, M7-42): the overlap as typed,
     /// with placement `inline`, the only one `luria new` supports (D029), and
-    /// `q5 new`'s own policy, style and buffer; the codon `default` when "default
-    /// policy" is chosen, and unstated when it is "typed per mutation", so the
-    /// text must state one; and residues counted from the CDS's first codon, as
-    /// the shorthand path counts them (docs/cli.md §12.2). `[ Review ]` reaches
-    /// `Interpret` only after `form_blocker`, so `Overlap` is written, holds
-    /// digits only, and is one `i64` can read (M7-44).
+    /// `q5 new`'s own policy, style and buffer; the codon `default` (M7-46, since
+    /// the form has no codon field, so a line that states one carries it in the
+    /// text); and residues counted from the CDS's first codon, as the shorthand
+    /// path counts them (docs/cli.md §12.2). `[ Review ]` reaches `Interpret` only
+    /// after `form_blocker`, so `Overlap` is written, holds digits only, and is one
+    /// `i64` can read (M7-44).
     pub fn words_profile(&self) -> ProfileDocument {
         ProfileDocument {
             design: Some(DesignSpec {
@@ -672,10 +701,7 @@ impl NewForm {
                 placement: PlacementSpec::Inline,
                 buffer: BufferSpec::Q5Reaction,
             }),
-            codon: match self.codon {
-                CodonChoice::DefaultPolicy => Some(CodonSpec::Default),
-                CodonChoice::TypedPerMutation => None,
-            },
+            codon: Some(CodonSpec::Default),
             numbering: Some(NumberingSpec::FromCdsStart),
         }
     }
@@ -700,17 +726,14 @@ impl NewForm {
         self.loaded.as_ref().map(|found| found.name.clone())
     }
 
-    /// Whether `Words` is enabled, which is whether a backend was given
-    /// (M7-36: shown, disabled, saying it needs `--backend`).
-    pub fn words_enabled(&self) -> bool {
-        self.backend
-    }
-
-    /// Whether the words typed ask for a GenBank record the form has not loaded
-    /// (M7-40): the box holds text, and the file read is not a GenBank record,
-    /// whose CDS list is what the model is shown. `text` draws the row this says.
+    /// Whether the words in `Mutations` ask for a GenBank record the form has not
+    /// loaded (M7-47): the box reads as words, a backend was given, and the file
+    /// read is not a GenBank record, whose CDS list is the model is shown. `text`
+    /// draws the row this says.
     pub fn words_need_genbank(&self) -> bool {
-        !self.words().trim().is_empty() && !matches!(&self.loaded, Some(found) if found.genbank)
+        self.backend
+            && self.reads_as_words()
+            && !matches!(&self.loaded, Some(found) if found.genbank)
     }
 
     /// What each mutation line means, in order: recomputed here from the lines
@@ -739,36 +762,66 @@ impl NewForm {
     }
 
     /// `[ Review ]`: the form's own blockers first, in order (plan §2 rule 2),
-    /// then, when the words box holds text, the words' own blockers (M7-40), then
+    /// then a mutation line luria reads but refuses, which is a red error naming
+    /// its line and is never sent to the model (M7-47), then the box read in words
+    /// (M7-47), whose own blockers are `--backend` and a GenBank template, then
     /// `new::build`, whose refusal becomes a blocker on the field it concerns.
-    /// Success gives the built request, and clears the blocker. With words typed
-    /// the form builds nothing: words and lines are one or the other, not both,
-    /// words need a GenBank record whose CDS list the model is shown, and
-    /// `Interpret` names the template as it was typed in `File`.
+    /// Success gives the built request, and clears the blocker. With words the form
+    /// builds nothing: the whole box goes to the model, which needs a GenBank
+    /// record whose CDS list it is shown, and `Interpret` names the template as it
+    /// was typed in `File` (contract §2.2).
     fn review(&mut self) -> FormAction {
         if let Some((field, line, message)) = self.form_blocker() {
             self.refuse(field, line, message);
             return FormAction::Continue;
         }
-        if !self.words().trim().is_empty() {
-            // Words and shorthand are either one, not both (M7-40).
-            if self
-                .mutations
-                .lines
-                .iter()
-                .any(|one| !one.trim().is_empty())
-            {
+        // §2.2 step 1: a line luria reads and refuses, a stop or wrong bases
+        // included, stays a red error, so it is refused before the box is read as
+        // words, and the whole box is never sent to the model for it.
+        for (index, one) in self.mutations.lines.iter().enumerate() {
+            if one.trim().is_empty() {
+                continue;
+            }
+            if let Err(refusal) = parse_line(one) {
+                if refusal != Refusal::Unreadable {
+                    self.refuse(
+                        Field::Mutations,
+                        Some(index + 1),
+                        refusal.message().to_string(),
+                    );
+                    return FormAction::Continue;
+                }
+            }
+        }
+        if self.reads_as_words() {
+            // §2.2 step 2: without a backend the box cannot be read, so the
+            // blocker names `--backend` on the first line that does not read.
+            if !self.backend {
+                let number: usize = self
+                    .mutations
+                    .lines
+                    .iter()
+                    .enumerate()
+                    .find(|(_, one)| {
+                        !one.trim().is_empty()
+                            && matches!(parse_line(one), Err(Refusal::Unreadable))
+                    })
+                    .map(|(index, _)| index + 1)
+                    .expect("a line reads as words");
                 self.refuse(
-                    Field::Words,
-                    None,
-                    "write the mutations either in words or as lines, not both".to_string(),
+                    Field::Mutations,
+                    Some(number),
+                    format!(
+                        "line {} is not shorthand; start luria new with --backend to read the mutations in words",
+                        number
+                    ),
                 );
                 return FormAction::Continue;
             }
             // The model is shown the record's CDS list, so it needs a record.
             if !matches!(&self.loaded, Some(found) if found.genbank) {
                 self.refuse(
-                    Field::Words,
+                    Field::Mutations,
                     None,
                     "words need a GenBank template, whose CDS list the model is shown".to_string(),
                 );
@@ -776,7 +829,7 @@ impl NewForm {
             }
             return FormAction::Interpret {
                 template: self.file.text(),
-                text: self.words(),
+                text: self.mutations.lines.join("\n"),
                 profile: self.words_profile(),
             };
         }
@@ -919,7 +972,7 @@ impl NewForm {
         crate::new::Form {
             template,
             lines: self.mutations.lines.clone(),
-            codon: self.codon,
+            codon: CodonChoice::DefaultPolicy,
             overlap: self.overlap.text().parse::<u64>().ok(),
         }
     }
@@ -1125,6 +1178,31 @@ impl NewForm {
         self.left_file(from)
     }
 
+    /// `PageDown`/`PageUp` (M7-51): in `Paste` and `Mutations` the cursor moves 10
+    /// lines, clamped to the first and the last line, its column clamped to that
+    /// line's length; anywhere else focus goes to the first visible field
+    /// (`PageUp`) or to `[ Review ]` (`PageDown`). Leaving `File` this way asks the
+    /// loop to read the path, as `Tab` does.
+    fn paged(&mut self, key: Key, from: Field) -> FormAction {
+        if is_multi(from) {
+            if let Some(field) = self.text_mut(from) {
+                if key == Key::PageDown {
+                    field.down_by(10);
+                } else {
+                    field.up_by(10);
+                }
+            }
+            return FormAction::Continue;
+        }
+        let fields: Vec<Field> = self.visible();
+        self.focus = if key == Key::PageDown {
+            Field::Review
+        } else {
+            fields[0]
+        };
+        self.left_file(from)
+    }
+
     /// The path typed in `File`, when leaving it asks the loop to read it:
     /// non-empty, and not the file the loop has already read.
     fn left_file(&mut self, from: Field) -> FormAction {
@@ -1141,10 +1219,10 @@ impl NewForm {
         }
     }
 
-    /// A choice field's `Left`/`Right`/space: `Source`, `Shape`, `Cds` for a
-    /// FASTA, `Strand` and `Codon` each have two values, so each key gives the
-    /// other; on a GenBank record `Cds` walks the catalogue's usable entries,
-    /// wrapping, and `step` says which way.
+    /// A choice field's `Left`/`Right`/space: `Source`, `Shape` for a FASTA and
+    /// `Strand` have two values, so each key gives the other; on a GenBank
+    /// record `Cds` walks the catalogue's usable entries, wrapping, and `step`
+    /// says which way.
     fn cycle(&mut self, step: i64) {
         match self.focus {
             Field::Source => {
@@ -1153,7 +1231,6 @@ impl NewForm {
             }
             Field::Shape => self.shape = other_shape(self.shape.clone()),
             Field::Strand => self.strand = other_strand(self.strand.clone()),
-            Field::Codon => self.codon = other_codon(self.codon),
             Field::Cds => {
                 if self.cds_mode == CdsMode::Catalogue {
                     let count: usize = self.cds_list.len();
@@ -1185,7 +1262,6 @@ impl NewForm {
             Field::First => Some(&self.first),
             Field::Last => Some(&self.last),
             Field::Mutations => Some(&self.mutations),
-            Field::Words => Some(&self.words),
             Field::Overlap => Some(&self.overlap),
             Field::SaveAs => Some(&self.save_as),
             _ => None,
@@ -1201,21 +1277,19 @@ impl NewForm {
             Field::First => Some(&mut self.first),
             Field::Last => Some(&mut self.last),
             Field::Mutations => Some(&mut self.mutations),
-            Field::Words => Some(&mut self.words),
             Field::Overlap => Some(&mut self.overlap),
             Field::SaveAs => Some(&mut self.save_as),
             _ => None,
         }
     }
 
-    /// Whether focus reaches one field: the fields that do not apply, and
-    /// `Words` without a backend, are left out (contract §3.1, M7-36).
+    /// Whether focus reaches one field: the fields that do not apply are left
+    /// out (contract §3.1).
     fn field_visible(&self, field: Field) -> bool {
         match field {
             Field::Source
             | Field::Cds
             | Field::Mutations
-            | Field::Codon
             | Field::Overlap
             | Field::SaveAs
             | Field::Review => true,
@@ -1223,7 +1297,6 @@ impl NewForm {
             Field::Paste => self.source == Source::Paste,
             Field::Name | Field::Shape | Field::Strand => self.cds_mode != CdsMode::Catalogue,
             Field::First | Field::Last => self.cds_mode == CdsMode::Bases,
-            Field::Words => self.backend,
         }
     }
 }
@@ -1232,14 +1305,14 @@ impl NewForm {
 fn is_choice(field: Field) -> bool {
     matches!(
         field,
-        Field::Source | Field::Shape | Field::Cds | Field::Strand | Field::Codon
+        Field::Source | Field::Shape | Field::Cds | Field::Strand
     )
 }
 
 /// A field with more than one line: `Up`/`Down` move between lines, `Enter`
 /// starts one, and focus leaves it only on `Tab`/`BackTab`.
 fn is_multi(field: Field) -> bool {
-    matches!(field, Field::Paste | Field::Mutations | Field::Words)
+    matches!(field, Field::Paste | Field::Mutations)
 }
 
 /// The other source.
@@ -1264,14 +1337,6 @@ fn other_strand(strand: StrandSpec) -> StrandSpec {
     match strand {
         StrandSpec::Plus => StrandSpec::Minus,
         StrandSpec::Minus => StrandSpec::Plus,
-    }
-}
-
-/// The other codon choice.
-fn other_codon(codon: CodonChoice) -> CodonChoice {
-    match codon {
-        CodonChoice::DefaultPolicy => CodonChoice::TypedPerMutation,
-        CodonChoice::TypedPerMutation => CodonChoice::DefaultPolicy,
     }
 }
 

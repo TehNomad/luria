@@ -15,7 +15,8 @@
 //! - no character of a `text` line is changed, added or removed: only styles
 //!   are added (plan §3 rule 1);
 //! - labels dim, the focused field's label bold and reversed, `◉` green, `✓`
-//!   previews green, `✗` previews red, `needs --backend` dim, `[ Review ]` bold
+//!   previews green, `✗` previews red, `…` previews and the box's `needs a
+//!   GenBank template` hint dim, `[ Review ]` bold
 //!   and reversed when focused, the blocker line bold red;
 //! - the cursor is `frame.set_cursor_position` at the text field's column on its
 //!   line, so the terminal shows where a typed character goes;
@@ -44,7 +45,7 @@ const LABEL: usize = 11;
 /// exactly when its first `LABEL` characters, trimmed, are one of these: the
 /// rows that continue a field start with `LABEL` spaces, so no typed value is
 /// read as a label.
-const LABELS: [&str; 13] = [
+const LABELS: [&str; 11] = [
     "Template",
     "  File",
     "  Paste",
@@ -54,8 +55,6 @@ const LABELS: [&str; 13] = [
     "  Bases",
     "  Strand",
     "Mutations",
-    "In words",
-    "Codon",
     "Overlap",
     "Save as",
 ];
@@ -184,13 +183,6 @@ fn styled_line(line: &str, focused_label: bool, focused_review: bool) -> Line<'s
         };
         let rest: String = line.chars().skip(LABEL).collect();
         spans.push(Span::styled(head, style));
-        if rest.starts_with("needs --backend") {
-            spans.push(Span::styled(
-                rest,
-                Style::default().add_modifier(Modifier::DIM),
-            ));
-            return Line::from(spans);
-        }
         spans.extend(option_runs(&rest, Style::default()));
         return Line::from(spans);
     }
@@ -215,11 +207,11 @@ fn styled_line(line: &str, focused_label: bool, focused_review: bool) -> Line<'s
         ));
         return Line::from(spans);
     }
-    // The `In words` box's own hint, a continued row written at the label
-    // column: dim, as `needs --backend` on a label row is (7k7 §2.3, approved by
-    // the owner), and the text itself is unchanged.
+    // The `Mutations` box's own rows: a preview the model will read (`…`), and
+    // the hint that a GenBank template is needed, both written at the label
+    // column and drawn dim (M7-47), with the text itself unchanged.
     if line.chars().take(LABEL).all(|ch| ch == ' ')
-        && trimmed.starts_with("needs a GenBank template")
+        && (trimmed.starts_with('…') || trimmed.starts_with("needs a GenBank template"))
     {
         let indent: usize = line.chars().count() - trimmed.chars().count();
         spans.push(Span::raw(line[..indent].to_string()));

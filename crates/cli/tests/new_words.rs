@@ -1,6 +1,9 @@
-//! Milestone 7k7's proof (contract 7k7 §3): `luria new`'s `In words` box with a
-//! backend. Words and shorthand are either one, not both, words need a GenBank
-//! template whose CDS list the model is shown (M7-40), and blank words leave the
+//! Milestone 7m3's proof (contract 7m3 §3): `luria new`'s one `Mutations` box
+//! read in words (M7-47). A line luria cannot read at all makes the whole box
+//! words, which `[ Review ]` sends through `interpret` when a backend was given,
+//! and is a blocker naming `--backend` when none was; a line luria reads and
+//! refuses stays a red error and is never sent to the model. Words need a GenBank
+//! template whose CDS list the model is shown, and lines that all read keep the
 //! shorthand path of 7k3 as it was. The form is driven with `Key` values as
 //! `crates/cli/tests/new_form.rs` drives it, and the files are read from the
 //! fixtures at test time and given to the form through `NewForm::loaded`, which
@@ -12,9 +15,9 @@
 //! `crates/cli/tests/review_approve.rs` run it, then approves the document: that
 //! pins that `luria new` reaches the same `review::approve` path 7f2 uses. With
 //! no `--design` profile, the `Interpret` profile is the form's own values (M7-41,
-//! M7-42), so the case's reply is read with the typed overlap, the codon choice
-//! and counting from the CDS start. No test makes a network call, and the terminal
-//! loop itself is the owner's hand test.
+//! M7-42), so the case's reply is read with the prefilled overlap (M7-45), the
+//! default codon policy (M7-46) and counting from the CDS start. No test makes a
+//! network call, and the terminal loop itself is the owner's hand test.
 //!
 //! Every expected value is one the corpus holds on its own: the row is
 //! `tests/fixtures/nl/cases.tsv`'s own columns, recorded in
@@ -28,14 +31,15 @@ use luria_cli::interpret::run::interpret_with_profile;
 use luria_cli::interpret::run::InterpretInput;
 use luria_cli::interpret::run::TextSource;
 use luria_cli::new::form::{Field, FormAction, NewForm};
-use luria_cli::new::CodonChoice;
 use luria_cli::request::parse_profile;
+use luria_cli::request::CodonSpec;
 use luria_cli::request::DesignSpec;
 use luria_cli::request::OperationSpec;
 use luria_cli::request::ProfileDocument;
 use luria_cli::review::app::Key;
 use luria_cli::review::approve;
 use luria_cli::review::Approved;
+use luria_cli::shorthand::Refusal;
 use luria_nl::backend::ScriptedBackend;
 use serde_json::Value;
 use std::fs;
@@ -47,11 +51,17 @@ const FIXTURES: &str = "../../tests/fixtures/";
 const SID1: &str = "example-construct/input/sid-1_cDNA.fa";
 const CASES_HEADER: &str = "case_id\ttemplate\ttext_file\treply_file\tprofile\tstate\tcodes\trequest_file\tdesign_exit\tnote";
 
-/// The blocker `[ Review ]` gives for words and lines together (contract §2.2).
-const BOTH_MESSAGE: &str = "write the mutations either in words or as lines, not both";
-
 /// The blocker `[ Review ]` gives for words without a GenBank record (§2.2).
 const GENBANK_MESSAGE: &str = "words need a GenBank template, whose CDS list the model is shown";
+
+/// The blocker `[ Review ]` gives for words with no backend, on the first line
+/// that does not read (§2.2).
+fn no_backend_message(number: usize) -> String {
+    format!(
+        "line {} is not shorthand; start luria new with --backend to read the mutations in words",
+        number
+    )
+}
 
 fn read(path: &str) -> String {
     fs::read_to_string(path).unwrap_or_else(|error| panic!("cannot read {}: {}", path, error))
@@ -126,8 +136,10 @@ fn tab_to(form: &mut NewForm, wanted: Field) {
 
 /// A form with a backend: the case's profile read with `parse_profile`, the
 /// template typed in `File` and loaded as the loop answers `Load`, and the
-/// case's words typed into `Words`. `[ Review ]` is left on the button, so the
-/// test says what it gives.
+/// case's words typed into `Mutations`, the one box M7-47 gives, whose lines
+/// luria cannot read at all, so the box reads as words. The profile prefills
+/// `Overlap` with its own value (M7-45). `[ Review ]` is left on the button, so
+/// the test says what it gives.
 fn words_form(row: &[String]) -> NewForm {
     let profile: ProfileDocument = parse_profile(&read(&format!("{}profile/{}", NL, row[4])))
         .expect("the profile is a profile");
@@ -140,17 +152,17 @@ fn words_form(row: &[String]) -> NewForm {
         "leaving File with a path asks the loop to read it"
     );
     form.loaded(&row[1], Ok(read(&format!("{}{}", GENBANK, row[1]))));
-    tab_to(&mut form, Field::Words);
+    tab_to(&mut form, Field::Mutations);
     type_text(&mut form, &text_of(row));
     tab_to(&mut form, Field::Review);
     form
 }
 
 /// A form with **no** `--design` profile (M7-41): the case's template typed in
-/// `File` and loaded as the loop answers `Load`, the case's words typed into
-/// `Words`, `15` typed in Overlap, and the codon left at "default policy", so
-/// every value the `Interpret` profile carries is one the form shows. `[ Review ]`
-/// is left on the button.
+/// `File` and loaded as the loop answers `Load`, and the case's words typed into
+/// `Mutations`. `Overlap` opens prefilled with 15 (M7-45), the codon is the
+/// default policy (M7-46), so every value the `Interpret` profile carries is one
+/// the form shows. `[ Review ]` is left on the button.
 fn words_form_without_profile(row: &[String]) -> NewForm {
     let mut form = NewForm::new(None, true);
     tab_to(&mut form, Field::File);
@@ -161,11 +173,30 @@ fn words_form_without_profile(row: &[String]) -> NewForm {
         "leaving File with a path asks the loop to read it"
     );
     form.loaded(&row[1], Ok(read(&format!("{}{}", GENBANK, row[1]))));
-    tab_to(&mut form, Field::Words);
+    tab_to(&mut form, Field::Mutations);
     type_text(&mut form, &text_of(row));
-    tab_to(&mut form, Field::Overlap);
-    type_text(&mut form, "15");
-    // "default policy" is the form's starting choice, so nothing is toggled.
+    // The prefilled 15 is the overlap the words are read with, so nothing is
+    // typed on `Overlap`.
+    tab_to(&mut form, Field::Review);
+    form
+}
+
+/// A form with **no** backend (M7-47): the case's template typed in `File` and
+/// loaded as the loop answers `Load`, and the case's words typed into
+/// `Mutations`, so the box reads as words with no model to read it. `[ Review ]`
+/// is left on the button.
+fn words_form_without_backend(row: &[String]) -> NewForm {
+    let mut form = NewForm::new(None, false);
+    tab_to(&mut form, Field::File);
+    type_text(&mut form, &row[1]);
+    assert_eq!(
+        form.handle(Key::Tab),
+        FormAction::Load(row[1].clone()),
+        "leaving File with a path asks the loop to read it"
+    );
+    form.loaded(&row[1], Ok(read(&format!("{}{}", GENBANK, row[1]))));
+    tab_to(&mut form, Field::Mutations);
+    type_text(&mut form, &text_of(row));
     tab_to(&mut form, Field::Review);
     form
 }
@@ -195,16 +226,23 @@ fn sid1(lines: &[&str], overlap: &str) -> NewForm {
         form.handle(Key::Enter);
     }
     tab_to(&mut form, Field::Overlap);
+    // M7-45: the prefilled 15 is typed over, so `overlap` is the value the case
+    // states, empty included.
+    let prefilled: usize = form.overlap().chars().count();
+    for _ in 0..prefilled {
+        form.handle(Key::Backspace);
+    }
     type_text(&mut form, overlap);
     form
 }
 
-// §3.1 rule 1 and 2: `[ Review ]` with words typed asks the loop to send them
-// through `interpret`, with the template as it was typed in `File`, the words
-// as they were typed, and the design the form shows, which for this case is the
-// `--design` profile it opened with (M7-41).
+// M7-47 (contract §3 test 4): a line luria cannot read at all makes the whole
+// `Mutations` box words, so `[ Review ]` asks the loop to send it through
+// `interpret`, with the template as it was typed in `File`, the box as it was
+// typed, and the design the form shows, which for this case is the `--design`
+// profile it opened with (M7-41).
 #[test]
-fn words_with_a_genbank_file_ask_to_interpret() {
+fn unreadable_lines_go_to_the_model() {
     let row: Vec<String> = row_of("two-separate");
     let mut form = words_form(&row);
     let given: ProfileDocument =
@@ -220,11 +258,8 @@ fn words_with_a_genbank_file_ask_to_interpret() {
     );
 }
 
-// §3.1 rule 2 (contract §2.2, M7-41, M7-42): with no `--design`, the form's own
-// values are the design the words are read with, so the case that asks about
-// every unstated value is proposed, with no questions, and gives the request the
-// corpus states for this edit under overlap 15, codon default and numbering from
-// the CDS start.
+// §3.1 rule 2's codon half is M7-46's: with no codon field, `words_profile` is
+// given the default policy, so the text must state a codon, as the case's does.
 #[test]
 fn words_without_a_profile_use_the_forms_values() {
     let row: Vec<String> = row_of("no-profile");
@@ -268,12 +303,13 @@ fn words_without_a_profile_use_the_forms_values() {
 }
 
 // §3.1 rule 1 (contract §2.2): the overlap the user types is the profile's
-// overlap, over the value `--design` opened the form with.
+// overlap, over the value M7-45 prefills `Overlap` with (contract §3 test 1).
 #[test]
 fn a_typed_overlap_wins_over_the_profile() {
     let row: Vec<String> = row_of("two-separate");
     let mut form = words_form(&row);
-    // `--design` filled Overlap with 15, and the user types 20 over it.
+    // The `--design` profile prefills Overlap with its own value, and the user
+    // types 20 over it.
     tab_to(&mut form, Field::Overlap);
     for _ in 0..form.overlap().chars().count() {
         form.handle(Key::Backspace);
@@ -292,61 +328,89 @@ fn a_typed_overlap_wins_over_the_profile() {
     }
 }
 
-// §3.1 rule 2's codon half (contract §2.2): "typed per mutation" leaves the codon
-// unstated, so the text must state a codon or the model path asks.
+// M7-46 (contract §2.1): the form has no codon field, so a line that states a
+// codon carries it and the profile the words are read with states `default`; the
+// codons the corpus takes from the case's text are recorded in the case's request.
 #[test]
-fn typed_codons_leave_the_codon_unstated() {
-    let row: Vec<String> = row_of("two-separate");
+fn the_words_profile_states_the_default_codon() {
+    let row: Vec<String> = row_of("codon-stated");
     let mut form = words_form(&row);
-    tab_to(&mut form, Field::Codon);
-    form.handle(Key::Char(' '));
-    assert_eq!(
-        form.codon(),
-        CodonChoice::TypedPerMutation,
-        "the choice is toggled on the Codon field"
-    );
-    tab_to(&mut form, Field::Review);
     match form.handle(Key::Enter) {
         FormAction::Interpret { profile, .. } => {
             assert_eq!(
-                profile.codon, None,
-                "codons typed per mutation leave the codon unstated"
+                profile.codon,
+                Some(CodonSpec::Default),
+                "the form has no codon field, so the profile states the default policy"
             );
         }
         other => panic!("the words form gave {:?} instead of the Interpret", other),
     }
 }
 
-// §3.1 rule 1: words and mutation lines together are refused, with the blocker on
-// `Words` and no call to the model, so `[ Review ]` gives `Continue`.
+// M7-47 (contract §2.2 step 1, §3.1 rule 1): a line luria reads and refuses, a
+// stop included, is a red error naming its line, and the box is never sent to the
+// model for it, so the stop refusal on line 1 is the blocker, not `Interpret`.
 #[test]
-fn words_and_lines_together_are_refused() {
+fn a_refused_line_is_never_words() {
     let row: Vec<String> = row_of("two-separate");
-    let mut form = words_form(&row);
-    // One shorthand line typed, so both boxes hold the mutations.
+    let mut form = NewForm::new(None, true);
+    tab_to(&mut form, Field::File);
+    type_text(&mut form, &row[1]);
+    assert_eq!(
+        form.handle(Key::Tab),
+        FormAction::Load(row[1].clone()),
+        "leaving File with a path asks the loop to read it"
+    );
+    form.loaded(&row[1], Ok(read(&format!("{}{}", GENBANK, row[1]))));
     tab_to(&mut form, Field::Mutations);
-    type_text(&mut form, "A42G");
+    type_text(&mut form, "D404*");
+    form.handle(Key::Enter);
+    type_text(&mut form, "change alanine 42 to glycine");
     tab_to(&mut form, Field::Review);
     assert_eq!(
         form.handle(Key::Enter),
         FormAction::Continue,
-        "words with a line build nothing and call no model"
+        "a line luria reads and refuses calls no model"
     );
     assert_eq!(
         form.blocker(),
-        Some((Field::Words, None, BOTH_MESSAGE.to_string())),
-        "words and lines are either one, not both"
+        Some((
+            Field::Mutations,
+            Some(1),
+            Refusal::Stop.message().to_string()
+        )),
+        "the stop refusal on the first line is the blocker, with its own message"
+    );
+}
+
+// M7-47 (contract §3 test 5): without a backend the box cannot be read at all, so
+// `[ Review ]` is a blocker on `Mutations` that names `--backend`, on the first
+// line that does not read.
+#[test]
+fn unreadable_lines_without_a_backend_name_it() {
+    let row: Vec<String> = row_of("two-separate");
+    let mut form = words_form_without_backend(&row);
+    assert_eq!(
+        form.handle(Key::Enter),
+        FormAction::Continue,
+        "words with no backend call no model and build nothing"
+    );
+    assert_eq!(
+        form.blocker(),
+        Some((Field::Mutations, Some(1), no_backend_message(1))),
+        "the blocker names --backend on the first line that does not read"
     );
 }
 
 // §3.1 rule 2: words need a GenBank record, because the model is shown the
-// record's CDS list (M6-7), so a FASTA file is refused with the blocker on `Words`.
+// record's CDS list (M6-7), so a FASTA file is refused with the blocker on the
+// `Mutations` box.
 #[test]
 fn words_with_a_fasta_file_are_refused() {
     let row: Vec<String> = row_of("two-separate");
     // The FASTA template, with no words typed, is 7k3's form as it was.
     let mut form = sid1(&[], "15");
-    tab_to(&mut form, Field::Words);
+    tab_to(&mut form, Field::Mutations);
     type_text(&mut form, &text_of(&row));
     tab_to(&mut form, Field::Review);
     assert_eq!(
@@ -356,7 +420,7 @@ fn words_with_a_fasta_file_are_refused() {
     );
     assert_eq!(
         form.blocker(),
-        Some((Field::Words, None, GENBANK_MESSAGE.to_string())),
+        Some((Field::Mutations, None, GENBANK_MESSAGE.to_string())),
         "words need the record whose CDS list the model is shown"
     );
 }
@@ -419,12 +483,12 @@ fn the_interpreted_request_is_the_corpus_request() {
     let _ = fs::remove_dir_all(&dir);
 }
 
-// §3.1 rule 3: words of only spaces are blank, so the shorthand path is 7k3's,
-// `[ Review ]` building the request, with a FASTA template, as it was.
+// §3.1 rule 3: a box whose lines all read is not words, so the shorthand path is
+// 7k3's, `[ Review ]` building the request, with a FASTA template, as it was.
 #[test]
 fn blank_words_keep_the_shorthand_path() {
     let mut form = sid1(&["A42G", "W87A"], "15");
-    tab_to(&mut form, Field::Words);
+    tab_to(&mut form, Field::Mutations);
     type_text(&mut form, "   ");
     tab_to(&mut form, Field::Review);
     match form.handle(Key::Enter) {

@@ -66,6 +66,12 @@ fn sid1(lines: &[&str], overlap: &str) -> NewForm {
         form.handle(Key::Enter);
     }
     tab_to(&mut form, Field::Overlap);
+    // M7-45: the prefilled 15 is typed over, so `overlap` is the value the case
+    // states, empty included.
+    let prefilled: usize = form.overlap().chars().count();
+    for _ in 0..prefilled {
+        form.handle(Key::Backspace);
+    }
     type_text(&mut form, overlap);
     form
 }
@@ -183,9 +189,9 @@ fn a_refused_preview_is_red() {
     );
 }
 
-/// The `sid-1` form with a backend, so the `In words` box is enabled (M7-36): the
-/// file loaded as the loop answers `Load`, the name typed over the stem, `overlap`
-/// typed, and `words` typed in the box, with nothing in the mutation box.
+/// The `sid-1` form with a backend (M7-47): the file loaded as the loop answers
+/// `Load`, the name typed over the stem, `Overlap` at its prefilled 15 (M7-45),
+/// and `words` typed in the `Mutations` box, whose lines luria cannot read.
 fn words_form(words: &str) -> NewForm {
     let mut form = NewForm::new(None, true);
     tab_to(&mut form, Field::File);
@@ -203,14 +209,15 @@ fn words_form(words: &str) -> NewForm {
     }
     type_text(&mut form, "sid-1");
     tab_to(&mut form, Field::Overlap);
-    type_text(&mut form, "15");
-    tab_to(&mut form, Field::Words);
+    // M7-45: `Overlap` opens prefilled with 15, so nothing is typed there.
+    tab_to(&mut form, Field::Mutations);
     type_text(&mut form, words);
     form
 }
 
-// 7k7 §2.3: the words box says a GenBank template is needed, dim in the view as
-// `needs --backend` is, so the typed words read as the user's own text.
+// M7-47 (contract §2.2): words with no loaded GenBank record say the template is
+// needed, dim in the view, as the box's own hint, so the typed words read as the
+// user's own text.
 #[test]
 fn a_genbank_need_is_dim() {
     let form: NewForm = words_form("A42G is a substitution");
@@ -228,7 +235,7 @@ fn a_genbank_need_is_dim() {
     );
     assert!(
         styles(&form, 80, 24)[row][column].has_modifier(Modifier::DIM),
-        "the hint is dim in the view, as `needs --backend` is"
+        "the hint is dim in the view, as the box's preview the model reads is"
     );
 }
 

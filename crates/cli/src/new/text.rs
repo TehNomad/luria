@@ -10,16 +10,15 @@
 //!   characters; the template's sub-fields are indented by two spaces;
 //! - a row whose field is hidden by 7k3's `is_visible` is left out, so a GenBank
 //!   record has no `Name`, `Shape` or `Strand` row and `First`/`Last` appear
-//!   only as the `Bases` row when the CDS is typed bases; `In words` is shown
-//!   with `needs --backend` when no backend was given (M7-36);
-//! - `In words` shows the text typed in it the way `Mutations` shows its lines,
-//!   the label on the first one, and when the box holds text with a template that
-//!   is not a loaded GenBank record one more row follows it, `needs a GenBank
-//!   template` (M7-40);
+//!   only as the `Bases` row when the CDS is typed bases;
 //! - `◉` marks the chosen option and `○` the other on every choice row;
 //! - each mutation line is shown as typed, then one preview line per non-blank
 //!   line, in order: `✓ <n>  <words>` from `reading_words`, `✗ <n>  <message>`
-//!   from the refusal's own `message()` (plan §2 rule 1);
+//!   from the refusal's own `message()`, and `… <n>  read in words by the model at
+//!   [ Review ]` for a line luria cannot read at all when the box reads as words
+//!   and a backend was given, or `✗ <n>  not shorthand; …` without one (plan §2
+//!   rule 1, M7-47); with a backend, words, and no loaded GenBank record, one
+//!   more row follows the previews, `needs a GenBank template`;
 //! - a mutation line's 1-based number and the `Bases` row use the screens'
 //!   1-based inclusive coordinates (M7-24, D006), so `reading_words` reuses
 //!   `review::text`'s `bases_at`, `insertion_place` and `bases_text` with no
@@ -31,13 +30,13 @@ use crate::new::form::CdsMode;
 use crate::new::form::Field;
 use crate::new::form::NewForm;
 use crate::new::form::Source;
-use crate::new::CodonChoice;
 use crate::request::StrandSpec;
 use crate::request::TopologySpec;
 use crate::review::text::bases_at;
 use crate::review::text::bases_text;
 use crate::review::text::insertion_place;
 use crate::shorthand::Reading;
+use crate::shorthand::Refusal;
 
 /// The form as lines, the index of the focused field's first line, and the cursor's
 /// column in that line when the focus is a text field (contract §2).
@@ -51,8 +50,9 @@ pub struct FormText {
 const LABEL: usize = 11;
 
 /// The fields in the order the screen shows them (contract §2.1), which is
-/// 7k3's focus order except that `Overlap` is drawn above `Codon`.
-const ROWS: [Field; 15] = [
+/// 7k3's focus order, with the primers' own row and the box's `needs a GenBank
+/// template` row written where §2.3 puts them.
+const ROWS: [Field; 13] = [
     Field::Source,
     Field::File,
     Field::Paste,
@@ -63,9 +63,7 @@ const ROWS: [Field; 15] = [
     Field::Last,
     Field::Strand,
     Field::Mutations,
-    Field::Words,
     Field::Overlap,
-    Field::Codon,
     Field::SaveAs,
     Field::Review,
 ];
@@ -192,6 +190,10 @@ pub fn form_lines(form: &NewForm) -> FormText {
                         lines.push(continued(one));
                     }
                 }
+                // M7-47: a line luria cannot read at all makes the whole box
+                // words, so its preview says the model reads it, and names
+                // `--backend` when none was given.
+                let as_words: bool = form.reads_as_words();
                 for preview in form.previews().iter() {
                     match &preview.reading {
                         None => {}
@@ -200,54 +202,46 @@ pub fn form_lines(form: &NewForm) -> FormText {
                             preview.line,
                             reading_words(reading)
                         ))),
-                        Some(Err(refusal)) => lines.push(continued(&format!(
-                            "✗ {}  {}",
-                            preview.line,
-                            refusal.message()
-                        ))),
-                    }
-                }
-            }
-            Field::Words => {
-                if form.words_enabled() {
-                    rows.push((*field, row));
-                    for (index, one) in form.words().split('\n').enumerate() {
-                        if index == 0 {
-                            lines.push(row_line("In words", one));
-                        } else {
-                            lines.push(continued(one));
+                        Some(Err(refusal)) => {
+                            if as_words && *refusal == Refusal::Unreadable {
+                                if form.backend() {
+                                    lines.push(continued(&format!(
+                                        "… {}  read in words by the model at [ Review ]",
+                                        preview.line
+                                    )));
+                                } else {
+                                    lines.push(continued(&format!(
+                                        "✗ {}  not shorthand; start luria new with --backend to read it in words",
+                                        preview.line
+                                    )));
+                                }
+                            } else {
+                                lines.push(continued(&format!(
+                                    "✗ {}  {}",
+                                    preview.line,
+                                    refusal.message()
+                                )));
+                            }
                         }
                     }
-                    // M7-40: the words need a record the form has not loaded, so
-                    // the box says what it needs, under the text.
-                    if form.words_need_genbank() {
-                        lines.push(continued("needs a GenBank template"));
-                    }
-                } else {
-                    // M7-36: the row is there, saying it needs a backend, and
-                    // focus never rests on the field.
-                    lines.push(row_line("In words", "needs --backend"));
                 }
-                // The blank row §2.1 puts under the box, then the primers' own,
+                // M7-47: the words need a record the form has not loaded, so the
+                // box says what it needs, under its previews.
+                if form.words_need_genbank() {
+                    lines.push(continued("needs a GenBank template"));
+                }
+            }
+            Field::Overlap => {
+                // The blank row §2.3 puts under the box, then the primers' own,
                 // which is the plan's rule (M7-39, D029), not a form field.
                 lines.push(String::new());
                 lines.push(row_line(
                     "Primers",
                     "inline (confine to tail not supported yet)",
                 ));
-            }
-            Field::Codon => {
-                rows.push((*field, row));
-                lines.push(row_line(
-                    "Codon",
-                    &choice(
-                        &["default policy", "typed per mutation (D404N:AAC)"],
-                        form.codon() == CodonChoice::DefaultPolicy,
-                    ),
-                ));
-            }
-            Field::Overlap => {
-                rows.push((*field, row));
+                // `Overlap`'s own row is the one after them, so the cursor and
+                // the focus mark sit on the value typed.
+                rows.push((*field, lines.len()));
                 lines.push(row_line("Overlap", &format!("{} nt", form.overlap())));
             }
             Field::SaveAs => {
@@ -304,7 +298,6 @@ fn typed_cursor(form: &NewForm) -> Option<usize> {
         | Field::First
         | Field::Last
         | Field::Mutations
-        | Field::Words
         | Field::Overlap
         | Field::SaveAs => Some(LABEL + form.cursor()),
         _ => None,

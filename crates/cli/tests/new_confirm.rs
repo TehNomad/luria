@@ -100,7 +100,8 @@ fn typed_paste() -> String {
 /// The form with the `sid-1` file loaded as the loop answers `Load`: the path
 /// typed in `File`, the name `sid-1` typed over the stem the load filled, and
 /// `lines` typed into the mutation box, each line's `Enter` starting the next.
-/// `overlap` is typed last, so a case can leave it empty (7k3 §4.5).
+/// `overlap` is typed last, over the 15 nt M7-45 prefills `Overlap` with (7k3
+/// §4.5, 7m3 §3).
 fn sid1(lines: &[&str], overlap: &str) -> NewForm {
     let mut form = NewForm::new(None, false);
     tab_to(&mut form, Field::File);
@@ -123,6 +124,12 @@ fn sid1(lines: &[&str], overlap: &str) -> NewForm {
         form.handle(Key::Enter);
     }
     tab_to(&mut form, Field::Overlap);
+    // M7-45: the prefilled 15 is typed over, so `overlap` is the value the case
+    // states, empty included.
+    let prefilled: usize = form.overlap().chars().count();
+    for _ in 0..prefilled {
+        form.handle(Key::Backspace);
+    }
     type_text(&mut form, overlap);
     form
 }
@@ -138,16 +145,14 @@ fn review(form: &mut NewForm) -> Built {
 }
 
 /// The `sid1-codon` form, as `requests.py` writes it: the whole sequence, the
-/// codon typed per mutation, `D404N:AAC` and overlap 15.
+/// codon `D404N:AAC` typed in its line, and overlap 15 (M7-46: no codon field).
 fn sid1_codon() -> Built {
     let mut form = sid1(&["D404N:AAC"], "15");
-    tab_to(&mut form, Field::Codon);
-    form.handle(Key::Right);
     review(&mut form)
 }
 
 /// The `syn-paste` form, as `requests.py` writes it: a paste, its CDS typed as
-/// bases 1 to 99, two mutations, a codon typed per mutation and overlap 15.
+/// bases 1 to 99, two mutations, and overlap 15 (M7-46: no codon field).
 fn syn_paste() -> Built {
     let mut form = NewForm::new(None, false);
     form.handle(Key::Right);
@@ -165,10 +170,7 @@ fn syn_paste() -> Built {
     type_text(&mut form, "del 46");
     form.handle(Key::Enter);
     type_text(&mut form, "51-53 ATC>TT");
-    tab_to(&mut form, Field::Codon);
-    form.handle(Key::Right);
-    tab_to(&mut form, Field::Overlap);
-    type_text(&mut form, "15");
+    // M7-45 prefills `Overlap` with 15, so nothing is typed there.
     review(&mut form)
 }
 

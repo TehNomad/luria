@@ -14,6 +14,11 @@ use luria_cli::new::form::FormAction;
 use luria_cli::new::form::NewForm;
 use luria_cli::new::form::Preview;
 use luria_cli::new::Built;
+use luria_cli::request::parse_profile;
+use luria_cli::request::CodonSpec;
+use luria_cli::request::EditSpec;
+use luria_cli::request::OperationSpec;
+use luria_cli::request::ProfileDocument;
 use luria_cli::request::RequestDocument;
 use luria_cli::result::request_echo;
 use luria_cli::result::RequestEcho;
@@ -87,7 +92,8 @@ fn typed_paste() -> String {
 /// The form with the `sid-1` file loaded as the loop answers `Load`: the path
 /// typed in `File`, the name `sid-1` typed over the stem the load filled, and
 /// `lines` typed into the mutation box, each line's `Enter` starting the next.
-/// `overlap` is typed last, so a case can leave it empty (contract §4.5).
+/// `overlap` is typed last, over the 15 nt M7-45 prefills `Overlap` with, so a
+/// case can leave it empty (contract §4.5, §3).
 fn sid1(lines: &[&str], overlap: &str) -> NewForm {
     let mut form = NewForm::new(None, false);
     tab_to(&mut form, Field::File);
@@ -110,6 +116,12 @@ fn sid1(lines: &[&str], overlap: &str) -> NewForm {
         form.handle(Key::Enter);
     }
     tab_to(&mut form, Field::Overlap);
+    // M7-45: the prefilled 15 is typed over, so `overlap` is the value the case
+    // states, empty included.
+    let prefilled: usize = form.overlap().chars().count();
+    for _ in 0..prefilled {
+        form.handle(Key::Backspace);
+    }
     type_text(&mut form, overlap);
     form
 }
@@ -170,11 +182,8 @@ fn a_pasted_template_builds_its_request() {
     type_text(&mut form, "del 46");
     form.handle(Key::Enter);
     type_text(&mut form, "51-53 ATC>TT");
-    // A codon typed per mutation, and the overlap.
-    tab_to(&mut form, Field::Codon);
-    form.handle(Key::Right);
-    tab_to(&mut form, Field::Overlap);
-    type_text(&mut form, "15");
+    // M7-46: no codon field, so the default policy is the form's own, and M7-45
+    // prefills `Overlap` with 15, so nothing is typed there.
     let built: Built = review(&mut form);
     assert_eq!(
         rendered(&built.request),
@@ -274,6 +283,11 @@ fn a_genbank_file_offers_its_usable_cds() {
     form.handle(Key::Enter);
     type_text(&mut form, "W87A");
     tab_to(&mut form, Field::Overlap);
+    // M7-45: 20 typed over the prefilled 15.
+    let prefilled: usize = form.overlap().chars().count();
+    for _ in 0..prefilled {
+        form.handle(Key::Backspace);
+    }
     type_text(&mut form, "20");
     let built: Built = review(&mut form);
     assert_eq!(
@@ -365,24 +379,6 @@ fn a_refused_line_is_named() {
 }
 
 #[test]
-fn words_is_skipped_without_a_backend() {
-    for backend in [false, true] {
-        let mut form = NewForm::new(None, backend);
-        assert_eq!(
-            form.words_enabled(),
-            backend,
-            "the form says if Words is on"
-        );
-        let seen: Vec<Field> = focus_sequence(&mut form, 20);
-        assert_eq!(
-            seen.contains(&Field::Words),
-            backend,
-            "Words is reached exactly when a backend was given"
-        );
-    }
-}
-
-#[test]
 fn escape_quits() {
     let mut form = NewForm::new(None, false);
     tab_to(&mut form, Field::Mutations);
@@ -454,7 +450,7 @@ fn an_overlap_too_large_is_a_blocker() {
         "synthetic-linear.gb",
         Ok(read_file("genbank/synthetic-linear.gb")),
     );
-    tab_to(&mut form, Field::Words);
+    tab_to(&mut form, Field::Mutations);
     type_text(&mut form, "delete base 42");
     tab_to(&mut form, Field::Overlap);
     type_text(&mut form, TOO_LARGE);
@@ -474,4 +470,143 @@ fn an_overlap_too_large_is_a_blocker() {
         blocker.2, MESSAGE,
         "the same message, with no panic in the words' design"
     );
+}
+
+// M7-45 (contract §3 test 1): `Overlap` opens at 15 nt, shown and editable, and
+// a `--design` profile's `minAnnealingOverlap` replaces it, so the value the user
+// sees is there before anything is typed.
+#[test]
+fn overlap_opens_at_15() {
+    let form: NewForm = NewForm::new(None, false);
+    assert_eq!(
+        form.overlap(),
+        "15",
+        "the form opens with the overlap shown"
+    );
+
+    // The profile's own value, read from the fixture, not typed into the test.
+    let profile: ProfileDocument =
+        parse_profile(&read_file("nl/profile/full.json")).expect("the profile is a profile");
+    let given: i64 = fixture("nl/profile/full.json")["design"]["minAnnealingOverlap"]
+        .as_i64()
+        .expect("the fixture states its own overlap");
+    let form: NewForm = NewForm::new(Some(&profile), false);
+    assert_eq!(
+        form.overlap(),
+        given.to_string(),
+        "the profile's value replaces the prefilled 15"
+    );
+}
+
+// M7-45 (contract §2.1): `Overlap`'s place in the focus order is its place on
+// screen, so `Tab` from `Mutations` reaches it, then `Save as`, then the button.
+#[test]
+fn focus_order_is_screen_order() {
+    let mut form = sid1(&["D404N"], "15");
+    tab_to(&mut form, Field::Mutations);
+    let seen: Vec<Field> = focus_sequence(&mut form, 3);
+    assert_eq!(
+        seen[1..],
+        [Field::Overlap, Field::SaveAs, Field::Review],
+        "tabbing from Mutations reaches Overlap, then SaveAs, then Review"
+    );
+}
+
+// M7-46 (contract §2.1): with no codon field, a line that states a codon carries
+// it, and a line that states none takes the default policy.
+#[test]
+fn a_typed_codon_is_used_and_none_is_the_default() {
+    let mut form = sid1(&["D404N:AAC", "D405A"], "15");
+    let built: Built = review(&mut form);
+    let codons: Vec<CodonSpec> = match &built.request.operation {
+        OperationSpec::Variants { members, .. } => members
+            .iter()
+            .map(|member| match &member.edit {
+                EditSpec::Residue { codon, .. } => codon.clone(),
+                other => panic!("the lines give residue edits, gave {:?}", other),
+            })
+            .collect(),
+        other => panic!("the lines give a set of variants, gave {:?}", other),
+    };
+    assert_eq!(
+        codons,
+        vec![CodonSpec::Supplied("AAC".to_string()), CodonSpec::Default],
+        "the typed codon is used and a line stating none takes the default policy"
+    );
+}
+
+// M7-51 (contract §2.4): in the paste and mutation boxes `PgDn`/`PgUp` move the
+// cursor 10 lines, clamped to the first and the last line and to the line's
+// length; on every other field focus jumps to the ends of the form, and leaving
+// `File` this way asks the loop to read the path, as `tab` does.
+#[test]
+fn page_keys_move_ten_lines_or_to_the_ends() {
+    // Twelve mutation lines, so the box holds 13 lines, the last one the empty
+    // line the final `Enter` starts.
+    let typed: Vec<String> = (1..=12).map(|n| format!("A{}G", n)).collect();
+    let lines: Vec<&str> = typed.iter().map(|one| one.as_str()).collect();
+    let mut form = sid1(&lines, "15");
+    tab_to(&mut form, Field::Mutations);
+    assert_eq!(
+        form.focus_line(),
+        12,
+        "the cursor starts on the last line typed"
+    );
+
+    form.handle(Key::PageUp);
+    assert_eq!(form.focus_line(), 2, "PgUp moves the cursor 10 lines up");
+    for _ in 0..3 {
+        form.handle(Key::Right);
+    }
+    assert_eq!(form.cursor(), 3, "the cursor sits at the line's end");
+    form.handle(Key::PageDown);
+    assert_eq!(
+        form.focus_line(),
+        12,
+        "PgDn moves 10 lines down, clamped to the last line"
+    );
+    assert_eq!(
+        form.cursor(),
+        0,
+        "the column is clamped to the length of the line it lands on"
+    );
+    form.handle(Key::PageUp);
+    form.handle(Key::PageUp);
+    assert_eq!(
+        form.focus_line(),
+        0,
+        "PgUp is clamped to the first line, not past it"
+    );
+    form.handle(Key::PageDown);
+    assert_eq!(
+        form.focus_line(),
+        10,
+        "and 10 lines down from the first line"
+    );
+
+    // Off the boxes, focus goes to the ends of the form.
+    tab_to(&mut form, Field::Overlap);
+    assert_eq!(
+        form.handle(Key::PageDown),
+        FormAction::Continue,
+        "PgDn on a single-line field asks nothing of the loop"
+    );
+    assert_eq!(form.focus(), Field::Review, "PgDn goes to [ Review ]");
+    form.handle(Key::PageUp);
+    assert_eq!(
+        form.focus(),
+        Field::Source,
+        "PgUp goes to the first visible field"
+    );
+
+    // Leaving `File` this way asks the loop to read the path, as `tab` does.
+    let mut form = NewForm::new(None, false);
+    tab_to(&mut form, Field::File);
+    type_text(&mut form, "sid-1_cDNA.fa");
+    assert_eq!(
+        form.handle(Key::PageDown),
+        FormAction::Load("sid-1_cDNA.fa".to_string()),
+        "PgDn leaving File asks the loop to read it, as Tab does"
+    );
+    assert_eq!(form.focus(), Field::Review, "and focus goes to the button");
 }
