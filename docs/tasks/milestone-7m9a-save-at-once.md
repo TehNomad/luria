@@ -249,3 +249,25 @@ git status --short
 ```
 
 Report each result, both proofs, and every test changed or deleted.
+
+## 6. Planner answers to w7m9a (2026-10-22)
+
+w7m9a stopped mid-§2.1 (context); `form.rs` is partly changed and does not
+compile. Its four questions:
+
+1. `new/view.rs` `LABELS`: add `"Save as"` after `"Overlap"` (it was there
+   at `81c1ead`), so the row's label is styled as the others are.
+2. `the_popup_says_what_it_writes`: do not delete it whole. Rewrite it to
+   the `Replace` pop-up only: after `ask_replace(vec!["sid-1.request.json"])`,
+   `popup_lines` equals the lines `Replace` draws today (read them from
+   `popup_lines`'s `Replace` arm, unchanged). Keep any part that already
+   tests `Replace`. Delete only the `Naming` parts.
+3. `new_words.rs::a_proposal_replaces_only_when_asked`: **keep it.** Its
+   assertions are about `approve_replacing`, which is unchanged; change only
+   a key press that reached the removed `Naming` pop-up, if any.
+4. The paste's FASTA name: keep it on the form, as at `81c1ead`. Under the
+   `Save as` row, for a paste, a continued row
+   `template saved as <paste_file>`. Only the row itself, no blank row above
+   the button (the 7m3 layout has none). The sid-1 expected lines in
+   `new_text.rs` gain only `Save as`; a paste form's expected lines, if a
+   test pins them, gain both rows.
