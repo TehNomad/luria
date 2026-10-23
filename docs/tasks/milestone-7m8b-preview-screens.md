@@ -180,3 +180,10 @@ git status --short
 ```
 
 Report each result and both §3.1 proofs.
+
+## 6. Planner answers to w7m8b
+
+- `Action::Approve` makes `review/terminal.rs`'s match in `run` non-exhaustive.
+  Approved: add one arm `Action::Approve => {}` there, with a comment that
+  `luria review` never sets a reading, so the arm is never reached. This is
+  the only change allowed in `review/terminal.rs`; its behaviour is unchanged.
