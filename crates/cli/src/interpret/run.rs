@@ -21,7 +21,7 @@
 
 use crate::exit::ExitStatus;
 use crate::interpret::build::{
-    build, Assumption, Built, Origin, Question, Source, TemplateFacts, Ungrounded,
+    build_with_cds, Assumption, Built, Origin, Question, Source, TemplateFacts, Ungrounded,
 };
 use crate::interpret::catalogue::{catalogue, CatalogueEntry, Usability};
 use crate::interpret::document::{
@@ -276,16 +276,207 @@ fn ungrounded_view(problem: &Ungrounded) -> UngroundedView {
     }
 }
 
-/// Write `body` at `path` as a new file only: `create_new` refuses a path
-/// something already holds, a symlink a dangling one included, atomically with
-/// creating it, so a file that appeared after the check above is still never
-/// replaced (C-1). The `String` is the operating system's reason.
-fn write_new(path: &Path, body: &String) -> Result<(), String> {
+/// Why the request cannot be written at `path` for a template at
+/// `template`, as (code, message), or `None` when it can (plan §5.7, C-1).
+/// Decided from the file system without writing anything.
+pub fn request_location_problem(template: &Path, path: &Path) -> Option<(String, String)> {
+    let found_request: Option<PathBuf> = canonicalize(directory_of(path)).ok();
+    let found_template: Option<PathBuf> = canonicalize(directory_of(template)).ok();
+    let same: bool = match found_request {
+        None => false,
+        Some(one) => match found_template {
+            None => false,
+            Some(other) => one == other,
+        },
+    };
+    let request_name: Option<String> = name_of(path);
+    // The piece the path ends with must be the name itself: `new.json/`
+    // and `new.json/.` name no file, and step 8's write would fail only
+    // after the model had been sent (6h1: nothing is sent until every
+    // local input is valid).
+    let names_a_file: bool = match path.to_str() {
+        None => false,
+        Some(text) => match text.rsplit(std::path::is_separator).next() {
+            None => false,
+            Some(piece) => match request_name.as_ref() {
+                None => false,
+                Some(found) => piece == found,
+            },
+        },
+    };
+    if !same || !names_a_file {
+        return Some((
+            "request_location_unusable".to_string(),
+            "the request must be written in the template's directory, because a request names its template relative to itself".to_string(),
+        ));
+    }
+    match symlink_metadata(path) {
+        Ok(_found) => Some((
+            "output_exists".to_string(),
+            format!(
+                "the file {} already exists; luria never replaces a file",
+                request_name.expect("a file name"),
+            ),
+        )),
+        Err(problem) => match problem.kind() {
+            // Only a name nothing holds is free, as `write.rs`'s check
+            // is: any other failure is the operating system's own, and
+            // the write below would not have told it apart.
+            ErrorKind::NotFound => None,
+            _ => Some((
+                "request_location_unusable".to_string(),
+                format!(
+                    "cannot check whether {} already exists: {}",
+                    request_name.expect("a file name"),
+                    problem,
+                ),
+            )),
+        },
+    }
+}
+
+/// The request as `--write-request` writes it: `to_string_pretty` of the
+/// echo and one `\n`.
+pub fn request_text(echo: &RequestEcho) -> String {
+    match to_string_pretty(echo) {
+        Err(problem) => panic!("the proposed request always serializes: {}", problem),
+        Ok(found) => found + "\n",
+    }
+}
+
+/// Write `text` at `path` as a new file, never replacing one, atomically with
+/// creating it: `create_new` refuses a path something already holds, a symlink
+/// a dangling one included, so a file that appeared after the check above is
+/// still never replaced (C-1). The `String` is the operating system's reason.
+pub fn write_request_file(path: &Path, text: &str) -> Result<(), String> {
     match OpenOptions::new().write(true).create_new(true).open(path) {
         Err(problem) => Err(problem.to_string()),
-        Ok(mut handle) => match handle.write_all(body.as_bytes()) {
+        Ok(mut handle) => match handle.write_all(text.as_bytes()) {
             Err(problem) => Err(problem.to_string()),
             Ok(_) => Ok(()),
+        },
+    }
+}
+
+/// Step 1: the user's text, however it was given, and its cap. The `Err` is the
+/// refusal this run makes, with the document as it stands, so nothing after
+/// step 1 runs.
+#[allow(clippy::result_large_err)]
+fn read_text(
+    input: &InterpretInput,
+    answered: &InterpretationDocument,
+) -> Result<String, InterpretOutcome> {
+    let given: String = match &input.text {
+        TextSource::Inline(value) => {
+            if value.len() > MAX_TEXT_BYTES {
+                return Err(refused(
+                    answered,
+                    "input_too_large".to_string(),
+                    None,
+                    format!(
+                        "the text is more than {} bytes, the most luria reads",
+                        MAX_TEXT_BYTES
+                    ),
+                    ExitStatus::MalformedInput,
+                ));
+            }
+            value.clone()
+        }
+        TextSource::File(written) => match read_capped(written, MAX_TEXT_BYTES) {
+            Err(ReadFailure::Io(reason)) => {
+                return Err(refused(
+                    answered,
+                    "text_unreadable".to_string(),
+                    None,
+                    format!("cannot read the text file: {}", reason),
+                    ExitStatus::MalformedInput,
+                ));
+            }
+            Err(ReadFailure::Over) => {
+                return Err(refused(
+                    answered,
+                    "input_too_large".to_string(),
+                    None,
+                    format!(
+                        "the text is more than {} bytes, the most luria reads",
+                        MAX_TEXT_BYTES
+                    ),
+                    ExitStatus::MalformedInput,
+                ));
+            }
+            Ok(found) => match String::from_utf8(found) {
+                Err(_problem) => {
+                    return Err(refused(
+                        answered,
+                        "text_unreadable".to_string(),
+                        None,
+                        "the text file is not UTF-8".to_string(),
+                        ExitStatus::MalformedInput,
+                    ));
+                }
+                Ok(contents) => contents.clone(),
+            },
+        },
+    };
+    let text: String = without_break(&given);
+    if text.trim().is_empty() {
+        return Err(refused(
+            answered,
+            "text_empty".to_string(),
+            None,
+            "the text is empty".to_string(),
+            ExitStatus::MalformedInput,
+        ));
+    }
+    Ok(text)
+}
+
+/// Step 2: the design profile, when one was given. `Ok(None)` is no profile;
+/// the `Err` is the refusal this run makes, as in step 1.
+#[allow(clippy::result_large_err)]
+fn read_profile(
+    input: &InterpretInput,
+    answered: &InterpretationDocument,
+) -> Result<Option<ProfileDocument>, InterpretOutcome> {
+    match &input.profile {
+        None => Ok(None),
+        Some(written) => match read_capped(written, MAX_PROFILE_BYTES) {
+            Err(ReadFailure::Io(reason)) => Err(refused(
+                answered,
+                "profile_unreadable".to_string(),
+                None,
+                format!("cannot read the design profile: {}", reason),
+                ExitStatus::MalformedInput,
+            )),
+            Err(ReadFailure::Over) => Err(refused(
+                answered,
+                "input_too_large".to_string(),
+                None,
+                format!(
+                    "the design profile is more than {} bytes, the most luria reads",
+                    MAX_PROFILE_BYTES
+                ),
+                ExitStatus::MalformedInput,
+            )),
+            Ok(found) => match String::from_utf8(found) {
+                Err(_problem) => Err(refused(
+                    answered,
+                    "profile_unreadable".to_string(),
+                    None,
+                    "the design profile is not UTF-8".to_string(),
+                    ExitStatus::MalformedInput,
+                )),
+                Ok(contents) => match parse_profile(&contents) {
+                    Err(problem) => Err(refused(
+                        answered,
+                        "profile_invalid".to_string(),
+                        None,
+                        format!("{}: {}", problem.path, problem.message),
+                        ExitStatus::MalformedInput,
+                    )),
+                    Ok(found_profile) => Ok(Some(found_profile.clone())),
+                },
+            },
         },
     }
 }
@@ -295,123 +486,70 @@ fn write_new(path: &Path, body: &String) -> Result<(), String> {
 /// built, and only a proposed request is written.
 pub fn interpret(input: &InterpretInput, backend: &mut dyn Backend) -> InterpretOutcome {
     let info: BackendInfo = backend.describe();
-    let mut answered: InterpretationDocument = base(&info);
-
-    // Step 1: the user's text, however it was given, and its cap.
-    let given: String = match &input.text {
-        TextSource::Inline(value) => {
-            if value.len() > MAX_TEXT_BYTES {
-                return refused(
-                    &answered,
-                    "input_too_large".to_string(),
-                    None,
-                    format!(
-                        "the text is more than {} bytes, the most luria reads",
-                        MAX_TEXT_BYTES
-                    ),
-                    ExitStatus::MalformedInput,
-                );
-            }
-            value.clone()
-        }
-        TextSource::File(written) => match read_capped(written, MAX_TEXT_BYTES) {
-            Err(ReadFailure::Io(reason)) => {
-                return refused(
-                    &answered,
-                    "text_unreadable".to_string(),
-                    None,
-                    format!("cannot read the text file: {}", reason),
-                    ExitStatus::MalformedInput,
-                );
-            }
-            Err(ReadFailure::Over) => {
-                return refused(
-                    &answered,
-                    "input_too_large".to_string(),
-                    None,
-                    format!(
-                        "the text is more than {} bytes, the most luria reads",
-                        MAX_TEXT_BYTES
-                    ),
-                    ExitStatus::MalformedInput,
-                );
-            }
-            Ok(found) => match String::from_utf8(found) {
-                Err(_problem) => {
-                    return refused(
-                        &answered,
-                        "text_unreadable".to_string(),
-                        None,
-                        "the text file is not UTF-8".to_string(),
-                        ExitStatus::MalformedInput,
-                    );
-                }
-                Ok(contents) => contents.clone(),
-            },
-        },
+    let answered: InterpretationDocument = base(&info);
+    let text: String = match read_text(input, &answered) {
+        Err(outcome) => return outcome,
+        Ok(found) => found,
     };
-    let text: String = without_break(&given);
-    if text.trim().is_empty() {
-        return refused(
-            &answered,
-            "text_empty".to_string(),
-            None,
-            "the text is empty".to_string(),
-            ExitStatus::MalformedInput,
-        );
-    }
-
-    // Step 2: the design profile, when one was given.
-    let profile: Option<ProfileDocument> = match &input.profile {
-        None => None,
-        Some(written) => match read_capped(written, MAX_PROFILE_BYTES) {
-            Err(ReadFailure::Io(reason)) => {
-                return refused(
-                    &answered,
-                    "profile_unreadable".to_string(),
-                    None,
-                    format!("cannot read the design profile: {}", reason),
-                    ExitStatus::MalformedInput,
-                );
-            }
-            Err(ReadFailure::Over) => {
-                return refused(
-                    &answered,
-                    "input_too_large".to_string(),
-                    None,
-                    format!(
-                        "the design profile is more than {} bytes, the most luria reads",
-                        MAX_PROFILE_BYTES
-                    ),
-                    ExitStatus::MalformedInput,
-                );
-            }
-            Ok(found) => match String::from_utf8(found) {
-                Err(_problem) => {
-                    return refused(
-                        &answered,
-                        "profile_unreadable".to_string(),
-                        None,
-                        "the design profile is not UTF-8".to_string(),
-                        ExitStatus::MalformedInput,
-                    );
-                }
-                Ok(contents) => match parse_profile(&contents) {
-                    Err(problem) => {
-                        return refused(
-                            &answered,
-                            "profile_invalid".to_string(),
-                            None,
-                            format!("{}: {}", problem.path, problem.message),
-                            ExitStatus::MalformedInput,
-                        );
-                    }
-                    Ok(found_profile) => Some(found_profile.clone()),
-                },
-            },
-        },
+    let profile: Option<ProfileDocument> = match read_profile(input, &answered) {
+        Err(outcome) => return outcome,
+        Ok(found) => found,
     };
+    run(input, &text, profile, answered, backend, None)
+}
 
+/// `luria q5 interpret` with the design profile and the CDS the `luria new`
+/// form picked on its `CDS` field (M7-59): `interpret_with_profile`'s steps
+/// exactly, with `form_cds: Some(cds)` passed to `build_with_cds`, so words
+/// that name no CDS use the form's, recorded as an assumption, and words that
+/// name another are asked about. The profile in the input and one given here
+/// are the same value read twice.
+pub fn interpret_with_form(
+    input: &InterpretInput,
+    profile: ProfileDocument,
+    cds: &str,
+    backend: &mut dyn Backend,
+) -> InterpretOutcome {
+    assert!(input.profile.is_none(), "a profile is given twice");
+    let info: BackendInfo = backend.describe();
+    let answered: InterpretationDocument = base(&info);
+    let text: String = match read_text(input, &answered) {
+        Err(outcome) => return outcome,
+        Ok(found) => found,
+    };
+    run(input, &text, Some(profile), answered, backend, Some(cds))
+}
+
+/// `luria q5 interpret` with the design profile given as a value, as the `luria
+/// new` form passes the values it shows (M7-41): steps 1 and 3 to 8 exactly as
+/// `interpret` runs them, with step 2 skipped, so no profile file is read. The
+/// profile in the input and one given here are the same value read twice.
+pub fn interpret_with_profile(
+    input: &InterpretInput,
+    profile: ProfileDocument,
+    backend: &mut dyn Backend,
+) -> InterpretOutcome {
+    assert!(input.profile.is_none(), "a profile is given twice");
+    let info: BackendInfo = backend.describe();
+    let answered: InterpretationDocument = base(&info);
+    let text: String = match read_text(input, &answered) {
+        Err(outcome) => return outcome,
+        Ok(found) => found,
+    };
+    run(input, &text, Some(profile), answered, backend, None)
+}
+
+/// Steps 3 to 8, from step 1's text and step 2's profile: the body all three
+/// public functions run, so they differ only in where the profile and the
+/// form's CDS came from (M7-41, M7-59).
+fn run(
+    input: &InterpretInput,
+    text: &str,
+    profile: Option<ProfileDocument>,
+    mut answered: InterpretationDocument,
+    backend: &mut dyn Backend,
+    form_cds: Option<&str>,
+) -> InterpretOutcome {
     // Step 3: the template: its name alone, its bytes, its FASTA refusal, then
     // the record and its CDS catalogue.
     let file: String = match input.template.file_name() {
@@ -510,80 +648,18 @@ pub fn interpret(input: &InterpretInput, backend: &mut dyn Backend) -> Interpret
     // sent: it sits beside the template, and its name is free.
     let request: Option<PathBuf> = match &input.write_request {
         None => None,
-        Some(written) => {
-            let found_request: Option<PathBuf> = canonicalize(directory_of(written)).ok();
-            let found_template: Option<PathBuf> = canonicalize(directory_of(&input.template)).ok();
-            let same: bool = match found_request {
-                None => false,
-                Some(one) => match found_template {
-                    None => false,
-                    Some(other) => one == other,
-                },
-            };
-            let request_name: Option<String> = name_of(written);
-            // The piece the path ends with must be the name itself: `new.json/`
-            // and `new.json/.` name no file, and step 8's write would fail only
-            // after the model had been sent (6h1: nothing is sent until every
-            // local input is valid).
-            let names_a_file: bool = match written.to_str() {
-                None => false,
-                Some(text) => match text.rsplit(std::path::is_separator).next() {
-                    None => false,
-                    Some(piece) => match request_name.as_ref() {
-                        None => false,
-                        Some(found) => piece == found,
-                    },
-                },
-            };
-            if !same || !names_a_file {
-                return refused(
-                    &answered,
-                    "request_location_unusable".to_string(),
-                    None,
-                    "the request must be written in the template's directory, because a request names its template relative to itself".to_string(),
-                    ExitStatus::MalformedInput,
-                );
+        Some(written) => match request_location_problem(&input.template, written) {
+            Some((code, message)) => {
+                return refused(&answered, code, None, message, ExitStatus::MalformedInput);
             }
-            match symlink_metadata(written) {
-                Ok(_found) => {
-                    return refused(
-                        &answered,
-                        "output_exists".to_string(),
-                        None,
-                        format!(
-                            "the file {} already exists; luria never replaces a file",
-                            request_name.expect("a file name"),
-                        ),
-                        ExitStatus::MalformedInput,
-                    );
-                }
-                Err(problem) => match problem.kind() {
-                    // Only a name nothing holds is free, as `write.rs`'s check
-                    // is: any other failure is the operating system's own, and
-                    // the write below would not have told it apart.
-                    ErrorKind::NotFound => Some(written.clone()),
-                    _ => {
-                        return refused(
-                            &answered,
-                            "request_location_unusable".to_string(),
-                            None,
-                            format!(
-                                "cannot check whether {} already exists: {}",
-                                request_name.expect("a file name"),
-                                problem,
-                            ),
-                            ExitStatus::MalformedInput,
-                        )
-                    }
-                },
-            }
-        }
+            None => Some(written.clone()),
+        },
     };
 
     // Step 5: the prompt the model is given, and the one call. `messages` is
     // set before the call, so a refusal still shows what would have been sent.
     let lines: Vec<CdsLine> = listing.iter().map(line_of).collect();
-    let sent: Prompt = prompt(&text, &lines);
+    let sent: Prompt = prompt(text, &lines);
     answered.interpretation.messages = Some(sent.clone());
     let reply: String = match backend.complete(&sent) {
         Err(problem) => {
@@ -623,7 +699,14 @@ pub fn interpret(input: &InterpretInput, backend: &mut dyn Backend) -> Interpret
 
     // Step 7: what luria makes of what the model said, which it does not
     // believe on its own (D003).
-    match build(&text, &extraction, &listing, profile.as_ref(), &facts) {
+    match build_with_cds(
+        text,
+        &extraction,
+        &listing,
+        profile.as_ref(),
+        &facts,
+        form_cds,
+    ) {
         Built::Ungrounded(problem) => {
             answered.interpretation.ungrounded = Some(ungrounded_view(&problem));
             refused(
@@ -670,13 +753,10 @@ pub fn interpret(input: &InterpretInput, backend: &mut dyn Backend) -> Interpret
             // Step 8: the request, beside the template, as a new file only. A
             // failure keeps the document as it is and leaves one line for
             // stderr: the document is still the run's answer.
-            let pretty: String = match to_string_pretty(&echo) {
-                Err(problem) => panic!("the proposed request always serializes: {}", problem),
-                Ok(found) => found + "\n",
-            };
+            let pretty: String = request_text(&echo);
             match request {
                 None => outcome(&answered, ExitStatus::Success),
-                Some(written) => match write_new(&written, &pretty) {
+                Some(written) => match write_request_file(&written, &pretty) {
                     Err(reason) => InterpretOutcome {
                         document: answered.clone(),
                         status: ExitStatus::Internal,
@@ -708,14 +788,14 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).expect("a directory");
         let path: PathBuf = dir.join("request.json");
-        assert_eq!(write_new(&path, &"first".to_string()), Ok(()));
-        assert!(write_new(&path, &"second".to_string()).is_err());
+        assert_eq!(write_request_file(&path, "first"), Ok(()));
+        assert!(write_request_file(&path, "second").is_err());
         assert_eq!(std::fs::read_to_string(&path).expect("readable"), "first");
         #[cfg(unix)]
         {
             let link: PathBuf = dir.join("link.json");
             std::os::unix::fs::symlink(dir.join("nowhere.json"), &link).expect("a link");
-            assert!(write_new(&link, &"x".to_string()).is_err());
+            assert!(write_request_file(&link, "x").is_err());
             assert!(!dir.join("nowhere.json").exists());
         }
         let _ = std::fs::remove_dir_all(&dir);

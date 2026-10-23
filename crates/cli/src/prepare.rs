@@ -250,29 +250,19 @@ fn parse_request_text(contents: Vec<u8>) -> Result<RequestDocument, RequestFailu
     }
 }
 
-/// Steps 1 and 2, wrapped with what was known when they failed: no digest
-/// before the file was read, and no document before it parsed.
-fn open(request_path: &Path) -> Result<(String, RequestDocument), PrepareFailure> {
-    let contents: Result<Vec<u8>, RequestFailure> = read_request(request_path);
-    match contents {
+/// Step 2, wrapped with what was known when it failed: the digest of the bytes
+/// given, and no document before they parsed.
+fn open_bytes(contents: Vec<u8>) -> Result<(String, RequestDocument), PrepareFailure> {
+    // D021: the request's own SHA-256, of its bytes.
+    let request_sha256: String = sha256_hex(&contents);
+    let document: Result<RequestDocument, RequestFailure> = parse_request_text(contents);
+    match document {
         Err(problem) => Err(PrepareFailure {
             failure: problem.clone(),
-            request_sha256: None,
+            request_sha256: Some(request_sha256.clone()),
             document: None,
         }),
-        Ok(found) => {
-            // D021: the request file's own SHA-256, of its bytes.
-            let request_sha256: String = sha256_hex(&found);
-            let document: Result<RequestDocument, RequestFailure> = parse_request_text(found);
-            match document {
-                Err(problem) => Err(PrepareFailure {
-                    failure: problem.clone(),
-                    request_sha256: Some(request_sha256.clone()),
-                    document: None,
-                }),
-                Ok(parsed) => Ok((request_sha256, parsed)),
-            }
-        }
+        Ok(parsed) => Ok((request_sha256, parsed)),
     }
 }
 
@@ -818,7 +808,22 @@ fn placement_of(spec: PlacementSpec) -> PrimerPlacement {
 /// workflow needs, or a failure that names the JSON path it came from and
 /// carries what was known when it happened.
 pub fn prepare(request_path: &Path) -> Result<Prepared, PrepareFailure> {
-    let opened: Result<(String, RequestDocument), PrepareFailure> = open(request_path);
+    let found: Vec<u8> = match read_request(request_path) {
+        // Step 1's own failure: the bytes were not read, so nothing was known
+        // when it happened (§3).
+        Err(problem) => {
+            return Err(PrepareFailure {
+                failure: problem.clone(),
+                request_sha256: None,
+                document: None,
+            })
+        }
+        Ok(found) => found,
+    };
+
+    // Steps 2 to 10, in order (§3.1), on the bytes step 1 read, so the request
+    // digest is of that file's bytes (D021).
+    let opened: Result<(String, RequestDocument), PrepareFailure> = open_bytes(found);
     match opened {
         Err(problem) => Err(problem),
         Ok((request_sha256, document)) => {

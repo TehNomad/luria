@@ -19,9 +19,11 @@
 //! The steps, in order (§3.4): grounding, then the operation question, then
 //! every other question, then the proposal. Nothing is defaulted (D028): a
 //! value neither the text nor the profile states is a question, and a CDS the
-//! text does not name is never chosen (M6-9), and the composition of two or
-//! more substitutions is proposed only when the user's own words and the
-//! model agree on it (D045). The evidence rules are 6e1's
+//! text does not name is never chosen (M6-9), except in `luria new`, where the
+//! CDS picked on the form answers it, recorded as an assumption (M7-59); that
+//! CDS is not the model's, so it is not grounded against the text. The
+//! composition of two or more substitutions is proposed only when the user's
+//! own words and the model agree on it (D045). The evidence rules are 6e1's
 //! and the notation rules are 6b's, called and never re-implemented; the
 //! catalogue's usability is core's, and a refusal is reported as its code.
 //!
@@ -87,6 +89,7 @@ pub enum QuestionCode {
     CdsUnnamed,
     CdsNotFound,
     CdsUnusable,
+    CdsNotTheForms,
     CompositionUnstated,
     CompositionUnclear,
     NumberingUnstated,
@@ -114,6 +117,7 @@ impl QuestionCode {
             QuestionCode::CdsUnnamed => "cds_unnamed",
             QuestionCode::CdsNotFound => "cds_not_found",
             QuestionCode::CdsUnusable => "cds_unusable",
+            QuestionCode::CdsNotTheForms => "cds_not_the_forms",
             QuestionCode::CompositionUnstated => "composition_unstated",
             QuestionCode::CompositionUnclear => "composition_unclear",
             QuestionCode::NumberingUnstated => "numbering_unstated",
@@ -686,12 +690,32 @@ fn read_mutation(
     }
 }
 
+/// What a model's words make of the user's text, with no CDS picked on a
+/// form: `build_with_cds` with `form_cds: None`, so the behaviour is exactly
+/// what it is today, and M6-9 holds (M7-59).
 pub fn build(
     text: &str,
     extraction: &Extraction,
     catalogue: &[CatalogueEntry],
     profile: Option<&ProfileDocument>,
     template: &TemplateFacts,
+) -> Built {
+    build_with_cds(text, extraction, catalogue, profile, template, None)
+}
+
+/// `build` with the CDS picked on the `luria new` form (M7-59): `form_cds` is
+/// that CDS's id. A CDS the text names is checked as in `build`, and one that
+/// is not the form's is asked about; a CDS the text does not name is answered
+/// by the form's, and step 4 records that as an assumption the user checks.
+/// `None` is `luria q5 interpret` and `luria review --template`, which have no
+/// CDS field: with it the behaviour is exactly `build`'s, and M6-9 still holds.
+pub fn build_with_cds(
+    text: &str,
+    extraction: &Extraction,
+    catalogue: &[CatalogueEntry],
+    profile: Option<&ProfileDocument>,
+    template: &TemplateFacts,
+    form_cds: Option<&str>,
 ) -> Built {
     // Step 1: grounding, before every question (§3.4 step 1).
     if let Some(problem) = first_ungrounded(text, extraction, catalogue) {
@@ -813,13 +837,34 @@ pub fn build(
     }
 
     // 3c: the CDS, matched exactly against the catalogue: never one the
-    // text does not name, and never one core cannot use (M6-9, D042).
+    // text does not name, and never one core cannot use (M6-9, D042). In
+    // `luria new` the form has picked a CDS, so the text names no CDS is
+    // answered there (M7-59), and a named CDS that is not the form's is asked
+    // about before the checks below.
     let named: Option<String> = extraction.cds.clone();
     match named.clone() {
         None => {
-            asked.push(cds_unnamed(listed.clone()));
+            if form_cds.is_some() {
+                // The form's CDS is the scope, and step 4 records it as an
+                // assumption, so nothing is asked here.
+            } else {
+                asked.push(cds_unnamed(listed.clone()));
+            }
         }
         Some(name) => {
+            if let Some(chosen) = form_cds {
+                if name != chosen {
+                    asked.push(Question {
+                        code: QuestionCode::CdsNotTheForms,
+                        subject: name.clone(),
+                        message: format!(
+                            "the text names the CDS \"{}\", but the form picked {}",
+                            name.clone(),
+                            chosen
+                        ),
+                    });
+                }
+            }
             let mut usable_here: bool = false;
             let mut found_here: bool = false;
             let mut reason: Option<String> = None;
@@ -960,11 +1005,15 @@ pub fn build(
         source: numbering_source,
     });
 
-    // The CDS the text named, which step 3c guarantees.
+    // The CDS the text named, which step 3c guarantees, and the form's CDS
+    // when the text names none (M7-59).
     let scope: String = match named.clone() {
-        None => {
-            return clarify(cds_unnamed(listed.clone()));
-        }
+        None => match form_cds {
+            Some(chosen) => chosen.to_string(),
+            None => {
+                return clarify(cds_unnamed(listed.clone()));
+            }
+        },
         Some(name) => name.clone(),
     };
 
@@ -1050,14 +1099,38 @@ pub fn build(
             design: design.clone(),
         },
         origins: origins.clone(),
-        assumptions: vec![Assumption {
-            code: "template_id_from_locus".to_string(),
-            message: format!(
-                "the template id is the record's LOCUS name, {}",
-                template.locus_name.clone()
-            ),
-        }],
+        assumptions: assumptions_of(template, &named, form_cds),
     }
+}
+
+/// The assumptions of a proposal (M7-59): the template id taken from the
+/// LOCUS name, and, when the text names no CDS and the form picked one, that
+/// CDS as a second assumption, since the user should check a CDS the model's
+/// words never named.
+fn assumptions_of(
+    template: &TemplateFacts,
+    named: &Option<String>,
+    form_cds: Option<&str>,
+) -> Vec<Assumption> {
+    let mut assumptions: Vec<Assumption> = vec![Assumption {
+        code: "template_id_from_locus".to_string(),
+        message: format!(
+            "the template id is the record's LOCUS name, {}",
+            template.locus_name.clone()
+        ),
+    }];
+    if named.is_none() {
+        if let Some(chosen) = form_cds {
+            assumptions.push(Assumption {
+                code: "cds_from_form".to_string(),
+                message: format!(
+                    "the text names no CDS; it is {}, the CDS picked on the form",
+                    chosen
+                ),
+            });
+        }
+    }
+    assumptions
 }
 
 #[cfg(test)]
@@ -1756,7 +1829,7 @@ mod tests {
 
     #[test]
     fn every_question_code_is_pinned() {
-        let codes: [(QuestionCode, &str); 20] = [
+        let codes: [(QuestionCode, &str); 21] = [
             (QuestionCode::OperationUnsupported, "operation_unsupported"),
             (QuestionCode::MutationUnstated, "mutation_unstated"),
             (
@@ -1790,6 +1863,7 @@ mod tests {
             (QuestionCode::CdsUnnamed, "cds_unnamed"),
             (QuestionCode::CdsNotFound, "cds_not_found"),
             (QuestionCode::CdsUnusable, "cds_unusable"),
+            (QuestionCode::CdsNotTheForms, "cds_not_the_forms"),
             (QuestionCode::CompositionUnstated, "composition_unstated"),
             (QuestionCode::CompositionUnclear, "composition_unclear"),
             (QuestionCode::NumberingUnstated, "numbering_unstated"),
@@ -1813,6 +1887,89 @@ mod tests {
                 strand: Strand::Plus,
             },
         }
+    }
+
+    // M7-59 (contract 7m7 §3 test 2): in `luria new` the form has picked the
+    // CDS, so words that name none use it, and the proposal records that as an
+    // assumption. The same reply with no form, as `luria q5 interpret` runs it,
+    // still asks `cds_unnamed` (M6-9).
+    #[test]
+    fn a_form_cds_answers_an_unnamed_one() {
+        let text: &str = "Change alanine 42 to glycine, numbering from the CDS start.";
+        let extraction: Extraction = reply(
+            r#"{"operation":"q5_residue_substitutions","cds":null,
+            "mutations":[{"token":"A42G","quote":"alanine 42 to glycine","codon":null}],
+            "composition":null,"numbering":"from the CDS start","unsupported":[]}"#,
+        );
+        let entries: Vec<CatalogueEntry> = vec![cds_entry("synA")];
+        match build_with_cds(
+            text,
+            &extraction,
+            &entries,
+            Some(&profile(true, true)),
+            &facts(),
+            Some("synA"),
+        ) {
+            Built::Proposed {
+                request,
+                assumptions,
+                ..
+            } => {
+                assert_eq!(request.scope, Some("synA".to_string()));
+                assert_eq!(
+                    assumptions,
+                    vec![
+                        Assumption {
+                            code: "template_id_from_locus".to_string(),
+                            message: "the template id is the record's LOCUS name, synlin"
+                                .to_string(),
+                        },
+                        Assumption {
+                            code: "cds_from_form".to_string(),
+                            message:
+                                "the text names no CDS; it is synA, the CDS picked on the form"
+                                    .to_string(),
+                        }
+                    ]
+                );
+            }
+            other => panic!("expected a proposal, got {:?}", other),
+        }
+        assert_eq!(
+            asked(&build(
+                text,
+                &extraction,
+                &entries,
+                Some(&profile(true, true)),
+                &facts()
+            )),
+            vec![("cds_unnamed", "cds".to_string())],
+            "with no form the CDS the text names is still asked about"
+        );
+    }
+
+    // M7-59 (contract 7m7 §3 test 3): words that name a CDS other than the
+    // form's are asked about; the form's CDS is not taken for them.
+    #[test]
+    fn words_naming_another_cds_than_the_forms_ask() {
+        let entries: Vec<CatalogueEntry> = vec![cds_entry("synA")];
+        let built: Built = build_with_cds(
+            "In synA, change A42G, numbering from the CDS start.",
+            &reply(
+                r#"{"operation":"q5_residue_substitutions","cds":"synA",
+                "mutations":[{"token":"A42G","quote":"A42G","codon":null}],
+                "composition":null,"numbering":"numbering from the CDS start","unsupported":[]}"#,
+            ),
+            &entries,
+            Some(&profile(true, true)),
+            &facts(),
+            Some("synB"),
+        );
+        assert_eq!(
+            asked(&built),
+            vec![("cds_not_the_forms", "synA".to_string())],
+            "the CDS the words name is not the one the form picked"
+        );
     }
 
     #[test]

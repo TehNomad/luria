@@ -1,0 +1,89 @@
+{
+  "schema": "luria.q5-request/1",
+  "coordinates": "zero-based-half-open",
+  "template": {
+    "id": "sid-1",
+    "fasta": "sid-1_cDNA.fa",
+    "topology": "linear",
+    "sha256": "54704740a9f04b79d17147ef95788ad9f0f11e5263843a7ed490924d43b55e3a",
+    "cds": [
+      {
+        "id": "sid-1",
+        "intervals": [
+          [
+            0,
+            3153
+          ]
+        ],
+        "strand": "+",
+        "completeness": "complete",
+        "geneticCode": "standard",
+        "numbering": "from-cds-start"
+      }
+    ]
+  },
+  "scope": "sid-1",
+  "variants": {
+    "composition": "separate_variants",
+    "members": [
+      {
+        "name": "D404N",
+        "residue": {
+          "cds": "sid-1",
+          "number": 404,
+          "from": "D",
+          "to": "N",
+          "policy": "default"
+        }
+      },
+      {
+        "name": "del1210-1212",
+        "deletion": {
+          "interval": [
+            1209,
+            1212
+          ],
+          "from": "GAT"
+        }
+      },
+      {
+        "name": "ins1209GAT",
+        "insertion": {
+          "point": 1209,
+          "before": "A",
+          "after": "G",
+          "insert": "GAT"
+        }
+      },
+      {
+        "name": "G1210A",
+        "substitution": {
+          "interval": [
+            1209,
+            1210
+          ],
+          "from": "G",
+          "to": "A"
+        }
+      },
+      {
+        "name": "GAT1210-1212AAC",
+        "replacement": {
+          "interval": [
+            1209,
+            1212
+          ],
+          "from": "GAT",
+          "to": "AAC"
+        }
+      }
+    ]
+  },
+  "design": {
+    "policy": "luriaNative",
+    "style": "q5_polymerase",
+    "minAnnealingOverlap": 15,
+    "placement": "inline",
+    "buffer": "q5_reaction"
+  }
+}

@@ -6,10 +6,13 @@ pub mod args;
 pub mod exit;
 pub mod interpret;
 pub mod json;
+pub mod new;
 pub mod prepare;
 pub mod request;
 pub mod result;
+pub mod review;
 pub mod run;
+pub mod shorthand;
 pub mod version;
 pub mod write;
 

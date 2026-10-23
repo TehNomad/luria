@@ -1,0 +1,54 @@
+line	kind	start	end	from	to	codon
+D404N	residue	404	-	D	N	policy
+d404n	residue	404	-	D	N	policy
+p.D404N	residue	404	-	D	N	policy
+Asp404Asn	residue	404	-	D	N	policy
+asp404asn	residue	404	-	D	N	policy
+D404N:AAC	residue	404	-	D	N	AAC
+D404N:aac	residue	404	-	D	N	AAC
+A42G	residue	42	-	A	G	policy
+D404*	refused	-	-	stop	-	-
+D404X	refused	-	-	stop	-	-
+Asp404Ter	refused	-	-	stop	-	-
+D404?	refused	-	-	unstated	-	-
+?404N	refused	-	-	unstated	-	-
+D0N	refused	-	-	unreadable	-	-
+D040N	refused	-	-	unreadable	-	-
+D404N:AAX	refused	-	-	bad_codon	-	-
+D404N:AA	refused	-	-	bad_codon	-	-
+Ala42G	refused	-	-	unreadable	-	-
+1210 G>A	substitution	1209	1210	G	A	-
+1210 g>a	substitution	1209	1210	G	A	-
+  1210   G > A  	substitution	1209	1210	G	A	-
+1 A>T	substitution	0	1	A	T	-
+0 G>A	refused	-	-	zero_position	-	-
+01210 G>A	refused	-	-	zero_position	-	-
+1210 G>G	refused	-	-	same_bases	-	-
+1210 GA>T	refused	-	-	length_mismatch	-	-
+1210 N>A	refused	-	-	not_dna	-	-
+1210-1212 GAT>AAC	replacement	1209	1212	GAT	AAC	-
+1210-1212 GAT>TT	replacement	1209	1212	GAT	TT	-
+1210-1212 GAT>AACAAC	replacement	1209	1212	GAT	AACAAC	-
+1210–1212 GAT>AAC	replacement	1209	1212	GAT	AAC	-
+1212-1210 GAT>AAC	refused	-	-	reversed_range	-	-
+1210-1212 GA>AAC	refused	-	-	length_mismatch	-	-
+1210-1210 G>A	substitution	1209	1210	G	A	-
+del 1210–1212	deletion	1209	1212	-	-	-
+del 1210-1212	deletion	1209	1212	-	-	-
+DEL 1210-1212	deletion	1209	1212	-	-	-
+del 46	deletion	45	46	-	-	-
+del 0	refused	-	-	zero_position	-	-
+del 1212-1210	refused	-	-	reversed_range	-	-
+delete 1210-1212	refused	-	-	unreadable	-	-
+ins GAT after 1209	insertion	1209	1209	-	GAT	-
+INS gat AFTER 1209	insertion	1209	1209	-	GAT	-
+ins GAT after 0	insertion	0	0	-	GAT	-
+ins GATTACA after 50	insertion	50	50	-	GATTACA	-
+ins GNT after 1209	refused	-	-	not_dna	-	-
+ins after 1209	refused	-	-	unreadable	-	-
+ins GAT before 1209	refused	-	-	unreadable	-	-
+	refused	-	-	empty	-	-
+   	refused	-	-	empty	-	-
+hello	refused	-	-	unreadable	-	-
+c.1210G>A	refused	-	-	unreadable	-	-
+D404N A42G	refused	-	-	unreadable	-	-

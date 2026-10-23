@@ -46,6 +46,12 @@ CHECKS = [
     "genbank/reference/pbr322.py",
     "genbank/reference/verify_synthetic.py",
     "genbank/reference/verify_synthetic_linear.py",
+    "review/reference/context.py",
+    "review/reference/order.py",
+    "review/reference/frame.py",
+    "review/reference/member.py",
+    "new/reference/shorthand.py",
+    "new/reference/requests.py",
 ]
 
 

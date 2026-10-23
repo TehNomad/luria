@@ -1,0 +1,12 @@
+case_id	code	line
+no-lines	no_mutations	-
+bad-line	line_refused	2
+wrong-from	from_mismatch	1
+past-end	outside_template	1
+insert-at-end	insertion_at_end	1
+insert-at-start	insertion_at_end	1
+no-codon	missing_codon	1
+no-overlap	missing_overlap	-
+same-twice	duplicate_name	2
+paste-not-dna	template_unreadable	-
+cds-outside	outside_template	-

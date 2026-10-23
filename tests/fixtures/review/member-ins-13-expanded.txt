@@ -1,0 +1,31 @@
+ins-13  insert 210 bp after 50  syn bases 31–70
+
+forward
+template  TCGCGGACGCATGGCTTGGAgattacagattacagattacagattacagattacagatta
+protein    S  R  T  H  G  L  E  I  T  D  Y  R  L  Q  I  T  D  Y  R  L
+bottom    AGCGCCTGCGTACCGAACCTctaatgtctaatgtctaatgtctaatgtctaatgtctaat
+reverse        CTGCGTACCGAACCTctaatgtctaatgtctaatgtctaatgtctaatgtctaat
+
+forward
+template  cagattacagattacagattacagattacagattacagattacagattacagattacaga
+protein    Q  I  T  D  Y  R  L  Q  I  T  D  Y  R  L  Q  I  T  D  Y  R
+bottom    gtctaatgtctaatgtctaatgtctaatgtctaatgtctaatgtctaatgtctaatgtct
+reverse   gtctaatgtctaatgtctaatgtctaatgtctaatgtctaatgtctaatgtctaatgtct
+
+forward        gattacagattacagattacagattacagattacagattacagattacagattac
+template  ttacagattacagattacagattacagattacagattacagattacagattacagattac
+protein    L  Q  I  T  D  Y  R  L  Q  I  T  D  Y  R  L  Q  I  T  D  Y
+bottom    aatgtctaatgtctaatgtctaatgtctaatgtctaatgtctaatgtctaatgtctaatg
+reverse   aatgt
+
+forward   agattacagattacagattacagattacagattacagattacagattacaATCAGCAGCA
+template  agattacagattacagattacagattacagattacagattacagattacaATCAGCAGCA
+protein    R  L  Q  I  T  D  Y  R  L  Q  I  T  D  Y  R  L  Q  S  A  A
+bottom    tctaatgtctaatgtctaatgtctaatgtctaatgtctaatgtctaatgtTAGTCGTCGT
+reverse
+
+forward   GCCGA
+template  GCCGAGCGGC
+protein    A  E  R
+bottom    CGGCTCGCCG
+reverse

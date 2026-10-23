@@ -1,0 +1,7 @@
+rep-06  ATC→TTTTTTT at 51–53  syn bases 30–73
+
+forward                           ttttAGCAGCAGCCGAGCG
+template  CTCGCGGACGCATGGCTTGGAatc----AGCAGCAGCCGAGCGGCTCG
+protein     S  R  T  H  G  L  D  F  F  S  S  S  R  A  A  R
+bottom    GAGCGCCTGCGTACCGAACCTtag----TCGTCGTCGGCTCGCCGAGC
+reverse        CCTGCGTACCGAACCTaaa

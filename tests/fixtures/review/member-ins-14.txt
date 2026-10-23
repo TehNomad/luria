@@ -1,0 +1,7 @@
+ins-14  insert GAT after 1209  sid-1 bases 1190–1229
+
+forward                       gatGATTTCGGGGCGCAC
+template  TCAATCCGCTCGTTGAGCAAgatGATTTCGGGGCGCACAGAAA
+protein   L  N  P  L  V  E  Q  D  D  F  G  A  H  R  K
+bottom    AGTTAGGCGAGCAACTCGTTctaCTAAAGCCCCGCGTGTCTTT
+reverse        GGCGAGCAACTCGTT

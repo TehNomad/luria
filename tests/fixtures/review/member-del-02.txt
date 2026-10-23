@@ -1,0 +1,7 @@
+del-02  delete T at 46  syn bases 26–68
+
+forward                        TGGAATCAGCAGCAGCC
+template  GCGGCTCGCGGACGCATGGCtTGGAATCAGCAGCAGCCGAGCG
+protein   S  G  S  R  T  H  G   W  N  Q  Q  Q  P  S
+bottom    CGCCGAGCGCCTGCGTACCGaACCTTAGTCGTCGTCGGCTCGC
+reverse        AGCGCCTGCGTACCG

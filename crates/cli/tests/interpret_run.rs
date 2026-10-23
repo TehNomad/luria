@@ -6,10 +6,13 @@ use luria_cli::exit::ExitStatus;
 use luria_cli::interpret::document::render_interpretation;
 use luria_cli::interpret::document::InterpretationDocument;
 use luria_cli::interpret::run::interpret;
+use luria_cli::interpret::run::interpret_with_profile;
 use luria_cli::interpret::run::InterpretInput;
 use luria_cli::interpret::run::InterpretOutcome;
 use luria_cli::interpret::run::TextSource;
+use luria_cli::request::parse_profile;
 use luria_cli::request::parse_request;
+use luria_cli::request::ProfileDocument;
 use luria_cli::run::run;
 use luria_nl::backend::BackendError;
 use luria_nl::backend::BackendErrorKind;
@@ -183,6 +186,28 @@ fn a_proposal_carries_the_request_and_everything_that_made_it() {
             "interpretation"
         ]
     );
+}
+
+// 7k9 §2.1: the design profile given as a value, as the `luria new` form's words
+// are read with the values it shows (M7-41), runs every step as the profile read
+// from a file does, so the document, the status and the note are the same.
+#[test]
+fn a_profile_given_as_a_value_is_used() {
+    let dir: PathBuf = workspace("profile-value");
+    let text: String = text_of("one-sub-prose");
+    let mut backend: ScriptedBackend = scripted(vec![reply_of("one-sub-prose")]);
+    let from_file: InterpretOutcome = interpret(&input(&dir, &text, true, None), &mut backend);
+    let profile: ProfileDocument =
+        parse_profile(&corpus("profile/full.json")).expect("the profile is a profile");
+    let mut backend: ScriptedBackend = scripted(vec![reply_of("one-sub-prose")]);
+    let as_value: InterpretOutcome =
+        interpret_with_profile(&input(&dir, &text, false, None), profile, &mut backend);
+    assert_eq!(
+        as_value.document, from_file.document,
+        "the profile given as a value gives the document the file gives"
+    );
+    assert_eq!(as_value.status, from_file.status, "the same status");
+    assert_eq!(as_value.note, from_file.note, "and no line for stderr");
 }
 
 #[test]

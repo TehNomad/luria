@@ -1,0 +1,7 @@
+ins-04  insert GATTACA after 50  syn bases 31–70
+
+forward                          tacaATCAGCAGCAGCCGA
+template  TCGCGGACGCATGGCTTGGAgattacaATCAGCAGCAGCCGAGCGGC
+protein    S  R  T  H  G  L  E  I  T  I  S  S  S  R  A  A
+bottom    AGCGCCTGCGTACCGAACCTctaatgtTAGTCGTCGTCGGCTCGCCG
+reverse        CTGCGTACCGAACCTcta

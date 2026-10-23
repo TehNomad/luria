@@ -20,6 +20,36 @@ pub enum Command {
         allow_remote: bool,
         write_request: Option<PathBuf>,
     },
+    Review {
+        request: PathBuf,
+        export: Option<PathBuf>,
+    },
+    ReviewInterpret {
+        template: PathBuf,
+        text: TextSource,
+        design: Option<PathBuf>,
+        endpoint: String,
+        model: String,
+        allow_remote: bool,
+        request: PathBuf,
+        export: Option<PathBuf>,
+    },
+    New {
+        design: Option<PathBuf>,
+        export: Option<PathBuf>,
+        backend: Option<NewBackend>,
+    },
+}
+
+/// The model `luria new`'s `In words` box sends its text to (7k7, M7-40): the
+/// endpoint and the model name as the command line gave them, and whether an
+/// endpoint off this machine was allowed, the same three the interpret form
+/// reads, so `new` gates them exactly as `q5 interpret` gates them.
+#[derive(Clone, Debug, PartialEq)]
+pub struct NewBackend {
+    pub endpoint: String,
+    pub model: String,
+    pub allow_remote: bool,
 }
 
 /// A command line luria can't act on. `message` is one line, no trailing
@@ -35,17 +65,27 @@ pub const USAGE: &str = "usage:
   luria q5 interpret --template FILE.gb (--text TEXT | --text-file FILE)
       --backend openai-compatible --endpoint URL --model NAME
       [--design PROFILE.json] [--allow-remote] [--write-request FILE.json]
+  luria review REQUEST.json [--export DIR]
+  luria review --template FILE.gb (--text TEXT | --text-file FILE)
+      --backend openai-compatible --endpoint URL --model NAME
+      --request FILE.json [--design PROFILE.json] [--allow-remote] [--export DIR]
+  luria new [--design PROFILE.json] [--export DIR]
+      [--backend openai-compatible --endpoint URL --model NAME [--allow-remote]]
   luria version
   luria help
 
 'q5 design' reads a Q5 site-directed mutagenesis request (JSON), runs the
 workflow and writes one JSON result document to stdout. 'q5 interpret'
 asks a language model what a request in words means and writes the
-proposed request, or its questions, as one JSON document. See docs/cli.md.
+proposed request, or its questions, as one JSON document. 'review' runs a
+request, or interprets a request in words and runs it once you approve, and
+shows the result in the terminal. 'new' takes a template and mutations in a
+form and runs them once you approve. See docs/cli.md.
 ";
 
-/// The reason `word` gives, as a `UsageError`.
-fn reject(message: String) -> Result<Command, UsageError> {
+/// The reason `word` gives, as a `UsageError`. The value type is the command
+/// the caller was building, so `reject` reads in every parse function.
+fn reject<T>(message: String) -> Result<T, UsageError> {
     Err(UsageError { message })
 }
 
@@ -92,6 +132,12 @@ pub fn parse(arguments: &[String]) -> Result<Command, UsageError> {
     }
     if word == "q5" {
         return parse_q5(rest);
+    }
+    if word == "review" {
+        return parse_review(rest);
+    }
+    if word == "new" {
+        return parse_new(rest);
     }
     reject(format!("unknown command '{}'", word))
 }
@@ -185,11 +231,270 @@ fn parse_design(words: &[String]) -> Result<Command, UsageError> {
     }
 }
 
+/// Read `review`'s arguments: 7a's one request path, or the interpret form,
+/// which is recognised by a word exactly `--template` and read by
+/// `parse_interpret_form`' rules with `--request` required, so the place the
+/// approved request will be written is stated before anything happens (7f2,
+/// plan §3 rule 4). `--write-request` is not an option of `review`. Before
+/// that, 7a's rule holds: one request path, `--` ending the options, and any
+/// other word starting with `-` an unknown option. `--export DIR` (7g1) is the
+/// directory the export screen writes to, on both forms, and, as
+/// `--write-edited` is in `q5 design`, must come before the `--` that ends the
+/// options. The first error found is the one reported.
+fn parse_review(words: &[String]) -> Result<Command, UsageError> {
+    if words.iter().any(|word| word == "--template") {
+        let options: InterpretOptions = parse_interpret_form(words, "review", "--request", true)?;
+        return match options.request {
+            Some(path) => Ok(Command::ReviewInterpret {
+                template: options.template,
+                text: options.text,
+                design: options.design,
+                endpoint: options.endpoint,
+                model: options.model,
+                allow_remote: options.allow_remote,
+                request: path,
+                export: options.export,
+            }),
+            None => reject("'review' needs --request".to_string()),
+        };
+    }
+
+    let mut request: Option<String> = None;
+    let mut export: Option<String> = None;
+    let mut options_end: bool = false;
+    let last: usize = words.len();
+    let mut index: usize = 0;
+
+    while index < last {
+        let word: &str = &words[index];
+
+        if word == "--" && !options_end {
+            options_end = true;
+            index += 1;
+            continue;
+        }
+
+        if word == "--export" && !options_end {
+            match export {
+                Some(_) => return reject("--export is given more than once".to_string()),
+                None => {
+                    index += 1;
+                    if index == last {
+                        return reject("--export needs a directory".to_string());
+                    }
+
+                    let value: &str = &words[index];
+                    if value.is_empty() {
+                        return reject("an empty path is not a file".to_string());
+                    }
+                    export = Some(value.to_string());
+                }
+            }
+            index += 1;
+            continue;
+        }
+
+        if !options_end && word.starts_with("-") {
+            return reject(format!("unknown option '{}'", word));
+        }
+
+        match request {
+            Some(_) => {
+                return reject(format!(
+                    "'review' takes one request file, got a second: '{}'",
+                    word
+                ))
+            }
+            None => {
+                if word.is_empty() {
+                    return reject("an empty path is not a file".to_string());
+                }
+                request = Some(word.to_string());
+            }
+        }
+
+        index += 1;
+    }
+
+    match request {
+        Some(path) => Ok(Command::Review {
+            request: PathBuf::from(path),
+            export: export.map(PathBuf::from),
+        }),
+        None => reject("'review' needs a request file".to_string()),
+    }
+}
+
+/// Read `new`'s arguments: the form opens with no path typed, so `--design` is
+/// the `--design` profile 7k3 fills `Overlap` and `Codon` from, and `--export`
+/// is 7g1's directory the result screen writes to, taken exactly as `review`
+/// takes it. `--backend openai-compatible --endpoint URL --model NAME
+/// [--allow-remote]` (7k7, M7-40) is the model the `In words` box sends its
+/// words to, read by the interpret form's rules for these four options: the
+/// value is the next word, whatever it is, an option given more than once is a
+/// usage error naming it, an option without its value is a usage error naming
+/// it, an empty path is not a file, and an empty model name is refused with the
+/// words. `--backend`'s only value is `openai-compatible`; the endpoint, its
+/// value empty included, is gated by `checked_endpoint` in the shell, as `q5
+/// interpret` gates it. The three of `--backend`, `--endpoint` and `--model` are
+/// all given, in `--backend`'s order, or none of them, else a usage error names
+/// the first one missing, and `--allow-remote`, the flag of `--backend`, without
+/// it is a usage error naming `--allow-remote`. There is no request file and no
+/// template on the command line, so any other word, a repeated option, an option
+/// without its value and an empty path are all usage errors naming the word.
+/// `--` ends the options, as in `q5 design`, so a word after it is not an
+/// option, and the first error found is the one reported.
+fn parse_new(words: &[String]) -> Result<Command, UsageError> {
+    let mut design: Option<String> = None;
+    let mut export: Option<String> = None;
+    let mut backend: Option<String> = None;
+    let mut endpoint: Option<String> = None;
+    let mut model: Option<String> = None;
+    let mut allow_remote: bool = false;
+    let mut options_end: bool = false;
+    let last: usize = words.len();
+    let mut index: usize = 0;
+
+    while index < last {
+        let word: &str = &words[index];
+
+        if word == "--" && !options_end {
+            options_end = true;
+            index += 1;
+            continue;
+        }
+
+        if !options_end && word == "--allow-remote" {
+            match allow_remote {
+                true => return reject("--allow-remote is given more than once".to_string()),
+                false => {
+                    allow_remote = true;
+                    index += 1;
+                    continue;
+                }
+            }
+        }
+
+        if !options_end && matches!(word, "--backend" | "--endpoint" | "--model") {
+            // The value is the next word, whatever it is, as the interpret form
+            // takes it, so the option's own rules are the form's.
+            let stored: &mut Option<String> = match word {
+                "--backend" => &mut backend,
+                "--endpoint" => &mut endpoint,
+                _ => &mut model,
+            };
+            if stored.is_some() {
+                return reject(format!("{} is given more than once", word));
+            }
+            index += 1;
+            if index == last {
+                return reject(format!("{} needs a value", word));
+            }
+            let value: String = words[index].to_string();
+            if value.is_empty() && word == "--model" {
+                return reject("the model name is empty".to_string());
+            }
+            *stored = Some(value);
+            index += 1;
+            continue;
+        }
+
+        if !options_end && word == "--design" {
+            match design {
+                Some(_) => return reject("--design is given more than once".to_string()),
+                None => {
+                    index += 1;
+                    if index == last {
+                        return reject("--design needs a profile file".to_string());
+                    }
+                    let value: &str = &words[index];
+                    if value.is_empty() {
+                        return reject("an empty path is not a file".to_string());
+                    }
+                    design = Some(value.to_string());
+                }
+            }
+            index += 1;
+            continue;
+        }
+
+        if !options_end && word == "--export" {
+            match export {
+                Some(_) => return reject("--export is given more than once".to_string()),
+                None => {
+                    index += 1;
+                    if index == last {
+                        return reject("--export needs a directory".to_string());
+                    }
+                    let value: &str = &words[index];
+                    if value.is_empty() {
+                        return reject("an empty path is not a file".to_string());
+                    }
+                    export = Some(value.to_string());
+                }
+            }
+            index += 1;
+            continue;
+        }
+
+        return reject(format!(
+            "'new' takes only --design, --export, --backend, --endpoint, --model and --allow-remote, got '{}'",
+            word
+        ));
+    }
+
+    // `--backend`'s value is its own, so an unknown one is named before the
+    // options that follow it, as the interpret form names it.
+    if let Some(kind) = &backend {
+        if kind != "openai-compatible" {
+            return reject(format!(
+                "unknown backend '{}'; this build has only 'openai-compatible' (M6-18)",
+                kind
+            ));
+        }
+    }
+
+    // The three are all given, in the form's order, or none of them, so a
+    // partial backend names the first option missing (contract §2.1).
+    if backend.is_none() {
+        if allow_remote {
+            return reject("--allow-remote needs --backend".to_string());
+        }
+        if endpoint.is_some() || model.is_some() {
+            return reject("'new' needs --backend".to_string());
+        }
+        return Ok(Command::New {
+            design: design.map(PathBuf::from),
+            export: export.map(PathBuf::from),
+            backend: None,
+        });
+    }
+
+    let endpoint: String = match endpoint {
+        Some(url) => url,
+        None => return reject("'new' needs --endpoint".to_string()),
+    };
+    let model: String = match model {
+        Some(name) => name,
+        None => return reject("'new' needs --model".to_string()),
+    };
+
+    Ok(Command::New {
+        design: design.map(PathBuf::from),
+        export: export.map(PathBuf::from),
+        backend: Some(NewBackend {
+            endpoint,
+            model,
+            allow_remote,
+        }),
+    })
+}
+
 /// Whether `option` names a file or directory, whose value cannot be empty.
 fn path_option(option: &str) -> bool {
     matches!(
         option,
-        "--template" | "--text-file" | "--design" | "--write-request"
+        "--template" | "--text-file" | "--design" | "--write-request" | "--request" | "--export"
     )
 }
 
@@ -201,14 +506,55 @@ fn given_value(given: &[(String, String)], option: &str) -> Option<String> {
         .map(|pair| pair.1.clone())
 }
 
-/// Read `q5 interpret`'s words left to right: each value option takes the
+/// Whether `word` is one of the interpret form's value options, whose value is
+/// the next word: the seven it has in both spellings, plus `request_option`,
+/// the option naming the request file, which is `--write-request` for
+/// `q5 interpret` and `--request` for `review` (7f2).
+fn value_option(word: &str, request_option: &str) -> bool {
+    matches!(
+        word,
+        "--template"
+            | "--text"
+            | "--text-file"
+            | "--design"
+            | "--backend"
+            | "--endpoint"
+            | "--model"
+            | "--export"
+    ) || word == request_option
+}
+
+/// One interpret form read: every option it holds, with the request file as
+/// `request`, which is `--write-request`' path for `q5 interpret` and
+/// `--request`' for `review`.
+#[derive(Clone, Debug, PartialEq)]
+struct InterpretOptions {
+    template: PathBuf,
+    text: TextSource,
+    design: Option<PathBuf>,
+    endpoint: String,
+    model: String,
+    allow_remote: bool,
+    request: Option<PathBuf>,
+    export: Option<PathBuf>,
+}
+
+/// Read the interpret form's words left to right: each value option takes the
 /// next word as its value, whatever it is, and `--allow-remote` takes none.
 /// The first error found is the one reported. An empty path and an empty
 /// model name are refused with the words; an empty `--text` is not, because
 /// `interpret` reports it as `text_empty`. After the words, the checks run
 /// in the order plan §5.7 and §3 name: what must be present, and which
-/// backend and endpoint are known.
-fn parse_interpret(words: &[String]) -> Result<Command, UsageError> {
+/// backend and endpoint are known. `named` is the command the messages name,
+/// because `review` says `'review'` where `q5 interpret` says `'q5
+/// interpret'` (7f2); `request_option` names the request file, and
+/// `required` says whether it must be given.
+fn parse_interpret_form(
+    words: &[String],
+    named: &str,
+    request_option: &str,
+    required: bool,
+) -> Result<InterpretOptions, UsageError> {
     let mut given: Vec<(String, String)> = [].to_vec();
     let mut allow_remote: bool = false;
     let last: usize = words.len();
@@ -226,53 +572,48 @@ fn parse_interpret(words: &[String]) -> Result<Command, UsageError> {
             continue;
         }
 
-        match word {
-            "--template" | "--text" | "--text-file" | "--design" | "--backend" | "--endpoint"
-            | "--model" | "--write-request" => {
-                if given.iter().any(|pair| pair.0 == word) {
-                    return reject(format!("{} is given more than once", word));
-                }
-
-                index += 1;
-                if index == last {
-                    return reject(format!("{} needs a value", word));
-                }
-
-                let value: String = words[index].to_string();
-                if value.is_empty() && word == "--model" {
-                    return reject("the model name is empty".to_string());
-                }
-                if value.is_empty() && path_option(word) {
-                    return reject("an empty path is not a file".to_string());
-                }
-                given.push((word.to_string(), value));
+        if value_option(word, request_option) {
+            if given.iter().any(|pair| pair.0 == word) {
+                return reject(format!("{} is given more than once", word));
             }
-            _ => {
-                if word.starts_with("-") {
-                    return reject(format!("unknown option '{}'", word));
-                }
-                return reject(format!("'q5 interpret' takes options only, got '{}'", word));
+
+            index += 1;
+            if index == last {
+                return reject(format!("{} needs a value", word));
             }
+
+            let value: String = words[index].to_string();
+            if value.is_empty() && word == "--model" {
+                return reject("the model name is empty".to_string());
+            }
+            if value.is_empty() && path_option(word) {
+                return reject("an empty path is not a file".to_string());
+            }
+            given.push((word.to_string(), value));
+        } else if word.starts_with("-") {
+            return reject(format!("unknown option '{}'", word));
+        } else {
+            return reject(format!("'{}' takes options only, got '{}'", named, word));
         }
 
         index += 1;
     }
 
     let template: PathBuf = match given_value(&given, "--template") {
-        None => return reject("'q5 interpret' needs --template".to_string()),
+        None => return reject(format!("'{}' needs --template", named)),
         Some(path) => PathBuf::from(path),
     };
     let text: TextSource = match (
         given_value(&given, "--text"),
         given_value(&given, "--text-file"),
     ) {
-        (None, None) => return reject("'q5 interpret' needs --text or --text-file".to_string()),
+        (None, None) => return reject(format!("'{}' needs --text or --text-file", named)),
         (Some(_), Some(_)) => return reject("give --text or --text-file, not both".to_string()),
         (Some(value), None) => TextSource::Inline(value.to_string()),
         (None, Some(path)) => TextSource::File(PathBuf::from(path)),
     };
     let backend: String = match given_value(&given, "--backend") {
-        None => return reject("'q5 interpret' needs --backend".to_string()),
+        None => return reject(format!("'{}' needs --backend", named)),
         Some(kind) => kind,
     };
     if backend != "openai-compatible" {
@@ -282,24 +623,51 @@ fn parse_interpret(words: &[String]) -> Result<Command, UsageError> {
         ));
     }
     let endpoint: String = match given_value(&given, "--endpoint") {
-        None => return reject("'q5 interpret' needs --endpoint".to_string()),
+        None => return reject(format!("'{}' needs --endpoint", named)),
         Some(url) => url,
     };
     let model: String = match given_value(&given, "--model") {
-        None => return reject("'q5 interpret' needs --model".to_string()),
+        None => return reject(format!("'{}' needs --model", named)),
         Some(name) => name,
     };
     let design: Option<PathBuf> = given_value(&given, "--design").map(PathBuf::from);
-    let write_request: Option<PathBuf> = given_value(&given, "--write-request").map(PathBuf::from);
+    let request: Option<PathBuf> = match given_value(&given, request_option) {
+        Some(path) => Some(PathBuf::from(path)),
+        None => {
+            if required {
+                return reject(format!("'{}' needs {}", named, request_option));
+            }
+            None
+        }
+    };
+    let export: Option<PathBuf> = given_value(&given, "--export").map(PathBuf::from);
 
-    Ok(Command::Q5Interpret {
+    Ok(InterpretOptions {
         template,
         text,
         design,
         endpoint,
         model,
         allow_remote,
-        write_request,
+        request,
+        export,
+    })
+}
+
+/// Read `q5 interpret`'s words as the interpret form, with `--write-request`
+/// optional, and build the command. Its own messages, and the rules, are
+/// `parse_interpret_form`'s.
+fn parse_interpret(words: &[String]) -> Result<Command, UsageError> {
+    let options: InterpretOptions =
+        parse_interpret_form(words, "q5 interpret", "--write-request", false)?;
+    Ok(Command::Q5Interpret {
+        template: options.template,
+        text: options.text,
+        design: options.design,
+        endpoint: options.endpoint,
+        model: options.model,
+        allow_remote: options.allow_remote,
+        write_request: options.request,
     })
 }
 
@@ -520,6 +888,269 @@ mod tests {
                 write_edited: None,
             })
         );
+    }
+
+    #[test]
+    fn review_takes_one_request_file() {
+        assert_eq!(
+            parse_words(&["review", "r.json"]),
+            Ok(Command::Review {
+                request: PathBuf::from("r.json"),
+                export: None
+            })
+        );
+        // The word after -- is the request path, whatever it is, and -- is not
+        // a path.
+        assert_eq!(
+            parse_words(&["review", "--", "-r.json"]),
+            Ok(Command::Review {
+                request: PathBuf::from("-r.json"),
+                export: None
+            })
+        );
+        let cases: [(&[&str], &str); 4] = [
+            (&["review"], "'review' needs a request file"),
+            (
+                &["review", "a.json", "b.json"],
+                "'review' takes one request file, got a second: 'b.json'",
+            ),
+            (
+                &["review", "--write-edited", "d", "a.json"],
+                "unknown option '--write-edited'",
+            ),
+            (&["review", ""], "an empty path is not a file"),
+        ];
+        for (words, message) in cases {
+            assert_eq!(usage(words), message, "{:?}", words);
+        }
+    }
+
+    /// 7g1: `--export DIR` on the request form, and the rules §3.1 states for
+    /// it: the word after it is the directory, whatever it is, as 5g2's
+    /// `--write-edited`'s is, and `--` ends the options before it.
+    #[test]
+    fn export_is_an_optional_directory_of_the_request_form() {
+        let with_dir = Ok(Command::Review {
+            request: PathBuf::from("r.json"),
+            export: Some(PathBuf::from("out")),
+        });
+        assert_eq!(
+            parse_words(&["review", "r.json", "--export", "out"]),
+            with_dir
+        );
+        assert_eq!(
+            parse_words(&["review", "--export", "out", "r.json"]),
+            with_dir
+        );
+        // The word after --export is the directory, whatever it is, as --write-
+        // edited's is in q5 design.
+        assert_eq!(
+            parse_words(&["review", "r.json", "--export", "-x"]),
+            Ok(Command::Review {
+                request: PathBuf::from("r.json"),
+                export: Some(PathBuf::from("-x")),
+            })
+        );
+        // `--` ends the options, so `--export` after it is the request path, as
+        // `--write-edited` after it is in q5 design.
+        assert_eq!(
+            parse_words(&["review", "--", "--export"]),
+            Ok(Command::Review {
+                request: PathBuf::from("--export"),
+                export: None,
+            })
+        );
+        assert_eq!(
+            parse_words(&["review", "--export", "out", "--", "-r.json"]),
+            Ok(Command::Review {
+                request: PathBuf::from("-r.json"),
+                export: Some(PathBuf::from("out")),
+            })
+        );
+        let cases: [(&[&str], &str); 4] = [
+            (&["review", "--export"], "--export needs a directory"),
+            (
+                &["review", "r.json", "--export", "o", "--export", "p"],
+                "--export is given more than once",
+            ),
+            (
+                &["review", "r.json", "--export", ""],
+                "an empty path is not a file",
+            ),
+            (
+                &["review", "r.json", "--export=o"],
+                "unknown option '--export=o'",
+            ),
+        ];
+        for (words, message) in cases {
+            assert_eq!(usage(words), message, "{:?}", words);
+        }
+    }
+
+    /// One interpret form spelled for `review`: `--request` in place of
+    /// `--write-request`, so `parse_review` reads the words as 7f2's form.
+    fn review_interpret_words<'a>(extra: &[&'a str]) -> Vec<&'a str> {
+        let mut words: Vec<&'a str> = vec![
+            "review",
+            "--template",
+            "r.gb",
+            "--text",
+            "make A42G",
+            "--backend",
+            "openai-compatible",
+            "--endpoint",
+            "http://127.0.0.1:8080/v1",
+            "--model",
+            "qwen",
+            "--request",
+            "out.json",
+        ];
+        words.extend_from_slice(extra);
+        words
+    }
+
+    #[test]
+    fn review_interpret_reads_the_interpret_form_with_every_field() {
+        assert_eq!(
+            parse_words(&review_interpret_words(&[
+                "--design",
+                "p.json",
+                "--allow-remote"
+            ])),
+            Ok(Command::ReviewInterpret {
+                template: PathBuf::from("r.gb"),
+                text: TextSource::Inline("make A42G".to_string()),
+                design: Some(PathBuf::from("p.json")),
+                endpoint: "http://127.0.0.1:8080/v1".to_string(),
+                model: "qwen".to_string(),
+                allow_remote: true,
+                request: PathBuf::from("out.json"),
+                export: None,
+            })
+        );
+        // The words in any order, and `--text-file` in place of `--text`.
+        let file: Vec<&str> = vec![
+            "review",
+            "--model",
+            "m",
+            "--text-file",
+            "t.txt",
+            "--endpoint",
+            "e",
+            "--backend",
+            "openai-compatible",
+            "--template",
+            "r.gb",
+            "--request",
+            "o.json",
+        ];
+        assert_eq!(
+            parse_words(&file),
+            Ok(Command::ReviewInterpret {
+                template: PathBuf::from("r.gb"),
+                text: TextSource::File(PathBuf::from("t.txt")),
+                design: None,
+                endpoint: "e".to_string(),
+                model: "m".to_string(),
+                allow_remote: false,
+                request: PathBuf::from("o.json"),
+                export: None,
+            })
+        );
+    }
+
+    /// 7g1: `--export DIR` on the interpret form too, read by the same
+    /// `parse_interpret_form` rules as every other path option, so the words
+    /// `parse_review`' request form gives are the words the interpret form
+    /// gives for it.
+    #[test]
+    fn export_is_an_optional_directory_of_the_interpret_form() {
+        assert_eq!(
+            parse_words(&review_interpret_words(&["--export", "dir"])),
+            Ok(Command::ReviewInterpret {
+                template: PathBuf::from("r.gb"),
+                text: TextSource::Inline("make A42G".to_string()),
+                design: None,
+                endpoint: "http://127.0.0.1:8080/v1".to_string(),
+                model: "qwen".to_string(),
+                allow_remote: false,
+                request: PathBuf::from("out.json"),
+                export: Some(PathBuf::from("dir")),
+            })
+        );
+        let cases: Vec<UsageCase> = vec![
+            (
+                review_interpret_words(&["--export", "o", "--export", "p"]),
+                "--export is given more than once",
+            ),
+            (
+                review_interpret_words(&["--export", ""]),
+                "an empty path is not a file",
+            ),
+            (
+                review_interpret_words(&["--export"]),
+                "--export needs a value",
+            ),
+        ];
+        for case in cases {
+            assert_eq!(usage(&case.0), case.1, "{:?}", case.0);
+        }
+    }
+
+    #[test]
+    fn review_interpret_needs_request_and_has_no_write_request() {
+        let base: Vec<&str> = review_interpret_words(&[]);
+        // `--request` with no word after it, on a base that has no `--request`,
+        // so the missing value is the first error found.
+        let mut value_missing: Vec<&str> = without(&base, "--request");
+        value_missing.push("--request");
+        // An empty `--request` path on the same base, so the empty path is the
+        // first error found.
+        let mut empty: Vec<&str> = without(&base, "--request");
+        empty.push("--request");
+        empty.push("");
+        let cases: Vec<UsageCase> = vec![
+            (without(&base, "--request"), "'review' needs --request"),
+            (
+                // The contract's own words: the shortest interpret form, with
+                // no `--request` at all.
+                vec![
+                    "review",
+                    "--template",
+                    "t.gb",
+                    "--text",
+                    "x",
+                    "--backend",
+                    "openai-compatible",
+                    "--endpoint",
+                    "http://127.0.0.1:1/v1",
+                    "--model",
+                    "m",
+                ],
+                "'review' needs --request",
+            ),
+            (
+                review_interpret_words(&["--write-request", "r.json"]),
+                "unknown option '--write-request'",
+            ),
+            (
+                without(&base, "--text"),
+                "'review' needs --text or --text-file",
+            ),
+            (
+                review_interpret_words(&["stray"]),
+                "'review' takes options only, got 'stray'",
+            ),
+            (value_missing, "--request needs a value"),
+            (empty, "an empty path is not a file"),
+            (
+                review_interpret_words(&["--request", "p.json", "--request", "q.json"]),
+                "--request is given more than once",
+            ),
+        ];
+        for case in cases {
+            assert_eq!(usage(&case.0), case.1, "{:?}", case.0);
+        }
     }
 
     /// One usage case: the words, and the message they must give.

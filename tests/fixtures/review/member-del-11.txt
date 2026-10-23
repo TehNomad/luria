@@ -1,0 +1,7 @@
+del-11  delete GAT at 1210–1212  sid-1 bases 1186–1232
+
+forward                              TTCGGGGCGCACAGA
+template  CTGCTCAATCCGCTCGTTGAGCAAgatTTCGGGGCGCACAGAAAGAG
+protein    L  L  N  P  L  V  E  Q     F  G  A  H  R  K  R
+bottom    GACGAGTTAGGCGAGCAACTCGTTctaAAGCCCCGCGTGTCTTTCTC
+reverse        GTTAGGCGAGCAACTCGTT

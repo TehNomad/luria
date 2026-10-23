@@ -1,0 +1,1982 @@
+//! `luria review`'s screen, drawn on a `ratatui` test backend and read back as
+//! rows (milestone 7a, 7c3). Every row the screen asserts is the document's own
+//! text: the state and the experimental validation come from the result the CLI
+//! runs, never from a literal typed into the view (plan §3 rule 1, §3 rule 3),
+//! and the size rule is §3.2's. The body rows come from `text`'s own functions
+//! applied to the same document, so a row is checked against the line the screen
+//! must show, not against what running the screen gave.
+//!
+//! 7j2 draws the body inside a rounded border: the frame is rows 0 to
+//! `height - 2`, row 0 is its title and holds the badge, the body is the frame's
+//! inner area, rows 1 to `1 + BODY_ROWS - 1` from column 1 (78 columns wide at
+//! 80x24), and row `height - 1` is the key line. The helpers below read that
+//! layout, so most tests read their body rows through them.
+//!
+//! The result documents are `luria_cli::run::run` on `edit-a42g.json` against
+//! `synthetic-linear.gb`, in a directory under `CARGO_TARGET_TMPDIR` as
+//! `tests/end_to_end.rs`'s `workspace` does. `state` `verified` and
+//! `experimental_validation` `not_performed` are pinned by `tests/interpret_end_to_end.rs` and
+//! `tests/fixtures/nl/README.md` (residue 42 of `synthetic-linear.gb` is Ala,
+//! codon `GCA`), and `state` `failed` by §3.1: a request file that is not there
+//! could not be prepared.
+
+use luria_cli::interpret::document::InterpretationDocument;
+use luria_cli::interpret::run::interpret;
+use luria_cli::interpret::run::InterpretInput;
+use luria_cli::interpret::run::InterpretOutcome;
+use luria_cli::interpret::run::TextSource;
+use luria_cli::prepare::prepare;
+use luria_cli::result::DesignView;
+use luria_cli::result::MutationView;
+use luria_cli::result::PrimerView;
+use luria_cli::result::PrimerWarningView;
+use luria_cli::result::ResultDocument;
+use luria_cli::review::app::{expandable, App, Key, Screen};
+use luria_cli::review::matching_template;
+use luria_cli::review::member_frames;
+use luria_cli::review::proposal::{ProposalApp, ProposalScreen};
+use luria_cli::review::text;
+use luria_cli::review::view;
+use luria_cli::review::MemberFrame;
+use luria_cli::run::run;
+use luria_cli::run::run_with_constructs;
+use luria_nl::backend::ScriptedBackend;
+use ratatui::backend::TestBackend;
+use ratatui::layout::Rect;
+use ratatui::style::{Color, Modifier, Style};
+use ratatui::Terminal;
+use serde_json::{json, Value};
+use std::fs;
+use std::path::Path;
+use std::path::PathBuf;
+
+/// A fresh directory for one test, holding the fixture template and the request
+/// that names it.
+fn workspace(test: &str) -> PathBuf {
+    let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join(format!("review-{}", test));
+    let _ = fs::remove_dir_all(&dir);
+    fs::create_dir_all(&dir).unwrap();
+    fs::copy(
+        "../../tests/fixtures/genbank/synthetic-linear.gb",
+        dir.join("synthetic-linear.gb"),
+    )
+    .unwrap();
+    fs::copy(
+        "../../tests/fixtures/nl/request/edit-a42g.json",
+        dir.join("request.json"),
+    )
+    .unwrap();
+    dir
+}
+
+/// The document `edit-a42g.json` runs to: `verified`, and designed. Pinned
+/// here first, because the screen must show what it says.
+fn verified(test: &str) -> ResultDocument {
+    let outcome = run(&workspace(test).join("request.json"));
+    assert_eq!(outcome.document.state, "verified");
+    assert_eq!(outcome.document.experimental_validation, "not_performed");
+    outcome.document
+}
+
+/// The document of a request file that is not in the workspace: `failed`, with
+/// no member and no design to show.
+fn failed(test: &str) -> ResultDocument {
+    let outcome = run(&workspace(test).join("no-such-request.json"));
+    assert_eq!(outcome.document.state, "failed");
+    outcome.document
+}
+
+/// A `needs_clarification` document: `verified`'s run, with its state written as
+/// that value, as `the_screen_shows_the_document_not_a_literal` sets it. The
+/// validation stays `not_performed`.
+fn needs_clarification(test: &str) -> ResultDocument {
+    let mut document: ResultDocument = verified(test);
+    document.state = "needs_clarification";
+    assert_eq!(document.experimental_validation, "not_performed");
+    document
+}
+
+/// Draw `app` on a `width` by `height` test backend, and return every row as
+/// the symbols of its cells, in screen order.
+fn rows(app: &App, width: u16, height: u16) -> Vec<String> {
+    let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
+    terminal.draw(|frame| view::draw(frame, app)).unwrap();
+    let buffer = terminal.backend().buffer();
+    let width: usize = buffer.area.width as usize;
+    buffer
+        .content
+        .chunks(width)
+        .map(|cells| cells.iter().map(|cell| cell.symbol()).collect())
+        .collect()
+}
+
+/// The same rows with the trailing spaces the screen pads with removed, so a row
+/// can be compared with the text it shows.
+fn screen(app: &App, width: u16, height: u16) -> Vec<String> {
+    rows(app, width, height)
+        .iter()
+        .map(|row| row.trim_end().to_string())
+        .collect()
+}
+
+/// `app` drawn on a `width` by `height` test backend, with the style of every
+/// cell in screen order (7j2: colour is read off cells, not off rows).
+fn styles(app: &App, width: u16, height: u16) -> Vec<Vec<Style>> {
+    let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
+    terminal.draw(|frame| view::draw(frame, app)).unwrap();
+    let buffer = terminal.backend().buffer();
+    let width: usize = buffer.area.width as usize;
+    buffer
+        .content
+        .chunks(width)
+        .map(|cells| cells.iter().map(|cell| cell.style()).collect())
+        .collect()
+}
+
+/// The two-variant set, as `tests/review_text.rs`'s `set` builds it:
+/// `variants-separate.json` beside a copy of `synthetic-linear.gb`.
+fn set(test: &str) -> ResultDocument {
+    let dir = workspace(test);
+    fs::copy(
+        "../../tests/fixtures/nl/request/variants-separate.json",
+        dir.join("request.json"),
+    )
+    .unwrap();
+    let document: ResultDocument = run(&dir.join("request.json")).document;
+    assert_eq!(document.state, "verified");
+    assert_eq!(document.results.len(), 2);
+    document
+}
+
+/// `app` with `keys` handled, so each screen is reached the way the terminal
+/// reaches it, through keys.
+fn opened(document: &ResultDocument, keys: &[Key]) -> App {
+    let mut app: App = App::new(document.clone());
+    for key in keys {
+        app.handle(*key);
+    }
+    app
+}
+
+/// A line as the screen shows it: cut at `width` characters, not wrapped, with
+/// the padding the test backend pads the row with removed.
+fn shown(line: &str, width: usize) -> String {
+    let cut: String = line.chars().take(width).collect::<String>();
+    cut.trim_end().to_string()
+}
+
+/// The body's rows at 80x24 (7j2): the frame's inner area, rows 1 to 21, so 21
+/// of the 24 rows, since the two border rows and the key row leave `height - 3`.
+const BODY_ROWS: usize = 21;
+/// The body's width at 80x24: the frame's inner area, so 78 of the 80 columns.
+const INNER_WIDTH: usize = 78;
+
+#[test]
+fn the_state_and_validation_are_on_screen() {
+    let app = App::new(verified("on_screen"));
+    let screen = screen(&app, 80, 24);
+    // 7j2: the state and the validation are the badge in row 0's title, built
+    // from the document's own fields, once each.
+    assert_eq!(
+        screen
+            .iter()
+            .filter(|row| row.contains(" ✓ verified "))
+            .count(),
+        1
+    );
+    assert_eq!(
+        screen
+            .iter()
+            .filter(|row| row.contains(" · not tested at the bench "))
+            .count(),
+        1
+    );
+    // M7-52: `p provenance` leaves the overview's key line with the screen.
+    assert_eq!(
+        screen.last().unwrap(),
+        "q quit  enter open  j/k move  x export  ? help"
+    );
+}
+
+#[test]
+fn a_failed_result_shows_its_state() {
+    let screen = screen(&App::new(failed("failed_state")), 80, 24);
+    // 7j2: the badge's word is the document's own `state`, so the failed badge
+    // is on row 0.
+    assert_eq!(
+        screen
+            .iter()
+            .filter(|row| row.contains(" ✗ failed "))
+            .count(),
+        1
+    );
+    assert!(
+        screen.iter().all(|row| !row.contains("verified")),
+        "a failed document's screen says nothing of a verified run: {:?}",
+        screen
+    );
+}
+
+#[test]
+fn a_small_screen_says_so_and_shows_nothing_else() {
+    let app = App::new(verified("small"));
+    for (width, height) in [(79u16, 24u16), (80u16, 23u16)] {
+        let screen = screen(&app, width, height);
+        assert_eq!(
+            screen[0],
+            format!(
+                "the screen is {}x{}; luria review needs at least 80x24",
+                width, height
+            ),
+            "{}x{}",
+            width,
+            height
+        );
+        assert!(
+            screen.iter().all(|row| !row.contains("state:")),
+            "{}x{} shows the banner only: {:?}",
+            width,
+            height,
+            screen
+        );
+    }
+}
+
+#[test]
+fn the_screen_shows_the_document_not_a_literal() {
+    let mut document = verified("literal");
+    document.state = "needs_clarification";
+    document.experimental_validation = "performed elsewhere";
+    // 7j2: both words are in row 0's badge, and the state word is the document's
+    // own, as is the validation, whose value is not `not_performed`. A value this
+    // long is cut at the frame's inner width on an 80-column screen, as a long
+    // body line is, so the screen is drawn 100 columns wide.
+    let screen = screen(&App::new(document), 100, 24);
+    assert!(
+        screen[0].contains(" ? needs clarification "),
+        "{:?}",
+        screen[0]
+    );
+    assert!(
+        screen[0].contains(" · experimental validation: performed elsewhere "),
+        "{:?}",
+        screen[0]
+    );
+}
+
+#[test]
+fn every_screen_keeps_the_banner() {
+    let document: ResultDocument = set("banner");
+    // 7j2: the badge in the frame's title row carries the state word and the
+    // validation, both the document's own fields.
+    let banner: Vec<String> = vec![
+        format!(" {} ", document.state),
+        " · not tested at the bench ".to_string(),
+    ];
+    for (name, app, expected) in [
+        ("overview", opened(&document, &[]), Screen::Overview),
+        (
+            "member",
+            opened(&document, &[Key::Enter]),
+            Screen::Member(0),
+        ),
+        (
+            "details",
+            opened(&document, &[Key::Enter, Key::Char('d')]),
+            Screen::Details(0),
+        ),
+        // M7-52: the provenance screen is gone, so there is no `p` screen to
+        // check the banner on.
+    ] {
+        assert_eq!(app.screen(), expected, "the {} screen is open", name);
+        let rows: Vec<String> = screen(&app, 80, 24);
+        assert!(
+            rows[0].contains(&banner[0]) && rows[0].contains(&banner[1]),
+            "the badge in row 0 of the {} screen is the document's own state and \
+             validation: {:?}",
+            name,
+            rows[0]
+        );
+    }
+}
+
+#[test]
+fn the_body_is_the_text_of_the_screen() {
+    let document: ResultDocument = set("body_text");
+    // M7-52: the provenance lines are the last lines of the details, so the
+    // details screen is the screen this test reads.
+    let lines: Vec<String> = text::details(&document, 0);
+    let app: App = opened(&document, &[Key::Enter, Key::Char('d')]);
+    assert_eq!(app.screen(), Screen::Details(0));
+    // 7j2: the body is the frame's inner area, so its rows are read through
+    // `body`, at the body's own width, and row 2 is a body row, not a blank.
+    let rows: Vec<String> = body(&app);
+    for (row, row_line) in rows.iter().enumerate().take(BODY_ROWS) {
+        let expected: String = lines
+            .get(row)
+            .map(|line| shown(line, INNER_WIDTH))
+            .unwrap_or_default();
+        assert_eq!(
+            row_line, &expected,
+            "body row {} shows the screen's line {}",
+            row, row
+        );
+    }
+}
+
+#[test]
+fn a_long_screen_scrolls_and_says_where() {
+    let document: ResultDocument = set("long_scroll");
+    // M7-52: `d` opens the details, whose lines are `text::details`, the member
+    // text with the provenance under it.
+    let lines: Vec<String> = text::details(&document, 0);
+    assert!(
+        lines.len() > BODY_ROWS,
+        "the member screen must be longer than the {} body rows: {} lines",
+        BODY_ROWS,
+        lines.len()
+    );
+    let n: usize = lines.len();
+    let app: App = opened(&document, &[Key::Enter, Key::Char('d'), Key::PageDown]);
+    assert_eq!(app.screen(), Screen::Details(0));
+    let rows: Vec<String> = screen(&app, 80, 24);
+    let first: usize = 10.min(n - BODY_ROWS);
+    // 7j2: the body's first row is row 1 of the frame, read through `body`; the
+    // key line is row 23, that is `height - 1`.
+    assert_eq!(
+        body(&app)[0],
+        shown(&lines[first], INNER_WIDTH),
+        "the first body row is line {} of the screen: {:?}",
+        first,
+        body(&app)[0]
+    );
+    let key_line: &String = &rows[23];
+    assert!(
+        key_line.ends_with(&format!(
+            "  lines {}-{} of {}",
+            first + 1,
+            first + BODY_ROWS,
+            n
+        )),
+        "the key line says where the body is: {:?}",
+        key_line
+    );
+    assert!(
+        key_line.starts_with("q quit  esc back  j/k scroll"),
+        "the technical screen's keys are on the key line: {:?}",
+        key_line
+    );
+}
+
+#[test]
+fn scrolling_past_the_end_stops_at_the_last_page() {
+    let document: ResultDocument = set("last_page");
+    // M7-52: the screen `d` opens is the details, so its lines are `text::details`.
+    let lines: Vec<String> = text::details(&document, 0);
+    let n: usize = lines.len();
+    assert!(
+        n > BODY_ROWS,
+        "the screen is longer than the body: {} lines",
+        n
+    );
+    let mut app: App = App::new(document);
+    app.handle(Key::Enter);
+    app.handle(Key::Char('d'));
+    for _ in 0..100 {
+        app.handle(Key::PageDown);
+    }
+    assert_eq!(app.screen(), Screen::Details(0));
+    let rows: Vec<String> = screen(&app, 80, 24);
+    let first: usize = n - BODY_ROWS;
+    // 7j2: the body's last row, `body`'s row `BODY_ROWS - 1`.
+    assert_eq!(
+        body(&app)[BODY_ROWS - 1],
+        shown(&lines[n - 1], INNER_WIDTH),
+        "the last body row is the screen's last line: {:?}",
+        body(&app)[BODY_ROWS - 1]
+    );
+    assert_eq!(
+        rows[23],
+        format!(
+            "q quit  esc back  j/k scroll  ? help  lines {}-{} of {}",
+            first + 1,
+            first + BODY_ROWS,
+            n
+        ),
+        "the key line says the last page: {:?}",
+        rows[23]
+    );
+}
+
+#[test]
+fn details_stops_scrolling_at_the_bottom() {
+    // M7-56: `terminal` clamps the scroll to `view::max_scroll` after every key
+    // it handles, so `j` past the bottom leaves no hidden scroll for `k` to
+    // undo. The clamp is done here the way the loop does it.
+    let document: ResultDocument = set("scroll_bottom");
+    let lines: Vec<String> = text::details(&document, 0);
+    let area: Rect = Rect::new(0, 0, 80, 24);
+    let mut app: App = opened(&document, &[Key::Enter, Key::Char('d')]);
+    assert_eq!(app.screen(), Screen::Details(0), "the details are open");
+    let max: usize = view::max_scroll(&app, area);
+    assert_eq!(
+        max,
+        lines.len() - BODY_ROWS,
+        "the last line the body can start at is {} - {} rows",
+        lines.len(),
+        BODY_ROWS
+    );
+    for _ in 0..200 {
+        app.handle(Key::Down);
+        app.clamp_scroll(view::max_scroll(&app, area));
+    }
+    assert_eq!(
+        app.scroll(),
+        max,
+        "200 `j` stop at the bottom, not past it: {}",
+        app.scroll()
+    );
+    // One `k` moves the drawn body up one line at once, which is what an
+    // unclamped scroll cannot do.
+    app.handle(Key::Up);
+    app.clamp_scroll(view::max_scroll(&app, area));
+    assert_eq!(app.scroll(), max - 1, "one `k` moves one line up");
+    assert_eq!(
+        body(&app)[0],
+        shown(&lines[max - 1], INNER_WIDTH),
+        "the body's first row is line {}: {:?}",
+        max - 1,
+        body(&app)[0]
+    );
+}
+
+#[test]
+fn details_end_with_the_provenance() {
+    // M7-52: the provenance is read under the member's text, so the details'
+    // last lines are `text::provenance`'s, and the stale `c context` line is
+    // gone from the screen.
+    let document: ResultDocument = set("details_provenance");
+    let provenance: Vec<String> = text::provenance(&document);
+    let lines: Vec<String> = text::details(&document, 0);
+    let start: usize = lines.len() - provenance.len();
+    assert!(
+        provenance.len() >= BODY_ROWS && lines.len() > BODY_ROWS,
+        "the details' last {} lines are the provenance's own {} lines, so the whole \
+         last page is provenance",
+        BODY_ROWS,
+        provenance.len()
+    );
+    let mut app: App = opened(&document, &[Key::Enter, Key::Char('d')]);
+    let area: Rect = Rect::new(0, 0, 80, 24);
+    for _ in 0..100 {
+        app.handle(Key::PageDown);
+        app.clamp_scroll(view::max_scroll(&app, area));
+    }
+    let first: usize = lines.len() - BODY_ROWS;
+    assert_eq!(app.scroll(), first, "the scroll stops at the last page");
+    assert!(
+        first >= start,
+        "the last page starts inside the provenance, at line {}, and the provenance \
+         starts at {}",
+        first,
+        start
+    );
+    let drawn: Vec<String> = body(&app);
+    // Every row of the last page is a provenance line, in the provenance's own
+    // order, and the details end with the provenance's last line.
+    for row in 0..BODY_ROWS {
+        let line: &String = &provenance[first - start + row];
+        assert_eq!(
+            &lines[first + row],
+            line,
+            "line {} of the details is the provenance's line {}",
+            first + row,
+            first - start + row
+        );
+        assert_eq!(
+            drawn[row],
+            shown(line, INNER_WIDTH),
+            "body row {} shows the provenance's line {}: {:?}",
+            row,
+            first - start + row,
+            drawn[row]
+        );
+    }
+    assert_eq!(
+        drawn[BODY_ROWS - 1],
+        shown(
+            provenance.last().expect("the provenance has lines"),
+            INNER_WIDTH
+        ),
+        "the details end with the provenance's last line: {:?}",
+        drawn[BODY_ROWS - 1]
+    );
+    for cell in &drawn {
+        assert!(
+            !cell.contains("c context"),
+            "no `c context` line is drawn on the details: {:?}",
+            cell
+        );
+    }
+}
+
+// The redesigned member screen of 7i4 (plan §5.3a): `enter` opens the sequence
+// screen, `t` the technical lines, `i` writes a long insertion out, and the
+// overview names the template, the target and the members only. The request
+// builders below are `tests/review_member.rs`'s, copied rather than imported, so
+// the designs the screens show are the ones `tests/fixtures/q5-primer/` pins, and
+// every value a test expects is read from the document, from a fixture table, or
+// from a `tests/fixtures/review/` file, never pasted.
+
+/// The SID-1 cDNA's digest, from `tests/fixtures/fasta/expected.tsv`.
+const SID1_DIGEST: &str = "54704740a9f04b79d17147ef95788ad9f0f11e5263843a7ed490924d43b55e3a";
+
+/// A fresh directory for one test, as `tests/review_member.rs`'s `workspace` is.
+fn member_dir(test: &str) -> PathBuf {
+    let dir =
+        PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join(format!("review-view-member-{}", test));
+    let _ = fs::remove_dir_all(&dir);
+    fs::create_dir_all(&dir).unwrap();
+    dir
+}
+
+/// A fresh SID-1 workspace, as `tests/review_member.rs`'s `sid1_workspace` is.
+fn sid1_dir(test: &str) -> PathBuf {
+    let dir = member_dir(test);
+    fs::copy(
+        "../../tests/fixtures/example-construct/input/sid-1_cDNA.fa",
+        dir.join("sid-1_cDNA.fa"),
+    )
+    .unwrap();
+    dir
+}
+
+/// One `tests/fixtures/review/` file's whole text, as `tests/review_member.rs`'s
+/// `fixture` reads it.
+fn fixture(name: &str) -> String {
+    fs::read_to_string(PathBuf::from("../../tests/fixtures/review").join(name)).unwrap()
+}
+
+/// One `tests/fixtures/review/` file's lines, in order.
+fn fixture_lines(name: &str) -> Vec<String> {
+    fixture(name).lines().map(|line| line.to_string()).collect()
+}
+
+/// The design block `tests/end_to_end.rs`'s `design()` states: the same buffer,
+/// so the bound is the only number a test changes.
+fn design() -> Value {
+    json!({
+        "policy": "luriaNative",
+        "style": "q5_polymerase",
+        "minAnnealingOverlap": 15,
+        "placement": "inline",
+        "buffer": "q5_reaction"
+    })
+}
+
+/// The SID-1 cDNA as a FASTA template, as `tests/end_to_end.rs`'s
+/// `sid1_template()` declares it: the same id, the same digest, the same CDS.
+fn sid1_template() -> Value {
+    json!({
+        "id": "sid-1",
+        "fasta": "sid-1_cDNA.fa",
+        "topology": "linear",
+        "sha256": SID1_DIGEST,
+        "cds": [{
+            "id": "sid-1",
+            "intervals": [[0, 3153]],
+            "strand": "+",
+            "completeness": "complete",
+            "geneticCode": "standard",
+            "numbering": "from-cds-start"
+        }]
+    })
+}
+
+/// The synthetic template as `tests/review_frames.rs` declares the rows' `seq:`
+/// templates: id `syn`, file `syn.fa`, one CDS over its whole 100 bases.
+fn syn_template() -> Value {
+    json!({
+        "id": "syn",
+        "fasta": "syn.fa",
+        "topology": "linear",
+        "cds": [{
+            "id": "syn",
+            "intervals": [[0, 99]],
+            "strand": "+",
+            "completeness": "complete",
+            "geneticCode": "standard",
+            "numbering": "from-cds-start"
+        }]
+    })
+}
+
+/// A one-edit request on SID-1 at `bound`, as `tests/end_to_end.rs`'s `request`
+/// writes it: `edit` is the one kind, with `name` added to it.
+fn sid1_request(name: &str, edit: Value, bound: u64) -> Value {
+    let mut spec = design();
+    spec["minAnnealingOverlap"] = json!(bound);
+    let mut edit_object = json!({ "name": name });
+    for (key, value) in edit.as_object().expect("an edit object") {
+        edit_object[key] = value.clone();
+    }
+    json!({
+        "schema": "luria.q5-request/1",
+        "coordinates": "zero-based-half-open",
+        "template": sid1_template(),
+        "scope": "sid-1",
+        "edit": edit_object,
+        "design": spec
+    })
+}
+
+/// A one-edit request on the synthetic template, as `tests/review_frames.rs`
+/// writes its `seq:` rows: the same design, with `name` added to the edit.
+fn syn_request(name: &str, edit: Value) -> Value {
+    let mut edit_object = json!({ "name": name });
+    for (key, value) in edit.as_object().expect("an edit object") {
+        edit_object[key] = value.clone();
+    }
+    json!({
+        "schema": "luria.q5-request/1",
+        "coordinates": "zero-based-half-open",
+        "template": syn_template(),
+        "edit": edit_object,
+        "design": design()
+    })
+}
+
+/// One column of one row of one `tests/fixtures/q5-primer/` table, found by its
+/// `case_id` column and read at test time.
+fn column_of(table: &str, case_id: &str, column: &str) -> String {
+    let path = format!("../../tests/fixtures/q5-primer/{}", table);
+    let text =
+        fs::read_to_string(&path).unwrap_or_else(|error| panic!("cannot read {}: {}", path, error));
+    let lines: Vec<String> = text.lines().map(|line| line.to_string()).collect();
+    let header: Vec<String> = lines[0]
+        .split('\t')
+        .map(|field| field.to_string())
+        .collect();
+    for line in lines[1..].iter() {
+        let fields: Vec<String> = line.split('\t').map(|field| field.to_string()).collect();
+        if fields[0] == case_id {
+            for (index, name) in header.iter().enumerate() {
+                if name == column {
+                    return fields[index].clone();
+                }
+            }
+            panic!("no column {} in {}", column, table);
+        }
+    }
+    panic!("no row {} in {}", case_id, table)
+}
+
+/// The replacement `native.tsv` row `native-01` records, from its `edit` column
+/// (`s:e:from:to`).
+fn native_edit() -> Value {
+    let field: String = column_of("native.tsv", "native-01", "edit");
+    let parts: Vec<&str> = field.split(':').collect();
+    assert!(parts.len() == 4, "edit {:?} is not s:e:from:to", field);
+    json!({ "replacement": {
+        "interval": [parts[0].parse::<u64>().unwrap(), parts[1].parse::<u64>().unwrap()],
+        "from": parts[2],
+        "to": parts[3]
+    } })
+}
+
+/// An insertion as one `native-insertion.tsv` row states it: its `point` and
+/// `inserted` columns, with `before` and `after` the template's own bases at
+/// `point - 1` and `point`.
+fn row_insertion(row: &str, template: &str) -> Value {
+    let point: u64 = column_of("native-insertion.tsv", row, "point")
+        .parse::<u64>()
+        .unwrap();
+    json!({ "insertion": {
+        "point": point,
+        "before": template[(point - 1) as usize..point as usize].to_string(),
+        "after": template[point as usize..point as usize + 1].to_string(),
+        "insert": column_of("native-insertion.tsv", row, "inserted")
+    } })
+}
+
+/// The `template` column of one row of one `tests/fixtures/q5-primer/` table,
+/// without its `seq:` prefix.
+fn synthetic(table: &str, row: &str) -> String {
+    let column: String = column_of(table, row, "template");
+    assert!(
+        column.starts_with("seq:"),
+        "row {} of {} gives a template file, not a sequence",
+        row,
+        table
+    );
+    column["seq:".len()..].to_string()
+}
+
+/// One run: the document it gave, the template's bases as `matching_template`
+/// accepts them, and every member's frame as `member_frames` gives it, the way
+/// `main` gives them to the app (7i2).
+struct Run {
+    document: ResultDocument,
+    template: Vec<char>,
+    frames: Vec<MemberFrame>,
+}
+
+/// Run one request file through `run_with_constructs` and prepare it, so the
+/// bases are the template that run read and the frames are read on the constructs
+/// that run made. The run is checked before the screen is built.
+fn run_at(path: &Path, test: &str) -> Run {
+    let (outcome, constructs) = run_with_constructs(path);
+    let prepared = prepare(path).expect("the request prepares");
+    assert_eq!(
+        outcome.document.state, "verified",
+        "{}: the run is verified",
+        test
+    );
+    assert_eq!(outcome.document.results.len(), 1, "{}: one member", test);
+    let template: Vec<char> = matching_template(&outcome.document, &prepared.template)
+        .expect("the template is the one the run used");
+    let frames: Vec<MemberFrame> = member_frames(
+        &outcome.document,
+        &prepared.template,
+        &prepared.annotations,
+        &constructs,
+    );
+    Run {
+        document: outcome.document,
+        template,
+        frames,
+    }
+}
+
+/// The app of one run, with the template's bases and the frames set the way
+/// `main` sets them when the screen opens.
+fn app_of(run: &Run) -> App {
+    App::new(run.document.clone())
+        .with_template(Some(run.template.clone()))
+        .with_frames(run.frames.clone())
+}
+
+/// The app of the `native-01` row, run on the SID-1 cDNA at bound 15.
+fn native01(test: &str) -> Run {
+    let dir = sid1_dir(test);
+    let path = dir.join("request.json");
+    fs::write(
+        &path,
+        sid1_request("native-01", native_edit(), 15).to_string(),
+    )
+    .unwrap();
+    run_at(&path, test)
+}
+
+/// The app of the `del-11` row: the q5p-01 codon deleted from the SID-1 cDNA at
+/// bound 15, as `tests/review_member.rs` runs it.
+fn del11(test: &str) -> Run {
+    let field: String = column_of("native-deletion.tsv", "del-11", "deletion");
+    let parts: Vec<&str> = field.split(':').collect();
+    assert!(parts.len() == 3, "deletion {:?} is not s:e:bases", field);
+    let edit: Value = json!({
+        "deletion": {
+            "interval": [
+                parts[0].parse::<u64>().unwrap(),
+                parts[1].parse::<u64>().unwrap()
+            ],
+            "from": parts[2]
+        }
+    });
+    let dir = sid1_dir(test);
+    let path = dir.join("request.json");
+    fs::write(&path, sid1_request("del-11", edit, 15).to_string()).unwrap();
+    run_at(&path, test)
+}
+
+/// The app of the `ins-13` row: 210 bases inserted on the synthetic FASTA
+/// template written beside the request, as `tests/review_member.rs` does.
+fn ins13(test: &str) -> Run {
+    let template: String = synthetic("native-insertion.tsv", "ins-13");
+    let dir = member_dir(test);
+    fs::write(dir.join("syn.fa"), format!(">syn\n{}\n", template)).unwrap();
+    let path = dir.join("request.json");
+    fs::write(
+        &path,
+        syn_request("ins-13", row_insertion("ins-13", &template)).to_string(),
+    )
+    .unwrap();
+    run_at(&path, test)
+}
+
+/// `app` with `keys` handled, the way the terminal reaches a screen.
+fn opened_app(app: App, keys: &[Key]) -> App {
+    let mut app: App = app;
+    for key in keys {
+        app.handle(*key);
+    }
+    app
+}
+
+/// The body's rows at 80x24 (7j2): the frame's inner rows, read from column 1
+/// (the inner area starts one column inside the border), cut to `INNER_WIDTH`
+/// columns, with the padding removed, so a row is the text the screen shows.
+fn body(app: &App) -> Vec<String> {
+    inner_rows(screen(app, 80, 24))
+}
+
+/// The same body rows for a proposal screen.
+fn proposal_body(app: &ProposalApp) -> Vec<String> {
+    inner_rows(proposal_screen(app, 80, 24))
+}
+
+/// A screen's body rows: rows 1 to `1 + BODY_ROWS - 1`, from column 1, at
+/// `INNER_WIDTH` columns, with the border cut off and the padding removed.
+fn inner_rows(rows: Vec<String>) -> Vec<String> {
+    rows[1..1 + BODY_ROWS]
+        .iter()
+        .map(|row| {
+            let inner: String = row.chars().skip(1).take(INNER_WIDTH).collect::<String>();
+            inner.trim_end().to_string()
+        })
+        .collect()
+}
+
+/// The key line at 80x24: row `height - 1` (7j2), that is row 23 of the 24 rows.
+fn keys(app: &App) -> String {
+    screen(app, 80, 24)[24 - 1].clone()
+}
+
+/// The first `BODY_ROWS` rows of `app`' body as the screen shows the fixture's
+/// lines at the body's width, with the rows past the screen's last line blank.
+fn shown_rows(lines: &[String]) -> Vec<String> {
+    (0..BODY_ROWS)
+        .map(|row| {
+            lines
+                .get(row)
+                .map(|line| shown(line, INNER_WIDTH))
+                .unwrap_or_default()
+        })
+        .collect()
+}
+
+/// The `code` a primer warning carries, as the document writes it.
+fn warning_code(warning: &PrimerWarningView) -> String {
+    let value: Value = serde_json::to_value(warning).expect("a warning serializes");
+    value["code"]
+        .as_str()
+        .expect("a warning names its code")
+        .to_string()
+}
+
+/// The `message` a warning carries, as the document writes it.
+fn warning_message(warning: &PrimerWarningView) -> String {
+    let value: Value = serde_json::to_value(warning).expect("a warning serializes");
+    value["message"]
+        .as_str()
+        .expect("a warning names its message")
+        .to_string()
+}
+
+/// The character column `needle` ends at in `line`, counting characters, so two
+/// columns of the primer table can be shown to line up (M7-28).
+fn end_column(line: &str, needle: &str) -> usize {
+    let chars: Vec<char> = line.chars().collect();
+    let target: Vec<char> = needle.chars().collect();
+    let start: usize = chars
+        .windows(target.len())
+        .position(|window| window == target.as_slice())
+        .unwrap_or_else(|| panic!("{:?} holds {}", line, needle));
+    start + target.len()
+}
+
+/// One primer's row of the sequence screen's table, from the document's own
+/// length, Tm and sequence, laid out as M7-28 states: the label padded to 10, the
+/// `<n> nt` right-aligned in 6, the `{:.1} °C` right-aligned in 9, three spaces,
+/// the sequence.
+fn primer_row(label: &str, primer: &PrimerView) -> String {
+    format!(
+        "{:width$}{:>6}  {:>9}   {}",
+        label,
+        format!("{} nt", primer.length),
+        format!("{:.1} °C", primer.tm.celsius),
+        primer.sequence,
+        width = 10
+    )
+}
+
+/// The lines `member_screen` writes under 7i3's block for `native-01`'s design:
+/// the primer table with the annealing temperature, then every warning by the
+/// document's own message, in the order the document holds them (M7-28, M7-29).
+/// Every value is `design`' own field, so only the layout is typed here.
+fn native01_tail(design: &DesignView) -> Vec<String> {
+    let mut lines: Vec<String> = vec![
+        String::new(),
+        format!(
+            "{}{:>6}  {:>9}   sequence 5'→3'",
+            " ".repeat(10),
+            "length",
+            "Tm"
+        ),
+        primer_row("forward", &design.forward),
+        primer_row("reverse", &design.reverse),
+        format!("annealing temperature {} °C", design.annealing_temperature),
+    ];
+    let messages: Vec<String> = design
+        .forward
+        .warnings
+        .iter()
+        .map(|warning| format!("  forward: {}", warning_message(warning)))
+        .chain(
+            design
+                .reverse
+                .warnings
+                .iter()
+                .map(|warning| format!("  reverse: {}", warning_message(warning))),
+        )
+        .collect();
+    assert!(
+        !messages.is_empty(),
+        "native-01's design has warnings, so the screen lists them"
+    );
+    lines.push(String::new());
+    lines.push("Warnings".to_string());
+    lines.extend(messages);
+    lines
+}
+
+#[test]
+fn enter_opens_the_sequence() {
+    let run: Run = native01("enter_sequence");
+    let app: App = opened_app(app_of(&run), &[Key::Enter]);
+    assert_eq!(app.screen(), Screen::Member(0), "`enter` opens the member");
+    let first: String = fixture_lines("member-native-01.txt")[0].clone();
+    assert_eq!(
+        body(&app)[0],
+        shown(&first, INNER_WIDTH),
+        "the first body row is the first line of the sequence block: {:?}",
+        body(&app)[0]
+    );
+    assert_eq!(
+        keys(&app),
+        "q quit  esc back  d details  j/k scroll  ? help",
+        "the sequence screen's keys, with no `i` on a short edit: {:?}",
+        keys(&app)
+    );
+}
+
+#[test]
+fn d_opens_the_details_and_esc_returns() {
+    let run: Run = native01("details_lines");
+    let app: App = opened_app(app_of(&run), &[Key::Enter, Key::Char('d')]);
+    assert_eq!(app.screen(), Screen::Details(0), "`d` opens the details");
+    // M7-52: the details are `text::details`, the member text with the
+    // provenance under it, so the page count is that screen's own length.
+    let lines: Vec<String> = text::details(&run.document, 0);
+    let first: String = lines[0].clone();
+    let rows: Vec<String> = screen(&app, 80, 24);
+    // 7j2: the body's first row, read through `body` at the body's width.
+    assert_eq!(
+        body(&app)[0],
+        shown(&first, INNER_WIDTH),
+        "the details screen shows 7c2's member text: {:?}",
+        body(&app)[0]
+    );
+    assert_eq!(
+        rows[23],
+        format!(
+            "q quit  esc back  j/k scroll  ? help  lines 1-{} of {}",
+            BODY_ROWS,
+            lines.len()
+        ),
+        "the details screen's keys, with the page it shows: {:?}",
+        rows[23]
+    );
+    let app: App = opened_app(app_of(&run), &[Key::Enter, Key::Char('d'), Key::Esc]);
+    assert_eq!(
+        app.screen(),
+        Screen::Member(0),
+        "`esc` goes back to the sequence screen"
+    );
+    let first: String = fixture_lines("member-native-01.txt")[0].clone();
+    assert_eq!(
+        body(&app)[0],
+        shown(&first, INNER_WIDTH),
+        "and the sequence block is there again: {:?}",
+        body(&app)[0]
+    );
+}
+
+#[test]
+fn i_expands_a_long_insertion_and_reopening_collapses_it() {
+    let run: Run = ins13("expand");
+    let collapsed: Vec<String> = fixture_lines("member-ins-13.txt");
+    let expanded: Vec<String> = fixture_lines("member-ins-13-expanded.txt");
+    // The screen's own lines, so the key line's page count is the screen's own
+    // length, and the block the body shows is the fixture's lines.
+    let collapsed_screen: Vec<String> = text::member_screen(
+        &run.document,
+        0,
+        Some(&run.template),
+        run.frames.first(),
+        false,
+    );
+    let expanded_screen: Vec<String> = text::member_screen(
+        &run.document,
+        0,
+        Some(&run.template),
+        run.frames.first(),
+        true,
+    );
+    assert_eq!(
+        &collapsed_screen[..collapsed.len()],
+        &collapsed[..],
+        "the sequence screen is 7i3's collapsed block, then the short lines"
+    );
+    assert_eq!(
+        &expanded_screen[..expanded.len()],
+        &expanded[..],
+        "expanded, it is 7i3's expanded block, then the short lines"
+    );
+
+    // The page the 20 body rows show, as `view` adds it when the screen is longer
+    // than the body.
+    let page = |lines: &[String]| {
+        if lines.len() > BODY_ROWS {
+            format!("  lines 1-{} of {}", BODY_ROWS, lines.len())
+        } else {
+            String::new()
+        }
+    };
+
+    // The screen opens collapsed, and `i` is offered: 210 bases are inserted.
+    let app: App = opened_app(app_of(&run), &[Key::Enter]);
+    assert_eq!(app.screen(), Screen::Member(0));
+    assert!(!app.expanded(), "the screen starts collapsed");
+    // The fixture holds the block, so its rows are the body's first rows; under
+    // them the body continues with M7-28's primer table (`the_primer_columns_line_up`).
+    assert_eq!(
+        body(&app)[..collapsed.len()],
+        shown_rows(&collapsed)[..collapsed.len()],
+        "collapsed, the body is the marker block the fixture holds: {:?}",
+        body(&app)
+    );
+    assert_eq!(
+        keys(&app),
+        format!(
+            "q quit  esc back  d details  j/k scroll  i expand  ? help{}",
+            page(&collapsed_screen)
+        ),
+        "`i` is offered, and the page is named: {:?}",
+        keys(&app)
+    );
+
+    // `i` writes the insertion out: all 210 bases make the screen longer.
+    let app: App = opened_app(app_of(&run), &[Key::Enter, Key::Char('i')]);
+    assert!(app.expanded(), "`i` expands a long insertion");
+    assert_eq!(
+        body(&app),
+        shown_rows(&expanded),
+        "the 20 body rows are the fixture's first 20 expanded lines"
+    );
+    assert_eq!(
+        keys(&app),
+        format!(
+            "q quit  esc back  d details  j/k scroll  i collapse  ? help{}",
+            page(&expanded_screen)
+        ),
+        "expanded, `i` collapses again, and the page is named: {:?}",
+        keys(&app)
+    );
+
+    // `esc` back to the overview and `enter` again start collapsed.
+    let app: App = opened_app(
+        app_of(&run),
+        &[Key::Enter, Key::Char('i'), Key::Esc, Key::Enter],
+    );
+    assert_eq!(app.screen(), Screen::Member(0), "`enter` opens it again");
+    assert!(!app.expanded(), "reopening starts collapsed");
+    assert_eq!(
+        body(&app)[..collapsed.len()],
+        shown_rows(&collapsed)[..collapsed.len()],
+        "the marker block is back: {:?}",
+        body(&app)
+    );
+    assert_eq!(
+        keys(&app),
+        format!(
+            "q quit  esc back  d details  j/k scroll  i expand  ? help{}",
+            page(&collapsed_screen)
+        ),
+        "and `i` offers to expand again: {:?}",
+        keys(&app)
+    );
+}
+
+#[test]
+fn i_does_nothing_on_a_short_edit() {
+    let run: Run = native01("short_edit");
+    let document: &ResultDocument = &run.document;
+    let app: App = opened_app(app_of(&run), &[Key::Enter, Key::Char('i')]);
+    assert_eq!(app.screen(), Screen::Member(0), "`i` does not move");
+    assert!(
+        !app.expanded(),
+        "`i` expands nothing on a three-base replacement"
+    );
+    let design = document.results[0]
+        .design
+        .as_ref()
+        .expect("native-01 is designed");
+    let expected: Vec<String> =
+        shown_rows(&[fixture_lines("member-native-01.txt"), native01_tail(design)].concat());
+    assert_eq!(
+        body(&app),
+        expected,
+        "the sequence screen is unchanged by `i`: {:?}",
+        body(&app)
+    );
+    assert_eq!(
+        keys(&app),
+        "q quit  esc back  d details  j/k scroll  ? help",
+        "so `i` is not offered, because `i` has nothing to expand: {:?}",
+        keys(&app)
+    );
+}
+
+#[test]
+fn the_short_primer_lines_are_the_documents() {
+    let run: Run = native01("primer_lines");
+    let document: &ResultDocument = &run.document;
+    let design = document.results[0]
+        .design
+        .as_ref()
+        .expect("native-01 is designed");
+    let block: Vec<String> =
+        text::member_sequence(document, 0, Some(&run.template), run.frames.first(), false);
+    let lines: Vec<String> =
+        text::member_screen(document, 0, Some(&run.template), run.frames.first(), false);
+    assert_eq!(
+        &lines[..block.len()],
+        &block[..],
+        "the sequence screen starts with 7i3's block"
+    );
+    let tail: Vec<String> = lines[block.len()..].to_vec();
+    assert_eq!(
+        tail,
+        native01_tail(design),
+        "every value of the short lines is the document's own field: {:?}",
+        tail
+    );
+}
+
+#[test]
+fn the_primer_columns_line_up() {
+    let run: Run = native01("primer_columns");
+    let design = run.document.results[0]
+        .design
+        .as_ref()
+        .expect("native-01 is designed");
+    let lines: Vec<String> = text::member_screen(
+        &run.document,
+        0,
+        Some(&run.template),
+        run.frames.first(),
+        false,
+    );
+    let header: usize = lines
+        .iter()
+        .position(|line| line.ends_with("sequence 5'→3'"))
+        .expect("the primer table names its columns");
+    assert!(
+        lines.len() > header + 2,
+        "the header is followed by two rows"
+    );
+    for (primer, offset) in [(&design.forward, 1usize), (&design.reverse, 2)] {
+        let row: &String = &lines[header + offset];
+        assert_eq!(
+            end_column(row, "nt"),
+            end_column(&lines[header], "length"),
+            "the length ends in the header's column: {:?}",
+            lines[header..header + 3].to_vec()
+        );
+        assert_eq!(
+            end_column(row, "°C"),
+            end_column(&lines[header], "Tm"),
+            "the Tm ends in the header's column: {:?}",
+            lines[header..header + 3].to_vec()
+        );
+        assert!(
+            row.contains(&format!("{} nt", primer.length)),
+            "the length is the document's own: {:?}",
+            row
+        );
+        assert!(
+            row.contains(&format!("{:.1} °C", primer.tm.celsius)),
+            "the Tm is the document's own, shown to one decimal: {:?}",
+            row
+        );
+        assert!(
+            row.ends_with(&primer.sequence),
+            "the row ends with the primer's own sequence: {:?}",
+            row
+        );
+    }
+}
+
+#[test]
+fn warnings_are_descriptive() {
+    let run: Run = native01("descriptive_warnings");
+    let design = run.document.results[0]
+        .design
+        .as_ref()
+        .expect("native-01 is designed");
+    let lines: Vec<String> = text::member_screen(
+        &run.document,
+        0,
+        Some(&run.template),
+        run.frames.first(),
+        false,
+    );
+    for (side, primer) in [("forward", &design.forward), ("reverse", &design.reverse)] {
+        assert!(
+            !primer.warnings.is_empty(),
+            "native-01's {} primer has warnings to list",
+            side
+        );
+        for warning in &primer.warnings {
+            let expected: String = format!("  {}: {}", side, warning_message(warning));
+            assert_eq!(
+                lines.iter().filter(|line| **line == expected).count(),
+                1,
+                "the warning is the document's own message, once: {:?}",
+                lines
+            );
+            let code: String = warning_code(warning);
+            assert!(
+                lines.iter().all(|line| !line.contains(&code)),
+                "no warning code is on the screen: {:?}",
+                lines
+            );
+        }
+    }
+    assert_eq!(
+        lines.iter().filter(|line| **line == "Warnings").count(),
+        1,
+        "the warnings are under one heading: {:?}",
+        lines
+    );
+}
+
+#[test]
+fn the_overview_is_members_only() {
+    let document: ResultDocument = set("members_only");
+    let template = document
+        .provenance
+        .template
+        .as_ref()
+        .expect("the set names its template");
+    let target = document.target.as_ref().expect("the set has a target");
+    assert_eq!(target.strand, "+", "the set's target is on the plus strand");
+    // Every expected value is the document's own field, so only the words and the
+    // padding of the new form are typed here (M7-25, M7-26).
+    let summaries: Vec<String> = document
+        .results
+        .iter()
+        .map(|member| {
+            let (original_residue, residue, written_residue, original_codon, written_codon) =
+                match &member.mutation {
+                    MutationView::Residue {
+                        original_residue,
+                        residue,
+                        written_residue,
+                        original_codon,
+                        written_codon,
+                        ..
+                    } => (
+                        original_residue,
+                        residue,
+                        written_residue,
+                        original_codon,
+                        written_codon,
+                    ),
+                    other => panic!("the set's members are residue edits: {:?}", other),
+                };
+            format!(
+                "{}{}{} ({}→{})",
+                original_residue, residue, written_residue, original_codon, written_codon
+            )
+        })
+        .collect();
+    let id_width: usize = template.id.chars().count().max(target.id.chars().count());
+    let name_width: usize = document
+        .results
+        .iter()
+        .map(|member| member.name.chars().count())
+        .max()
+        .expect("the set has a member");
+    let summary_width: usize = summaries
+        .iter()
+        .map(|summary| summary.chars().count())
+        .max()
+        .expect("the set has a member");
+    let expected: Vec<String> = [
+        vec![
+            format!(
+                "Template  {:id$}  {}, {} bp",
+                template.id,
+                template.topology,
+                template.length,
+                id = id_width
+            ),
+            // The interval `[start, end)` as 1-based inclusive bases (M7-24).
+            format!(
+                "Target    {:id$}  forward strand, bases {}–{}",
+                target.id,
+                target.intervals[0].0 + 1,
+                target.intervals[0].1,
+                id = id_width
+            ),
+            String::new(),
+            format!("Variants ({})", document.results.len()),
+        ],
+        document
+            .results
+            .iter()
+            .enumerate()
+            .map(|(index, member)| {
+                format!(
+                    "{}{:name$}  {:sum$}  designed",
+                    if index == 0 { "▶ " } else { "  " },
+                    member.name,
+                    summaries[index],
+                    name = name_width,
+                    sum = summary_width
+                )
+            })
+            .collect(),
+    ]
+    .concat();
+    let lines: Vec<String> = text::overview(&document, 0);
+    assert_eq!(
+        lines, expected,
+        "the overview is the template line, the target line, `Variants` and one row per member"
+    );
+    assert_eq!(lines.len(), 4 + document.results.len());
+}
+
+#[test]
+fn the_key_line_offers_problem_only_with_a_problem() {
+    // The set: `verified`, with no error and no clarification, so the overview
+    // offers no problem screen.
+    let rows: Vec<String> = screen(&App::new(set("key_line_set")), 80, 24);
+    assert_eq!(
+        rows[23], "q quit  enter open  j/k move  x export  ? help",
+        "{:?}",
+        rows[23]
+    );
+
+    // A `failed` result opens on the problem screen; from the overview, the key
+    // that goes back to it is offered, because a problem is never hidden.
+    let app: App = opened(&failed("key_line_failed"), &[Key::Esc]);
+    assert_eq!(app.screen(), Screen::Overview);
+    let rows: Vec<String> = screen(&app, 80, 24);
+    assert_eq!(
+        rows[23], "q quit  enter open  j/k move  x export  e problem  ? help",
+        "{:?}",
+        rows[23]
+    );
+}
+
+// The proposal screens of 7f2: the documents are corpus cases run through the
+// scripted backend as `tests/review_proposal.rs` runs them, with
+// `write_request: None`, so the screen's content is the corpus's own answer, and
+// the request path is the one `--request` names. The banner, the confirmation's
+// line and the key line are checked against the document's own state and the
+// path as given, not against what running the screen gave.
+const NL: &str = "../../tests/fixtures/nl/";
+const GENBANK: &str = "../../tests/fixtures/genbank/";
+const CASES_HEADER: &str = "case_id\ttemplate\ttext_file\treply_file\tprofile\tstate\tcodes\trequest_file\tdesign_exit\tnote";
+
+fn nl_read(path: &str) -> String {
+    fs::read_to_string(path).unwrap_or_else(|error| panic!("cannot read {}: {}", path, error))
+}
+
+fn row_of(case: &str) -> Vec<String> {
+    let text: String = nl_read(&format!("{}cases.tsv", NL));
+    let lines: Vec<&str> = text.lines().collect();
+    assert_eq!(lines[0], CASES_HEADER);
+    lines[1..]
+        .iter()
+        .map(|line| line.split('\t').map(|field| field.to_string()).collect())
+        .find(|row: &Vec<String>| row[0] == case)
+        .expect("the corpus has this case")
+}
+
+/// A fresh directory for one corpus case, with its template copied in under its
+/// own name, as `tests/review_proposal.rs` does.
+fn proposal_workspace(test: &str, row: &[String]) -> PathBuf {
+    let dir: PathBuf =
+        PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join(format!("review-view-{}-{}", test, row[0]));
+    let _ = fs::remove_dir_all(&dir);
+    fs::create_dir_all(&dir).expect("a workspace");
+    fs::copy(format!("{}{}", GENBANK, row[1]), dir.join(&row[1])).expect("the template is copied");
+    if row[4] != "-" {
+        fs::copy(format!("{}profile/{}", NL, row[4]), dir.join(&row[4]))
+            .expect("the profile is copied");
+    }
+    dir
+}
+
+/// The case, run through `interpret` with the scripted backend and
+/// `write_request: None`: the document the proposal screen shows, with the
+/// request path `--request` names beside the template. The state is checked
+/// against the corpus's own column first, so the banner is the corpus's state.
+fn proposal_of(test: &str, case: &str) -> (PathBuf, InterpretationDocument, PathBuf) {
+    let row: Vec<String> = row_of(case);
+    let dir: PathBuf = proposal_workspace(test, &row);
+    let reply: String = nl_read(&format!("{}reply/{}", NL, row[3]));
+    let mut backend: ScriptedBackend = ScriptedBackend::new("scripted-corpus", vec![Ok(reply)]);
+    let text: String = nl_read(&format!("{}text/{}", NL, row[2]));
+    let input: InterpretInput = InterpretInput {
+        template: dir.join(&row[1]),
+        text: TextSource::Inline(text.strip_suffix('\n').unwrap_or(&text).to_string()),
+        profile: if row[4] == "-" {
+            None
+        } else {
+            Some(dir.join(&row[4]))
+        },
+        write_request: None,
+    };
+    let outcome: InterpretOutcome = interpret(&input, &mut backend);
+    assert_eq!(
+        outcome.document.state, row[5],
+        "{}: the corpus's own state column",
+        row[0]
+    );
+    (
+        dir.clone(),
+        outcome.document.clone(),
+        dir.join("proposal.json"),
+    )
+}
+
+/// Draw `app`' proposal on a `width` by `height` test backend, with the padding
+/// the backend pads each row with removed.
+fn proposal_screen(app: &ProposalApp, width: u16, height: u16) -> Vec<String> {
+    let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
+    terminal
+        .draw(|frame| view::draw_proposal(frame, app))
+        .unwrap();
+    let buffer = terminal.backend().buffer();
+    let width: usize = buffer.area.width as usize;
+    buffer
+        .content
+        .chunks(width)
+        .map(|cells| {
+            cells
+                .iter()
+                .map(|cell| cell.symbol())
+                .collect::<String>()
+                .trim_end()
+                .to_string()
+        })
+        .collect()
+}
+
+/// `app` with `keys` handled, the way the terminal reaches a screen.
+fn opened_proposal(
+    document: &InterpretationDocument,
+    request: PathBuf,
+    keys: &[Key],
+) -> ProposalApp {
+    let mut app: ProposalApp = ProposalApp::new(document.clone(), request);
+    for key in keys {
+        app.handle(*key);
+    }
+    app
+}
+
+#[test]
+fn a_proposal_says_it_is_not_a_result() {
+    for case in ["two-separate", "composition-unstated"] {
+        let (dir, document, request) = proposal_of("banner", case);
+        let rows: Vec<String> =
+            proposal_screen(&ProposalApp::new(document.clone(), request), 80, 24);
+        // 7j2: row 0 is the frame's title, whose badge says the screen is a
+        // proposal with nothing run, and is never a result's badge (plan §3
+        // rule 3). Row 1 is a body row, so the old blank-row index is gone.
+        assert!(
+            rows[0].contains(" PROPOSAL ") && rows[0].contains(" · nothing has run yet "),
+            "row 0 says the screen is a proposal and that nothing has run: {:?}",
+            rows[0]
+        );
+        assert!(
+            !rows[0].contains("state:")
+                && !rows[0].contains("experimental validation")
+                && !rows[0].contains(" verified "),
+            "the result's badge is not on a proposal's screen: {:?}",
+            rows[0]
+        );
+        let _ = fs::remove_dir_all(&dir);
+    }
+}
+
+#[test]
+fn the_confirmation_names_the_file() {
+    let (dir, document, _) = proposal_of("confirm", "two-separate");
+    // The path as `--request` gives it, relative to the directory the command
+    // runs in, so the whole line fits on the screen.
+    let request: PathBuf = PathBuf::from("proposal.json");
+    let app: ProposalApp = opened_proposal(&document, request.clone(), &[Key::Char('a')]);
+    assert_eq!(app.screen(), ProposalScreen::Confirm);
+    let rows: Vec<String> = proposal_screen(&app, 80, 24);
+    // 7j2: the body is read through `proposal_body`, so the confirmation's rows
+    // are body rows 0, 1 and 2, and the key line is row 23 = `height - 1`.
+    let body_rows: Vec<String> = proposal_body(&app);
+    assert_eq!(
+        body_rows[0],
+        format!(
+            "write the request to {} and run luria q5 design on it?",
+            request.display()
+        ),
+        "the confirmation names the file the approval writes (plan §3 rule 4): {:?}",
+        body_rows[0]
+    );
+    assert_eq!(
+        body_rows[1], "",
+        "a blank line between the file and the keys"
+    );
+    assert_eq!(body_rows[2], "y yes  n no");
+    assert_eq!(rows[23], "q quit  y yes  n no");
+    assert!(
+        body_rows.iter().all(|row| !row.contains("proposal:")),
+        "the confirmation shows the file, not the proposal: {:?}",
+        rows
+    );
+    let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn approve_is_offered_only_for_a_proposal() {
+    // The proposal: `text::proposal`' own lines (7e), so the key line's page
+    // count is the screen's own length, and `a` is offered because the document
+    // is `proposed` and names its request.
+    let (proposed_dir, proposed, _) = proposal_of("key_line_proposed", "two-separate");
+    let lines: Vec<String> = text::proposal(&proposed);
+    let n: usize = lines.len();
+    assert!(
+        n > BODY_ROWS,
+        "the proposal is longer than the body: {} lines",
+        n
+    );
+    let app: ProposalApp = ProposalApp::new(proposed.clone(), PathBuf::from("proposal.json"));
+    let rows: Vec<String> = proposal_screen(&app, 80, 24);
+    assert_eq!(
+        rows[23],
+        format!(
+            "q quit  j/k scroll  a approve  lines 1-{} of {}",
+            BODY_ROWS, n
+        ),
+        "a proposal that names its request offers `a`, and says where its body sits: {:?}",
+        rows[23]
+    );
+    // 7j2: the body's rows, read through `proposal_body` at the body's width.
+    let body_rows: Vec<String> = proposal_body(&app);
+    for row in 0..BODY_ROWS {
+        assert_eq!(
+            body_rows[row],
+            shown(&lines[row], INNER_WIDTH),
+            "body row {} shows the proposal's line {}",
+            row,
+            row
+        );
+    }
+
+    // A run that asks proposes nothing, so `a` is not on its key line, and the
+    // document's `request` is null.
+    let (asked_dir, asked, _) = proposal_of("key_line_asked", "composition-unstated");
+    assert!(asked.request.is_none(), "a run that asks names no request");
+    let lines: Vec<String> = text::proposal(&asked);
+    let n: usize = lines.len();
+    let rows: Vec<String> = proposal_screen(
+        &ProposalApp::new(asked, PathBuf::from("proposal.json")),
+        80,
+        24,
+    );
+    assert!(
+        !rows[23].contains("a approve"),
+        "nothing to approve, so `a` is not offered: {:?}",
+        rows[23]
+    );
+    assert!(
+        rows[23].starts_with("q quit  j/k scroll"),
+        "the reading keys are the same: {:?}",
+        rows[23]
+    );
+    assert_eq!(
+        rows[23],
+        format!("q quit  j/k scroll  lines 1-{} of {}", BODY_ROWS, n),
+        "and the page count is the asked screen's own length: {:?}",
+        rows[23]
+    );
+    let _ = fs::remove_dir_all(&proposed_dir);
+    let _ = fs::remove_dir_all(&asked_dir);
+}
+
+// 7j2's styling: the badge, its colour, the highlight of the edited bases, and
+// `?`'s help as a pop-up. Nothing here changes a text line: every row is read
+// from the same `TestBackend` buffer the screen's own tests read.
+
+#[test]
+fn the_badge_names_the_state() {
+    // §5.1 rule 1: the badge's word is the document's own `state`, not a word
+    // typed into the view. Hard-coding the badge as `verified` fails this on the
+    // failed and the needs-clarification documents.
+    for (document, badge) in [
+        (verified("badge_verified"), "✓ verified"),
+        (failed("badge_failed"), "✗ failed"),
+        (
+            needs_clarification("badge_clarify"),
+            "? needs clarification",
+        ),
+    ] {
+        let rows: Vec<String> = screen(&App::new(document), 80, 24);
+        assert!(
+            rows[0].contains(&format!(" {} ", badge)),
+            "row 0's badge names the document's own state: {:?}",
+            rows[0]
+        );
+        assert!(
+            rows[0].contains(" not tested at the bench "),
+            "row 0 says the document's own validation: {:?}",
+            rows[0]
+        );
+    }
+}
+
+#[test]
+fn the_badge_is_coloured() {
+    for (document, symbol, colour) in [
+        (verified("badge_colour_verified"), '✓', Color::Green),
+        (failed("badge_colour_failed"), '✗', Color::Red),
+        (
+            needs_clarification("badge_colour_clarify"),
+            '?',
+            Color::Yellow,
+        ),
+    ] {
+        let app: App = App::new(document);
+        let rows: Vec<String> = screen(&app, 80, 24);
+        let styles: Vec<Vec<Style>> = styles(&app, 80, 24);
+        let column: usize = rows[0]
+            .chars()
+            .position(|ch| ch == symbol)
+            .unwrap_or_else(|| panic!("row 0's badge starts with {}: {:?}", symbol, rows[0]));
+        assert_eq!(
+            styles[0][column].bg,
+            Some(colour),
+            "the cell under the badge's first letter is on the colour §2 names: {:?}",
+            styles[0][column]
+        );
+    }
+}
+
+#[test]
+fn the_proposal_badge_is_not_a_result() {
+    let (dir, document, request) = proposal_of("proposal_badge", "two-separate");
+    let rows: Vec<String> = proposal_screen(&ProposalApp::new(document, request), 80, 24);
+    assert!(
+        rows[0].contains("PROPOSAL"),
+        "a proposal's badge says what the screen is: {:?}",
+        rows[0]
+    );
+    assert!(
+        !rows[0].contains("verified"),
+        "a proposal is never shown as a verified result (plan §3 rule 3): {:?}",
+        rows[0]
+    );
+    let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn edited_bases_are_highlighted() {
+    let run: Run = native01("highlighted");
+    let app: App = opened_app(app_of(&run), &[Key::Enter]);
+    let rows: Vec<String> = rows(&app, 80, 24);
+    let styles: Vec<Vec<Style>> = styles(&app, 80, 24);
+    let row: usize = rows
+        .iter()
+        .position(|line| line.starts_with("\u{2502}template  "))
+        .expect("the sequence screen's template row");
+    let cells: Vec<char> = rows[row].chars().collect();
+    let lower: Vec<char> = "gat".chars().collect();
+    let start: usize = cells
+        .windows(lower.len())
+        .position(|window| window == lower.as_slice())
+        .expect("the bases the edit writes, in lower case on the template row");
+    for column in start..start + lower.len() {
+        let style: Style = styles[row][column];
+        assert!(
+            style.has_modifier(Modifier::BOLD) && style.fg == Some(Color::Yellow),
+            "the edited base {} is bold yellow: {:?}",
+            cells[column],
+            style
+        );
+    }
+    let upper: usize = cells
+        .iter()
+        .position(|ch| ch.is_ascii_uppercase())
+        .expect("an upper-case template base on the same row");
+    let style: Style = styles[row][upper];
+    assert!(
+        !style.has_modifier(Modifier::BOLD) && style.fg != Some(Color::Yellow),
+        "an upper-case template base is not highlighted as an edited base: {:?}",
+        style
+    );
+}
+
+/// A cell's foreground colour, with the test backend's `Reset` default read as
+/// no colour, so an uncoloured cell is `None`.
+fn ink(style: Style) -> Option<Color> {
+    match style.fg {
+        Some(Color::Reset) | None => None,
+        Some(colour) => Some(colour),
+    }
+}
+
+#[test]
+fn the_primer_table_colours_only_the_sequence() {
+    // M7-55, M7-54: on a primer table row the length's `nt` and the temperature's
+    // `°C` take no colour, the temperature's number is bold and its unit plain,
+    // and the colour is on the sequence after the three spaces only. `del-11`'s
+    // forward primer is 15 annealing bases with no tail, so the whole sequence
+    // is the annealing colour.
+    let run: Run = del11("primer_table_colours");
+    let app: App = opened_app(app_of(&run), &[Key::Enter]);
+    assert_eq!(app.screen(), Screen::Member(0), "`enter` opens the variant");
+    let rows: Vec<String> = rows(&app, 80, 24);
+    let styles: Vec<Vec<Style>> = styles(&app, 80, 24);
+    // The table row is the one with ` nt` in it; the sequence block's `forward`
+    // row has the same label and no table cells.
+    let row: usize = rows
+        .iter()
+        .position(|line| line.starts_with("\u{2502}forward") && line.contains(" nt"))
+        .expect("the sequence screen's forward primer table row");
+    let cells: Vec<char> = rows[row].chars().collect();
+
+    // The values the row shows are the fixture table's own row for `del-11`.
+    let primer: String = column_of("native-deletion.tsv", "del-11", "forward");
+    let tm: String = format!(
+        "{:.1}",
+        column_of("native-deletion.tsv", "del-11", "forward_tm")
+            .parse::<f64>()
+            .expect("the table's forward Tm is a number")
+    );
+    let length: usize = primer.chars().count();
+
+    let needle: Vec<char> = vec!['n', 't'];
+    let nt: usize = cells
+        .windows(needle.len())
+        .position(|window| window == needle.as_slice())
+        .expect("the primer table row's `nt`");
+    // The length's number is the fixture's, right-aligned before ` nt`, and
+    // neither it nor `nt` is coloured.
+    let length_number: String = length.to_string();
+    let number_start: usize = nt - 1 - length_number.chars().count();
+    let digits: String = cells[number_start..nt - 1].iter().collect::<String>();
+    assert_eq!(
+        digits, length_number,
+        "the row's length is the fixture's primer length: {:?}",
+        digits
+    );
+    for column in number_start..nt + 2 {
+        assert_eq!(
+            ink(styles[row][column]),
+            None,
+            "the length's `{}` takes no colour on the table row: {:?}",
+            cells[column],
+            styles[row][column]
+        );
+    }
+
+    // The temperature: its number is the fixture's, its digits are bold, and the
+    // `°C` unit is plain.
+    let needle: Vec<char> = vec!['\u{00b0}', 'C'];
+    let degree: usize = cells
+        .windows(needle.len())
+        .position(|window| window == needle.as_slice())
+        .expect("the primer table row's `°C`");
+    let number: usize = degree - 1 - tm.chars().count();
+    assert_eq!(
+        cells[number..degree - 1].iter().collect::<String>(),
+        tm,
+        "the row's annealing temperature is the fixture's: {:?}",
+        cells[number..degree - 1].iter().collect::<String>()
+    );
+    for column in number..degree - 1 {
+        assert!(
+            styles[row][column].has_modifier(Modifier::BOLD),
+            "the temperature's `{}` is bold: {:?}",
+            cells[column],
+            styles[row][column]
+        );
+    }
+    for style in &styles[row][degree..degree + 2] {
+        assert!(
+            ink(*style).is_none() && !style.has_modifier(Modifier::BOLD),
+            "the unit `°C` is plain: {:?}",
+            style
+        );
+    }
+
+    // The sequence, after the three spaces, is coloured as a primer row: its
+    // upper-case annealing bases are light blue.
+    let start: usize = degree + 5;
+    assert_eq!(
+        cells[degree + 2..start].iter().collect::<String>(),
+        "   ",
+        "three spaces stand between the unit and the sequence: {:?}",
+        cells[degree + 2..start].iter().collect::<String>()
+    );
+    assert_eq!(
+        cells[start..start + length].iter().collect::<String>(),
+        primer,
+        "the row's sequence is the fixture's forward primer: {:?}",
+        cells[start..start + length].iter().collect::<String>()
+    );
+    // Any annealing base proves the rule; the first one is 7m1c's own test.
+    let style: Style = styles[row][start + 1];
+    assert_eq!(
+        ink(style),
+        Some(Color::LightBlue),
+        "the annealing base `{}` of the table's sequence is light blue: {:?}",
+        primer.chars().nth(1).expect("the primer has a second base"),
+        style
+    );
+}
+
+// 7m1c: `runs` takes the first character's style from the character itself, so
+// a primer table row's first base is coloured as its own case gives it, the
+// same colour the bases after it take (M7-54, M7-55).
+#[test]
+fn the_first_base_of_a_row_is_coloured() {
+    // `del-11`'s forward primer is all upper case, so its first base is an
+    // annealing base and is `LightBlue` like every other base of the sequence.
+    let run: Run = del11("first_base_colour");
+    let app: App = opened_app(app_of(&run), &[Key::Enter]);
+    assert_eq!(app.screen(), Screen::Member(0), "`enter` opens the variant");
+    let rows: Vec<String> = rows(&app, 80, 24);
+    let styles: Vec<Vec<Style>> = styles(&app, 80, 24);
+    let row: usize = rows
+        .iter()
+        .position(|line| line.starts_with("\u{2502}forward") && line.contains(" nt"))
+        .expect("the sequence screen's forward primer table row");
+    let cells: Vec<char> = rows[row].chars().collect();
+
+    let primer: String = column_of("native-deletion.tsv", "del-11", "forward");
+    let length: usize = primer.chars().count();
+
+    // The sequence starts after the `°C` unit and the three spaces, the way
+    // `the_primer_table_colours_only_the_sequence` reads the row.
+    let needle: Vec<char> = vec!['\u{00b0}', 'C'];
+    let degree: usize = cells
+        .windows(needle.len())
+        .position(|window| window == needle.as_slice())
+        .expect("the primer table row's `°C`");
+    let start: usize = degree + 5;
+    assert_eq!(
+        cells[degree + 2..start].iter().collect::<String>(),
+        "   ",
+        "three spaces stand between the unit and the sequence: {:?}",
+        cells[degree + 2..start].iter().collect::<String>()
+    );
+    assert_eq!(
+        cells[start..start + length].iter().collect::<String>(),
+        primer,
+        "the row's sequence is the fixture's forward primer: {:?}",
+        cells[start..start + length].iter().collect::<String>()
+    );
+
+    // The colour the fixture's own first base's case gives: `LightBlue` for an
+    // upper-case annealing base, `Yellow` for a lower-case tail base.
+    let first: char = primer.chars().next().expect("the primer has a first base");
+    let annealing: bool = first.is_ascii_uppercase();
+    let expected: Color = if annealing {
+        Color::LightBlue
+    } else {
+        Color::Yellow
+    };
+    assert_eq!(
+        ink(styles[row][start]),
+        Some(expected),
+        "the first base `{}` of the table's sequence is {} ({} case): {:?}",
+        first,
+        expected,
+        if annealing { "upper" } else { "lower" },
+        styles[row][start]
+    );
+}
+
+#[test]
+fn help_is_a_pop_up() {
+    // M7-53: help is the open screen's own keys, and the legend is on the variant
+    // screen only, so the pop-up is proved on `Member`, where both are present.
+    let document: ResultDocument = set("help_pop_up");
+    let app: App = opened(&document, &[Key::Enter, Key::Char('?')]);
+    assert!(app.help(), "`?` opens help on the variant screen");
+    assert_eq!(
+        app.screen(),
+        Screen::Member(0),
+        "the variant screen is open"
+    );
+    let lines: Vec<String> = text::help(Screen::Member(0), false, expandable(&document, 0));
+    let pop_width: usize = lines
+        .iter()
+        .map(|line| line.chars().count())
+        .max()
+        .expect("help has lines")
+        + 4;
+    let pop_height: usize = lines.len() + 2;
+    // A frame wider than the pop-up, so the screen's own text shows outside it.
+    let (screen_width, screen_height) = (100usize, 24usize);
+    let rows: Vec<String> = rows(&app, screen_width as u16, screen_height as u16);
+    let x: usize = (screen_width - pop_width) / 2;
+    let y: usize = (screen_height - pop_height) / 2;
+    assert!(
+        x + pop_width <= screen_width && y + pop_height <= screen_height,
+        "the pop-up is clamped to the frame: {:?}",
+        rows[y]
+    );
+    // §5.1 rule 2: the pop-up clears what is under it, so its rows hold help's
+    // lines and nothing of the screen, and the body stays where the pop-up is not.
+    // The body starts at row 1 (7j2), so row `y` shows the open screen's line
+    // `y - 1`.
+    let body: Vec<String> =
+        text::member_screen(&document, 0, app.template(), app.frame(0), app.expanded());
+    assert!(y >= 1, "the pop-up is drawn below the title row: {}", y);
+    let outside: String = rows[y].chars().skip(1).take(x - 1).collect::<String>();
+    assert_eq!(
+        outside.trim_end(),
+        shown(&body[y - 1], x - 1),
+        "row {} shows the variant screen's line {} outside the pop-up: {:?}",
+        y,
+        y - 1,
+        rows[y]
+    );
+    for (index, line) in lines.iter().enumerate() {
+        let row: String = rows[y + 1 + index]
+            .chars()
+            .skip(x + 1)
+            .take(pop_width - 2)
+            .collect::<String>();
+        assert_eq!(
+            row,
+            format!("{:width$}", line, width = pop_width - 2),
+            "pop-up row {} holds help's line {:?} and nothing under it: {:?}",
+            index,
+            line,
+            row
+        );
+    }
+    assert_eq!(
+        rows[screen_height - 1].trim_end(),
+        "q quit  esc close",
+        "the key line stays the help key line, outside the pop-up: {:?}",
+        rows[screen_height - 1]
+    );
+}
