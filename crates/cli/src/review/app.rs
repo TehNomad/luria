@@ -46,10 +46,6 @@ pub enum Action {
     /// The write asked for on the `Replace` prompt, `y` answered (M7-49):
     /// `terminal` calls the export closure to replace the names it listed.
     ExportReplace,
-    /// The save asked for by `a` on a preview's variant screens (M7-60):
-    /// `terminal` opens the save pop-up, which writes nothing until it is
-    /// answered there.
-    Approve,
 }
 
 /// Which screen is open. A member index is an index into
@@ -88,10 +84,9 @@ pub struct App {
     /// The plan's names that exist in the export directory, as the shell set
     /// them before the last key on `Export` (M7-49). `Replace` lists them.
     taken: Vec<String>,
-    /// The model's reading of the words typed, as `text::proposal`'s lines: an
-    /// app with a reading is a preview, which shows the reading at the bottom of
-    /// each variant's details and offers `a` for the save (M7-60, M7-61).
-    /// `luria review` never sets it, so its keys are as they were.
+    /// The model's reading of the words typed, as `text::proposal`'s lines, shown
+    /// at the bottom of each variant's Details screen (M7-64). `luria review` never
+    /// sets it, so its keys are as they were.
     reading: Option<Vec<String>>,
     expanded: bool,
     help: bool,
@@ -116,7 +111,7 @@ impl App {
             export: None,
             export_message: None,
             taken: Vec::new(),
-            // Without a reading the screen is a result, not a preview (M7-60).
+            // `luria review` has no reading, so Details ends as it did.
             reading: None,
             // A long insertion starts collapsed every time the screen opens (7i4).
             expanded: false,
@@ -153,9 +148,8 @@ impl App {
         self.template.as_deref()
     }
 
-    /// The model's reading the preview shows at the bottom of each variant's
-    /// details, as `text::proposal` gives it, set once when the screen opens
-    /// (M7-60, M7-61): an app with a reading is a preview.
+    /// The model's reading, shown at the bottom of each variant's Details, as
+    /// `text::proposal` gives it, set once when the screen opens (M7-64).
     pub fn with_reading(self, lines: Vec<String>) -> App {
         App {
             reading: Some(lines),
@@ -163,7 +157,7 @@ impl App {
         }
     }
 
-    /// The reading's lines, or `None` when the app is not a preview.
+    /// The reading's lines, or `None` when there is no reading to show.
     pub fn reading(&self) -> Option<&[String]> {
         self.reading.as_deref()
     }
@@ -282,10 +276,8 @@ impl App {
     /// the selection, so only `PageUp` `PageDown` `Home` scroll there; on every
     /// screen below it they scroll the body, and a screen change puts the new
     /// screen at its top (7c3 §3.1, 7g1), and `terminal` clamps the scroll to the
-    /// body's length (M7-56). In a preview, that is when a reading is set, `a`
-    /// on `Overview`, `Member(_)` and `Details(_)` asks for the save, and `x` on
-    /// `Overview` does nothing, as a preview has no export (M7-60); without a
-    /// reading every key behaves as above.
+    /// body's length (M7-56). A reading changes nothing here: with one, every key
+    /// behaves as without one (M7-64).
     pub fn handle(&mut self, key: Key) -> Action {
         // M7-43: `ctrl-c` quits from every screen, help open or not, and writes
         // nothing, exactly as `q` does.
@@ -315,21 +307,8 @@ impl App {
         let has_problem: bool =
             self.document.error.is_some() || !self.document.clarifications.is_empty();
         let opened: Screen = self.screen;
-        // An app with a reading is a preview, which is the only place `a` asks
-        // for the save and `x` is not offered (M7-60).
-        let preview: bool = self.reading.is_some();
 
         match (self.screen, key) {
-            // M7-60: `a` opens the save pop-up from every variant screen of a
-            // preview, so the save is reached from the screens the mutations are
-            // checked on; the screen stays for the pop-up to sit over it.
-            (Screen::Overview | Screen::Member(_) | Screen::Details(_), Key::Char('a'))
-                if preview =>
-            {
-                return Action::Approve;
-            }
-            // A preview has no export, so `x` on its overview asks for nothing.
-            (Screen::Overview, Key::Char('x')) if preview => {}
             (Screen::Overview, Key::Esc) => return Action::Quit,
             (Screen::Overview, Key::Up | Key::Char('k')) => {
                 self.selected = self.selected.saturating_sub(1);

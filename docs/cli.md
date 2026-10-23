@@ -919,6 +919,7 @@ It needs a terminal on stdin and stdout, and a screen of at least 80 by
 | Mutations | One per line, in the shorthand of §12.2. Each line shows what luria reads it as, or why it cannot. |
 | Primers | `inline`, shown and fixed: confine-to-tail placement is not supported yet (D029). |
 | Overlap | The minimum annealing overlap in nucleotides: 15 until you change it, or a `--design` profile's value. |
+| Save as | The request file's name: `<name>.request.json`, or `<LOCUS>.request.json` for GenBank, until you change it. |
 
 `tab` and `shift-tab` move between fields, `←`/`→` change a choice,
 `PgUp`/`PgDn` move ten lines in a long box and to the first or last
@@ -959,26 +960,24 @@ Without `--backend`, the form says the line is not shorthand and asks
 you to start with it. A line that is shorthand but refused, such as
 `D404*`, stays an error and is never sent to the model.
 
-When the model's reading can be saved, luria designs it in memory and
-opens on §11.1's result screens as a preview: the title says `preview,
-nothing is saved yet`, and each variant screen shows the primers, both
-strands and the mutant protein in frame, so you can check each
-mutation. The model's reading (the request as it will be written, where
-each value came from, the quotes, and what was sent and received) is at
-the bottom of each variant's Details screen (`d`). `a` opens the save
-pop-up below; `q`, or `esc` on the overview, goes back to the form and
-writes nothing. A reading with questions or an error opens as §11.2's
-proposal instead, and cannot be saved.
+When the model's reading has no questions, luria writes the request and
+runs it at once, as §12.4 says, and the result opens on §11.1's
+screens: each variant shows the primers, both strands and the mutant
+protein in frame, so check there that the mutation is the one you
+meant. The model's reading (the request as written, where each value
+came from, the quotes, and what was sent and received) is at the
+bottom of each variant's Details screen (`d`). A reading with questions
+or an error opens as §11.2's proposal instead and writes nothing; `q`
+or `esc` goes back to the form.
 
 ### 12.4 Saving
 
-`[ Save and run ]` opens a pop-up with the request's file name, which you
-can change, and where it goes: beside a template file, as
-`--write-request` requires (§10), or, for a paste, in the current
-directory, with the pasted FASTA. `enter` writes the files and runs the
+`[ Save and run ]` writes the request under the `Save as` name: beside
+a template file, as `--write-request` requires (§10), or, for a paste,
+in the current directory, with the pasted FASTA. It then runs the
 request as `luria q5 design` does, and the result opens as §11.1 does,
-with export when `--export DIR` was given (§11.3). `esc` closes the
-pop-up and writes nothing.
+with export when `--export DIR` was given (§11.3). With words, this
+happens once the model has answered.
 
 If a file it would write exists, the pop-up names it, and `y` replaces
 it; any other key writes nothing. A replaced file is written whole and

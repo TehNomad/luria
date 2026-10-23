@@ -1592,17 +1592,18 @@ owner's, after using the earlier versions.
 
 Status: approved by the owner, 2026-10-21 and 2026-10-22
 (`docs/tasks/milestone-7k-new.md`, answers M7-31 to M7-44, and
-`docs/tasks/milestone-7m-polish.md`, answers M7-45 to M7-61, after the
+`docs/tasks/milestone-7m-polish.md`, answers M7-45 to M7-65, after the
 owner's first hand test). Applies D003, D005, D006, D012, D029, D034,
 D044 and D046.
 
 Decision:
 
-* **`luria new`** (M7-31, M7-48). A form builds a `luria.q5-request/1`
-  request from a template, mutation lines and the overlap. It is written
-  and run only when the user saves it from a pop-up that names the
-  files, then shown on `luria review`'s screens. Quitting before saving
-  writes nothing and runs nothing.
+* **`luria new`** (M7-31, M7-62, M7-63). A form builds a
+  `luria.q5-request/1` request from a template, mutation lines and the
+  overlap. `[ Save and run ]` writes it under the form's `Save as` name
+  and runs it, then shows it on `luria review`'s screens, where the
+  user checks the mutations. A file that exists is replaced only on
+  `y`. Quitting before saving writes nothing and runs nothing.
 * **The template** (M7-32, M7-37, M7-50). A FASTA or GenBank file, picked
   from a filtered list of the directory being typed or typed in full, or
   a pasted sequence saved as a new FASTA file. For FASTA and a paste the
@@ -1625,11 +1626,12 @@ Decision:
   the default codon policy, residues counted from the CDS start, and,
   when the words name no CDS, the form's CDS as an assumption (M7-59;
   M6-9 still holds for `luria q5 interpret`); it
-  needs a GenBank template (M6-7). A reading that can be saved is
-  designed in memory and shown on the variant screens as a preview, with
-  the reading itself at the bottom of Details; nothing is written before
-  the save pop-up (M7-60, M7-61). This narrows D046's "nothing runs until
-  you approve" for `luria new` only. Without a backend the form names
+  needs a GenBank template (M6-7). A reading with no questions is
+  written and run at once, and the reading itself is at the bottom of
+  each variant's Details (M7-62, M7-64); for `luria new` only, this
+  replaces D046's rule that nothing is written until the user approves,
+  so the result screens are where the reading is checked. A reading
+  with questions writes nothing. Without a backend the form names
   `--backend`. A line
   luria reads but refuses is an error and is never sent to the model.
 * **Values on screen** (M7-34, M7-39, M7-45). The overlap starts at 15

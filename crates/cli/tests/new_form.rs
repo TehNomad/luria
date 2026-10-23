@@ -128,17 +128,17 @@ fn sid1(lines: &[&str], overlap: &str) -> NewForm {
     form
 }
 
-/// `[ Save and run ]`, then the pop-up's `enter`: the built request, insisting it
-/// is the action the contract names, and returning what was built.
+/// `[ Save and run ]`: the built request, insisting it is the action the contract
+/// names, and returning what was built. M7-63: the first `Enter` is the save, so
+/// one press gives it.
 fn review(form: &mut NewForm) -> Built {
     tab_to(form, Field::Review);
-    form.handle(Key::Enter);
     match form.handle(Key::Enter) {
         FormAction::Save { built, replace } => {
-            assert!(!replace, "the pop-up's enter asks for no replace");
+            assert!(!replace, "the first enter asks for no replace");
             *built
         }
-        other => panic!("the pop-up gave {:?} instead of the built request", other),
+        other => panic!("the button gave {:?} instead of the built request", other),
     }
 }
 
@@ -504,18 +504,18 @@ fn overlap_opens_at_15() {
     );
 }
 
-// M7-45 (contract §2.1), M7-48: `Overlap`'s place in the focus order is its place on
-// screen, so `Tab` from `Mutations` reaches it, then the button. The request's
-// name is typed in the pop-up, so it is not a field to tab to.
+// M7-45 (contract §2.1), M7-63: `Overlap`'s place in the focus order is its place on
+// screen, so `Tab` from `Mutations` reaches it, then the `Save as` name, which is
+// a field again, then the button.
 #[test]
 fn focus_order_is_screen_order() {
     let mut form = sid1(&["D404N"], "15");
     tab_to(&mut form, Field::Mutations);
-    let seen: Vec<Field> = focus_sequence(&mut form, 2);
+    let seen: Vec<Field> = focus_sequence(&mut form, 3);
     assert_eq!(
         seen[1..],
-        [Field::Overlap, Field::Review],
-        "tabbing from Mutations reaches Overlap, then the button"
+        [Field::Overlap, Field::SaveAs, Field::Review],
+        "tabbing from Mutations reaches Overlap, the name, then the button"
     );
 }
 
@@ -618,133 +618,129 @@ fn page_keys_move_ten_lines_or_to_the_ends() {
     assert_eq!(form.focus(), Field::Review, "and focus goes to the button");
 }
 
-// M7-48 (contract §3 test 1): `[ Save and run ]` opens the pop-up that names the
-// file, holding the name it suggested from the template's name, builds the
-// request, and asks the loop for nothing, so nothing is written.
+// M7-63 (contract §3 test 1): `[ Save and run ]` writes and runs at once, so the
+// first `Enter` gives the built request, asks for no replace, and opens nothing.
 #[test]
-fn save_opens_the_popup_with_the_suggested_name() {
+fn save_and_run_saves_at_once() {
     let mut form = sid1(&["D404N"], "15");
     tab_to(&mut form, Field::Review);
+    match form.handle(Key::Enter) {
+        FormAction::Save { built, replace } => {
+            assert!(!replace, "the first enter asks for no replace");
+            let members: usize = match &built.request.operation {
+                OperationSpec::Edit(_) => 1,
+                OperationSpec::Variants { members, .. } => members.len(),
+                other => panic!("the line gives a variant set, gave {:?}", other),
+            };
+            assert_eq!(members, 1, "the request built is the one the line states");
+        }
+        other => panic!("the button gave {:?} instead of the built request", other),
+    }
     assert_eq!(
-        form.handle(Key::Enter),
-        FormAction::Continue,
-        "the button opens the pop-up, so the loop is asked for nothing"
-    );
-    assert_eq!(form.popup(), Popup::Naming, "the pop-up is open, naming");
-    assert_eq!(
-        form.save_as(),
-        "sid-1.request.json",
-        "the pop-up's name field holds the name suggested from the template's name"
-    );
-    assert_eq!(
-        form.popup_failure(),
-        None,
-        "the pop-up opens with no failure"
+        form.popup(),
+        Popup::Closed,
+        "the first enter opens no pop-up"
     );
 }
 
-// M7-48 (contract §3 test 2): the pop-up's name is edited with the keys a text
-// field takes, and the two names that cannot be written are its own failures, so
-// the loop is asked for nothing, and a name that is a name builds as the button
-// did.
+// M7-63 (contract §3 test 2), M7-37: `Save as` is a field again, between `Overlap`
+// and the button, filled from the name, and a name typed there is never replaced.
 #[test]
-fn the_popups_name_is_edited_and_checked() {
+fn save_as_is_a_field_after_overlap() {
     let mut form = sid1(&["D404N"], "15");
-    tab_to(&mut form, Field::Review);
-    form.handle(Key::Enter);
+    tab_to(&mut form, Field::Overlap);
+    let seen: Vec<Field> = focus_sequence(&mut form, 2);
+    assert_eq!(
+        seen[1..],
+        [Field::SaveAs, Field::Review],
+        "tabbing from Overlap reaches the name, then the button"
+    );
+    tab_to(&mut form, Field::SaveAs);
+    assert_eq!(
+        form.save_as(),
+        "sid-1.request.json",
+        "the field starts as the name suggested from the template's name"
+    );
+    type_text(&mut form, "-a");
+    assert_eq!(
+        form.save_as(),
+        "sid-1.request.json-a",
+        "typing in the field changes the name, as the other fields do"
+    );
+    // M7-37: a name the user wrote is never replaced, so `Name` fills nothing
+    // there after the typing (M7-63).
+    tab_to(&mut form, Field::Name);
+    type_text(&mut form, "x");
+    assert_eq!(
+        form.save_as(),
+        "sid-1.request.json-a",
+        "a later change to Name leaves the typed name as it is"
+    );
+}
+
+// M7-63 (contract §3 test 3): an empty name, and a name with a path separator, are
+// blockers on `SaveAs`, so the loop is asked for nothing, and a bad name is
+// checked before words are sent, so it never calls the model.
+#[test]
+fn a_bad_save_as_is_a_blocker() {
+    let mut form = sid1(&["D404N"], "15");
+    tab_to(&mut form, Field::SaveAs);
     for _ in 0..form.save_as().chars().count() {
         form.handle(Key::Backspace);
     }
     assert_eq!(form.save_as(), "", "Backspace clears the suggested name");
+    tab_to(&mut form, Field::Review);
     assert_eq!(
         form.handle(Key::Enter),
         FormAction::Continue,
         "an empty name asks the loop for nothing"
     );
     assert_eq!(
-        form.popup_failure(),
-        Some("write the request's file name".to_string()),
-        "the pop-up names the missing name"
+        form.blocker(),
+        Some((
+            Field::SaveAs,
+            None,
+            "write the request's file name".to_string()
+        )),
+        "the blocker names the field whose name is missing"
     );
-    assert_eq!(form.popup(), Popup::Naming, "the pop-up stays open");
 
-    type_text(&mut form, "sid-1/a.json");
+    // M7-63: the rule is on the field, so its keys are the field's own, and the
+    // blocker is set where the name is typed.
+    type_text(&mut form, "a/b.json");
+    assert_eq!(form.save_as(), "a/b.json", "the field takes what is typed");
+    tab_to(&mut form, Field::Review);
     assert_eq!(
         form.handle(Key::Enter),
         FormAction::Continue,
         "a path asks the loop for nothing"
     );
     assert_eq!(
-        form.popup_failure(),
-        Some("write a file name, not a path".to_string()),
-        "the pop-up says a path is no name"
-    );
-
-    // A name that is a name: `enter` builds exactly as `[ Save and run ]` did.
-    for _ in 0..form.save_as().chars().count() {
-        form.handle(Key::Backspace);
-    }
-    type_text(&mut form, "x.json");
-    match form.handle(Key::Enter) {
-        FormAction::Save { built, replace } => {
-            let members: usize = match &built.request.operation {
-                OperationSpec::Edit(_) => 1,
-                OperationSpec::Variants { members, .. } => members.len(),
-                other => panic!("the line gives a variant set, gave {:?}", other),
-            };
-            assert_eq!(members, 1, "the built request is the one the button built");
-            assert!(!replace, "enter asks for no replace");
-            assert_eq!(form.save_as(), "x.json", "the typed name is the name");
-        }
-        other => panic!("the pop-up gave {:?} instead of the built request", other),
-    }
-}
-
-// M7-48 (contract §3 test 3): `esc` on the pop-up closes it and leaves the form,
-// so `esc` is not the form's quit, and the form's values, its name included, are
-// kept.
-#[test]
-fn esc_closes_the_popup_and_keeps_the_form() {
-    let mut form = sid1(&["D404N"], "15");
-    tab_to(&mut form, Field::Review);
-    form.handle(Key::Enter);
-    type_text(&mut form, "-a");
-    assert_eq!(
-        form.handle(Key::Esc),
-        FormAction::Continue,
-        "esc closes the pop-up, so the loop is asked for nothing"
-    );
-    assert_eq!(form.popup(), Popup::Closed, "the pop-up is closed");
-    assert_eq!(form.focus(), Field::Review, "focus stays on the button");
-    assert_eq!(
-        form.save_as(),
-        "sid-1.request.json-a",
-        "the name typed in the pop-up is kept"
-    );
-    // The form takes its own keys again, `esc` included, which is its quit.
-    assert_eq!(
-        form.handle(Key::Esc),
-        FormAction::Quit,
-        "esc quits from the form"
+        form.blocker(),
+        Some((
+            Field::SaveAs,
+            None,
+            "write a file name, not a path".to_string()
+        )),
+        "the blocker says a path is no name"
     );
 }
 
-// M7-49 (contract §3 test 4): the pop-up that names the files already there
-// replaces only on `y`, which gives the action `enter` gave with `replace` true,
-// and any other key writes nothing and says so.
+// M7-49, M7-62 (contract §3 test 4): the action `[ Save and run ]` gave is kept,
+// so the pop-up that names the files already there replaces only on `y`, which
+// gives the same request with `replace` true, and any other key writes nothing,
+// closes the pop-up and says so on `SaveAs`.
 #[test]
 fn a_taken_name_asks_and_only_y_replaces() {
     let mut form = sid1(&["D404N"], "15");
     tab_to(&mut form, Field::Review);
-    form.handle(Key::Enter);
-    // `enter` on the name is the `Save` the loop answers by asking, since the
-    // name is there, so the action `enter` gave is kept for `y` to answer.
+    // The first `Enter` is the save, so the action it gave is kept for `y`.
     let first: Built = match form.handle(Key::Enter) {
         FormAction::Save { built, replace } => {
-            assert!(!replace, "enter asks for no replace");
+            assert!(!replace, "the first enter asks for no replace");
             *built
         }
-        other => panic!("the pop-up gave {:?} instead of the built request", other),
+        other => panic!("the button gave {:?} instead of the built request", other),
     };
     form.ask_replace(vec!["sid-1.request.json".to_string()]);
     assert_eq!(
@@ -752,26 +748,34 @@ fn a_taken_name_asks_and_only_y_replaces() {
         Popup::Replace(vec!["sid-1.request.json".to_string()]),
         "the pop-up names the file that is there"
     );
-    assert_eq!(
-        form.handle(Key::Char('n')),
-        FormAction::Continue,
-        "a key that is not `y` asks the loop for nothing"
-    );
-    assert_eq!(form.popup(), Popup::Naming, "the name pop-up is back");
-    assert_eq!(
-        form.popup_failure(),
-        Some("nothing was written".to_string()),
-        "the pop-up says nothing was written"
-    );
-    // The loop asks again with the same name, and `y` answers it.
-    form.ask_replace(vec!["sid-1.request.json".to_string()]);
     match form.handle(Key::Char('y')) {
         FormAction::Save { built, replace } => {
             assert!(replace, "y is the only key that replaces");
-            assert_eq!(*built, first, "the request `enter` built is the one y runs");
+            assert_eq!(
+                *built, first,
+                "the request the enter built is the one y runs"
+            );
         }
         other => panic!("the pop-up gave {:?} instead of the built request", other),
     }
+
+    // A fresh form, so the key that is not `y` is the only thing it does: it
+    // closes the pop-up, sets the blocker, and gives no save.
+    let mut other: NewForm = sid1(&["D404N"], "15");
+    tab_to(&mut other, Field::Review);
+    other.handle(Key::Enter);
+    other.ask_replace(vec!["sid-1.request.json".to_string()]);
+    assert_eq!(
+        other.handle(Key::Char('n')),
+        FormAction::Continue,
+        "a key that is not `y` asks the loop for nothing"
+    );
+    assert_eq!(other.popup(), Popup::Closed, "the pop-up is closed");
+    assert_eq!(
+        other.blocker(),
+        Some((Field::SaveAs, None, "nothing was written".to_string())),
+        "the blocker says nothing was written"
+    );
 }
 
 // M7-50 (contract §3 tests 3 to 6): the file list. The listings are given to the

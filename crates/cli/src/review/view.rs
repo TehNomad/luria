@@ -108,9 +108,9 @@ fn screen_lines(app: &App) -> Vec<String> {
             app.expanded(),
         ),
         Screen::Details(index) => match app.reading() {
-            // M7-61: in a preview the model's reading sits under the variant's
-            // technical lines, at the bottom of the screen `d` opens.
-            Some(reading) => text::preview_details(document, index, reading),
+            // M7-64: the model's reading sits under the variant's technical lines,
+            // at the bottom of the screen `d` opens.
+            Some(reading) => text::details_with_reading(document, index, reading),
             None => text::details(document, index),
         },
         Screen::Problem => text::problem(document),
@@ -227,13 +227,6 @@ fn proposal_badge() -> Span<'static> {
         " PROPOSAL ",
         Style::default().fg(Color::Black).bg(Color::Cyan),
     )
-}
-
-/// The preview's title words, in place of the experimental validation (M7-60):
-/// the design ran in memory and nothing is written yet (D046). The state badge
-/// stays in front of them, so the state is still on screen (D020).
-fn preview_words() -> Span<'static> {
-    Span::raw(" · preview, nothing is saved yet ")
 }
 
 /// The validation words: `not tested at the bench` when the document's
@@ -503,19 +496,11 @@ fn draw_help(frame: &mut Frame, area: Rect, app: &App) {
         Screen::Member(index) => expandable(document, index),
         _ => false,
     };
-    let lines: Vec<String> = match app.reading() {
-        // A preview's legend names the key its own screens add (M7-60).
-        Some(_) => text::preview_help(
-            app.screen(),
-            document.error.is_some() || !document.clarifications.is_empty(),
-            can_expand,
-        ),
-        None => text::help(
-            app.screen(),
-            document.error.is_some() || !document.clarifications.is_empty(),
-            can_expand,
-        ),
-    };
+    let lines: Vec<String> = text::help(
+        app.screen(),
+        document.error.is_some() || !document.clarifications.is_empty(),
+        can_expand,
+    );
     let width: u16 = lines
         .iter()
         .map(|line| line.chars().count())
@@ -556,12 +541,9 @@ pub fn draw(frame: &mut Frame, app: &App) {
 
     let document = app.document();
     let screen_area: Rect = Rect::new(0, 0, area.width, area.height - 1);
-    // A preview names itself in place of the validation, and keeps the badge
-    // (M7-60, D020); without a reading the title is as it was.
-    let tail: Span<'static> = match app.reading() {
-        Some(_) => preview_words(),
-        None => validation_words(document.experimental_validation),
-    };
+    // The title is the badge built from `state` and the validation words, whatever
+    // the reading is (M7-64, D020).
+    let tail: Span<'static> = validation_words(document.experimental_validation);
     let block: Block<'static> = frame_block(title_line(state_badge(document.state), tail));
     let inner: Rect = block.inner(screen_area);
     frame.render_widget(block, screen_area);
@@ -585,16 +567,8 @@ pub fn draw(frame: &mut Frame, app: &App) {
         // closes it.
         "q quit  esc close".to_string()
     } else {
-        let preview: bool = app.reading().is_some();
         let mut keys: String = match app.screen() {
-            Screen::Overview => {
-                // A preview has no export, so `x` is not on its key line (M7-60).
-                if preview {
-                    "q quit  enter open  j/k move".to_string()
-                } else {
-                    "q quit  enter open  j/k move  x export".to_string()
-                }
-            }
+            Screen::Overview => "q quit  enter open  j/k move  x export".to_string(),
             Screen::Member(index) => {
                 // `i` is offered only where `i` expands, that is on a member whose
                 // design writes more than the inline limit, and it names the state the
@@ -633,16 +607,6 @@ pub fn draw(frame: &mut Frame, app: &App) {
             && (document.error.is_some() || !document.clarifications.is_empty())
         {
             keys.push_str("  e problem");
-        }
-        // M7-60: `a` opens the save pop-up on a preview's variant screens, so
-        // their key lines name it, and the other screens' do not.
-        if preview
-            && matches!(
-                app.screen(),
-                Screen::Overview | Screen::Member(_) | Screen::Details(_)
-            )
-        {
-            keys.push_str("  a save");
         }
         // M7-27, M7-53: `?` opens the legend on every screen, Export included, so
         // it is offered on every key line.

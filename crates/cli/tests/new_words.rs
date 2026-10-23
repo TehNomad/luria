@@ -623,7 +623,6 @@ fn blank_words_keep_the_shorthand_path() {
     tab_to(&mut form, Field::Mutations);
     type_text(&mut form, "   ");
     tab_to(&mut form, Field::Review);
-    form.handle(Key::Enter);
     match form.handle(Key::Enter) {
         FormAction::Save { built, replace } => {
             let members: usize = match &built.request.operation {
@@ -631,8 +630,56 @@ fn blank_words_keep_the_shorthand_path() {
                 other => panic!("the two lines give a set of variants, gave {:?}", other),
             };
             assert_eq!(members, 2, "the shorthand lines are the form's own request");
-            assert!(!replace, "the pop-up's enter asks for no replace");
+            assert!(!replace, "the first enter asks for no replace");
         }
-        other => panic!("the pop-up gave {:?} instead of the built request", other),
+        other => panic!("the button gave {:?} instead of the built request", other),
     }
+}
+
+// M7-62 (contract §3 test 5): words give `Interpret`, and the save `[ Save and run ]`
+// kept is the words save, so `y` on the pop-up that names a taken file gives the
+// same save with `replace` true.
+#[test]
+fn words_then_y_replace() {
+    let row: Vec<String> = row_of("two-separate");
+    let mut form = words_form(&row);
+    assert!(
+        matches!(form.handle(Key::Enter), FormAction::Interpret { .. }),
+        "the words box goes to the model"
+    );
+    form.ask_replace(vec!["x.json".to_string()]);
+    match form.handle(Key::Char('y')) {
+        FormAction::SaveWords { replace } => {
+            assert!(replace, "y is the only key that replaces");
+        }
+        other => panic!("the pop-up gave {:?} instead of the words save", other),
+    }
+}
+
+// M7-63 (contract §3 test 6): the `Save as` name is checked before words are sent,
+// so a bad name gives its blocker and never calls the model.
+#[test]
+fn a_bad_save_as_never_calls_the_model() {
+    let row: Vec<String> = row_of("two-separate");
+    let mut form = words_form(&row);
+    tab_to(&mut form, Field::SaveAs);
+    for _ in 0..form.save_as().chars().count() {
+        form.handle(Key::Backspace);
+    }
+    assert_eq!(form.save_as(), "", "Backspace clears the suggested name");
+    tab_to(&mut form, Field::Review);
+    assert_eq!(
+        form.handle(Key::Enter),
+        FormAction::Continue,
+        "the missing name asks the loop for nothing, so no words are sent"
+    );
+    assert_eq!(
+        form.blocker(),
+        Some((
+            Field::SaveAs,
+            None,
+            "write the request's file name".to_string()
+        )),
+        "the blocker names the field whose name is missing"
+    );
 }

@@ -333,7 +333,8 @@ type WordsModel = dyn FnMut(&str, &str, ProfileDocument, &str) -> Interpretation
 /// §3 rule 7, §3.7, exit 2). `--design` is read with `parse_profile`, and a
 /// refusal is exit 4 with its message, before the screen opens, as
 /// `emit_review_interpret` gives exit 4 for the request location. Nothing is
-/// written until `a` then `y` (plan §3 rule 4). The request the approval wrote is
+/// written and run at once, under the form's `Save as` name (M7-62, M7-63). The
+/// request the approval wrote is
 /// the file the export names, and the plan is built from the document the screen
 /// shows, so the result screens are 7a's, opened exactly as
 /// `emit_review_interpret` opens them (7g1). The exit status is 0 whatever the
@@ -374,8 +375,8 @@ fn emit_new(
                                 profile: None,
                                 write_request: None,
                             };
-                            // The run writes nothing: the approval writes the request
-                            // the save pop-up names (plan §3 rule 4). The CDS the
+                            // The run writes nothing: the approval writes the
+                            // request under the form's `Save as` name (M7-63). The CDS the
                             // form picked answers words that name no CDS (M7-59).
                             interpret_with_form(&input, profile, cds, &mut openai).document
                         },
@@ -417,10 +418,14 @@ fn emit_new(
                 }
             };
             let mut written: Option<PathBuf> = None;
+            // The model's reading, kept for the result screens, where it is shown
+            // at the bottom of each variant's Details (M7-64).
+            let mut reading: Option<Vec<String>> = None;
             match new::terminal::run_new(
                 NewForm::new(profile.as_ref(), words_enabled),
                 &cwd,
                 &mut written,
+                &mut reading,
                 &mut interpret_new,
             ) {
                 // Quit before `y`: nothing was written and nothing ran, so 0 is
@@ -431,16 +436,19 @@ fn emit_new(
                     let plan: Option<ExportPlan> = export
                         .as_deref()
                         .map(|directory| export_plan(&approved.document, &request, directory));
-                    match review::terminal::run(
-                        App::new(approved.document)
-                            .with_template(approved.template)
-                            .with_frames(approved.frames)
-                            .with_export(plan),
-                        &mut |app: &App, replace: bool| match app.export_plan() {
-                            Some(plan) => write_export(plan, app.document(), replace),
-                            None => Err("no export directory was given".to_string()),
-                        },
-                    ) {
+                    let mut app: App = App::new(approved.document)
+                        .with_template(approved.template)
+                        .with_frames(approved.frames)
+                        .with_export(plan);
+                    if let Some(lines) = reading {
+                        app = app.with_reading(lines);
+                    }
+                    match review::terminal::run(app, &mut |app: &App, replace: bool| match app
+                        .export_plan()
+                    {
+                        Some(plan) => write_export(plan, app.document(), replace),
+                        None => Err("no export directory was given".to_string()),
+                    }) {
                         Ok(()) => ExitStatus::Success,
                         Err(problem) => {
                             write_err(

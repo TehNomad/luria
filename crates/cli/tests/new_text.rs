@@ -148,7 +148,7 @@ fn the_sid1_form_reads_as_drawn() {
         "15",
     );
     let body: FormText = form_lines(&form);
-    let expected: [&str; 24] = [
+    let expected: [&str; 25] = [
         "Template   ◉ file  ○ paste",
         "  File     sid-1_cDNA.fa",
         "           sid-1_cDNA.fa, FASTA",
@@ -172,6 +172,7 @@ fn the_sid1_form_reads_as_drawn() {
         "",
         "Primers    inline (confine to tail not supported yet)",
         "Overlap    15 nt",
+        "Save as    sid-1.request.json",
         "           [ Save and run ]",
     ];
     assert_eq!(
@@ -262,53 +263,33 @@ fn the_focus_line_follows_tab() {
     assert!(body.cursor.is_some(), "the cursor is in the text field");
 }
 
-// M7-48 (contract §3 test 7): the pop-up says what it writes, where it goes, the
-// failure it is holding, and the keys that answer it, and the pop-up that names
-// the files already there names them in order (M7-49). With the pop-up open, the
-// form's own body has no cursor, since the name typed carries it.
+// M7-49, M7-63 (contract §3, planner answer 2): the pop-up left asks before a file
+// is replaced, naming the files luria would write in the order given, with the
+// keys that answer it. With the pop-up open, the form's own body has no cursor.
 #[test]
 fn the_popup_says_what_it_writes() {
-    // The `sid-1` file form, with the pop-up `[ Save and run ]` opened.
+    // The `sid-1` file form, asked about the name the write would use.
     let mut form = sid1(&["D404N"], "15");
-    tab_to(&mut form, Field::Review);
-    form.handle(Key::Enter);
+    form.ask_replace(vec!["sid-1.request.json".to_string()]);
     let expected: [&str; 4] = [
-        "Request    sid-1.request.json",
-        "           beside sid-1_cDNA.fa",
+        "These files exist:",
+        "  sid-1.request.json",
         "",
-        "enter save and run  esc back",
+        "y replace them  any other key: back",
     ];
     assert_eq!(
         popup_lines(&form),
         expected.to_vec(),
-        "the file form says the name, and the template file it goes beside"
+        "the pop-up names the request, and the keys that answer it"
     );
     assert!(
         form_lines(&form).cursor.is_none(),
         "the form's cursor is the pop-up's, not the field's"
     );
 
-    // The paste form: the request and the pasted FASTA, both in the current
-    // directory, with the failure the write gave.
+    // The paste form: both files it writes, named in the order the loop gives
+    // them (M7-49).
     let mut paste = syn_paste();
-    tab_to(&mut paste, Field::Review);
-    paste.handle(Key::Enter);
-    paste.save_failed("nothing was written".to_string());
-    let expected: [&str; 6] = [
-        "Request    syn.request.json",
-        "           in the current directory",
-        "Template   syn.fa, from the paste",
-        "✗ nothing was written",
-        "",
-        "enter save and run  esc back",
-    ];
-    assert_eq!(
-        popup_lines(&paste),
-        expected.to_vec(),
-        "the paste form says both files, and the failure line is its own"
-    );
-
-    // The pop-up that names the files luria would write that are there (M7-49).
     paste.ask_replace(vec!["syn.fa".to_string(), "syn.request.json".to_string()]);
     let expected: [&str; 5] = [
         "These files exist:",

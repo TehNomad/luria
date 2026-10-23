@@ -494,12 +494,16 @@ pub fn details(document: &ResultDocument, index: usize) -> Vec<String> {
     lines
 }
 
-/// A preview's details screen (M7-61, contract 7m8b §2.2): `details`' own lines,
-/// one empty line, the heading, then the model's reading with each line indented
-/// by two spaces, so it sits inside the body as the provenance does. An empty
-/// reading line stays empty, so the spacing `text::proposal` gave is kept. Nothing
-/// is added to, changed in or removed from `details`' lines.
-pub fn preview_details(document: &ResultDocument, index: usize, reading: &[String]) -> Vec<String> {
+/// The details screen with the model's reading under it (M7-64): `details`' own
+/// lines, one empty line, the heading, then the model's reading with each line
+/// indented by two spaces, so it sits inside the body as the provenance does. An
+/// empty reading line stays empty, so the spacing `text::proposal` gave is kept.
+/// Nothing is added to, changed in or removed from `details`' lines.
+pub fn details_with_reading(
+    document: &ResultDocument,
+    index: usize,
+    reading: &[String],
+) -> Vec<String> {
     let mut lines: Vec<String> = details(document, index);
     lines.push(String::new());
     lines.push("the model's reading of your words:".to_string());
@@ -1298,33 +1302,6 @@ pub fn help(screen: Screen, problem: bool, expandable: bool) -> Vec<String> {
     }
     lines.push(key("q", "quit"));
     lines.push(key("ctrl-c", "quit"));
-    lines
-}
-
-/// One key line of the help legend, formatted as `help` formats its own: the key
-/// padded to 11, then its words (M7-60).
-fn legend_key(key: &str, words: &str) -> String {
-    format!("  {:width$}{}", key, words, width = 11)
-}
-
-/// The help legend of a preview (M7-60, contract 7m8b §2.2): `help`'s own lines,
-/// with `a` naming the save key just before the `q` line on the overview, a
-/// sequence screen and a details screen, where `a` opens the save pop-up. `help`
-/// is unchanged, so a screen with no reading keeps its own legend.
-pub fn preview_help(screen: Screen, problem: bool, expandable: bool) -> Vec<String> {
-    // The save key belongs to the variant screens only, so a preview's problem,
-    // export or prompt legend is `help`'s own, `a` not added (M7-60).
-    if !matches!(
-        screen,
-        Screen::Overview | Screen::Member(_) | Screen::Details(_)
-    ) {
-        return help(screen, problem, expandable);
-    }
-    let mut lines: Vec<String> = help(screen, problem, expandable);
-    // `help` ends with its `q` line then its `ctrl-c` line, so the `q` line is
-    // the one before the last, and `a` goes just before it.
-    let at: usize = lines.len().saturating_sub(2);
-    lines.insert(at, legend_key("a", "save and run"));
     lines
 }
 

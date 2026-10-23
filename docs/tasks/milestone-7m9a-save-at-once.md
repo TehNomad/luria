@@ -1,6 +1,6 @@
 # Milestone 7m9a: `[ Save and run ]` writes and runs at once
 
-Status: **Ready for the worker, 2026-10-22.** Planner: Claude. Parent:
+Status: **Implemented, 2026-10-23.** Planner: Claude. Parent:
 `docs/tasks/milestone-7m-polish.md`, M7-62 to M7-65. Follows 7m8b
 (committed `c1d650f`). 7m9b later removes 7m8a's in-memory run.
 
@@ -271,3 +271,13 @@ compile. Its four questions:
    the button (the 7m3 layout has none). The sid-1 expected lines in
    `new_text.rs` gain only `Save as`; a paste form's expected lines, if a
    test pins them, gain both rows.
+
+## 7. Implementation notes (planner, 2026-10-23)
+
+- Three workers: w7m9a and w7m9b ran out of context; w7m9c finished.
+- 1150 tests passed, 0 failed, 1 ignored; fmt, clippy, diff check clean;
+  fixtures 19 of 19. Both §3.1 proofs failed as required.
+- Approved beyond §3: `new_form.rs::focus_order_is_screen_order` expects
+  `[Overlap, SaveAs, Review]` (§3 test 2's rule).
+- `review/terminal.rs` is byte-identical to its state before 7m8b.
+- Untested: the terminal loop's save at once (the owner's hand test).

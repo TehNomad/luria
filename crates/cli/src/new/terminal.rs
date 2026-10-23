@@ -4,23 +4,21 @@
 //! the form, answers `FormAction::Load` by reading the file the form typed
 //! relative to the current directory, lists the directory typed in `File` once
 //! per directory with `picker::list` before each draw (M7-50), passes a bracketed
-//! paste to `NewForm::paste`, and answers the pop-up `[ Save and run ]` opens: the
-//! pop-up's `enter` gives `Save`, `plan` names the files it writes,
-//! `approve_new` writes them, and the design runs from the request file it wrote,
-//! so nothing is written before `enter` and quitting writes nothing (7f2's rule).
-//! When a name is already there the pop-up asks, and only `y` replaces (M7-49).
-//! With words typed (7k7, M7-40) the same session draws the proposal screen and
-//! the pop-up over it: `interpret` is called once, its approval is the same
-//! pop-up, whose `enter` gives `SaveWords` and runs
-//! `review::approve_replacing`, `esc` closes the pop-up so the proposal is shown
-//! again with the form's values kept, and `ctrl-c` ends the session (M7-43). The
-//! proposal's own `a`/`y` confirmation is not used in `luria new`. A reading that
-//! can be saved is previewed (M7-60, M7-61): `preview` runs the design in memory,
-//! the variant screens are drawn with the pop-up over them, `a` opens the pop-up,
-//! whose `enter` gives the same `SaveWords`, and `q`, or `esc` on the overview, goes
-//! back to the form with its values kept, so nothing is written before the pop-up is
-//! answered. A reading with questions, an error, or nothing to save has no preview,
-//! so the proposal screen opens as it did. There is no
+//! paste to `NewForm::paste`, and answers `Save` the form gives at once: `plan`
+//! names the files it writes, `approve_new` writes them, and the design runs from
+//! the request file it wrote, so quitting before the save writes nothing (7f2's
+//! rule). When a name is already there the pop-up asks, and only `y`
+//! replaces (M7-49).
+//! With words typed (7k7, M7-40) the same session draws the proposal screen:
+//! `interpret` is called once per `[ Save and run ]`, and a reading with no
+//! questions is written and run at once, `review::approve_replacing` at the path
+//! the `Save as` name gives, asked to replace only when the user answered `y`
+//! (M7-62, M7-64). A reading with questions, an error, a refusal, or nothing to
+//! save is shown on the proposal screen and writes nothing; `q` or `esc` goes
+//! back to the form with its values kept, and `ctrl-c` ends the session (M7-43).
+//! The proposal's own `a`/`y` confirmation is not used in `luria new`, and the
+//! form opens no save from the proposal screen: the reading's document is kept,
+//! so the `Replace` pop-up's `y` writes it. There is no
 //! unit test here, as there is none in `review/terminal`: the form, the pop-up
 //! and the drawing are tested in `new/form`, `new/text`, `new/view` and
 //! `new/confirm`.
@@ -33,12 +31,12 @@ use crate::new::view::draw_form;
 use crate::new::view::draw_popup;
 use crate::new::view::draw_waiting;
 use crate::request::ProfileDocument;
-use crate::review::app::{Action, App, Key};
+use crate::review::app::Key;
 use crate::review::approve_replacing;
 use crate::review::proposal::{self, ProposalAction, ProposalApp};
+use crate::review::text::proposal as proposal_text;
 use crate::review::view;
 use crate::review::Approved;
-use ratatui::layout::Rect;
 
 use crossterm::event::{
     read, DisableBracketedPaste, EnableBracketedPaste, Event, KeyCode, KeyEvent, KeyEventKind,
@@ -77,18 +75,6 @@ fn key_of(key: KeyEvent) -> Key {
     }
 }
 
-/// The terminal's current size, as the area the preview draws on: `0, 0` and the
-/// backend's width and height, so `view::max_scroll` clamps the preview's scroll
-/// the way `review::terminal` clamps the review's (M7-56). `None` when the size
-/// cannot be read, in which case the scroll is left as the app gave it. Copied
-/// from `review::terminal`, where it is private.
-fn area_of<B: ratatui::backend::Backend>(terminal: &ratatui::Terminal<B>) -> Option<Rect> {
-    match terminal.backend().size() {
-        Ok(size) => Some(Rect::new(0, 0, size.width, size.height)),
-        Err(_) => None,
-    }
-}
-
 /// The template file the form typed, read as the loop's answer to
 /// `FormAction::Load`: `path` is what the `File` field holds, read relative to
 /// `cwd`, which is the rule 7k3's doc states for the loop.
@@ -122,6 +108,25 @@ fn request_path(form: &NewForm, cwd: &Path) -> PathBuf {
     dir.join(form.save_as())
 }
 
+/// The words save of `[ Save and run ]`: `approve_replacing` at the path the
+/// `Save as` name gives, exactly as `luria review --template` runs it (7f2),
+/// asked to replace only when the user answered `y` (M7-49), with the reading the
+/// result screens show at the bottom of Details (M7-64). The request it wrote is
+/// returned, since that is the file the design ran as.
+fn save_words(
+    form: &NewForm,
+    cwd: &Path,
+    words: &(InterpretationDocument, PathBuf),
+    replace: bool,
+) -> Result<(PathBuf, Approved, Vec<String>), String> {
+    let request: PathBuf = request_path(form, cwd);
+    let (document, template) = words;
+    match approve_replacing(document, template, &request, replace) {
+        Ok(found) => Ok((request, found, proposal_text(document))),
+        Err(problem) => Err(problem),
+    }
+}
+
 /// A path's file name, as the pop-up names a file whose name is already taken
 /// (M7-49). `confirm`'s own rule, kept here for the words case, which builds no
 /// `Planned`.
@@ -132,26 +137,32 @@ fn name_of(path: &Path) -> String {
     }
 }
 
-/// One terminal session on the form: draw the form, then the pop-up the form
-/// opens once `[ Save and run ]` built, until the user quits, which gives
-/// `Ok(None)` and has written and run nothing, or an approval succeeds, which
-/// gives `Ok(Some(approved))`, and restore the terminal whatever happens (plan
+/// One terminal session on the form: draw the form, and the pop-up that asks
+/// before a file is replaced, until the user quits, which gives `Ok(None)` and
+/// has written and run nothing, or an approval succeeds, which gives
+/// `Ok(Some(approved))`, and restore the terminal whatever happens (plan
 /// §3 rule 7). `written` is the request file the approval wrote, `None` when none
-/// was, so the shell can name it in the export plan (7g1).
+/// was, so the shell can name it in the export plan (7g1). `reading` is the
+/// model's reading, the request as written, shown at the bottom of each variant's
+/// Details on the result screens (M7-64): `Some` after a words save, `None` after
+/// a built save, since only words have a reading to show.
 ///
 /// `interpret` is called only on `FormAction::Interpret`, which the form gives
 /// when the words box holds text with a GenBank template loaded (M7-40): the
 /// template path as typed, the words as typed, the design the form shows
 /// (M7-41), and the CDS the form picked (M7-59), which the closure gives
-/// `interpret_with_form`. Its document is the proposal drawn in this session, and
-/// its approval is the pop-up over it, whose
-/// `enter` runs `review::approve_replacing`, exactly as `luria review --template`
-/// runs it (7f2), asked to replace only when the user answered `y` (M7-49). The
+/// `interpret_with_form`. A document with no questions is written and run at
+/// once (M7-62), the request at the path the `Save as` name gives; a name already
+/// there is named, and only `y` replaces (M7-49). A document with questions is
+/// drawn as the proposal, and writes nothing; `q` or `esc` goes back to the form,
+/// and `ctrl-c` ends the session (M7-43). The loop opens no save from the
+/// proposal, so the proposal's own `a` is not used in `luria new`. The
 /// loop is the owner's hand test.
 pub fn run_new(
     form: NewForm,
     cwd: &Path,
     written: &mut Option<PathBuf>,
+    reading: &mut Option<Vec<String>>,
     interpret: &mut dyn FnMut(&str, &str, ProfileDocument, &str) -> InterpretationDocument,
 ) -> std::io::Result<Option<Approved>> {
     let mut terminal = match ratatui::try_init() {
@@ -173,14 +184,11 @@ pub fn run_new(
     let _ = execute!(handle, EnableBracketedPaste);
 
     let mut form = form;
-    // The proposal screen, and the template path the words were typed with, which
-    // the approval reads (M7-40).
+    // The proposal screen, drawn for a reading with questions, which writes
+    // nothing, and the words reading kept for the save: the document, and the
+    // template path the words were typed with, which the approval reads (M7-40).
     let mut proposal: Option<ProposalApp> = None;
-    let mut words_template: Option<PathBuf> = None;
-    // M7-60, M7-61: the preview of a reading that can be saved, the design run in
-    // memory, drawn on the variant screens with the reading at the bottom of
-    // Details. The proposal is kept as well, because the save uses its document.
-    let mut preview: Option<App> = None;
+    let mut words: Option<(InterpretationDocument, PathBuf)> = None;
     let mut approved: Option<Approved> = None;
     let mut looped: std::io::Result<()> = Ok(());
 
@@ -195,25 +203,16 @@ pub fn run_new(
                 form.set_listing(dir, listed);
             }
         }
-        // M7-48: the proposal is drawn with the pop-up over it, and `draw_popup`
-        // draws nothing when no pop-up is open.
-        // M7-48, M7-60: the preview, the proposal and the form are each drawn
-        // with the pop-up over them, and `draw_popup` draws nothing when no pop-up
-        // is open.
-        let drawing: std::io::Result<()> = match (&preview, &proposal) {
-            (Some(app), _) => terminal
-                .draw(|frame| {
-                    view::draw(frame, app);
-                    draw_popup(frame, &form);
-                })
-                .map(|_| ()),
-            (None, Some(app)) => terminal
+        // M7-49: the proposal and the form are each drawn with the pop-up over
+        // them, and `draw_popup` draws nothing when no pop-up is open.
+        let drawing: std::io::Result<()> = match &proposal {
+            Some(app) => terminal
                 .draw(|frame| {
                     view::draw_proposal(frame, app);
                     draw_popup(frame, &form);
                 })
                 .map(|_| ()),
-            (None, None) => terminal.draw(|frame| draw_form(frame, &form)).map(|_| ()),
+            None => terminal.draw(|frame| draw_form(frame, &form)).map(|_| ()),
         };
         if let Err(problem) = drawing {
             looped = Err(problem);
@@ -226,106 +225,58 @@ pub fn run_new(
                 break;
             }
             Ok(Event::Paste(text)) => {
-                // A paste is the form's own: the proposal and its preview take no
-                // text, and with a pop-up open its keys go to the pop-up, so a
-                // paste types nothing (M7-60).
-                if proposal.is_none() && preview.is_none() && form.popup() == Popup::Closed {
+                // A paste is the form's own: the proposal takes no text, and with
+                // a pop-up open its keys go to the pop-up, so a paste types
+                // nothing.
+                if proposal.is_none() && form.popup() == Popup::Closed {
                     form.paste(&text);
                 }
             }
             Ok(Event::Key(key)) if key.kind == KeyEventKind::Press => {
                 let pressed: Key = key_of(key);
-                if preview.is_some() || proposal.is_some() {
-                    // M7-48, M7-60: with a pop-up open over the preview or over
-                    // the proposal every key goes to the form, which holds it, so
-                    // the pop-up's `enter`, the replace prompt and a refused write
-                    // behave exactly as they do now.
+                if form.popup() != Popup::Closed || proposal.is_some() {
                     if form.popup() != Popup::Closed {
+                        // M7-49, M7-62: with a pop-up open every key goes to the
+                        // form, which holds it, so `ctrl-c` quits first, the
+                        // replace prompt asks, and a refused write says so on
+                        // `SaveAs`.
                         match form.handle(pressed) {
                             FormAction::Quit => break,
                             FormAction::SaveWords { replace } => {
-                                // The words path builds no `Built`, so the
-                                // request is the path the approval writes.
-                                let request: PathBuf = request_path(&form, cwd);
-                                if !replace && fs::symlink_metadata(&request).is_ok() {
-                                    // M7-49: the name is already there, so the
-                                    // pop-up asks, and nothing is written yet.
-                                    form.ask_replace(vec![name_of(&request)]);
-                                    continue;
-                                }
-                                let template: PathBuf = words_template
-                                    .clone()
-                                    .expect("a proposal came from words with its template");
-                                // The preview is a run in memory, so the save uses
-                                // the proposal's document, which is kept for it.
-                                let reading: &InterpretationDocument = proposal
-                                    .as_ref()
-                                    .expect("the save pop-up sits over a proposal")
-                                    .document();
-                                match approve_replacing(reading, &template, &request, replace) {
-                                    // The request the approval wrote is the
-                                    // file it ran, so the loop ends.
-                                    Ok(found) => {
-                                        *written = Some(request);
-                                        approved = Some(found);
-                                        break;
+                                // The words path builds no `Built`, so the request
+                                // is the path the approval writes, and `y` gives
+                                // the save `[ Save and run ]` kept (M7-62).
+                                if let Some(kept) = words.as_ref() {
+                                    match save_words(&form, cwd, kept, replace) {
+                                        // The request the approval wrote is the
+                                        // file it ran, so the session ends, and the
+                                        // reading goes to the result screens (M7-64).
+                                        Ok((request, saved, read)) => {
+                                            *written = Some(request);
+                                            *reading = Some(read);
+                                            approved = Some(saved);
+                                            break;
+                                        }
+                                        // M7-63: the pop-up closes, and the line
+                                        // the write gave is `SaveAs`'s blocker.
+                                        Err(message) => form.save_failed(message),
                                     }
-                                    // The pop-up names the request and keeps
-                                    // the screen under it, as 7f2's does.
-                                    Err(message) => form.save_failed(message),
                                 }
                             }
-                            // `esc` closed the pop-up, so the screen under it is
-                            // drawn again with the form's values kept.
+                            // `esc` and any other key closed the pop-up, so the
+                            // screen under it is drawn again with the values kept.
                             _ => {}
                         }
                     } else if pressed == Key::CtrlC {
-                        // `ctrl-c` ends the session on every screen (M7-43), the
-                        // preview included.
+                        // `ctrl-c` ends the session on every screen (M7-43).
                         break;
-                    } else if preview.is_some() {
-                        // M7-60: `a` on a preview's variant screens asks for the
-                        // save, so it opens the pop-up that names the file, and
-                        // `q`, or `esc` on the overview, goes back to the form.
-                        let mut quit: bool = false;
-                        if let Some(app) = preview.as_mut() {
-                            match app.handle(pressed) {
-                                Action::Approve => form.open_words_popup(),
-                                Action::Quit => quit = true,
-                                _ => {}
-                            }
-                            if !quit {
-                                // M7-56: as on the review screens, the scroll stops
-                                // at the bottom, so it is clamped after every key.
-                                if let Some(area) = area_of(&terminal) {
-                                    app.clamp_scroll(view::max_scroll(app, area));
-                                }
-                            }
-                        }
-                        if quit {
-                            // Back to the form with its values kept, and nothing
-                            // written (M7-60), so the model is not called again
-                            // until the next `[ Save and run ]`.
-                            preview = None;
+                    } else if let Some(app) = proposal.as_mut() {
+                        // M7-62: a reading with questions writes nothing, so `q`
+                        // or `esc` goes back to the form, whose values are kept,
+                        // and the loop opens no save from this screen, so `a` is
+                        // not used in `luria new`.
+                        if app.handle(pressed) == ProposalAction::Quit {
                             proposal = None;
-                        }
-                    } else if pressed == Key::Char('a')
-                        && proposal::approvable(
-                            proposal.as_ref().expect("a proposal is open").document(),
-                        )
-                    {
-                        // M7-48: `a` opens the pop-up that names the file, so
-                        // the proposal's own `a`/`y` confirmation is not used
-                        // in `luria new`.
-                        form.open_words_popup();
-                    } else {
-                        // `q` or `esc` goes back to the form, whose values
-                        // are kept, so the model is not called again until
-                        // the next `[ Save and run ]` (contract §2.4).
-                        if let Some(app) = proposal.as_mut() {
-                            if app.handle(pressed) == ProposalAction::Quit {
-                                proposal = None;
-                            }
                         }
                     }
                 } else {
@@ -336,6 +287,8 @@ pub fn run_new(
                             form.loaded(&path, read);
                         }
                         FormAction::Save { built, replace } => {
+                            // M7-63: the first `Enter` gives the save, so the
+                            // write happens at once, with no pop-up before it.
                             let directory: Option<PathBuf> = template_dir(&form, cwd);
                             let planned: Planned =
                                 plan(*built, directory.as_deref(), cwd, &form.save_as());
@@ -354,8 +307,8 @@ pub fn run_new(
                                     approved = Some(found);
                                     break;
                                 }
-                                // The pop-up stays open with the line the write
-                                // gave, as 7f2's confirmation showed it.
+                                // M7-63: the line the write gave is `SaveAs`'s
+                                // blocker, and no pop-up is open.
                                 Err(message) => form.save_failed(message),
                             }
                         }
@@ -373,28 +326,38 @@ pub fn run_new(
                             // and the request is the path the approval will write.
                             let document: InterpretationDocument =
                                 interpret(&template, &text, profile, &cds);
-                            words_template = Some(PathBuf::from(&template));
-                            let request: PathBuf = request_path(&form, cwd);
-                            // M7-60, M7-61: a reading that can be saved is designed
-                            // in memory and kept as the preview the variant screens
-                            // draw, with the reading itself at the bottom of
-                            // Details. A reading with questions, an error, a
-                            // refusal, or nothing to save is not previewed, and the
-                            // proposal screen opens as it does now.
-                            preview = if proposal::approvable(&document) {
-                                match crate::review::preview(&document, &request) {
-                                    Ok(found) => Some(
-                                        App::new(found.document)
-                                            .with_template(found.template)
-                                            .with_frames(found.frames)
-                                            .with_reading(crate::review::text::proposal(&document)),
-                                    ),
-                                    Err(_problem) => None,
+                            if proposal::approvable(&document) {
+                                // M7-62, M7-64: a reading with no questions is
+                                // written and run at once, so it is kept for the
+                                // save, for the reading shown on the results, and
+                                // for the `y` when the name is already there.
+                                words = Some((document, PathBuf::from(&template)));
+                                let request: PathBuf = request_path(&form, cwd);
+                                if fs::symlink_metadata(&request).is_ok() {
+                                    // M7-49: the name is already there, so the
+                                    // pop-up asks, and nothing is written yet.
+                                    form.ask_replace(vec![name_of(&request)]);
+                                    continue;
+                                }
+                                if let Some(kept) = words.as_ref() {
+                                    match save_words(&form, cwd, kept, false) {
+                                        Ok((written_path, saved, read)) => {
+                                            *written = Some(written_path);
+                                            *reading = Some(read);
+                                            approved = Some(saved);
+                                            break;
+                                        }
+                                        Err(message) => form.save_failed(message),
+                                    }
                                 }
                             } else {
-                                None
-                            };
-                            proposal = Some(ProposalApp::new(document, request));
+                                // M7-62: a reading with questions, an error, a
+                                // refusal, or nothing to save writes nothing, so
+                                // the proposal screen opens as it did, and `q` or
+                                // `esc` goes back to the form.
+                                proposal =
+                                    Some(ProposalApp::new(document, request_path(&form, cwd)));
+                            }
                         }
                         _ => {}
                     }

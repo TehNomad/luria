@@ -1,14 +1,15 @@
-//! The words preview on the variant screens (contract 7m8b, M7-60, M7-61): when
-//! the model's reading can be approved, `luria new` runs the design in memory and
-//! opens on the result screens as a preview, with nothing saved, and the reading
-//! itself at the bottom of each variant's Details screen.
+//! The model's reading on the result screens (contract 7m9a, M7-64, M7-65): the
+//! reading is shown at the bottom of each variant's Details screen, and nothing
+//! else changes when a reading is set: the title stays the state badge and the
+//! validation words, the key lines and the help are the plain ones, and there is
+//! no `a` save key (M7-65).
 //!
-//! The preview is built as `7m8a`'s `a_preview_is_the_saved_run` builds it: the
-//! corpus case `two-separate` through `interpret` with the scripted backend, then
-//! `review::preview`, so the document, the template letters and the frames are the
-//! saved run's, and the reading is `text::proposal` of the interpretation. Nothing
-//! is written: the request path the preview names stays empty, as
-//! `tests/review_approve.rs` proves.
+//! The screens are built as `7m8a`'s tests build them: the corpus case
+//! `two-separate` through `interpret` with the scripted backend, then
+//! `review::preview`, so the document, the template letters and the frames are
+//! the saved run's, and the reading is `text::proposal` of the interpretation.
+//! `review::preview` stays for these tests to build a run's document, and writes
+//! nothing; `7m9b` removes it.
 //!
 //! The screen is drawn on a `ratatui` test backend of 120 by 40 and read back as
 //! rows, as `tests/review_view.rs` reads `luria review`'s screen: row 0 is the
@@ -194,7 +195,7 @@ fn area() -> Rect {
     Rect::new(0, 0, WIDTH, HEIGHT)
 }
 
-/// The reading as `preview_details` draws it: every line indented by two spaces,
+/// The reading as `details_with_reading` draws it: every line indented by two spaces,
 /// an empty line kept empty.
 fn indented(reading: &[String]) -> Vec<String> {
     reading
@@ -209,130 +210,76 @@ fn indented(reading: &[String]) -> Vec<String> {
         .collect()
 }
 
-// M7-60: the title says the screen is a preview, and the state is still on it
-// (D020). The experimental validation words are gone.
+// M7-64, M7-65: a reading changes Details only. The title keeps the validation
+// words, the overview's key line names the export and no save, `a` asks for
+// nothing and `x` opens the export screen as on a result.
 #[test]
-fn a_preview_says_nothing_is_saved() {
-    let (dir, app, _reading, request) = preview_of("title", "two-separate");
-    assert!(
-        !request.exists(),
-        "the preview wrote no file at {:?}",
-        request
-    );
+fn a_reading_changes_only_details() {
+    let (dir, mut app, reading, _request) = preview_of("only-details", "two-separate");
 
     let rows: Vec<String> = screen(&app, WIDTH, HEIGHT);
     let title: &String = &rows[0];
     assert!(
-        title.contains("✓ verified"),
-        "the state badge stays on the title row: {}",
+        title.contains("not tested at the bench"),
+        "the title is the state badge and the validation words, as a result's: {}",
         title
     );
     assert!(
-        title.contains("preview, nothing is saved yet"),
-        "the title names the preview: {}",
+        !title.contains("preview"),
+        "the preview's title words are gone: {}",
         title
     );
+
+    // The overview's key line names `x export`, as a result's does, and names no
+    // save key.
+    let keys: String = key_line(&app);
     assert!(
-        !rows
-            .iter()
-            .any(|row| row.contains("not tested at the bench")),
-        "the validation words are not on a preview: {:?}",
-        rows[0]
+        keys.contains("x export"),
+        "the key line names the export: {}",
+        keys
     );
-    let _ = fs::remove_dir_all(&dir);
-}
+    assert!(!keys.contains("a save"), "and names no save key: {}", keys);
 
-// M7-60: `a` asks for the save on every variant screen of a preview, and on no
-// other screen, so `a` on the overview of a result asks for nothing.
-#[test]
-fn a_saves_from_the_variant_screens() {
-    let (dir, mut app, _reading, request) = preview_of("save", "two-separate");
-    assert_eq!(
-        app.screen(),
-        Screen::Overview,
-        "the preview opens on the overview"
-    );
+    // `a` asks for nothing, as it always did, and stays on the overview.
     assert_eq!(
         app.handle(Key::Char('a')),
-        Action::Approve,
-        "`a` on the overview of a preview asks for the save"
-    );
-    assert_eq!(
-        app.screen(),
-        Screen::Overview,
-        "and the screen stays for the pop-up to sit over"
-    );
-
-    opened(&mut app, &[Key::Enter]);
-    assert_eq!(app.screen(), Screen::Member(0), "`enter` opens the member");
-    assert_eq!(
-        app.handle(Key::Char('a')),
-        Action::Approve,
-        "`a` on a sequence screen asks for the save"
-    );
-    assert_eq!(app.screen(), Screen::Member(0));
-
-    opened(&mut app, &[Key::Char('d')]);
-    assert_eq!(app.screen(), Screen::Details(0), "`d` opens its details");
-    assert_eq!(
-        app.handle(Key::Char('a')),
-        Action::Approve,
-        "`a` on a details screen asks for the save"
-    );
-    assert_eq!(app.screen(), Screen::Details(0));
-
-    // Without a reading, `a` behaves as it always did: it asks for nothing.
-    let mut plain: App = App::new(app.document().clone());
-    assert_eq!(plain.reading(), None, "a result has no reading");
-    assert_eq!(
-        plain.handle(Key::Char('a')),
         Action::Continue,
-        "`a` on the overview of a result asks for nothing"
+        "`a` on the overview of a result with a reading asks for nothing"
     );
-    assert_eq!(plain.screen(), Screen::Overview);
-    assert!(
-        !request.exists(),
-        "asking for the save writes nothing here: no file at {:?}",
-        request
-    );
-    let _ = fs::remove_dir_all(&dir);
-}
+    assert_eq!(app.screen(), Screen::Overview);
 
-// M7-60: a preview has no export, so `x` on its overview asks for nothing, and
-// its key line names `a save` and not `x export`.
-#[test]
-fn a_preview_has_no_export() {
-    let (dir, mut app, _reading, _request) = preview_of("no-export", "two-separate");
+    // `x` opens the export screen, as on a result.
     assert_eq!(
         app.handle(Key::Char('x')),
         Action::Continue,
-        "`x` on a preview's overview asks for nothing"
+        "`x` on the overview of a result with a reading asks for the export"
     );
     assert_eq!(
         app.screen(),
-        Screen::Overview,
-        "and stays on the overview, so it leaves the screen"
+        Screen::Export,
+        "and `x` opens the export screen"
     );
 
-    let keys: String = key_line(&app);
+    // Details is the screen a reading changes: `details_with_reading` is
+    // `details`' lines with the reading added under them.
+    let plain: Vec<String> = text::details(app.document(), 0);
+    let with: Vec<String> = text::details_with_reading(app.document(), 0, &reading);
+    assert_eq!(
+        &with[..plain.len()],
+        &plain[..],
+        "Details starts as `details` does"
+    );
     assert!(
-        keys.contains("a save"),
-        "the overview's key line names the save key: {}",
-        keys
+        with.len() > plain.len(),
+        "the reading is added under the technical lines"
     );
-    assert!(!keys.contains("x export"), "and names no export: {}", keys);
 
-    // A result's overview keeps `x export`, and names no save.
-    let plain: App = App::new(app.document().clone());
-    let keys: String = key_line(&plain);
-    assert!(keys.contains("x export"), "a result's key line: {}", keys);
-    assert!(!keys.contains("a save"), "and no save key: {}", keys);
     let _ = fs::remove_dir_all(&dir);
 }
 
-// M7-61: a preview's details are `details`' own lines, then the heading, then the
-// reading indented by two spaces, and the screen `d` opens shows them at its
-// bottom, where `PgDn` reaches.
+// M7-64: a result with a reading shows `details`' own lines, then the heading,
+// then the reading indented by two spaces, and the screen `d` opens shows them
+// at its bottom, where `PgDn` reaches.
 #[test]
 fn details_end_with_the_models_reading() {
     let (dir, document, request) = proposal_of("details", "two-separate");
@@ -346,7 +293,7 @@ fn details_end_with_the_models_reading() {
         "the reading has lines to show at the bottom of Details"
     );
 
-    let lines: Vec<String> = text::preview_details(&found.document, 0, &reading);
+    let lines: Vec<String> = text::details_with_reading(&found.document, 0, &reading);
     let plain: Vec<String> = text::details(&found.document, 0);
     assert_eq!(&lines[..plain.len()], &plain[..], "its start is `details`");
     assert_eq!(lines[plain.len()], String::new(), "then one empty line");
@@ -396,43 +343,4 @@ fn details_end_with_the_models_reading() {
         rows[BODY_ROWS]
     );
     let _ = fs::remove_dir_all(&dir);
-}
-
-// M7-60: `?` on a preview's variant screen names the key those screens add, and
-// the plain legend does not name it.
-#[test]
-fn the_help_names_the_save_key() {
-    let save: &str = "  a          save and run";
-    let previewed: Vec<String> = text::preview_help(Screen::Member(0), false, false);
-    let plain: Vec<String> = text::help(Screen::Member(0), false, false);
-    assert!(
-        previewed.iter().any(|line| line == save),
-        "the preview's legend names the save key: {:?}",
-        previewed
-    );
-    assert!(
-        !plain.iter().any(|line| line == save),
-        "`help` itself names no save key: {:?}",
-        plain
-    );
-    // `a` is named just before `q`, the key that follows it in the legend.
-    let at: usize = previewed
-        .iter()
-        .position(|line| line == save)
-        .expect("the save line is in the legend");
-    assert_eq!(
-        previewed[at + 1],
-        "  q          quit",
-        "`a` is the line before `q`, whose key is padded to 11 as `help` pads it"
-    );
-    assert_eq!(
-        previewed.last(),
-        plain.last(),
-        "and `ctrl-c` stays the last line"
-    );
-    assert_eq!(
-        plain.len() + 1,
-        previewed.len(),
-        "the legend is `help`'s lines plus one"
-    );
 }

@@ -115,9 +115,6 @@ pub fn run(mut app: App, export: &mut ExportWrite) -> std::io::Result<()> {
                     Action::Export => app.export_done(export(&app, false)),
                     Action::ExportReplace => app.export_done(export(&app, true)),
                     Action::Continue => {}
-                    // §6: `luria review` never sets a reading, so a preview's `a`
-                    // never reaches this loop, and the arm asks for nothing.
-                    Action::Approve => {}
                 }
                 // M7-56: scrolling stops at the bottom, so after every key the
                 // scroll is clamped to the largest the open screen's body can

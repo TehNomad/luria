@@ -54,7 +54,7 @@ const LABEL: usize = 11;
 /// exactly when its first `LABEL` characters, trimmed, are one of these: the
 /// rows that continue a field start with `LABEL` spaces, so no typed value is
 /// read as a label.
-const LABELS: [&str; 10] = [
+const LABELS: [&str; 11] = [
     "Template",
     "  File",
     "  Paste",
@@ -65,6 +65,7 @@ const LABELS: [&str; 10] = [
     "  Strand",
     "Mutations",
     "Overlap",
+    "Save as",
 ];
 
 /// Draw `form` into `frame`: the frame with the ` NEW DESIGN ` badge, the body
@@ -161,11 +162,11 @@ fn draw_form_with(frame: &mut Frame, form: &NewForm, keys: &str, with_cursor: bo
     draw_popup(frame, form);
 }
 
-/// The pop-up, drawn over the screen `draw_form` has drawn (M7-48, contract
-/// §2.4): `Clear`, then a rounded block titled ` Save `, centred, as wide as the
+/// The pop-up, drawn over the screen `draw_form` has drawn (M7-49, contract
+/// §2.2): `Clear`, then a rounded block titled ` Save `, centred, as wide as the
 /// longest line plus 4, and at most the screen, with `text::popup_lines` as its
-/// body and the cursor in the name on `Request`'s row while the name is typed.
-/// Nothing is drawn when no pop-up is open.
+/// body. The request's name is a field row again (M7-63), so the pop-up has no
+/// cursor. Nothing is drawn when no pop-up is open.
 pub fn draw_popup(frame: &mut Frame, form: &NewForm) {
     if form.popup() == Popup::Closed {
         return;
@@ -198,14 +199,6 @@ pub fn draw_popup(frame: &mut Frame, form: &NewForm) {
     frame.render_widget(block, pop);
     let shown: Vec<Line<'static>> = lines.iter().map(|line| popup_line(line)).collect();
     frame.render_widget(Paragraph::new(shown), inner);
-    // M7-48: the typed name carries the cursor, on `Request`'s row, which is the
-    // body's first row.
-    if form.popup() == Popup::Naming {
-        frame.set_cursor_position(Position::new(
-            inner.x + LABEL as u16 + form.save_as_cursor() as u16,
-            inner.y,
-        ));
-    }
 }
 
 /// One pop-up line: the failure line red bold, every other line as `text` wrote
