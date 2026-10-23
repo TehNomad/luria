@@ -1,6 +1,6 @@
 # Milestone 7m: the owner's first hand test, as changes
 
-Status: **Approved by the owner, 2026-10-22.** Planner: Claude.
+Status: **Implemented, 2026-10-22** (7m1, 7m1c, 7m2 to 7m6; the terminal session awaits the owner's hand test). Planner: Claude.
 
 The owner tried `luria new` and `luria review` in a terminal and asked for
 the changes below. The planner's questions and the owner's answers are

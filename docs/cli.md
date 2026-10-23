@@ -818,15 +818,14 @@ needs clarification`) and the experimental validation (`not tested at
 the bench`). Positions on screen are 1-based and inclusive, as GenBank
 writes them (`GAT→AAC at 1210–1212`, `insert GAT after 1209`); the
 request and result files stay zero-based (§3). `?` opens a help pop-up
-with the legend and the keys.
+with the open screen's keys, and on the variant screen the legend.
 
 | Screen | What it shows | Keys |
 | --- | --- | --- |
-| Overview | The template, the target CDS and its strand, any operation warnings, and the variants, one row each with its edit and whether a primer pair was designed | `j`/`k` move, `enter` open, `p` provenance, `e` problem, `x` export |
+| Overview | The template, the target CDS and its strand, any operation warnings, and the variants, one row each with its edit and whether a primer pair was designed | `j`/`k` move, `enter` open, `e` problem, `x` export |
 | Variant | The forward primer above the top strand, the variant's protein between the strands, the bottom strand, the reverse primer below it written 3'→5'; edited bases and primer bases that do not anneal in lower case and coloured; then a table of each primer's length, Tm (one decimal) and sequence 5'→3', the annealing temperature, and each warning in words | `d` details, `i` expand or collapse a long insertion, `j`/`k` scroll |
-| Details | Everything the result records for the variant: the edit, its warnings by code, and each primer with its parts, Tm basis and warnings; or why no pair was designed | `j`/`k` scroll |
-| Provenance | The package, every algorithm and version, the request and template digests, what a GenBank record imported and did not, the buffer | `j`/`k` scroll |
-| Problem | The error and its details, or the clarifications and candidates | `p` provenance |
+| Details | Everything the result records for the variant: the edit, its warnings by code, and each primer with its parts, Tm basis and warnings, or why no pair was designed; then the provenance: the package, every algorithm and version, the request and template digests, what a GenBank record imported and did not, and the buffer | `j`/`k` scroll |
+| Problem | The error and its details, or the clarifications and candidates | `j`/`k` scroll |
 
 `esc` goes back, and quits from the overview; `q` or `ctrl-c` quits from
 anywhere; `PgUp`, `PgDn` and `Home` scroll. The variant screen reads the
@@ -859,17 +858,20 @@ profile, and run again.
 ### 11.3 Export
 
 With `--export DIR`, `x` on the overview lists the files an export would
-write, and `y` writes them:
+write, and `w` or `o` writes them; `esc` goes back:
 
 | File | What it holds |
 | --- | --- |
 | `<request>.result.json` | The result, byte for byte what `luria q5 design REQUEST.json` prints |
-| `<member>.fa` | Each edited construct, as `--write-edited` writes it |
+| `<template id>_<member>.fa` | Each edited construct, as `--write-edited` writes it |
 | `<request>.order.tsv` | An order table for IDT's Bulk Input |
 
 `<request>` is the request file's name without `.json`. If any of these
-files exists, nothing is written. Before it writes, luria runs the
-request again and refuses if the result is not the one on screen.
+files exists, a prompt names them, and `y` replaces them; any other key
+writes nothing. A replaced file is written whole and then moved into
+place, and a name that is a link or a folder is never replaced. Before
+it writes, luria runs the request again and refuses if the result is
+not the one on screen.
 
 <!-- luria:order-scales -->
 The order table is tab-separated, with the header `Name`, `Sequence`,
@@ -893,10 +895,10 @@ you paste it.
 ## 12. Entering a design in the terminal: `luria new`
 
 `luria new` is a form for a new design: a template, the mutations and
-two choices. It builds the request, shows it exactly as it will be
-written, and writes and runs it only once you approve. The result then
-opens on `luria review`'s screens (§11). The decisions behind it are D047
-and `docs/tasks/milestone-7k-new.md`.
+the overlap. It builds the request, and writes and runs it only once you
+save. The result then opens on `luria review`'s screens (§11). The
+decisions behind it are D047, `docs/tasks/milestone-7m-polish.md` and
+`docs/tasks/milestone-7k-new.md`.
 
 ```
 luria new [--design PROFILE.json] [--export DIR]
@@ -910,20 +912,18 @@ It needs a terminal on stdin and stdout, and a screen of at least 80 by
 
 | Field | What you give |
 | --- | --- |
-| Template | A file, FASTA or GenBank, by its path; or a sequence you paste, raw or as FASTA. A paste is saved as a new FASTA file when you approve. |
+| Template | A file, FASTA or GenBank, by its path; or a sequence you paste, raw or as FASTA. Under `File`, a list shows the folders and the `.fa`, `.fasta`, `.fna`, `.gb`, `.gbk` and `.genbank` files of the directory you are typing, filtered as you type: `↓`/`↑` pick, `enter` opens a folder or loads a file. A paste is saved as a new FASTA file when you save. |
 | Name, Shape | For FASTA or a paste: the template's name and whether it is linear or circular. A GenBank record gives its own. |
 | CDS | For FASTA or a paste: the whole sequence, or its first and last base (1-based, inclusive), and its strand. For GenBank: one of the record's CDSs that luria can use. Never guessed. |
 | Mutations | One per line, in the shorthand of §12.2. Each line shows what luria reads it as, or why it cannot. |
-| In words | Your request in words, sent to your model as `luria q5 interpret` does (§10). Only with `--backend`, and only with a GenBank template. Use words or mutation lines, not both. The form's overlap and codon choice go with them, and residues count from the CDS's first codon unless your words say otherwise. |
 | Primers | `inline`, shown and fixed: confine-to-tail placement is not supported yet (D029). |
-| Overlap | The minimum annealing overlap in nucleotides. Empty until you or `--design` give it. |
-| Codon | For a residue change without a codon: the default codon policy, or a codon on each line (`D404N:AAC`). |
-| Save as | The request file's name. |
+| Overlap | The minimum annealing overlap in nucleotides: 15 until you change it, or a `--design` profile's value. |
 
 `tab` and `shift-tab` move between fields, `←`/`→` change a choice,
-`enter` on `[ Review ]` builds the request, and `esc` quits. `ctrl-c`
-quits from any screen, writing nothing. A field that is missing or a
-line luria cannot read is named in red, and the cursor moves to it.
+`PgUp`/`PgDn` move ten lines in a long box and to the first or last
+field elsewhere, `enter` on `[ Save and run ]` saves, and `esc` quits.
+`ctrl-c` quits from any screen, writing nothing. A field that is missing
+or a line luria cannot read is named in red, and the cursor moves to it.
 
 ### 12.2 The mutation shorthand
 
@@ -932,7 +932,7 @@ them; residue numbers count from the CDS's first codon.
 
 | Line | Meaning |
 | --- | --- |
-| `D404N`, `p.D404N`, `Asp404Asn` | Residue 404 from D to N, the codon by the form's choice |
+| `D404N`, `p.D404N`, `Asp404Asn` | Residue 404 from D to N, the codon by the default codon policy |
 | `D404N:AAC` | The same, with codon `AAC` |
 | `1210 G>A` | Base 1210 from G to A |
 | `1210-1212 GAT>AAC` | Bases 1210 to 1212 replaced (any length) |
@@ -940,19 +940,39 @@ them; residue numbers count from the CDS's first codon.
 | `ins GAT after 1209` | `GAT` inserted between bases 1209 and 1210 |
 
 A stop (`*`, `X`, `Ter`), a `?`, a position of 0, a range written
-backwards, bases that do not match the range, or anything else is
-refused with the reason; the typed bases of a substitution or a
-replacement must be the template's. Two or more lines are separate
-variants, one construct each.
+backwards, or bases that do not match the range are refused with the
+reason; the typed bases of a substitution or a replacement must be the
+template's. Two or more lines are separate variants, one construct each.
 
-### 12.3 Approving
+### 12.3 Words
 
-`[ Review ]` shows the request exactly as it will be written and the
-files that will be written: the request beside a template file, as
-`--write-request` requires (§10), or, for a paste, the pasted FASTA and
-the request in the current directory. With words, it shows `luria q5
-interpret`'s proposal instead, as §11.2 does. Nothing is written until
-you press `a`, then `y`. A file is never replaced. luria then runs the
-request as `luria q5 design` does and opens the result as §11.1 does,
-with export when `--export DIR` was given (§11.3). Quitting before you
-approve writes nothing.
+A line that is not shorthand at all, such as `change alanine 42 to
+glycine`, makes the whole Mutations box words. With `--backend`, `[ Save
+and run ]` sends the box to your model as `luria q5 interpret` does
+(§10), with the form's overlap, the default codon policy, and residues
+counted from the CDS's first codon unless your words say otherwise. The
+template must be GenBank, because the model is shown its CDS list.
+Without `--backend`, the form says the line is not shorthand and asks
+you to start with it. A line that is shorthand but refused, such as
+`D404*`, stays an error and is never sent to the model.
+
+The model's reading opens as §11.2's proposal: questions, the request as
+it will be written, and where each value came from. Nothing is written
+until you press `a` there, which opens the save pop-up below.
+
+### 12.4 Saving
+
+`[ Save and run ]` opens a pop-up with the request's file name, which you
+can change, and where it goes: beside a template file, as
+`--write-request` requires (§10), or, for a paste, in the current
+directory, with the pasted FASTA. `enter` writes the files and runs the
+request as `luria q5 design` does, and the result opens as §11.1 does,
+with export when `--export DIR` was given (§11.3). `esc` closes the
+pop-up and writes nothing.
+
+If a file it would write exists, the pop-up names it, and `y` replaces
+it; any other key writes nothing. A replaced file is written whole and
+then moved into place, and a name that is a link or a folder is never
+replaced. `luria q5 interpret --write-request` and `luria review
+--template` still never replace a file. Quitting before you save writes
+nothing.

@@ -1555,9 +1555,10 @@ Decision:
   changes the text or profile and runs again.
 * **Export** (M7-4): the result JSON byte for byte as `luria q5 design`
   prints it, the edited constructs as `--write-edited` writes them, and an
-  IDT order table, written only on `y` into the `--export DIR`
-  directory, as `<request>.result.json`, `<member>.fa` and
-  `<request>.order.tsv`, and never replacing a file (§8a).
+  IDT order table, written only on `w` or `o` into the `--export DIR`
+  directory, as `<request>.result.json`, `<template id>_<member>.fa`
+  (M7-57) and `<request>.order.tsv`; an existing file is replaced only
+  on `y` at a prompt that names it (M7-49, D047).
 * **The IDT order table** (M7-4, M7-6 to M7-13, M7-15). Tab-separated,
   header `Name Sequence Scale Purification`, one row per primer of each
   designed member, forward then reverse, named `<template id>_<member>_F`
@@ -1590,52 +1591,63 @@ owner's, after using the earlier versions.
 ## D047: Entering a design in the terminal (Milestone 7, `luria new`)
 
 Status: approved by the owner, 2026-10-21 and 2026-10-22
-(`docs/tasks/milestone-7k-new.md`, answers M7-31 to M7-42). Applies D003,
-D005, D006, D012, D029, D034, D044 and D046.
+(`docs/tasks/milestone-7k-new.md`, answers M7-31 to M7-44, and
+`docs/tasks/milestone-7m-polish.md`, answers M7-45 to M7-58, after the
+owner's first hand test). Applies D003, D005, D006, D012, D029, D034,
+D044 and D046.
 
 Decision:
 
-* **`luria new`** (M7-31). A form builds a `luria.q5-request/1` request
-  from a template, mutation lines or words, the overlap and the codon
-  choice; the request is shown exactly as it will be written, and
-  written and run only on the user's explicit approval (`a`, then `y`),
-  then shown on `luria review`'s screens. Quitting before approval
+* **`luria new`** (M7-31, M7-48). A form builds a `luria.q5-request/1`
+  request from a template, mutation lines and the overlap. It is written
+  and run only when the user saves it from a pop-up that names the
+  files, then shown on `luria review`'s screens. Quitting before saving
   writes nothing and runs nothing.
-* **The template** (M7-32, M7-37). A FASTA or GenBank file, or a pasted
-  sequence saved as a new FASTA file on approval. For FASTA and a paste
-  the user states the CDS (whole sequence, or 1-based first and last
-  base, and the strand); for GenBank the user picks a usable CDS from the
+* **The template** (M7-32, M7-37, M7-50). A FASTA or GenBank file, picked
+  from a filtered list of the directory being typed or typed in full, or
+  a pasted sequence saved as a new FASTA file. For FASTA and a paste the
+  user states the CDS (whole sequence, or 1-based first and last base,
+  and the strand); for GenBank the user picks a usable CDS from the
   record. Never guessed. The request goes beside a template file, as
   `--write-request` requires; a paste and its request go in the current
-  directory. No file is ever replaced.
-* **The shorthand** (M7-35). One mutation per line, read by luria's own
-  code with no model: residues as milestone 6's notation, with an
-  optional codon; base changes, deletions and insertions by 1-based
-  inclusive template positions, converted to the request's zero-based
-  half-open form (D006) by one tested function. A one-base change is a
-  substitution; any longer range is a replacement. Typed bases must match
-  the template. Several lines are separate variants (M7-34).
-* **Words** (M7-33, M7-36, M7-40). With `--backend`, words are sent
-  through `luria q5 interpret`'s path unchanged, and need a GenBank
-  template (M6-7); words and mutation lines are not combined. The form's
-  overlap and codon choice are the design they are read with, and residues
-  count from the CDS start (M7-41, M7-42). Without a backend the box is shown
-  and disabled.
-* **Nothing scientific defaulted silently** (M7-34, M7-39). The overlap
-  is empty until the user or a `--design` profile gives it; the codon
-  choice is shown; placement is shown as a fixed `inline`, the only
-  placement `luria q5 design` supports (D029).
+  directory.
+* **The shorthand** (M7-35, M7-46). One mutation per line, read by
+  luria's own code with no model: residues as milestone 6's notation,
+  with an optional codon (`D404N:AAC`), else the default codon policy;
+  base changes, deletions and insertions by 1-based inclusive template
+  positions, converted to the request's zero-based half-open form (D006)
+  by one tested function. A one-base change is a substitution; any longer
+  range is a replacement. Typed bases must match the template. Several
+  lines are separate variants (M7-34).
+* **Words** (M7-33, M7-41, M7-42, M7-47). A mutation line luria cannot
+  read at all makes the whole box words. With `--backend` the box goes
+  through `luria q5 interpret`'s path unchanged, with the form's overlap,
+  the default codon policy and residues counted from the CDS start; it
+  needs a GenBank template (M6-7), and its proposal is shown before
+  anything is saved. Without a backend the form names `--backend`. A line
+  luria reads but refuses is an error and is never sent to the model.
+* **Values on screen** (M7-34, M7-39, M7-45). The overlap starts at 15
+  nt, shown and editable, or at a `--design` profile's value; placement
+  is shown as a fixed `inline`, the only placement `luria q5 design`
+  supports (D029). The overlap is shown on the form before anything is
+  saved, so it is the user's value.
+* **Replacing a file** (M7-49). When a file `luria new` or the review
+  export would write exists, a prompt names it and only `y` replaces it.
+  The new text is written to a temporary file and renamed over the name;
+  a name that is a link or a folder is refused. `luria q5 design
+  --write-edited`, `luria q5 interpret --write-request` and `luria review
+  --template` still never replace a file.
 * **Same code paths.** The request is built as the request parser's own
-  types, the paste is written by luria-core's FASTA writer, the request by
-  `--write-request`'s writer, and the design runs as `luria review` runs
-  an approved request.
+  types, the paste is written by luria-core's FASTA writer, and the
+  design runs as `luria review` runs an approved request.
 * **Tested without a terminal.** The shorthand, the request builder, the
-  form, its text and drawing are pure and tested against planner fixtures
-  in `tests/fixtures/new/`, written by scripts that share no code with
-  `crates/`, and every expected request was run through `luria q5
-  design`. The terminal session is checked by the owner by hand.
+  form, its pop-up, its file list and their text and drawing are pure and
+  tested against planner fixtures in `tests/fixtures/new/`, written by
+  scripts that share no code with `crates/`, and every expected request
+  was run through `luria q5 design`. The terminal session is checked by
+  the owner by hand.
 
 Reversibility:
 
-Combining words with mutation lines, other placements, composition
-choices, or any default for a scientific value needs approval.
+Other placements, composition choices, a different default overlap, or
+any other default for a scientific value needs approval.

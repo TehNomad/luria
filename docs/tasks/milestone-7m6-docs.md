@@ -1,6 +1,6 @@
 # Milestone 7m6: the docs for the owner's hand-test changes
 
-Status: **Ready for the worker, 2026-10-22.** Planner: Claude. Parent:
+Status: **Implemented, 2026-10-22.** Planner: Claude. Parent:
 `docs/tasks/milestone-7m-polish.md` §2 item 6. Follows 7m1 to 7m5, all
 committed.
 
