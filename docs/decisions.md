@@ -1592,7 +1592,7 @@ owner's, after using the earlier versions.
 
 Status: approved by the owner, 2026-10-21 and 2026-10-22
 (`docs/tasks/milestone-7k-new.md`, answers M7-31 to M7-44, and
-`docs/tasks/milestone-7m-polish.md`, answers M7-45 to M7-59, after the
+`docs/tasks/milestone-7m-polish.md`, answers M7-45 to M7-61, after the
 owner's first hand test). Applies D003, D005, D006, D012, D029, D034,
 D044 and D046.
 
@@ -1625,8 +1625,12 @@ Decision:
   the default codon policy, residues counted from the CDS start, and,
   when the words name no CDS, the form's CDS as an assumption (M7-59;
   M6-9 still holds for `luria q5 interpret`); it
-  needs a GenBank template (M6-7), and its proposal is shown before
-  anything is saved. Without a backend the form names `--backend`. A line
+  needs a GenBank template (M6-7). A reading that can be saved is
+  designed in memory and shown on the variant screens as a preview, with
+  the reading itself at the bottom of Details; nothing is written before
+  the save pop-up (M7-60, M7-61). This narrows D046's "nothing runs until
+  you approve" for `luria new` only. Without a backend the form names
+  `--backend`. A line
   luria reads but refuses is an error and is never sent to the model.
 * **Values on screen** (M7-34, M7-39, M7-45). The overlap starts at 15
   nt, shown and editable, or at a `--design` profile's value; placement

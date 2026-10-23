@@ -1,6 +1,6 @@
 # Milestone 7m8b: the words preview on the variant screens
 
-Status: **Ready for the worker, 2026-10-22.** Planner: Claude. Parent:
+Status: **Implemented, 2026-10-22.** Planner: Claude. Parent:
 `docs/tasks/milestone-7m-polish.md`, M7-60 and M7-61. Builds on 7m8a
 (committed `aede827`): `review::preview(document, request) -> Result<Approved, String>`.
 
@@ -187,3 +187,13 @@ Report each result and both §3.1 proofs.
   Approved: add one arm `Action::Approve => {}` there, with a comment that
   `luria review` never sets a reading, so the arm is never reached. This is
   the only change allowed in `review/terminal.rs`; its behaviour is unchanged.
+
+## 7. Implementation notes (planner, 2026-10-22)
+
+- 1151 tests passed, 0 failed, 1 ignored; fmt, clippy, diff check clean;
+  fixtures 19 of 19. Both §3.1 proofs failed as required; proof 2 failed
+  on the drawn check, as intended.
+- `new/terminal.rs` copies `review/terminal.rs`'s private `area_of`.
+- A preview that cannot be built (`preview` gives `Err`) falls back to
+  the proposal text silently; the reason is not shown. Untested: the
+  whole preview session in a real terminal (the owner's hand test).

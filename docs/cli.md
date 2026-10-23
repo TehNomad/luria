@@ -959,9 +959,16 @@ Without `--backend`, the form says the line is not shorthand and asks
 you to start with it. A line that is shorthand but refused, such as
 `D404*`, stays an error and is never sent to the model.
 
-The model's reading opens as §11.2's proposal: questions, the request as
-it will be written, and where each value came from. Nothing is written
-until you press `a` there, which opens the save pop-up below.
+When the model's reading can be saved, luria designs it in memory and
+opens on §11.1's result screens as a preview: the title says `preview,
+nothing is saved yet`, and each variant screen shows the primers, both
+strands and the mutant protein in frame, so you can check each
+mutation. The model's reading (the request as it will be written, where
+each value came from, the quotes, and what was sent and received) is at
+the bottom of each variant's Details screen (`d`). `a` opens the save
+pop-up below; `q`, or `esc` on the overview, goes back to the form and
+writes nothing. A reading with questions or an error opens as §11.2's
+proposal instead, and cannot be saved.
 
 ### 12.4 Saving
 
