@@ -11,11 +11,11 @@
 use crate::args::UsageError;
 use crate::interpret::document::InterpretationDocument;
 use crate::interpret::run::{request_location_problem, request_text};
-use crate::prepare::{prepare, prepare_bytes, PrepareFailure, Prepared};
+use crate::prepare::{prepare, PrepareFailure, Prepared};
 use crate::result::{
     CdsView, EditedView, MemberView, MutationView, RequestEcho, ResultDocument, TemplateView,
 };
-use crate::run::{run_bytes_with_constructs, run_with_constructs, Outcome};
+use crate::run::{run_with_constructs, Outcome};
 use crate::write::write_text;
 use luria_core::cds::Cds;
 use luria_core::frame::mutant_residues;
@@ -110,41 +110,10 @@ pub fn approve(
     approve_replacing(document, template, request, false)
 }
 
-/// Run the proposed request without writing it (M7-60, contract 7m8a): the
-/// exact bytes the save writes, `request_text(echo)`, run as though they were
-/// at the path the save will write, so the preview is the result the saved file
-/// later gives, byte for byte, the request digest included. Nothing is written,
-/// and no location check is made: the save makes that check later, as now.
-/// The `Err` is the same one line `approve_replacing` gives when there is
-/// nothing to approve.
-pub fn preview(document: &InterpretationDocument, request: &Path) -> Result<Approved, String> {
-    // The plan §3 rule 4 check, the same condition `approve_replacing` uses.
-    if !proposal::approvable(document) {
-        return Err("there is no proposed request to approve".to_string());
-    }
-    let echo: &RequestEcho = document
-        .request
-        .as_ref()
-        .expect("a proposed document names its request");
-
-    // The bytes the save would write, run as though they were already there, and
-    // the template and annotations prepared from the same bytes, exactly as
-    // `run_approved` gets them from `prepare` of the written file.
-    let contents: Vec<u8> = request_text(echo).into_bytes();
-    let (outcome, constructs): (Outcome, Vec<(String, Sequence)>) =
-        run_bytes_with_constructs(request, contents.clone());
-    Ok(from_run(
-        outcome,
-        constructs,
-        prepare_bytes(request, contents),
-    ))
-}
-
 /// The run `run_approved` makes, from its outcome and constructs and the
-/// prepared request the context screen needs: `run_approved`'s own body, shared
-/// with `preview` (contract 7m8a), so both read the template letters and the
-/// mutant frames of the same kind of run, and neither computes anything of its
-/// own (7d, D005, 7i2, plan §5.3a).
+/// prepared request the context screen needs: the template letters and the
+/// mutant frames of the run of the file on disk, computed by no code of its own
+/// (7d, D005, 7i2, plan §5.3a).
 fn from_run(
     outcome: Outcome,
     constructs: Vec<(String, Sequence)>,

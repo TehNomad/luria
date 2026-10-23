@@ -808,27 +808,22 @@ fn placement_of(spec: PlacementSpec) -> PrimerPlacement {
 /// workflow needs, or a failure that names the JSON path it came from and
 /// carries what was known when it happened.
 pub fn prepare(request_path: &Path) -> Result<Prepared, PrepareFailure> {
-    match read_request(request_path) {
+    let found: Vec<u8> = match read_request(request_path) {
         // Step 1's own failure: the bytes were not read, so nothing was known
         // when it happened (§3).
-        Err(problem) => Err(PrepareFailure {
-            failure: problem.clone(),
-            request_sha256: None,
-            document: None,
-        }),
-        Ok(found) => prepare_bytes(request_path, found),
-    }
-}
+        Err(problem) => {
+            return Err(PrepareFailure {
+                failure: problem.clone(),
+                request_sha256: None,
+                document: None,
+            })
+        }
+        Ok(found) => found,
+    };
 
-/// Steps 2 to 10, in order (§3.1), from request bytes read elsewhere: `prepare`
-/// calls it with the file's own bytes, and a run that saves them later, or
-/// previews them, calls it with the same bytes (contract 7m8a). Nothing is
-/// written, and `request_path` is read only for the directory its template
-/// paths are relative to (§2, plan §3.4), so the result is the one the same
-/// bytes written at that path give, byte for byte, the request digest included
-/// (D021).
-pub fn prepare_bytes(request_path: &Path, contents: Vec<u8>) -> Result<Prepared, PrepareFailure> {
-    let opened: Result<(String, RequestDocument), PrepareFailure> = open_bytes(contents);
+    // Steps 2 to 10, in order (§3.1), on the bytes step 1 read, so the request
+    // digest is of that file's bytes (D021).
+    let opened: Result<(String, RequestDocument), PrepareFailure> = open_bytes(found);
     match opened {
         Err(problem) => Err(problem),
         Ok((request_sha256, document)) => {

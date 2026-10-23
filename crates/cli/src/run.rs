@@ -41,7 +41,7 @@
 //!   which `main.rs` puts on stderr (plan §3.7).
 
 use crate::exit::ExitStatus;
-use crate::prepare::{prepare, prepare_bytes, Operation, PrepareFailure, Prepared, RequestFailure};
+use crate::prepare::{prepare, Operation, PrepareFailure, Prepared, RequestFailure};
 use crate::request::RequestErrorCode;
 use crate::result::{
     category_name, clarification_document, designed_member, domain_error_view, failed_after,
@@ -447,26 +447,6 @@ pub fn run_with_output(request_path: &Path, write_edited: Option<&Path>) -> Outc
 /// shows them needs no file, and `run_with_output` writes the same ones.
 pub fn run_with_constructs(request_path: &Path) -> (Outcome, Vec<(String, Sequence)>) {
     let (outcome, artifacts): (Outcome, Artifacts) = match prepare(request_path) {
-        Err(problem) => unprepared(&problem),
-        Ok(prepared) => operation_runs(&prepared),
-    };
-    let constructs: Vec<(String, Sequence)> = artifacts
-        .into_iter()
-        .map(|(name, sequence)| (name.value().to_string(), sequence))
-        .collect();
-    (outcome, constructs)
-}
-
-/// The same run as `run_with_constructs`, from request bytes given beside the
-/// path they will later be saved at (contract 7m8a): `prepare_bytes` in place of
-/// `prepare`, so nothing is read from `request_path` and nothing is written. The
-/// bytes are hashed for the request digest, so the run of the same bytes written
-/// at that path later gives the same document, byte for byte.
-pub fn run_bytes_with_constructs(
-    request_path: &Path,
-    contents: Vec<u8>,
-) -> (Outcome, Vec<(String, Sequence)>) {
-    let (outcome, artifacts): (Outcome, Artifacts) = match prepare_bytes(request_path, contents) {
         Err(problem) => unprepared(&problem),
         Ok(prepared) => operation_runs(&prepared),
     };

@@ -4,12 +4,12 @@
 //! validation words, the key lines and the help are the plain ones, and there is
 //! no `a` save key (M7-65).
 //!
-//! The screens are built as `7m8a`'s tests build them: the corpus case
+//! The screens are built as the tests build them: the corpus case
 //! `two-separate` through `interpret` with the scripted backend, then
-//! `review::preview`, so the document, the template letters and the frames are
+//! `review::approve`, so the document, the template letters and the frames are
 //! the saved run's, and the reading is `text::proposal` of the interpretation.
-//! `review::preview` stays for these tests to build a run's document, and writes
-//! nothing; `7m9b` removes it.
+//! The approval writes the request in the test's own fresh workspace, which the
+//! test removes with the directory, as `tests/review_approve.rs` does.
 //!
 //! The screen is drawn on a `ratatui` test backend of 120 by 40 and read back as
 //! rows, as `tests/review_view.rs` reads `luria review`'s screen: row 0 is the
@@ -24,7 +24,7 @@ use luria_cli::interpret::run::InterpretInput;
 use luria_cli::interpret::run::InterpretOutcome;
 use luria_cli::interpret::run::TextSource;
 use luria_cli::review::app::{Action, App, Key, Screen};
-use luria_cli::review::preview;
+use luria_cli::review::approve;
 use luria_cli::review::text;
 use luria_cli::review::view;
 use luria_cli::review::Approved;
@@ -40,7 +40,7 @@ const NL: &str = "../../tests/fixtures/nl/";
 const GENBANK: &str = "../../tests/fixtures/genbank/";
 const CASES_HEADER: &str = "case_id\ttemplate\ttext_file\treply_file\tprofile\tstate\tcodes\trequest_file\tdesign_exit\tnote";
 
-/// The screen the preview is drawn on: 120 columns by 40 rows, at or above the
+/// The screen the tests draw on: 120 columns by 40 rows, at or above the
 /// `MIN_WIDTH` by `MIN_HEIGHT` the review needs.
 const WIDTH: u16 = 120;
 const HEIGHT: u16 = 40;
@@ -110,8 +110,9 @@ fn interpret_case(dir: &Path, row: &[String]) -> InterpretOutcome {
 }
 
 /// The case, run in a fresh directory, with the request path the save names beside
-/// the template: its workspace, the interpretation, and that path.
-fn proposal_of(test: &str, case: &str) -> (PathBuf, InterpretationDocument, PathBuf) {
+/// the template: its workspace, the interpretation, that path, and the template
+/// file copied beside it.
+fn proposal_of(test: &str, case: &str) -> (PathBuf, InterpretationDocument, PathBuf, PathBuf) {
     let row: Vec<String> = row_of(case);
     let dir: PathBuf = workspace(test, &row);
     let outcome: InterpretOutcome = interpret_case(&dir, &row);
@@ -124,19 +125,20 @@ fn proposal_of(test: &str, case: &str) -> (PathBuf, InterpretationDocument, Path
         dir.clone(),
         outcome.document.clone(),
         dir.join("proposal.json"),
+        dir.join(&row[1]),
     )
 }
 
-/// The preview as `luria new` builds it (contract 7m8b §2.4): the case's proposal,
-/// run in memory with nothing written, in an app with the template letters, the
-/// frames and the model's reading. The request path is named so a test can say no
-/// file was written.
-fn preview_of(test: &str, case: &str) -> (PathBuf, App, Vec<String>, PathBuf) {
-    let (dir, document, request) = proposal_of(test, case);
+/// The saved run as `luria new` builds it (contract 7m8b §2.4): the case's
+/// proposal, written in its own fresh workspace and run from that file, in an app
+/// with the template letters, the frames and the model's reading. The request
+/// path is named so a test can name the file the approval wrote.
+fn app_of(test: &str, case: &str) -> (PathBuf, App, Vec<String>, PathBuf) {
+    let (dir, document, request, template) = proposal_of(test, case);
     assert_eq!(document.state, "proposed", "the case proposes a request");
-    let found: Approved = match preview(&document, &request) {
+    let found: Approved = match approve(&document, &template, &request) {
         Ok(approved) => approved,
-        Err(problem) => panic!("a proposed request has a preview: {}", problem),
+        Err(problem) => panic!("a proposed request must be savable: {}", problem),
     };
     assert_eq!(
         found.document.state, "verified",
@@ -215,7 +217,7 @@ fn indented(reading: &[String]) -> Vec<String> {
 // nothing and `x` opens the export screen as on a result.
 #[test]
 fn a_reading_changes_only_details() {
-    let (dir, mut app, reading, _request) = preview_of("only-details", "two-separate");
+    let (dir, mut app, reading, _request) = app_of("only-details", "two-separate");
 
     let rows: Vec<String> = screen(&app, WIDTH, HEIGHT);
     let title: &String = &rows[0];
@@ -282,10 +284,10 @@ fn a_reading_changes_only_details() {
 // at its bottom, where `PgDn` reaches.
 #[test]
 fn details_end_with_the_models_reading() {
-    let (dir, document, request) = proposal_of("details", "two-separate");
-    let found: Approved = match preview(&document, &request) {
+    let (dir, document, request, template) = proposal_of("details", "two-separate");
+    let found: Approved = match approve(&document, &template, &request) {
         Ok(approved) => approved,
-        Err(problem) => panic!("a proposed request has a preview: {}", problem),
+        Err(problem) => panic!("a proposed request must be savable: {}", problem),
     };
     let reading: Vec<String> = text::proposal(&document);
     assert!(

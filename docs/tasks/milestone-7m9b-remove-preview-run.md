@@ -1,6 +1,6 @@
 # Milestone 7m9b: remove the in-memory run
 
-Status: **Ready for the worker, 2026-10-23.** Planner: Claude. Parent:
+Status: **Implemented, 2026-10-23.** Planner: Claude. Parent:
 `docs/tasks/milestone-7m-polish.md`, M7-65. Follows 7m9a (committed
 `8499fd8`).
 
@@ -57,3 +57,16 @@ git status --short
 
 Report each result, the grep from §2.6, and the test count before and
 after.
+
+## 6. Implementation notes (planner, 2026-10-23)
+
+- 1147 tests passed, 0 failed, 1 ignored (1150 before; 3 deleted). fmt,
+  clippy, diff check clean; fixtures 19 of 19. The §2.6 grep finds nothing.
+- No assertion changed. Some assertion messages in `review_preview.rs`
+  still say "preview"; they were left because §3 forbids changing
+  assertions.
+- The worker saw `end_to_end.rs::the_origin_crossing_residue_case_matches_its_fixture_row`
+  fail once, and pass in every later run. That test uses a fixed
+  workspace name (`res-c-origin`), so two test runs at the same time can
+  collide in it. Not caused by this change; noted as a possible test
+  isolation issue.
