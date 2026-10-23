@@ -26,6 +26,12 @@
 //!   gives the other value, and on a GenBank record `Cds` walks the catalogue's
 //!   usable entries only, since an unusable CDS cannot be picked (plan rule 4,
 //!   6c);
+//! - `File`'s file list (M7-50): with the choices the loop listed for the
+//!   directory typed in `File`, `Up`/`Down` highlight one and `Enter` picks it, a
+//!   folder being typed into the path with focus kept, and a file completing the
+//!   path and being left exactly as `Tab` leaves it, so the loop reads it; with no
+//!   choices `Up`/`Down` move focus as before, and any edit of `File` clears the
+//!   highlight;
 //! - text: printable characters insert at the cursor, `Backspace`, `Delete`,
 //!   `Left`, `Right` edit, `Enter` starts a line in a multi-line field and moves
 //!   to the next field in a single-line one, and `Overlap`, `First` and `Last`
@@ -60,6 +66,7 @@ use crate::interpret::catalogue::catalogue;
 use crate::interpret::catalogue::CatalogueEntry;
 use crate::interpret::catalogue::Usability;
 use crate::new::build;
+use crate::new::picker::Entry;
 use crate::new::BuildRefusal;
 use crate::new::Built;
 use crate::new::CdsChoice;
@@ -356,6 +363,14 @@ pub struct NewForm {
     backend: bool,
     loaded: Option<Loaded>,
     locus: Option<String>,
+    /// The directory `listing` was read from, relative to the loop's directory
+    /// (7m5), so the loop lists a directory only when `file_dir()` changes.
+    listing_dir: Option<String>,
+    /// `listing_dir`'s folders and template files, as `picker::list` gave them.
+    listing: Vec<Entry>,
+    /// The highlighted choice's position in `choices()`, `None` until `Up` or
+    /// `Down` picks one (M7-50).
+    chosen: Option<usize>,
     /// The `--design` profile's placement, which the form shows as `inline`
     /// (M7-39), and whose value fills `Overlap` (plan §2 rule 2).
     profile_placement: Option<PlacementSpec>,
@@ -393,6 +408,9 @@ impl NewForm {
             backend,
             loaded: None,
             locus: None,
+            listing_dir: None,
+            listing: Vec::new(),
+            chosen: None,
             profile_placement: None,
             blocker: None,
         };
@@ -492,6 +510,13 @@ impl NewForm {
                     }
                     return FormAction::Continue;
                 }
+                // M7-50: `enter` with a highlighted choice picks it; with none,
+                // `Enter` moves focus on, as it does today.
+                if from == Field::File {
+                    if let Some(action) = self.pick_enter() {
+                        return action;
+                    }
+                }
                 return self.moved(key, from);
             }
             Key::Up | Key::Down => {
@@ -503,6 +528,12 @@ impl NewForm {
                             field.down();
                         }
                     }
+                    return FormAction::Continue;
+                }
+                // M7-50: while `File` has choices, `Up`/`Down` highlight one; with
+                // none they move focus, as they do today.
+                if from == Field::File && !self.choices().is_empty() {
+                    self.pick(key);
                     return FormAction::Continue;
                 }
                 return self.moved(key, from);
@@ -640,6 +671,57 @@ impl NewForm {
     /// The path typed in `File`.
     pub fn file(&self) -> String {
         self.file.text()
+    }
+
+    /// The typed `File` text up to and including its last `/`, which is the
+    /// directory the loop lists, relative to `cwd`; `""` when it has none
+    /// (contract §2.2).
+    pub fn file_dir(&self) -> String {
+        let text: String = self.file.text();
+        match text.rfind('/') {
+            Some(at) => text[..=at].to_string(),
+            None => String::new(),
+        }
+    }
+
+    /// The listing of `dir`, which the loop gives once per directory. The
+    /// highlight is cleared with it, so a new directory starts unpicked.
+    pub fn set_listing(&mut self, dir: String, entries: Vec<Entry>) {
+        self.listing_dir = Some(dir);
+        self.listing = entries;
+        self.chosen = None;
+    }
+
+    /// The directory the stored listing was read from, `None` when the loop has
+    /// listed nothing, so the loop lists a directory only when `file_dir()`
+    /// changes.
+    pub fn listing_dir(&self) -> Option<String> {
+        self.listing_dir.clone()
+    }
+
+    /// The stored listing's entries whose name starts with the text typed after
+    /// `file_dir()`, compared case-insensitively, in listing order. Empty when
+    /// focus is not `File`, or when the stored listing is for another directory
+    /// (contract §2.2).
+    pub fn choices(&self) -> Vec<Entry> {
+        if self.focus != Field::File {
+            return Vec::new();
+        }
+        let dir: String = self.file_dir();
+        if self.listing_dir.as_deref() != Some(dir.as_str()) {
+            return Vec::new();
+        }
+        let typed: String = self.file.text()[dir.len()..].to_lowercase();
+        self.listing
+            .iter()
+            .filter(|entry| entry.name.to_lowercase().starts_with(&typed))
+            .cloned()
+            .collect()
+    }
+
+    /// The highlighted choice, `None` until `Up` or `Down` picks one (M7-50).
+    pub fn chosen(&self) -> Option<usize> {
+        self.chosen
     }
 
     /// The pasted text.
@@ -1328,6 +1410,54 @@ impl NewForm {
         self.save_as.set(format!("{}.request.json", named));
     }
 
+    /// `Up`/`Down` on `File` with the list showing: `Down` highlights the next
+    /// choice, from `None` the first, `Up` the previous, from the first back to
+    /// `None`, with no wrapping, so `Down` at the last choice keeps it (contract
+    /// §2.2).
+    fn pick(&mut self, key: Key) {
+        let count: usize = self.choices().len();
+        if count == 0 {
+            return;
+        }
+        match key {
+            Key::Down => {
+                self.chosen = Some(self.chosen.map_or(0, |at| (at + 1).min(count - 1)));
+            }
+            Key::Up => {
+                self.chosen = match self.chosen {
+                    Some(0) | None => None,
+                    Some(at) => Some(at - 1),
+                };
+            }
+            _ => {}
+        }
+    }
+
+    /// `Enter` on `File` with a highlighted choice: a folder is typed into the
+    /// path, focus stays on `File`, the highlight is cleared, and nothing is
+    /// loaded; a file completes the path and is then left exactly as `Tab` leaves
+    /// it, so the loop is asked to read it (contract §2.2). `None` when nothing
+    /// is highlighted, which is `Enter` as it is today.
+    fn pick_enter(&mut self) -> Option<FormAction> {
+        let at: usize = self.chosen?;
+        let choices: Vec<Entry> = self.choices();
+        if at >= choices.len() {
+            return None;
+        }
+        let entry: Entry = choices[at].clone();
+        let mut path: String = self.file_dir();
+        path.push_str(&entry.name);
+        if entry.folder {
+            path.push('/');
+            self.file.set(path);
+            self.chosen = None;
+            return Some(FormAction::Continue);
+        }
+        self.file.set(path);
+        self.chosen = None;
+        Some(self.moved(Key::Tab, Field::File))
+    }
+
     /// A typed character: digits only in `Overlap`, `First` and `Last`, then the
     /// rule `Name` keeps.
     fn insert_char(&mut self, ch: char) {
@@ -1346,6 +1476,11 @@ impl NewForm {
     /// touched by the pop-up's own rule, so `after_edit` never writes there
     /// again (M7-37).
     fn after_edit(&mut self, field: Field) {
+        // M7-50: any edit of `File` clears the highlighted choice, so what is
+        // typed is what is picked.
+        if field == Field::File {
+            self.chosen = None;
+        }
         if field == Field::Name {
             self.sync_save_as();
         }

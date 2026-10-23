@@ -9,6 +9,7 @@
 use luria_cli::new::form::Field;
 use luria_cli::new::form::FormAction;
 use luria_cli::new::form::NewForm;
+use luria_cli::new::picker::Entry;
 use luria_cli::new::text::form_lines;
 use luria_cli::new::text::popup_lines;
 use luria_cli::new::text::reading_words;
@@ -321,4 +322,96 @@ fn the_popup_says_what_it_writes() {
         expected.to_vec(),
         "the paste is named first, then the request, and only y replaces"
     );
+}
+
+// M7-50 (contract §3 test 7): the file list is drawn under the `File` row,
+// before its note, as one continued row per choice, `> name` for the highlighted
+// one and `  name` for the rest, a folder's name ending with `/`, 8 rows at most
+// and the `  … <n> more` row for the rest, the window moved so the highlighted
+// choice is drawn.
+/// The listing of ten entries the loop gives: the two folders `picker::list`
+/// puts first, then eight files in name order.
+fn ten() -> Vec<Entry> {
+    [
+        ("genbank", true),
+        ("primers", true),
+        ("a.fa", false),
+        ("b.fa", false),
+        ("c.fa", false),
+        ("d.fa", false),
+        ("e.fa", false),
+        ("f.fa", false),
+        ("g.fa", false),
+        ("h.fa", false),
+    ]
+    .iter()
+    .map(|(name, folder)| Entry {
+        name: (*name).to_string(),
+        folder: *folder,
+    })
+    .collect()
+}
+
+#[test]
+fn the_choices_are_drawn_under_file() {
+    let mut form = NewForm::new(None, false);
+    tab_to(&mut form, Field::File);
+    form.set_listing(String::new(), ten());
+    let body: FormText = form_lines(&form);
+    // `Template`'s row, then `File`'s, then the list, and no note row, as
+    // nothing has been loaded.
+    // Every row is written at the label column, so its two-character marker is
+    // the part after the 11 label spaces.
+    let expected: [&str; 9] = [
+        "             genbank/",
+        "             primers/",
+        "             a.fa",
+        "             b.fa",
+        "             c.fa",
+        "             d.fa",
+        "             e.fa",
+        "             f.fa",
+        "             … 2 more",
+    ];
+    assert_eq!(
+        body.picker_rows,
+        Some((2, 9)),
+        "the list starts under the File row, and the more row is counted"
+    );
+    assert_eq!(
+        body.lines[2..11].to_vec(),
+        expected.to_vec(),
+        "8 rows, and the ninth names the 2 choices not shown"
+    );
+
+    // The highlighted row carries the `> ` marker, and the view styles it.
+    form.handle(Key::Down);
+    let body: FormText = form_lines(&form);
+    assert_eq!(
+        body.lines[2], "           > genbank/",
+        "the highlighted folder is marked with `> ` and its name ends with `/`"
+    );
+
+    // With the highlight past the window, the window moves so it is drawn.
+    for _ in 0..10 {
+        form.handle(Key::Down);
+    }
+    let body: FormText = form_lines(&form);
+    assert_eq!(body.picker_rows, Some((2, 9)), "the list keeps its rows");
+    assert_eq!(
+        body.lines[9], "           > h.fa",
+        "the window ends at the highlighted choice, so the last entry is shown"
+    );
+    assert!(
+        body.lines[2..10]
+            .iter()
+            .any(|line| line.trim_start().starts_with("> ")),
+        "the highlighted row is inside the rows drawn"
+    );
+
+    // With no choices, the picker writes no rows.
+    let mut empty = NewForm::new(None, false);
+    tab_to(&mut empty, Field::File);
+    let body: FormText = form_lines(&empty);
+    assert_eq!(body.picker_rows, None, "no listing gives no rows");
 }

@@ -12,6 +12,11 @@
 //!   record has no `Name`, `Shape` or `Strand` row and `First`/`Last` appear
 //!   only as the `Bases` row when the CDS is typed bases;
 //! - `◉` marks the chosen option and `○` the other on every choice row;
+//! - under the `File` row, and before its `<name>, FASTA` note, the file list
+//!   (M7-50): one continued row per choice, at most 8, `> name` for the
+//!   highlighted one and `  name` for the rest, a folder's name ending with `/`,
+//!   and a 9th row `  … <n> more` when there are more than 8, the window moved so
+//!   the highlighted choice is shown; `picker_rows` says where they are drawn;
 //! - each mutation line is shown as typed, then one preview line per non-blank
 //!   line, in order: `✓ <n>  <words>` from `reading_words`, `✗ <n>  <message>`
 //!   from the refusal's own `message()`, and `… <n>  read in words by the model at
@@ -35,6 +40,7 @@ use crate::new::form::Field;
 use crate::new::form::NewForm;
 use crate::new::form::Popup;
 use crate::new::form::Source;
+use crate::new::picker::Entry;
 use crate::request::StrandSpec;
 use crate::request::TopologySpec;
 use crate::review::text::bases_at;
@@ -49,10 +55,17 @@ pub struct FormText {
     pub lines: Vec<String>,
     pub focus_line: usize,
     pub cursor: Option<usize>,
+    /// The file list's rows (M7-50): the first line's index and how many rows
+    /// are drawn, the `… <n> more` row counted with them, or `None` when the
+    /// picker shows nothing. `view` styles these rows by position.
+    pub picker_rows: Option<(usize, usize)>,
 }
 
 /// The label column every row is padded to (contract §2.1).
 const LABEL: usize = 11;
+
+/// The choice rows the picker draws under `File` at most (M7-50, contract §2.3).
+const PICKER_WINDOW: usize = 8;
 
 /// The fields in the order the screen shows them (contract §2.1), which is
 /// 7k3's focus order, with the primers' own row and the box's `needs a GenBank
@@ -80,6 +93,7 @@ pub fn form_lines(form: &NewForm) -> FormText {
     // The row each field's first line is drawn on, so `focus_line` and the
     // cursor can be found from the focused field.
     let mut rows: Vec<(Field, usize)> = Vec::new();
+    let mut picker: Option<(usize, usize)> = None;
     for field in ROWS.iter() {
         let row: usize = lines.len();
         match *field {
@@ -96,6 +110,10 @@ pub fn form_lines(form: &NewForm) -> FormText {
                 }
                 rows.push((*field, row));
                 lines.push(row_line("  File", form.file().as_str()));
+                // M7-50: the file list, under the row and before its note: one
+                // continued row per choice, `> ` on the highlighted one, and the
+                // `… <n> more` row when the listing is longer than the window.
+                let picked: Option<(usize, usize)> = picker_rows(form, &mut lines);
                 if let Some(name) = form.template_file() {
                     let note: String = match form.locus() {
                         Some(locus) => format!("{}, GenBank {}", name, locus),
@@ -103,6 +121,7 @@ pub fn form_lines(form: &NewForm) -> FormText {
                     };
                     lines.push(continued(note.as_str()));
                 }
+                picker = picked;
             }
             Field::Paste => {
                 if !form.is_visible(*field) {
@@ -278,7 +297,52 @@ pub fn form_lines(form: &NewForm) -> FormText {
             .collect(),
         focus_line: focus,
         cursor: typed_cursor(form),
+        picker_rows: picker,
     }
+}
+
+/// The `File` row's file list, written after the row: `> name` for the
+/// highlighted choice and `  name` for the rest, a folder's name ending with `/`,
+/// at most `PICKER_WINDOW` rows, and the `… <n> more` row when the listing has
+/// more than that, with the window moved so the highlighted choice is shown
+/// (M7-50, contract §2.3). The first row written and how many, or `None` with no
+/// choices, which writes no rows.
+fn picker_rows(form: &NewForm, lines: &mut Vec<String>) -> Option<(usize, usize)> {
+    let choices: Vec<Entry> = form.choices();
+    if choices.is_empty() {
+        return None;
+    }
+    let first: usize = lines.len();
+    let start: usize = match form.chosen() {
+        Some(at) if choices.len() > PICKER_WINDOW => at
+            .saturating_sub(PICKER_WINDOW - 1)
+            .min(choices.len() - PICKER_WINDOW),
+        _ => 0,
+    };
+    let chosen: Option<usize> = form.chosen();
+    let shown: usize = PICKER_WINDOW.min(choices.len() - start);
+    for (index, entry) in choices.iter().enumerate().skip(start).take(shown) {
+        let name: String = if entry.folder {
+            format!("{}/", entry.name)
+        } else {
+            entry.name.clone()
+        };
+        let row: String = if chosen == Some(index) {
+            format!("> {}", name)
+        } else {
+            format!("  {}", name)
+        };
+        lines.push(continued(row.as_str()));
+    }
+    let mut count: usize = lines.len() - first;
+    if choices.len() > PICKER_WINDOW {
+        lines.push(continued(&format!(
+            "  … {} more",
+            choices.len() - PICKER_WINDOW
+        )));
+        count += 1;
+    }
+    Some((first, count))
 }
 
 /// The cursor's column in the drawn line, when the focus is a text field: the

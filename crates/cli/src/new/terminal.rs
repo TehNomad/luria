@@ -2,8 +2,9 @@
 //! only file in the `new` module that does I/O, the same session, key mapping and
 //! restore rules as `review::terminal::run_proposal` (plan §3 rule 7). It draws
 //! the form, answers `FormAction::Load` by reading the file the form typed
-//! relative to the current directory, passes a bracketed paste to
-//! `NewForm::paste`, and answers the pop-up `[ Save and run ]` opens: the
+//! relative to the current directory, lists the directory typed in `File` once
+//! per directory with `picker::list` before each draw (M7-50), passes a bracketed
+//! paste to `NewForm::paste`, and answers the pop-up `[ Save and run ]` opens: the
 //! pop-up's `enter` gives `Save`, `plan` names the files it writes,
 //! `approve_new` writes them, and the design runs from the request file it wrote,
 //! so nothing is written before `enter` and quitting writes nothing (7f2's rule).
@@ -20,7 +21,8 @@
 
 use crate::interpret::document::InterpretationDocument;
 use crate::new::confirm::{approve_new, plan, taken, Planned};
-use crate::new::form::{FormAction, NewForm, Popup, Source};
+use crate::new::form::{Field, FormAction, NewForm, Popup, Source};
+use crate::new::picker;
 use crate::new::view::draw_form;
 use crate::new::view::draw_popup;
 use crate::new::view::draw_waiting;
@@ -159,6 +161,16 @@ pub fn run_new(
     let mut looped: std::io::Result<()> = Ok(());
 
     loop {
+        // M7-50: the file list is read once, before the draw that shows it, and
+        // only for the directory the form typed, so a directory is listed once
+        // and the proposal's screen asks for no listing.
+        if proposal.is_none() && form.focus() == Field::File {
+            let dir: String = form.file_dir();
+            if form.listing_dir() != Some(dir.clone()) {
+                let listed = picker::list(&cwd.join(if dir.is_empty() { "." } else { &dir }));
+                form.set_listing(dir, listed);
+            }
+        }
         // M7-48: the proposal is drawn with the pop-up over it, and `draw_popup`
         // draws nothing when no pop-up is open.
         let drawing: std::io::Result<()> = match &proposal {

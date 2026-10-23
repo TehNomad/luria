@@ -57,6 +57,7 @@ use luria_core::sequence::{Sequence, SequenceTopology};
 
 pub mod confirm;
 pub mod form;
+pub mod picker;
 pub mod terminal;
 pub mod text;
 pub mod view;

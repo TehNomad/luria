@@ -1,6 +1,6 @@
 # Milestone 7m5: a filtered file list under `File`
 
-Status: **Ready for the worker, 2026-10-22.** Planner: Claude. Parent:
+Status: **Implemented, 2026-10-22.** Planner: Claude. Parent:
 `docs/tasks/milestone-7m-polish.md`, M7-50. Builds on 7m4 (committed
 `7848c46`).
 
@@ -132,3 +132,11 @@ git status --short
 ```
 
 Report each result, the §3.1 proofs, and any existing assertion changed.
+
+## 6. Implementation notes (planner, 2026-10-22)
+
+- 1140 tests passed, 0 failed, 1 ignored; fmt, clippy, diff check clean;
+  fixtures 19 of 19. Both §3.1 proofs failed as required. No existing
+  assertion changed; the tests diff is insertions only.
+- Untested: the loop's listing (reads the directory whenever `File`'s
+  directory part changes) and the picker's styles on a real terminal.

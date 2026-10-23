@@ -18,6 +18,11 @@
 //!   previews green, `✗` previews red, `…` previews and the box's `needs a
 //!   GenBank template` hint dim, `[ Save and run ]` bold and reversed when
 //!   focused, the blocker line bold red, and the pop-up's `✗` line red bold;
+//! - the file list under `File` (M7-50): the highlighted row reversed, a folder
+//!   row bold, so a highlighted folder is both, and the `… <n> more` row dim, its
+//!   rows told apart from the other continued rows by the position `FormText`
+//!   gives in `picker_rows`; with choices showing, the key line is
+//!   `↑/↓ pick  enter choose  tab next  esc quit`;
 //! - `draw_popup` draws the pop-up over the form, centred in a rounded block
 //!   titled ` Save `, as `text::popup_lines` writes it, with the cursor in the
 //!   name typed (M7-48); `draw_form` calls it last;
@@ -66,14 +71,14 @@ const LABELS: [&str; 10] = [
 /// scrolled so the focused field's line is visible, the key line, the cursor in
 /// the focused text field, and, when a pop-up is open, the pop-up over the form
 /// (M7-48). Below 80x24 the screen says how small it is and shows nothing of the
-/// form.
+/// form. While `File` has choices, the key line names the picker's keys (M7-50).
 pub fn draw_form(frame: &mut Frame, form: &NewForm) {
-    draw_form_with(
-        frame,
-        form,
-        "tab next  shift-tab back  ←/→ choose  enter save  esc quit",
-        true,
-    );
+    let keys: &str = if form.focus() == Field::File && !form.choices().is_empty() {
+        "↑/↓ pick  enter choose  tab next  esc quit"
+    } else {
+        "tab next  shift-tab back  ←/→ choose  enter save  esc quit"
+    };
+    draw_form_with(frame, form, keys, true);
 }
 
 /// Draw `form` exactly as `draw_form` does, except that the key line says the
@@ -123,7 +128,19 @@ fn draw_form_with(frame: &mut Frame, form: &NewForm, keys: &str, with_cursor: bo
         let line: &str = &body.lines[index];
         let focused_label: bool = index == label_row;
         let focused_review: bool = form.focus() == Field::Review && index == body.focus_line;
-        shown.push(styled_line(line, focused_label, focused_review));
+        // M7-50: the file list's rows are told apart from the other continued
+        // rows by position, which `FormText` states as `picker_rows`.
+        let listed: bool = matches!(body.picker_rows, Some((start, count)) if index >= start && index < start + count);
+        let trimmed: &str = line.trim_start();
+        let picked: bool = listed && trimmed.starts_with("> ");
+        let folder: bool = listed && trimmed.ends_with('/');
+        shown.push(styled_line(
+            line,
+            focused_label,
+            focused_review,
+            picked,
+            folder,
+        ));
     }
     frame.render_widget(Paragraph::new(shown), inner);
 
@@ -208,9 +225,32 @@ const BUTTON: &str = "[ Save and run ]";
 
 /// One `text` line as spans, with the styles §3 lists: the text itself is
 /// unchanged. `focused_label` is the focused field's own row, `focused_review`
-/// the `[ Save and run ]` row when focus is on it.
-fn styled_line(line: &str, focused_label: bool, focused_review: bool) -> Line<'static> {
+/// the `[ Save and run ]` row when focus is on it. `picked` is the highlighted
+/// file list row, reversed, and `folder` a folder row, bold, so a highlighted
+/// folder is both (M7-50).
+fn styled_line(
+    line: &str,
+    focused_label: bool,
+    focused_review: bool,
+    picked: bool,
+    folder: bool,
+) -> Line<'static> {
     let mut spans: Vec<Span<'static>> = Vec::new();
+    // The file list: the highlighted row reversed, a folder row bold, and the
+    // `… <n> more` row dim, which the `…` rule below writes.
+    if picked {
+        let mut style: Style = Style::default().add_modifier(Modifier::REVERSED);
+        if folder {
+            style = style.add_modifier(Modifier::BOLD);
+        }
+        return Line::from(Span::styled(line.to_string(), style));
+    }
+    if folder {
+        return Line::from(Span::styled(
+            line.to_string(),
+            Style::default().add_modifier(Modifier::BOLD),
+        ));
+    }
     // The blocker line, which `text` writes at the left margin.
     if line.starts_with('✗') {
         return Line::from(Span::styled(

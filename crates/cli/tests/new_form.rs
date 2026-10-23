@@ -14,6 +14,7 @@ use luria_cli::new::form::FormAction;
 use luria_cli::new::form::NewForm;
 use luria_cli::new::form::Popup;
 use luria_cli::new::form::Preview;
+use luria_cli::new::picker::Entry;
 use luria_cli::new::Built;
 use luria_cli::request::parse_profile;
 use luria_cli::request::CodonSpec;
@@ -771,4 +772,160 @@ fn a_taken_name_asks_and_only_y_replaces() {
         }
         other => panic!("the pop-up gave {:?} instead of the built request", other),
     }
+}
+
+// M7-50 (contract §3 tests 3 to 6): the file list. The listings are given to the
+// form through `set_listing`, exactly as the loop gives them, so the form reads
+// no directory, and the entries are in `picker::list`'s order: folders first,
+// then the template files in name order.
+/// The listing of the current directory the loop gives: the folder `genbank`,
+/// then `sid-1_cDNA.fa` and `syn.fa`, as `picker::list` sorts them.
+fn listed(form: &mut NewForm) {
+    form.set_listing(
+        String::new(),
+        vec![
+            Entry {
+                name: "genbank".to_string(),
+                folder: true,
+            },
+            Entry {
+                name: "sid-1_cDNA.fa".to_string(),
+                folder: false,
+            },
+            Entry {
+                name: "syn.fa".to_string(),
+                folder: false,
+            },
+        ],
+    );
+}
+
+/// The `choices()` names, as the picker shows them.
+fn names(form: &NewForm) -> Vec<String> {
+    form.choices()
+        .iter()
+        .map(|entry| entry.name.clone())
+        .collect()
+}
+
+#[test]
+fn typing_filters_the_choices() {
+    let mut form = NewForm::new(None, false);
+    tab_to(&mut form, Field::File);
+    listed(&mut form);
+    assert_eq!(
+        names(&form),
+        vec!["genbank", "sid-1_cDNA.fa", "syn.fa"],
+        "the whole listing is shown while `File` is empty"
+    );
+    type_text(&mut form, "s");
+    assert_eq!(
+        names(&form),
+        vec!["sid-1_cDNA.fa", "syn.fa"],
+        "typing `s` keeps the two files, and the folder whose name does not start with it"
+    );
+    type_text(&mut form, "i");
+    assert_eq!(
+        names(&form),
+        vec!["sid-1_cDNA.fa"],
+        "typing `si` keeps the one file it names"
+    );
+    for _ in 0..2 {
+        form.handle(Key::Backspace);
+    }
+    type_text(&mut form, "x");
+    assert!(form.choices().is_empty(), "typing `x` keeps none");
+}
+
+#[test]
+fn down_and_enter_choose_a_file_and_load_it() {
+    let mut form = NewForm::new(None, false);
+    tab_to(&mut form, Field::File);
+    listed(&mut form);
+    // The file is sorted after the folder, so its own position is picked.
+    let at: usize = form
+        .choices()
+        .iter()
+        .position(|entry| !entry.folder && entry.name == "sid-1_cDNA.fa")
+        .expect("the file is a choice");
+    for _ in 0..at + 1 {
+        form.handle(Key::Down);
+    }
+    assert_eq!(
+        form.chosen(),
+        Some(at),
+        "`Down` highlights the entry at its own position in `choices()`"
+    );
+    assert_eq!(
+        form.handle(Key::Enter),
+        FormAction::Load("sid-1_cDNA.fa".to_string()),
+        "`enter` on a file leaves `File` exactly as `tab` does, so the loop reads it"
+    );
+    assert_eq!(
+        form.file(),
+        "sid-1_cDNA.fa",
+        "the chosen name completes the typed path"
+    );
+    assert_eq!(
+        form.chosen(),
+        None,
+        "the highlight is cleared with the choice"
+    );
+}
+
+#[test]
+fn a_folder_is_entered_not_loaded() {
+    let mut form = NewForm::new(None, false);
+    tab_to(&mut form, Field::File);
+    listed(&mut form);
+    let at: usize = form
+        .choices()
+        .iter()
+        .position(|entry| entry.folder && entry.name == "genbank")
+        .expect("the folder is a choice");
+    for _ in 0..at + 1 {
+        form.handle(Key::Down);
+    }
+    assert_eq!(
+        form.handle(Key::Enter),
+        FormAction::Continue,
+        "`enter` on a folder asks the loop for nothing, so nothing is loaded"
+    );
+    assert_eq!(form.focus(), Field::File, "focus stays on `File`");
+    assert_eq!(
+        form.file(),
+        "genbank/",
+        "the folder's name is typed with its slash"
+    );
+    assert_eq!(
+        form.file_dir(),
+        "genbank/",
+        "the typed path is now the directory the loop lists"
+    );
+    assert_eq!(
+        form.chosen(),
+        None,
+        "the highlight is cleared with the choice"
+    );
+}
+
+#[test]
+fn up_and_down_move_focus_without_choices() {
+    let mut form = NewForm::new(None, false);
+    tab_to(&mut form, Field::File);
+    assert!(form.choices().is_empty(), "no listing set gives no choices");
+    form.handle(Key::Down);
+    // With Source = file `Paste` does not apply, so the next visible field after
+    // `File` is `Name`, as 7k3's skipping rule states.
+    assert_eq!(
+        form.focus(),
+        Field::Name,
+        "with no choices `Down` moves focus to the next visible field, as it does today"
+    );
+    form.handle(Key::Up);
+    assert_eq!(
+        form.focus(),
+        Field::File,
+        "with no choices `Up` moves focus back, as it does today"
+    );
 }
