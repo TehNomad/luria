@@ -26,6 +26,8 @@ row names it.
 | M7-57 | Export names | **`<template id>_<member>.fa`**, e.g. `sid-1_cDNA_D404N.fa`, as the order table already names primers. |
 | M7-58 | Export keys | **`w` or `o` writes, `esc` goes back**, as nano and vim do. |
 | M7-59 | Words and the CDS | (owner, 2026-10-22, after the backend hand test) **In `luria new`, words that name no CDS use the CDS picked on the form**, recorded as an assumption; words naming a different CDS than the form's are asked about. M6-9 still holds for `luria q5 interpret` and `luria review --template`, which have no CDS field. Contract 7m7. |
+| M7-60 | Words preview | (owner, 2026-10-22, after the backend hand test) **When the model's reading can be approved, `luria new` runs the design in memory and shows the variant screens as a preview**: primers, both strands and the mutant protein in frame, so the mutation is checked before saving. Nothing is written until `a` and the save pop-up. This narrows D046's "nothing runs until you approve" to "nothing is written until you approve" for `luria new` only; `luria review --template` is unchanged. A reading with questions or an error still opens on the proposal text. Contracts 7m8a, 7m8b. |
+| M7-61 | Proposal details | **The model's reading (questions, request, origins, quotes, prompt, reply) moves behind `d`**: in the preview it is at the bottom of each variant's Details screen, as M7-52 put the provenance. |
 
 ## 2. Contracts, in order
 
