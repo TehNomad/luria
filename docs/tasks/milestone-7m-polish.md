@@ -25,6 +25,7 @@ row names it.
 | M7-56 | Details | **Scrolling stops at the bottom**, so `k` moves at once; on every scrolled screen. The stale `c context` and `esc back` lines go. |
 | M7-57 | Export names | **`<template id>_<member>.fa`**, e.g. `sid-1_cDNA_D404N.fa`, as the order table already names primers. |
 | M7-58 | Export keys | **`w` or `o` writes, `esc` goes back**, as nano and vim do. |
+| M7-59 | Words and the CDS | (owner, 2026-10-22, after the backend hand test) **In `luria new`, words that name no CDS use the CDS picked on the form**, recorded as an assumption; words naming a different CDS than the form's are asked about. M6-9 still holds for `luria q5 interpret` and `luria review --template`, which have no CDS field. Contract 7m7. |
 
 ## 2. Contracts, in order
 
