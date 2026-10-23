@@ -15,7 +15,7 @@ use luria_cli::exit::ExitStatus;
 use luria_cli::interpret::document::render_interpretation;
 use luria_cli::interpret::document::InterpretationDocument;
 use luria_cli::interpret::run::{
-    interpret, interpret_with_profile, request_location_problem, InterpretInput, InterpretOutcome,
+    interpret, interpret_with_form, request_location_problem, InterpretInput, InterpretOutcome,
     TextSource,
 };
 use luria_cli::new;
@@ -312,10 +312,11 @@ fn emit_review_interpret(
 }
 
 /// The `In words` box's model, as the loop calls it: the template path as typed
-/// in `File`, the words as typed, and the design the form shows (M7-41), which
-/// the model answers with its document (contract §2.4), so `emit_new` builds it
-/// once and `run_new` calls it once per `[ Review ]`.
-type WordsModel = dyn FnMut(&str, &str, ProfileDocument) -> InterpretationDocument;
+/// in `File`, the words as typed, the design the form shows (M7-41), and the
+/// CDS the form picked (M7-59), which the model answers with its document
+/// (contract §2.4), so `emit_new` builds it once and `run_new` calls it once per
+/// `[ Review ]`.
+type WordsModel = dyn FnMut(&str, &str, ProfileDocument, &str) -> InterpretationDocument;
 
 /// `luria new`: the form, the confirmation, and the design an approval runs
 /// (milestone 7k5, contract 7k5 §2.4), and the `In words` box's model, which
@@ -348,9 +349,11 @@ fn emit_new(
     let mut interpret_new: Box<WordsModel> = match backend {
         // The box is disabled, so the loop never calls this.
         None => Box::new(
-            |_template: &str, _words: &str, _profile: ProfileDocument| -> InterpretationDocument {
-                panic!("no backend")
-            },
+            |_template: &str,
+             _words: &str,
+             _profile: ProfileDocument,
+             _cds: &str|
+             -> InterpretationDocument { panic!("no backend") },
         ),
         Some(given) => match checked_endpoint(&given.endpoint, given.allow_remote) {
             Err(problem) => return report_usage(problem),
@@ -360,7 +363,7 @@ fn emit_new(
                     let mut openai: OpenAiCompatible =
                         OpenAiCompatible::new(endpoint, &given.model, key);
                     Box::new(
-                        move |template: &str, words: &str, profile: ProfileDocument| {
+                        move |template: &str, words: &str, profile: ProfileDocument, cds: &str| {
                             // The form's `--design` profile opened the form with this
                             // overlap and codon (7k3), so the file is not read again:
                             // the input has no profile, and the given one is the
@@ -372,8 +375,9 @@ fn emit_new(
                                 write_request: None,
                             };
                             // The run writes nothing: the approval writes the request
-                            // the save pop-up names (plan §3 rule 4).
-                            interpret_with_profile(&input, profile, &mut openai).document
+                            // the save pop-up names (plan §3 rule 4). The CDS the
+                            // form picked answers words that name no CDS (M7-59).
+                            interpret_with_form(&input, profile, cds, &mut openai).document
                         },
                     )
                 }

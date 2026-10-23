@@ -1,6 +1,6 @@
 # Milestone 7m7: words in `luria new` use the form's CDS
 
-Status: **Ready for the worker, 2026-10-22.** Planner: Claude. Parent:
+Status: **Implemented, 2026-10-22.** Planner: Claude. Parent:
 `docs/tasks/milestone-7m-polish.md`, M7-59. Follows 7m6 (committed
 `8b46cb2`).
 
@@ -170,3 +170,13 @@ git status --short
 
 Report each result, the §3.1 proof, and any existing assertion changed
 beyond §3 items 4 and 5.
+
+## 6. Implementation notes (planner, 2026-10-22)
+
+- 1143 tests passed, 0 failed, 1 ignored; fmt, clippy, diff check clean;
+  fixtures 19 of 19. With the rule disabled, exactly tests 1 and 2 failed
+  and every corpus test passed, so `luria q5 interpret` still asks
+  `cds_unnamed`.
+- The form's CDS is always a usable catalogue entry (the CDS field lists
+  usable entries only), so no unusable check is needed for it.
+- Untested: the loop and `main.rs` closure (the owner's hand test).

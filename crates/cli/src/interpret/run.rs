@@ -21,7 +21,7 @@
 
 use crate::exit::ExitStatus;
 use crate::interpret::build::{
-    build, Assumption, Built, Origin, Question, Source, TemplateFacts, Ungrounded,
+    build_with_cds, Assumption, Built, Origin, Question, Source, TemplateFacts, Ungrounded,
 };
 use crate::interpret::catalogue::{catalogue, CatalogueEntry, Usability};
 use crate::interpret::document::{
@@ -495,7 +495,29 @@ pub fn interpret(input: &InterpretInput, backend: &mut dyn Backend) -> Interpret
         Err(outcome) => return outcome,
         Ok(found) => found,
     };
-    run(input, &text, profile, answered, backend)
+    run(input, &text, profile, answered, backend, None)
+}
+
+/// `luria q5 interpret` with the design profile and the CDS the `luria new`
+/// form picked on its `CDS` field (M7-59): `interpret_with_profile`'s steps
+/// exactly, with `form_cds: Some(cds)` passed to `build_with_cds`, so words
+/// that name no CDS use the form's, recorded as an assumption, and words that
+/// name another are asked about. The profile in the input and one given here
+/// are the same value read twice.
+pub fn interpret_with_form(
+    input: &InterpretInput,
+    profile: ProfileDocument,
+    cds: &str,
+    backend: &mut dyn Backend,
+) -> InterpretOutcome {
+    assert!(input.profile.is_none(), "a profile is given twice");
+    let info: BackendInfo = backend.describe();
+    let answered: InterpretationDocument = base(&info);
+    let text: String = match read_text(input, &answered) {
+        Err(outcome) => return outcome,
+        Ok(found) => found,
+    };
+    run(input, &text, Some(profile), answered, backend, Some(cds))
 }
 
 /// `luria q5 interpret` with the design profile given as a value, as the `luria
@@ -514,17 +536,19 @@ pub fn interpret_with_profile(
         Err(outcome) => return outcome,
         Ok(found) => found,
     };
-    run(input, &text, Some(profile), answered, backend)
+    run(input, &text, Some(profile), answered, backend, None)
 }
 
-/// Steps 3 to 8, from step 1's text and step 2's profile: the body both public
-/// functions run, so the two differ only in where the profile came from.
+/// Steps 3 to 8, from step 1's text and step 2's profile: the body all three
+/// public functions run, so they differ only in where the profile and the
+/// form's CDS came from (M7-41, M7-59).
 fn run(
     input: &InterpretInput,
     text: &str,
     profile: Option<ProfileDocument>,
     mut answered: InterpretationDocument,
     backend: &mut dyn Backend,
+    form_cds: Option<&str>,
 ) -> InterpretOutcome {
     // Step 3: the template: its name alone, its bytes, its FASTA refusal, then
     // the record and its CDS catalogue.
@@ -675,7 +699,14 @@ fn run(
 
     // Step 7: what luria makes of what the model said, which it does not
     // believe on its own (D003).
-    match build(text, &extraction, &listing, profile.as_ref(), &facts) {
+    match build_with_cds(
+        text,
+        &extraction,
+        &listing,
+        profile.as_ref(),
+        &facts,
+        form_cds,
+    ) {
         Built::Ungrounded(problem) => {
             answered.interpretation.ungrounded = Some(ungrounded_view(&problem));
             refused(

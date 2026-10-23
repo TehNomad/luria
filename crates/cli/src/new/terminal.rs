@@ -122,9 +122,10 @@ fn name_of(path: &Path) -> String {
 ///
 /// `interpret` is called only on `FormAction::Interpret`, which the form gives
 /// when the words box holds text with a GenBank template loaded (M7-40): the
-/// template path as typed, the words as typed, and the design the form shows
-/// (M7-41), which the closure gives `interpret_with_profile`. Its document is the
-/// proposal drawn in this session, and its approval is the pop-up over it, whose
+/// template path as typed, the words as typed, the design the form shows
+/// (M7-41), and the CDS the form picked (M7-59), which the closure gives
+/// `interpret_with_form`. Its document is the proposal drawn in this session, and
+/// its approval is the pop-up over it, whose
 /// `enter` runs `review::approve_replacing`, exactly as `luria review --template`
 /// runs it (7f2), asked to replace only when the user answered `y` (M7-49). The
 /// loop is the owner's hand test.
@@ -132,7 +133,7 @@ pub fn run_new(
     form: NewForm,
     cwd: &Path,
     written: &mut Option<PathBuf>,
-    interpret: &mut dyn FnMut(&str, &str, ProfileDocument) -> InterpretationDocument,
+    interpret: &mut dyn FnMut(&str, &str, ProfileDocument, &str) -> InterpretationDocument,
 ) -> std::io::Result<Option<Approved>> {
     let mut terminal = match ratatui::try_init() {
         Ok(opened) => opened,
@@ -297,6 +298,7 @@ pub fn run_new(
                             template,
                             text,
                             profile,
+                            cds,
                         } => {
                             // The call can take minutes, so the form is drawn once
                             // with the line that says the model is being asked, and
@@ -305,7 +307,7 @@ pub fn run_new(
                             // The model is spoken to once per `[ Save and run ]`,
                             // and the request is the path the approval will write.
                             let document: InterpretationDocument =
-                                interpret(&template, &text, profile);
+                                interpret(&template, &text, profile, &cds);
                             words_template = Some(PathBuf::from(&template));
                             proposal = Some(ProposalApp::new(document, request_path(&form, cwd)));
                         }

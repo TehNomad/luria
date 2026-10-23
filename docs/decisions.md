@@ -1592,7 +1592,7 @@ owner's, after using the earlier versions.
 
 Status: approved by the owner, 2026-10-21 and 2026-10-22
 (`docs/tasks/milestone-7k-new.md`, answers M7-31 to M7-44, and
-`docs/tasks/milestone-7m-polish.md`, answers M7-45 to M7-58, after the
+`docs/tasks/milestone-7m-polish.md`, answers M7-45 to M7-59, after the
 owner's first hand test). Applies D003, D005, D006, D012, D029, D034,
 D044 and D046.
 
@@ -1619,10 +1619,12 @@ Decision:
   by one tested function. A one-base change is a substitution; any longer
   range is a replacement. Typed bases must match the template. Several
   lines are separate variants (M7-34).
-* **Words** (M7-33, M7-41, M7-42, M7-47). A mutation line luria cannot
+* **Words** (M7-33, M7-41, M7-42, M7-47, M7-59). A mutation line luria cannot
   read at all makes the whole box words. With `--backend` the box goes
   through `luria q5 interpret`'s path unchanged, with the form's overlap,
-  the default codon policy and residues counted from the CDS start; it
+  the default codon policy, residues counted from the CDS start, and,
+  when the words name no CDS, the form's CDS as an assumption (M7-59;
+  M6-9 still holds for `luria q5 interpret`); it
   needs a GenBank template (M6-7), and its proposal is shown before
   anything is saved. Without a backend the form names `--backend`. A line
   luria reads but refuses is an error and is never sent to the model.

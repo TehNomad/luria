@@ -75,6 +75,7 @@ fn the_question_table_lists_every_code_build_can_ask() {
         QuestionCode::CdsUnnamed,
         QuestionCode::CdsNotFound,
         QuestionCode::CdsUnusable,
+        QuestionCode::CdsNotTheForms,
         QuestionCode::CompositionUnstated,
         QuestionCode::CompositionUnclear,
         QuestionCode::NumberingUnstated,

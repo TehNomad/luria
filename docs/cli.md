@@ -745,9 +745,10 @@ an existing file.
 | `mutation_not_extracted` | Your text holds a substitution such as `A42G` that the reply does not list. |
 | `codon_unstated` | No codon in the text and no codon policy in the profile. |
 | `codon_not_in_quote` | A codon is in the text, but not in the words given for its substitution. |
-| `cds_unnamed` | The text names no CDS. luria never picks one, even when the record has one. |
+| `cds_unnamed` | The text names no CDS. luria never picks one, even when the record has one; in `luria new`, the CDS picked on the form is used instead (§12.3). |
 | `cds_not_found` | The record has no CDS of that name (matched exactly). |
 | `cds_unusable` | The record has it, but luria refuses to import it; the message gives core's code. |
+| `cds_not_the_forms` | In `luria new` only: your words name a CDS other than the one picked on the form. |
 | `composition_unstated` | Two or more substitutions, and not said whether separate or combined. |
 | `composition_unclear` | Your words say both, or negate it, or the model's reading differs from luria's. |
 | `numbering_unstated` | Neither the text nor the profile says how residues are numbered. |
@@ -950,7 +951,9 @@ A line that is not shorthand at all, such as `change alanine 42 to
 glycine`, makes the whole Mutations box words. With `--backend`, `[ Save
 and run ]` sends the box to your model as `luria q5 interpret` does
 (§10), with the form's overlap, the default codon policy, and residues
-counted from the CDS's first codon unless your words say otherwise. The
+counted from the CDS's first codon unless your words say otherwise. If
+your words name no CDS, the one picked on the form is used, and the
+proposal says so; if they name another, it asks. The
 template must be GenBank, because the model is shown its CDS list.
 Without `--backend`, the form says the line is not shorthand and asks
 you to start with it. A line that is shorthand but refused, such as

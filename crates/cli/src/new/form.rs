@@ -167,11 +167,14 @@ pub enum FormAction {
     /// the whole box through `interpret` with the template at `template`, the path
     /// typed in `File`, and shows the proposal. `profile` is the design the form
     /// shows, which the words are read with (M7-41), and `text` is every mutation
-    /// line joined with newlines. The form built nothing.
+    /// line joined with newlines. `cds` is the CDS picked on the form's `CDS`
+    /// field, the id of `cds_list[cds_index]`, which the words name no CDS use
+    /// (M7-59). The form built nothing.
     Interpret {
         template: String,
         text: String,
         profile: ProfileDocument,
+        cds: String,
     },
 }
 
@@ -1116,6 +1119,11 @@ impl NewForm {
                 template: self.file.text(),
                 text: self.mutations.lines.join("\n"),
                 profile: self.words_profile(),
+                // M7-59: the CDS picked on the form, which words that name no
+                // CDS use. A GenBank record under `File` is the catalogue mode,
+                // and `form_blocker` above stopped the form when the catalogue
+                // has no usable CDS, so there is one to name.
+                cds: self.cds_list[self.cds_index].id.clone(),
             };
         }
         match build(&self.build_form()) {

@@ -27,6 +27,7 @@
 
 use luria_cli::interpret::document::InterpretationDocument;
 use luria_cli::interpret::run::interpret;
+use luria_cli::interpret::run::interpret_with_form;
 use luria_cli::interpret::run::interpret_with_profile;
 use luria_cli::interpret::run::InterpretInput;
 use luria_cli::interpret::run::TextSource;
@@ -254,6 +255,7 @@ fn unreadable_lines_go_to_the_model() {
             template: row[1].clone(),
             text: text_of(&row),
             profile: given,
+            cds: "synA".to_string(),
         },
         "the words go to the model with the GenBank template as typed in File"
     );
@@ -271,6 +273,7 @@ fn words_without_a_profile_use_the_forms_values() {
             template,
             text,
             profile,
+            cds: _,
         } => (template, text, profile),
         other => panic!("the words form gave {:?} instead of the Interpret", other),
     };
@@ -299,6 +302,68 @@ fn words_without_a_profile_use_the_forms_values() {
         request,
         fixture("nl/request/edit-a42g.json"),
         "the request the corpus states for this edit under overlap 15, codon default and numbering from the CDS start"
+    );
+    let _ = fs::remove_dir_all(&dir);
+}
+
+// M7-59 (contract 7m7 §3 test 1): the form picked `synA` on its `CDS` field, so
+// words that name no CDS are read with it, the proposal asks nothing, and the
+// CDS is recorded as an assumption the user checks, so the proposal can be
+// approved. The same case through `interpret`, which has no CDS field, still
+// asks `cds_unnamed` (M6-9), as the corpus tests do.
+#[test]
+fn words_naming_no_cds_use_the_forms() {
+    let row: Vec<String> = row_of("cds-unnamed");
+    let dir: PathBuf = workspace("forms-cds", &row);
+    let mut form = words_form_without_profile(&row);
+    let (typed, words, profile, cds): (String, String, ProfileDocument, String) =
+        match form.handle(Key::Enter) {
+            FormAction::Interpret {
+                template,
+                text,
+                profile,
+                cds,
+            } => (template, text, profile, cds),
+            other => panic!("the words form gave {:?} instead of the Interpret", other),
+        };
+    assert_eq!(
+        cds, "synA",
+        "the form's CDS field holds the record's one usable CDS"
+    );
+
+    // The loop's closure, as `emit_new` builds it: the case's reply, with
+    // `write_request: None`, so the run writes nothing.
+    let reply: String = read(&format!("{}reply/{}", NL, row[3]));
+    let mut backend: ScriptedBackend = ScriptedBackend::new("scripted-corpus", vec![Ok(reply)]);
+    let input: InterpretInput = InterpretInput {
+        template: dir.join(&typed),
+        text: TextSource::Inline(words),
+        profile: None,
+        write_request: None,
+    };
+    let document: InterpretationDocument =
+        interpret_with_form(&input, profile, &cds, &mut backend).document;
+    assert_eq!(
+        document.state, "proposed",
+        "the CDS picked on the form answers the words that name none"
+    );
+    assert_eq!(document.questions, [].to_vec(), "nothing is asked");
+    let request: Value =
+        serde_json::to_value(document.request.as_ref().expect("a proposed request"))
+            .expect("the request is JSON");
+    assert_eq!(
+        request,
+        fixture("nl/request/edit-a42g.json"),
+        "the request the corpus states for this edit under overlap 15, codon default and numbering from the CDS start"
+    );
+    assert!(
+        document.assumptions.iter().any(|assumption| {
+            assumption.code == "cds_from_form"
+                && assumption.message
+                    == "the text names no CDS; it is synA, the CDS picked on the form"
+        }),
+        "the proposal records the form's CDS as an assumption, got {:?}",
+        document.assumptions
     );
     let _ = fs::remove_dir_all(&dir);
 }
@@ -439,6 +504,7 @@ fn the_interpreted_request_is_the_corpus_request() {
             template,
             text,
             profile: _,
+            cds: _,
         } => (template, text),
         other => panic!("the words form gave {:?} instead of the Interpret", other),
     };
@@ -497,6 +563,7 @@ fn a_proposal_replaces_only_when_asked() {
             template,
             text,
             profile: _,
+            cds: _,
         } => (template, text),
         other => panic!("the words form gave {:?} instead of the Interpret", other),
     };
