@@ -453,6 +453,14 @@ luria find FILE PATTERN [--aa] [--cds ID]
   Without it a site across the end is simply not found, and the last line
   says `linear: hits do not cross the end`.
 - Without `--cds`, AA mode searches six frames.
+- **The output names what it searched, and claims nothing else (D052, owner
+  2026-10-24).** `--cds` mode puts the CDS's name and span in the header; six-
+  frame mode already carries strand and frame on every row; `--circular` forces
+  the topology line. That is not decoration: without it a `0 hits` row is read
+  as "this construct has no EcoRI site", which the run cannot know — it looked
+  at one molecule, in one mode. A non-zero count is no safer: "no hits" proves
+  absence in that sample only, never about the organism or the wider construct.
+  Contract 8i carries the exact wording and the test that it appears.
 - Output is tab-separated with a header, one row per hit:
   `start end strand` (DNA) or `start end strand frame first_residue
   last_residue` (AA). Positions are 1-based inclusive; a wrapping hit has
@@ -606,7 +614,7 @@ wording is what the hand test will change.
 | # | Contract |
 | --- | --- |
 | 8h | cli: dispatch of a bare file and `find`, the terminal check, the byte ceiling (§5.6) |
-| 8i | cli: `luria find`, including `--cds` matching and `--circular` (§5.5) — light on wording, full on behaviour: its tests assert D050's numbering, the `stop` column, the cap and D049's refusal-with-candidates |
+| 8i | cli: `luria find`, including `--cds` matching and `--circular` (§5.5) — light on wording, full on behaviour: its tests assert D050's numbering, the `stop` column, the cap, D052's disclosure that the count is about the file searched, and D049's refusal-with-candidates |
 | 8k1 | cli: the view's state, cursor movement, blocks and status line |
 | 8k2 | cli: go-to (§5.3) |
 | 8k3 | cli: the feature list and the CDS picker (§5.2, M8-5, M8-11) |
@@ -630,7 +638,11 @@ fixtures of §6 are **new files**, and nothing already under
 `tests/fixtures/` is edited, moved or re-run into new expectations.
 `tests/fixtures/genbank/raw/J01749.1.gb` is a download, pinned by
 accession **and version** (`.1`) and byte size, with the fetch command in
-the README; a future `J01749.2` is a different fixture, not this one.
+the README; a future `J01749.2` is a different fixture, not this one. A
+search may not be sold as a safeguard: the hit count is a count of what is
+in the file the run was given, and luria says nothing about the organism,
+the construct, or a site outside that file (D052). The disclosure wording
+lives in contract 8i; §5.5 has the rule.
 The refusal reason codes and their matching tests are part of 8b, not a
 later contract. The `--cds` flag's grammar is settled — matching included
 (M8-15, D049) — and only its implementation waits for 8g. The cap and the
