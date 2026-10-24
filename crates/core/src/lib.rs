@@ -1,6 +1,7 @@
 //! luria core: the canonical first-milestone domain model.
 
 pub mod cds;
+pub mod cds_map;
 pub mod codon_usage;
 pub mod error;
 pub mod extraction;
