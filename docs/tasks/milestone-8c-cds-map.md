@@ -1,6 +1,21 @@
 # Milestone 8c: the CDS map (core)
 
-Status: **round 1 in progress**. Planner: Claude. Parent: `docs/tasks/milestone-8-view.md`
+Status: **Implemented 2026-10-24** by the local worker, across two runs — the
+first retired at Pi's output-token limit with §6.1 unwritten, the second
+finished it in three smaller writes — and accepted on review. Findings worth
+keeping: the four planner defects listed below (all in the planner's own test
+code, none in an assertion); `CdsMap` can derive no `Eq`; the
+`index >= codons()` guard is unreachable from an import, because every fixture
+CDS length is a multiple of three, so removing it fails only
+`a_base_of_an_incomplete_final_codon_has_no_place` — accepted as defensive
+arithmetic over a public type, not a gap in coverage; removing the number guard
+fails four tests, and `tet`'s `residue_bases(397)` would return 1274–1276,
+which is that CDS's terminal stop codon, so the view would have numbered a
+stop; and the fixture test derives reading order from the imported CDS's own
+intervals (`fixture_reading_order`) rather than sorting the ascending column,
+because an origin-straddling codon reads 62, 1, 2 — that couples the order
+check to the location parse, which 5c1 pins separately, and is accepted.
+Planner: Claude. Parent: `docs/tasks/milestone-8-view.md`
 §4.2, full tier (D051). The fixtures it needs are already written and
 independently verified (commit `9dc1d38`, `tests/fixtures/view/`); nothing in
 this contract may change them.
