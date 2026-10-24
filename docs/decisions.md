@@ -1659,3 +1659,51 @@ Reversibility:
 
 Other placements, composition choices, a different default overlap, or
 any other default for a scientific value needs approval.
+
+## D048: What the Milestone 8 view selects, shows, and refuses to read
+
+Status: approved by the owner, 2026-10-24
+(`docs/tasks/milestone-8-view.md`, answers M8-11 to M8-14). Applies
+D003, D005, D006, D018, D041, D046 and D047. Not in this entry: M8-15
+(`luria find --cds`), answered with an amendment the planner has not
+confirmed, and M8-1 to M8-10 and M8-16 to M8-20, still open. They join
+this decision or become their own once answered.
+
+Decision:
+
+* **Which CDS is selected on open** (M8-11). A record with exactly one
+  usable CDS opens with it selected. A record with several opens with
+  none, and the title bar says so. The view never picks a CDS silently,
+  because the selected CDS decides the residue numbering on screen, what
+  the codon-step keys do, and what a protein search reads — the case
+  D005 lists first among the ambiguities that block.
+* **A cap on search hits** (M8-12). The view and `luria find` show at
+  most 200 hits and say how many there really are (`showing the first
+  200 of 8521 hits`). The cap is presentation: luria-core returns every
+  hit, at every position, overlapping included, uncapped. Without it one
+  all-ambiguity pattern such as `N` hits at every base of the record —
+  8521 hits on an 8521 bp construct — which is no usable hit list in the
+  view and 8521 rows on stdout.
+* **A terminal or nothing** (M8-13). `luria FILE` needs a terminal on
+  both stdin and stdout, checked by the same code `luria review` and
+  `luria new` use, and refusing with the usage error and exit status
+  `docs/cli.md` §5 already gives. Redirected output is a usage error, not
+  a half-drawn screen; the check runs before the file is opened. `luria
+  find` needs no terminal and writes its table to stdout like any other
+  report.
+* **How big a file luria will read** (M8-14). A record over 10 000 000
+  bases is refused, and the limit is named in the message. The
+  application refuses an over-long file on byte size before reading it,
+  so a gigabase FASTA never reaches the parser. This bounds what the
+  application opens; it does not change the sequence model's own
+  coordinate limits (D006), and both checks are tested at the boundary
+  and one base or byte past it.
+* **Shared entry point.** The view and `luria find` build the record
+  through one luria-core function, so file-format detection, topology and
+  these limits cannot differ between the two.
+
+Reversibility:
+
+Raising or removing either ceiling, a different hit cap, or selecting one
+CDS when a record offers several needs approval, since the last one would
+put numbers on screen that the user did not choose.

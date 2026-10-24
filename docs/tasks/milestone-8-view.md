@@ -1,8 +1,21 @@
 # Milestone 8 plan: the sequence view (`luria FILE`) and `luria find`
 
-Status: **Draft for the owner, 2026-10-23. Not approved.** Planner:
-Claude. Branch: `feat/milestone-8`. Questions M8-1 to M8-10 are open
-(§9). Their answers become D048 in contract 8n.
+Status: **Draft for the owner, 2026-10-23; amended 2026-10-24 after the
+planner re-checked §2 against the code and the fixtures. Not approved as
+a whole.** Planner: Claude. Branch: `feat/milestone-8`.
+
+Owner answers so far (2026-10-24): M8-11 to M8-14 as proposed, and
+M8-15 as amended — one point of it still needs a word from the owner
+(§9). M8-11 to M8-14 are recorded as **D048** now, not in 8n, because
+the §6 fixtures encode them and the contracts that follow are written
+against them.
+
+Still open: M8-1 to M8-10 as asked, plus M8-16 to M8-20 (§9), which
+close the gaps the review found in §4 — places where two correct readings
+put different numbers on screen. Every one of those must be answered
+**before** 8a1 writes fixtures, and the science-tier ones get a decision
+entry then. Screen wording and key bindings stay out of decisions unless
+the owner says otherwise (M8-10).
 
 Builds on the owner-approved parts of the 2026-10-23 proposals:
 `proposal-sequence-view.md` (the block layout, the overview inset, the
@@ -67,7 +80,14 @@ Facts, not design choices:
     every generator's `--check` (D039).
 11. pBR322 is 4361 bp and circular. Its one EcoRI site, `GAATTC`, starts at
     base 4359 and runs across the origin (bases 4359–4361 and 1–3,
-    1-based). It's a real cross-origin search case.
+    1-based). `GAATTC` occurs **nowhere else in the record**, so a linear
+    search finds none of it: it is a real cross-origin search case and the
+    only way to see it is to search circularly. Internal palindromic sites
+    are there too — `GGATCC` at 375, `AAGCTT` at 29, `CATATG` at 2295.
+12. The existing synthetic records are 60 bp circular (`synthetic.gb`) and
+    393 bp linear (`synthetic-linear.gb`). Both lengths are multiples of 3,
+    and `synthetic.gb` already holds a CDS joined across the origin on each
+    strand and every refused location form.
 
 ## 3. Scope
 
@@ -96,6 +116,9 @@ Facts, not design choices:
 - **Dispatch**: subcommand names win; any other first argument is a file
   to open; a word that is neither a subcommand nor a file suggests the
   closest subcommand.
+- **Guard rails**: a terminal check for the view, a byte and a base
+  ceiling for the view and `find`, and a cap on the hits shown (M8-12 to
+  M8-14).
 
 ### Out (later milestones)
 
@@ -130,6 +153,25 @@ A `ViewRecord` built from a parsed file:
   luria would refuse to edit).
 - for FASTA: no features, no CDSs, and the topology from M8-3.
 
+One core entry point builds it, not two: `open_record(name, text) ->
+ViewRecord` sniffs the content (M8-6: `LOCUS` first is GenBank, `>` first
+is FASTA, anything else refused), parses, and constructs the record, so
+the view and `luria find` can never disagree about what a file is. This
+is a core function in 8b, not part of dispatch in 8h.
+
+The refusal for every undrawn feature and unusable CDS is a **code**
+naming the rule (`partial_location`, `non_atg_start`, `fuzzy_start`, …),
+never a sentence; the cli renders the wording, as the 5a1 error codes do.
+Otherwise milestone 8 bakes user-visible sentences into the science tier
+and triage P2's "wording changes freely" stops being true.
+
+The ceiling (M8-14, owner). `open_record` refuses a record over
+`MAX_RECORD_BASES` = 10 000 000 bases and names the limit; the cli (8h)
+refuses a file whose byte length is over `MAX_RECORD_BYTES` before it is
+read, so a gigabase FASTA never reaches the parser. `luria-core` sets no
+sequence length limit today, so this ceiling is new and gets a test of
+its own at the boundary and one past it.
+
 ### 4.2 The CDS map
 
 For a usable CDS, both directions:
@@ -147,6 +189,14 @@ the terminal stop as a codon with no residue number (D010). For the stop
 codon, `base_residue` gives `None` for the number and the status line says
 "stop codon".
 
+**Not D040.** `residue_bases` returns the three bases in the order the
+codon is read — descending on a minus strand — because that is what
+`mutation.rs::codon_positions` already returns and what the view draws.
+D040 orders the *intervals a result records* in reference order and says
+outright that this "is not the strand's reading order". Both are right;
+a fixture that mixes them up is not. 8c names the order in the function
+doc and in every fixture column header.
+
 ### 4.3 Frame translation
 
 `frame_residues(sequence, strand, frame, window) -> Vec<FrameResidue>`:
@@ -157,6 +207,13 @@ on either strand. On the plus strand, frame *f* starts at base *f*
 coordinates and **do not run across the origin**: a codon that would
 cross it isn't shown in frame mode (M8-2). Symbols follow
 `FrameResidue`: one letter, `*` for a stop, `?` for an unreadable codon.
+
+A frame's last codon is complete or absent. When the length isn't a
+multiple of 3, the 1 or 2 bases left at the far end of a frame are **not
+drawn at all** (M8-18); `?` is reserved for a *complete* codon that
+cannot be read (an ambiguity code such as `N`, or a codon D010 refuses to
+guess at). The two are different cases and the reference script must not
+let Biopython pad or trim the tail for it.
 
 The selected CDS's lane uses the CDS map instead, so a CDS crossing the
 origin is translated across it.
@@ -181,6 +238,14 @@ start, a length, a strand, and whether it wraps the origin.
   `len(pattern) − 1` bases and wrap. A pattern longer than the sequence
   finds nothing. On a linear sequence nothing wraps.
 - **Order.** Hits are sorted by start, then plus before minus.
+- **Overlaps.** Every match position is reported, overlapping included:
+  `AA` on `AAA` is three plus-strand hits (M8-16). A search that kept
+  only non-overlapping hits would hide the site the user came to look
+  for. There is **no cap in core**; the cap is presentation, in §5.4 and
+  §5.5 (M8-12).
+- **Equal length.** A pattern as long as the sequence can match at every
+  one of its rotations on a circular record, and at exactly one place on
+  a linear one. Both are fixture cases, not afterthoughts.
 
 ### 4.5 Protein search
 
@@ -189,12 +254,27 @@ start, a length, a strand, and whether it wraps the origin.
 - Pattern letters: the 20 one-letter residues, `X` (any residue) and `*`
   (stop); case ignored; anything else is an error naming the letter.
 - **In a CDS:** matches the CDS's translation (with the terminal stop as
-  `*`). A hit gives its first and last residue numbers and the bases it
-  covers, so the view can highlight codons and the overview can mark them.
-  An unreadable codon (`?`) matches only `X`.
+  `*`). A hit gives its first and last residue numbers — the CDS's own
+  numbering, 1 at the first translated codon (D010) — and the bases it
+  covers, so the view can highlight codons and the overview can mark
+  them. An unreadable codon (`?`) matches only `X`, and never `*`.
 - **In six frames** (no CDS selected, or `p:*`, see §5.4): each frame's
   residues as §4.3 defines them, no wrapping, each hit carrying its frame
   and strand.
+- **Whose residue numbers** (M8-17, planner's reading; it decides what
+  `luria find`'s AA columns mean). In CDS mode the numbers are the CDS's,
+  and a hit running onto the terminal stop carries no last residue —
+  D010 says the stop is not a residue — printed as `stop` by `find` and
+  as "…to the stop codon" in the view. In frame mode there is no CDS, so
+  the numbers count codons **within that frame** from its first codon,
+  and a frame hit always carries strand and frame so its numbers can be
+  located; the view never shows a frame-relative number as if it were a
+  residue of a CDS.
+- `target` is a named type fixed in 8f's contract **before** 8a writes
+  the AA fixtures: `ProteinTarget::Cds(&Cds)` or
+  `ProteinTarget::SixFrames(&Sequence)`, and a `ProteinHit` with the base
+  span, strand, frame, and the two optional residue numbers. Fixtures for
+  a signature that changes afterwards get rewritten twice.
 
 ### 4.6 The overview scale
 
@@ -213,11 +293,19 @@ them. Details fixed here:
 ### 5.1 Layout
 
 - **Line width**: the largest multiple of 10 bases that fits beside the
-  base numbers, and of 30 when a translation lane is on, so codons never
-  split across lines **in frame 1 or the selected CDS when it starts in
-  phase**. Otherwise a codon split across lines shows its residue on the
-  line holding its middle base. Minimum screen 80 × 24, as for
-  `luria review`.
+  base numbers, and of 30 when a translation lane is on. Minimum screen
+  80 × 24, as for `luria review`.
+- **Phase, not a fallback** (M8-19, planner's reading). When a
+  translation lane is on, every block starts at a base in phase with the
+  displayed translation — for a minus-strand CDS, in phase counted from
+  its far end — so a codon never splits across lines. Single-base
+  movement moves the cursor inside the block; the block scrolls a whole
+  line at a time. Six-frame mode snaps each side to its own frames:
+  forward frames above the top strand, reverse frames below the bottom.
+  The rejected alternative — a split codon's residue drawn over the line
+  holding its middle base — means every residue changes which bases it
+  sits on whenever the user single-bases past a block edge, and it gives
+  §6's column fixtures two layouts per width instead of one.
 - **Feature lanes**: up to four per block, longest first; the rest as
   `+N more`. A bar shows direction (`▸`/`◂`) and is clipped at the block
   edges.
@@ -236,8 +324,10 @@ them. Details fixed here:
 
 ### 5.2 Keys
 
-As `proposal-sequence-view.md` §3, plus `o` for the overview inset.
-`q` quits; `ctrl-c` quits from anywhere. Nothing is ever written.
+As `proposal-sequence-view.md` §3, plus `o` for the overview inset and,
+if M8-3 is accepted, `T` to switch a FASTA's assumed topology for the
+session (capital: `t` already cycles the translation lanes, §9). `q` quits; `ctrl-c` quits from anywhere. Nothing is ever
+written.
 
 ### 5.3 Go-to
 
@@ -248,14 +338,33 @@ doesn't match the translation is refused with the actual residue
 exactly first, then by unique prefix; several matches open the feature
 list filtered to them.
 
+Go-to never jumps to a feature whose location was not drawn (M8-1): its
+start is not stated, and parking the cursor at the bound of a `<1..12`
+feature claims a precision the record does not have. Selecting it in the
+list shows why — `not drawn: start not stated` — and `enter` does not
+move the cursor.
+
 ### 5.4 Search
 
 As `proposal-sequence-view.md` §4: it starts on DNA, switches to AA on
 the first letter that isn't an IUPAC nucleotide code, and `tab` toggles
 by hand after which it no longer follows the text. AA searches the
-selected CDS, or six frames when none is selected. Hits are highlighted
-in the blocks and on the overview. The first hit at or after the cursor
-becomes current.
+selected CDS, or six frames when none is selected (M8-11: a file with one
+usable CDS opens with it selected; a file with several opens with none
+and the title bar says `no CDS selected`, because picking one silently is
+what D005 is for). Hits are highlighted in the blocks and on the
+overview. The first hit at or after the cursor becomes current.
+
+Two prompt details 8l1 states: deleting the letter that forced the switch
+returns the mode to DNA, as long as `tab` has not been pressed; and an
+empty pattern is DNA mode, no search, no error.
+
+**Cap** (M8-12). The view holds at most 200 hits, and when there are more
+the status line says `showing the first 200 of 8521 hits — refine your
+pattern`; `n` cycles inside what is shown. An all-ambiguity pattern such
+as `N` or `NNNN` matches at every position of the record, each hit
+reported once as strand `both` (M8-8): 8521 hits on an 8521 bp construct.
+An uncapped hit list is not a UI.
 
 ### 5.5 `luria find`
 
@@ -265,12 +374,32 @@ luria find FILE PATTERN [--aa] [--cds ID]
 
 - Same mode rule as the prompt (DNA unless a letter can't be DNA);
   `--aa` forces protein.
-- `--cds ID` searches that CDS's translation, and the ID must be a
-  usable CDS. Without it, AA mode searches six frames.
+- `--cds VALUE` (M8-15) searches one CDS's translation, and the CDS must
+  be a usable one. The value is matched against every id the record
+  offers — display name, then `/gene`, `/locus_tag` and `/protein_id` —
+  exact first, then by unique prefix, the same matcher as go-to and the
+  feature list. Several CDSs matching is an **error listing the
+  candidates with the source each id came from and their spans**: never a
+  guess (D005), and never a prompt, because `luria find` has no terminal
+  and a command a script runs must fail rather than wait. Choosing by
+  eye is the view's `c` picker. `luria q5 design --cds` (milestone 9)
+  shares this matcher and adds the range form (`--cds 43..345`,
+  `--cds c345..43`); in milestone 8 a range is refused with "searching a
+  range of bases comes in milestone 9", so the flag's grammar never
+  changes under a running script.
+- `--circular` (M8-20) treats the sequence as circular. Only FASTA needs
+  it, since a GenBank record states its topology, and it is off by
+  default so `find` and the view agree unless the user asked otherwise.
+  Without it a site across the end is simply not found, and the last line
+  says `linear: hits do not cross the end`.
+- Without `--cds`, AA mode searches six frames.
 - Output is tab-separated with a header, one row per hit:
   `start end strand` (DNA) or `start end strand frame first_residue
   last_residue` (AA). Positions are 1-based inclusive; a wrapping hit has
-  `end < start`. The last line is `N hits`. Exit codes: M8-9.
+  `end < start`. Residue numbers follow §4.5, so `last_residue` can be
+  the word `stop`, and in frame mode they count within the frame. At most
+  200 rows print (M8-12), and past that the count line reads `showing the
+  first 200 of N hits`. The last line is `N hits`. Exit codes: M8-9.
 
 ### 5.6 Dispatch
 
@@ -284,6 +413,15 @@ luria find FILE PATTERN [--aa] [--cds ID]
   edit distance 2 of a subcommand, "did you mean `luria find`?".
 - `luria` alone is unchanged (usage text) until milestone 9's start
   screen.
+- A bare file needs a terminal on stdin and stdout, checked by the same
+  `review::terminal_problem` the other two interactive commands use
+  (M8-13): `luria FILE > out` is a usage error with the exit code
+  `docs/cli.md` §5 already gives, not a half-drawn screen. The terminal
+  check comes before the file is opened, so a bad path and a missing
+  terminal can't both claim the error.
+- Both file paths are refused before parsing when they are over
+  `MAX_RECORD_BYTES` (§4.1, M8-14); `find` shares `open_record` with the
+  view, so the two read a file exactly the same way.
 
 ## 6. Testing
 
@@ -292,65 +430,112 @@ luria find FILE PATTERN [--aa] [--cds ID]
   `tests/fixtures/view/reference/`. The scripts use Biopython's
   `Seq.translate` and `reverse_complement` and a plain Python scan for
   IUPAC matching, share no code with `crates/`, and have `--check` modes
-  wired into `verify.py`. Cases:
-  - **pBR322**: `tet` (+), `bla` (−), the ROP CDS unusable; the EcoRI site
-    across the origin; a palindromic site; an IUPAC pattern; `p:` searches
-    for a motif in `tet` and in six frames; base ↔ residue for the first,
-    last and stop codons of `tet` and `bla`.
-  - **The synthetic records** (`tests/fixtures/genbank/synthetic*.gb`): a
-    CDS joined across the origin on each strand; codons split by the
-    origin; frames at both ends of a sequence whose length isn't a
-    multiple of 3.
-  - **Edge cases**: a pattern longer than the sequence; a one-base
-    sequence; a template with `N`; an empty pattern; an invalid letter.
+  wired into `verify.py`. Two traps the README names, because Biopython's
+  defaults are not luria's rules and the scripts must not follow them:
+  Biopython's own IUPAC matching is **intersection**-based, so a template
+  `N` against pattern `A` matches there and must not match here (M8-7) —
+  the script hand-codes §4.4's subset rule; and Biopython writes an
+  unreadable codon as `X` where §4.3 writes `?`, and resolves a trailing
+  partial codon its own way (§4.3, M8-18). `translate` and
+  `reverse_complement` are used only where the rules already agree. Cases:
+  - **pBR322** (`tests/fixtures/genbank/raw/J01749.1.gb`, 4361 bp
+    circular): `tet` (+) and `bla` (−) usable, the ROP CDS (no `/gene`,
+    `GTG` start) unusable. `GAATTC` occurs **nowhere inside** this record
+    — it exists only as the wrap at 4359 (`GAA` + `TTC`), so pBR322 proves
+    circular search or nothing. Internal palindromic sites are there for
+    M8-8: `GGATCC` at 375, `AAGCTT` at 29, `CATATG` at 2295. An IUPAC
+    pattern; `p:` searches for a motif in `tet` and in six frames; base ↔
+    residue for the first, last and stop codons of `tet` and `bla`.
+  - **The existing synthetic records**, read and never modified (§8):
+    `tests/fixtures/genbank/synthetic.gb` (60 bp, circular) already gives
+    a CDS joined across the origin on each strand, codons split by the
+    origin, and one record holding every refused location (`<1..12`,
+    `order(`, a non-origin `join(`, a remote reference) — so §4.1's "not
+    drawn" list and M8-1 need no new fixture. `synthetic-linear.gb` is 393
+    bp linear.
+  - **One new record for the frame edges.** Both existing lengths, 60 and
+    393, are multiples of 3, so the "length isn't a multiple of 3" case
+    has no fixture yet: `tests/fixtures/view/frames-62.gb`, 62 bp
+    circular, a plus-strand CDS and a minus-strand CDS whose codons
+    straddle the origin, and 2 bases left over at the far end of every
+    frame. New records and TSVs live under `tests/fixtures/view/` and get
+    their `--check` wired into `verify.py`; nothing under
+    `tests/fixtures/genbank/` is touched.
+  - **Edge cases**: a pattern longer than the sequence; a pattern exactly
+    as long as it, on a circular and on a linear record (§4.4); a one-base
+    sequence; a template with `N`; overlapping hits; an empty pattern; an
+    invalid letter.
 - **Disabling a rule**: for each rule in §4, the contract names a test
   that must fail when the rule is removed, and the worker proves it once
   (AGENTS.md).
 - **Layout (§5.1)**: pure functions from (record, width, options, block)
-  to styled lines, tested against fixture blocks for `tet` and `bla`
-  written by the same Python scripts, so a residue drawn one column off
-  fails.
+  to styled lines. The Python reference emits **column tables**, not
+  drawn screens: for a record, width and block, the column of every base,
+  base number, residue, residue number and feature-bar cell. Rust then
+  asserts, through `TestBackend`, that the line it renders holds the right
+  glyph at each of those columns — a residue one column off fails. Drawing
+  the expected screen in Python instead would set a second implementation
+  of the layout against the first, and would pin box-drawing characters
+  and styling into scientific fixtures, which is not what D018 verifies
+  and costs review rounds rather than catching defects.
 - **Keys, prompts and screens**: on ratatui's `TestBackend`, as for
   `luria review`.
 - **`luria find`**: through the binary, against the core fixtures.
-- **The terminal session**: by the owner by hand, after 8l (§7).
+- **The terminal session**: by the owner by hand, after 8l2 (§7).
 
 ## 7. Contracts (tentative)
+
+Order matters. 8a is the critical path: seven contracts wait on it, it is
+planner-written, and its contents depend on §4 being closed and on
+M8-16 to M8-20. So: answer §9, freeze the §4 signatures, then write 8a —
+in two pieces, because one contract that blocks seven is the schedule
+risk this plan should not carry.
 
 Science tier, one function each:
 
 | # | Contract |
 | --- | --- |
-| 8a | `tests/fixtures/view/`: the Python scripts, the expected TSVs and the README (planner-written; verified with `verify.py`) |
-| 8b | core: `ViewRecord` (§4.1) |
+| 8a1 | `tests/fixtures/view/`: the Python reference for §4.2–§4.5, the expected TSVs, the new `frames-62.gb`, and the README (planner-written; verified with `verify.py`) |
+| 8a2 | `tests/fixtures/view/`: the §5.1 column tables for the layout, same scripts and README |
+| 8b | core: `ViewRecord` and `open_record` (§4.1), reason codes, the record ceiling |
 | 8c | core: the CDS map (§4.2) |
 | 8d | core: frame translation (§4.3) |
 | 8e | core: DNA search (§4.4) |
 | 8f | core: protein search (§4.5) |
 | 8g | core: the overview scale (§4.6) |
 
-Presentation tier (process per M8-10):
+Presentation tier (process per M8-10, contract size per triage P3):
 
 | # | Contract |
 | --- | --- |
-| 8h | cli: dispatch of a bare file and `find` (§5.6) |
-| 8i | cli: `luria find` (§5.5) |
-| 8j | cli: the block layout (§5.1), pure, fixture-tested |
-| 8k | cli: the view: state, keys, cursor, status line, go-to, feature list, CDS picker |
-| 8l | cli: the search prompt and the overview inset |
+| 8h | cli: dispatch of a bare file and `find`, the terminal check, the byte ceiling (§5.6) |
+| 8i | cli: `luria find`, including `--cds` matching and `--circular` (§5.5) |
+| 8j | cli: the block layout (§5.1), pure, tested against the 8a2 column tables |
+| 8k1 | cli: the view's state, cursor movement, blocks and status line |
+| 8k2 | cli: go-to (§5.3) |
+| 8k3 | cli: the feature list and the CDS picker (§5.2, M8-5, M8-11) |
+| 8l1 | cli: the search prompt with its mode rule and cap (§5.4) |
+| 8l2 | cli: the overview inset (§4.6, §5.1) |
 | 8m | the owner's hand test, then a polish contract as 7m was |
-| 8n | docs: `docs/cli.md` §13, D048, the product brief's milestone list |
+| 8n | docs: `docs/cli.md` §13, the decisions this milestone settled, the product brief's milestone list |
+
+8k as a single contract bundles five user-visible features — state,
+keys, cursor, status line, go-to, feature list, CDS picker — and will end
+on the 120-turn worker cap (`worker.md`) rather than on a defect. Split
+as above, per triage P3; the same for 8l.
 
 ## 8. Not in this milestone
 
 See §3 "Out". Also: no new dependency, no change to the request or
-result schemas, no change to existing tests or fixtures.
+result schemas, and no change to existing tests or fixtures — the new
+fixtures of §6 are **new files** under `tests/fixtures/view/`, and
+nothing already under `tests/fixtures/` is edited or moved.
 
 ## 9. Questions for the owner
 
 | # | Question | Planner's proposal |
 | --- | --- | --- |
-| M8-1 | Features with fuzzy ends (`<1..12`, `1..>900`) are common in real records, and the location parser refuses them. Draw them in the view? | Yes: the view reads `<` and `>` as the stated base and marks the feature as partial in the feature list. Display only; CDS import (D041) still refuses them. Needs a small, separately tested parser option. |
+| M8-1 | Features with fuzzy ends (`<1..12`, `1..>900`) are common in real records, and the location parser refuses them. Draw them in the view? | Yes: the view reads `<` and `>` as the stated base and marks the feature as partial in the feature list. Display only; CDS import (D041) still refuses them. This needs **its own display-only parser**, not a flag on `parse_genbank_location`: a boolean that changes what the shared parser accepts is exactly the shape D009/D036 do not want, and the science parser then stays untouched. Go-to does not jump to a feature whose start is not stated (§5.3). |
 | M8-2 | In frame mode on a circular sequence, should frames run across the origin? | No. Frames are counted from base 1 and stop at the end. A CDS crossing the origin is still translated across it in CDS mode. |
 | M8-3 | FASTA has no topology. What should the view assume? | Linear, shown as `linear (assumed)` in the title, with a key (`T`) to switch to circular for this session. Circular changes wrapping search and the overview. Needs D005's triage rewording, or an explicit exception. |
 | M8-4 | ORF detection (triage T2): in milestone 8 so a FASTA file has something to number, or milestone 9 as planned? | Milestone 9. Six-frame translation covers looking at a FASTA in milestone 8. |
@@ -359,4 +544,14 @@ result schemas, no change to existing tests or fixtures.
 | M8-7 | A template `N` (or other ambiguity code): should it match pattern `A`? | No: a template letter matches only a pattern letter whose base set contains all of its bases (§4.4). |
 | M8-8 | A palindromic site matches on both strands at the same place. One hit or two? | One, strand `both`, in the view and in `luria find`. |
 | M8-9 | `luria find` exit code when nothing matches? | 0 with `0 hits`, like a report rather than `grep` (exit 1 is luria's internal error). |
-| M8-10 | Use the two-tier process (triage P1, P2) in this milestone: full contracts and fixtures for 8a–8g and 8j, lighter contracts for 8h, 8i, 8k, 8l, and no decision entries for keys and wording? | Yes. Approving triage P1–P2 now would settle it; the rest of the triage can wait. |
+| M8-10 | Use the two-tier process (triage P1, P2) in this milestone: full contracts and fixtures for 8a–8g and 8j, lighter contracts for 8h, 8i, 8k1–8k3 and 8l1–8l2, and no decision entries for keys and wording? | Yes. Approving triage P1–P2 now would settle it; the rest of the triage can wait. |
+| M8-11 | Which CDS, if any, is selected when the view opens? It decides the status line, `w`/`b`, residue numbering and the default for an AA search. | **Owner, 2026-10-24: accepted.** Exactly one usable CDS → select it. Several → select none and say `no CDS selected` in the title bar. Never pick one silently (D005). D048. |
+| M8-12 | A cap on hits? An all-ambiguity pattern (`N`, `NNNN`) hits at every base, so an 8521 bp construct gives 8521 hits and `luria find` would print every one. | **Owner, 2026-10-24: accepted.** 200 in both the view and `find`; the count line reads `showing the first 200 of N hits`; exit status unchanged. Core keeps no cap (§4.4, §5.4, §5.5). D048. |
+| M8-13 | `luria FILE` when stdin or stdout is not a terminal (`luria FILE > out`)? | **Owner, 2026-10-24: accepted.** Reuse `review::terminal_problem` and the usage exit code `docs/cli.md` §5 gives (§5.6). D048. |
+| M8-14 | How big a file will the view and `find` accept? `luria-core` sets no sequence length limit today, so a gigabase FASTA reaches the allocator. | **Owner, 2026-10-24: accepted.** 10 000 000 bases in core, refused by name; the cli refuses on byte length before reading. Both tested at the boundary and one past it (§4.1, §5.6). D048. |
+| M8-15 | What does `--cds ID` match — the display name, `/locus_tag`, `/protein_id`? Will it also take a range later (`proposal-commands.md` §3.2)? | **Owner, 2026-10-24: match every id the record offers, and ask when several match.** One point still needs the owner's word: `luria find` has no terminal, so "ask" there is a **refusal listing the candidates** (their id source and span), and the interactive choice is the view's `c` picker — the planner cannot make a script-facing command pause (§5.5). The flag's grammar is fixed now, ranges reserved for milestone 9 and refused with that message until then. D048 once confirmed. |
+| M8-16 | Are overlapping hits reported? `AA` on `AAA` is three hits or one, depending on the answer. | Yes, all of them (§4.4). A search that dropped overlapping positions would hide the site the user came for. |
+| M8-17 | Whose residue numbers does a protein hit carry, and what is the number of a hit that runs onto the terminal stop, given D010 says the stop is not a residue? Without this, `luria find`'s AA columns are unimplementable without a guess. | CDS mode: the CDS's own numbering, and a hit ending on the stop carries none — printed `stop` by `find`, "…to the stop codon" in the view. Six-frame mode: codons counted within that frame from 1, and the strand and frame columns are never empty (§4.5, §5.5). |
+| M8-18 | In frame mode, when the length isn't a multiple of 3, is the leftover 1–2 base codon drawn as `?` or not drawn? It is also where the Python reference and Rust will disagree first, since Biopython pads and trims its own way. | Not drawn at all. `?` means a *complete* codon that cannot be read. The reference script maps Biopython's `X` to `?` and handles the tail by hand (§4.3, §6). |
+| M8-19 | When a block starts off the selected CDS's phase, split the codon or snap the block to the phase? | Snap. The §5.1 fallback means every residue changes which bases it sits on whenever the user single-bases past a block edge, and it doubles the layout fixtures. Deciding this after 8a2 would rewrite its column tables. |
+| M8-20 | The view's `T` key makes a FASTA circular for the session, so the same file and pattern can give different hits in the view and in `luria find` — that is exactly the across-the-end case. | Linear by default in both; `luria find --circular` asks for what the view showed, and the last line names the mode (§5.5). This is an exception to D005 either way, so it needs the owner's word, not the triage's: M8-3 and T1 both sit on decisions the owner has not moved yet, and an assumed-circular FASTA meets D035 again in milestone 9. |
