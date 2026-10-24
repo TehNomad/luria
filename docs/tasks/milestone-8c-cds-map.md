@@ -14,7 +14,11 @@ arc read `TAG…`, a non-terminal stop `translate` refuses before `CdsMap` is
 built; and `CdsMap` cannot derive `Eq` because its fields are `PartialEq`-only.
 §8's first guard experiment also predicted a failure that does not happen,
 because `codon_positions` refuses residue number 0 on its own. The §6.2 text
-below carries all three corrections.
+below carries all three corrections. One more defect is formatting only: the
+block as written is not `rustfmt`-clean, so the long `assert_eq!` calls are
+reflowed onto several lines. `cargo fmt --all` is sanctioned for that, and a
+reflow is not a change to a test — no assertion, name, literal or comment may
+differ afterwards.
 
 ## 1. What and why
 
@@ -230,7 +234,13 @@ Tests, with these names:
 3. `residue_bases_inverts_base_residue_for_every_fixture_base` — for every
    base row whose `residue` is a number, `residue_bases(that number)` sorted
    must contain that position; and for every codon row, `residue_bases` must
-   equal the row's three positions in reading order.
+   equal the row's three positions in reading order. **Ruling on the `stop`
+   rows (settled with the worker, who flagged it):** a codon row whose
+   `residue` column reads `stop` is not checked with `residue_bases` at all —
+   the number that would address it is refused by D010. Those rows are checked
+   through `base_residue` giving `residue: None`, plus the `residues + 1`
+   refusal in test 5. Say so in a comment on this test, so the next reader does
+   not read "every codon row" literally.
 4. `the_map_counts_match_the_counts_table` — one row per CDS in
    `cds-map-counts.tsv`, checked field by field against `codons()`,
    `residues()` and `terminal_stop()`.
