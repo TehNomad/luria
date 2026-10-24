@@ -505,9 +505,22 @@ luria find FILE PATTERN [--aa] [--cds ID]
   IUPAC matching, share no code with `crates/`, and have `--check` modes
   wired into `verify.py`. Two traps the README names, because Biopython's
   defaults are not luria's rules and the scripts must not follow them:
-  Biopython's own IUPAC matching is **intersection**-based, so a template
-  `N` against pattern `A` matches there and must not match here (M8-7) —
-  the script hand-codes §4.4's subset rule; and Biopython writes an
+  §4.4's containment rule must be **hand-coded** — a template `N` against
+  pattern `A` must not match (M8-7) — because Biopython's search answers
+  that question differently and does not implement either containment or
+  intersection over a record's ambiguity codes. Measured on 1.88 and
+  pinned in `reference/search_dna.py`, `Bio.Restriction` compiles a regex
+  out of its own site and matches the record literally: `BstEII`
+  (`GGTNACC`) matches `GGTXACC`, where `X` is no IUPAC letter at all,
+  because the site's `N` became a regex `.`, while `Dpi3090II` (`AAGRAG`)
+  refuses a record `R` at the position of its own `R`, which luria accepts.
+  **A correction to record:** an earlier draft of this section, and the
+  M8-7 answer in `docs/decisions.md`, said Biopython's IUPAC matching is
+  intersection-based and answers the opposite way. Measurement does not
+  support that. What luria does is unchanged — containment, hand-coded —
+  and Biopython is used only where measurement supports it: the letter
+  sets, the complement table, and site counts over records whose bases are
+  all A, C, G and T. The second trap stands as written: Biopython writes an
   unreadable codon as `X` where §4.3 writes `?`, and resolves a trailing
   partial codon its own way (§4.3, M8-18). `translate` and
   `reverse_complement` are used only where the rules already agree. Cases:
@@ -545,11 +558,12 @@ luria find FILE PATTERN [--aa] [--cds ID]
     rules therefore have no source data anywhere: the degenerate codon
     drawn as `?` (§4.3), a template `N` that must not match pattern `A`
     (M8-7, D052), and the all-ambiguity pattern that hits at every base
-    and makes the 200 cap matter (M8-12, D048). 8a1 adds
-    `tests/fixtures/view/ambiguity.gb`, a short circular GenBank record
-    with IUPAC letters both inside and outside its CDS, and the README
-    records which script produced which column. A new file, not an edit of
-    an existing one (§8).
+    and makes the 200 cap matter (M8-12, D048). What was actually added is
+    `tests/fixtures/view/frames-amb.fa`, 33 bases with IUPAC letters,
+    landed with 8a1b for the `?` rule and reused by 8a1c for the matching
+    rule; the earlier plan named it `ambiguity.gb`, and the difference
+    matters because a FASTA record states no topology, which is itself a
+    case (§4.1, D049). A new file, not an edit of an existing one (§8).
   - **Edge cases**: a pattern longer than the sequence; a pattern exactly
     as long as it, on a circular and on a linear record (§4.4); a one-base
     sequence; a template with `N`; overlapping hits; an empty pattern; an
@@ -611,12 +625,16 @@ of tables rather than one contract: **8a1a** the CDS-map tables (§4.2, written
 first and consumed by contract 8c), **8a1b** the frame and tail tables (§4.3,
 landed, and later amended with `frames-amb.fa` because nothing pinned the `?`
 rule of §4.3), **8a1c** the
-DNA-search and protein-search tables (§4.4–§4.5). Those are delivery labels, not
-new contracts, and **there is no 8a3**. A document in `docs/tasks/` once used the
-label 8a2 for a `luria commit` command and its git plumbing; that was a planning
-error — no document asks luria to run git, and saving belongs to milestone 9 —
-and it is withdrawn in `milestone-8x-worktree-safety-withdrawn.md`. Here **8a2
-means only the row above**.
+DNA-search and protein-search tables (§4.4–§4.5). 8a1c is split, and not
+silently: its §4.4 half landed (`search-letters.tsv`, `search-dna-patterns.tsv`,
+`search-dna-hits.tsv`), while its §4.5 half waits until contract 8f's document
+fixes `ProteinTarget` and `ProteinHit`, for the reason §4.5 gives — a fixture
+written against a signature that changes gets rewritten. Those are delivery
+labels, not new contracts, and **there is no 8a3**. A document in `docs/tasks/`
+once used the label 8a2 for a `luria commit` command and its git plumbing; that
+was a planning error — no document asks luria to run git, and saving belongs to
+milestone 9 — and it is withdrawn in `milestone-8x-worktree-safety-withdrawn.md`.
+Here **8a2 means only the row above**.
 
 **Light tier** (D051: 8h, 8i, 8k1–8k3, 8l1–8l2 — the screen). Contract
 size per triage P3; process per D051: a key binding, a colour or an
@@ -681,7 +699,7 @@ D-number that records it.
 | M8-4 | ORF detection (triage T2): in milestone 8 so a FASTA file has something to number, or milestone 9 as planned? | **Owner, 2026-10-24: accepted as proposed.** Milestone 9. Six-frame translation covers looking at a FASTA in milestone 8. Triage T2 stays unapproved. D052. |
 | M8-5 | Should the CDS picker show unusable CDSs (such as pBR322's ROP)? | **Owner, 2026-10-24: accepted as proposed.** Yes, greyed, with the reason, not selectable. The reason is 8b's refusal code rendered by the cli (D042), not a second judgement in the ui. Triage T3 (accepting `GTG` starts) would make ROP usable and stays unapproved. D052. |
 | M8-6 | A file whose extension and content disagree (a `.txt` that is GenBank)? | **Owner, 2026-10-24: accepted as proposed.** Decide by content: `LOCUS` first means GenBank, `>` first means FASTA, anything else is refused. One core `open_record` does it for the view and for `find` (§4.1). D049. |
-| M8-7 | A template `N` (or other ambiguity code): should it match pattern `A`? | **Owner, 2026-10-24: accepted as proposed.** No: a template letter matches only a pattern letter whose base set contains all of its bases (§4.4). Biopython's IUPAC matching is intersection-based and answers the opposite way, so the reference script hand-codes §4.4's subset rule (§6). D052. |
+| M8-7 | A template `N` (or other ambiguity code): should it match pattern `A`? | **Owner, 2026-10-24: accepted as proposed.** No: a template letter matches only a pattern letter whose base set contains all of its bases (§4.4). Biopython's IUPAC matching is intersection-based and answers the opposite way, so the reference script hand-codes §4.4's subset rule (§6). D052. **Measurement note, same day:** the sentence about Biopython is the planner's rationale, not the owner's ruling, and measurement does not support it — `Bio.Restriction` compiles a regex out of its own site, so it matches `GGTXACC` at a site `N` and refuses a record `R` at a site `R`, which is neither rule. See §6 and `tests/fixtures/view/README.md`. The decision and its rule are unaffected. |
 | M8-8 | A palindromic site matches on both strands at the same place. One hit or two? | **Owner, 2026-10-24: accepted as proposed.** One, strand `both`, in the view and in `luria find`. In pBR322 that means its **single** EcoRI site at 4359 is one hit with strand `both`, not two — likewise its single BamHI (375), HindIII (29) and NdeI (2295) sites, each verified to occur exactly once in the record. D052. |
 | M8-9 | `luria find` exit code when nothing matches? | **Owner, 2026-10-24: accepted as proposed.** 0 with `0 hits`, like a report rather than `grep`; exit 1 stays what `docs/cli.md` says it is — an internal error. D052. |
 | M8-10 | Use the two-tier process (triage P1, P2) in this milestone: full contracts and fixtures for 8a–8g and 8j, lighter contracts for 8h, 8i, 8k1–8k3 and 8l1–8l2, and no decision entries for keys and wording? | **Owner, 2026-10-24: accepted — for milestone 8 only.** The science tier's process is unchanged; keys, colours and on-screen wording get short contracts and no decision entries, so the hand test can change them without approval rounds. Recorded as D051, which names its own scope and expires with the milestone; the rest of the triage (T1–T6, P3–P5) stays unapproved and `AGENTS.md` is untouched. |
