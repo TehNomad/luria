@@ -2,8 +2,11 @@
 
 Planner: Claude.
 
-Status: round 1 not started. Full tier (D051). Plan row **8d** in
-`docs/tasks/milestone-8-view.md` §7.
+Status: round 1 delegated to the worker (label `w8d`), with this file and
+`tests/fixtures/view/README.md` as the evidence it was given; work order
+`frames.rs` plus its unit tests, then `crates/core/tests/frame_fixtures.rs`,
+then the checks, then the guard experiments. Full tier (D051). Plan row **8d**
+in `docs/tasks/milestone-8-view.md` §7.
 
 ## 1. What this contract builds
 
