@@ -191,20 +191,57 @@ its own at the boundary and one past it.
 
 ### 4.2 The CDS map
 
-For a usable CDS, both directions:
+For a usable CDS, both directions. `Cds` alone cannot answer either
+question, so the map is built from the CDS **and its translation**:
+core does not assume the final codon is a stop — `translate()` records
+`terminal_stop()` as a fact about the sequence, and
+`a_complete_cds_needs_no_start_or_stop_codon` in
+`crates/core/src/translation.rs` proves a complete CDS may have none — and
+the residue count is the translation's, not `total_length() / 3`. Import
+already guarantees the two agree: step 10 of `import_cds` translates every
+usable CDS and passes its errors through.
 
-- `residue_bases(cds, number) -> [u64; 3]`: the codon's three reference
-  positions, in reading order. This is `codon_positions` made public, with
-  its existing tests.
-- `base_residue(cds, position) -> Option<(number, place)>`: the residue
-  whose codon holds the base, and the base's place (1, 2 or 3) in reading
-  order. `None` outside the CDS. Must round-trip with `residue_bases` for
-  every base of every fixture CDS.
+```rust
+// crates/core/src/cds_map.rs
+pub struct CdsMap { /* intervals, strand, total_length, residues, terminal_stop */ }
 
-Covers plus and minus strands and origin-joined CDSs (D036), and counts
-the terminal stop as a codon with no residue number (D010). For the stop
-codon, `base_residue` gives `None` for the number and the status line says
-"stop codon".
+impl CdsMap {
+    pub fn new(cds: &Cds, translation: &Translation) -> CdsMap;
+    pub fn residues(&self) -> u64;          // Translation::residues().len()
+    pub fn codons(&self) -> u64;            // total_length() / 3
+    pub fn terminal_stop(&self) -> bool;
+    /// The three reference positions of residue `number`'s codon, in the
+    /// order the codon is read. `CodonOutsideSequence` for a number with no
+    /// residue, including `residues + 1`, which addresses the stop codon.
+    pub fn residue_bases(&self, number: u64) -> Result<[u64; 3], DomainError>;
+    /// `None` for a base outside the CDS.
+    pub fn base_residue(&self, position: u64) -> Option<CodonPlace>;
+}
+
+pub struct CodonPlace {
+    pub codon: u64,        // 1-based, counted in reading order
+    pub place: u64,        // 1..=3, in reading order
+    pub residue: Option<u64>,   // None only for the terminal stop's codon
+}
+```
+
+`residue_bases` is `mutation.rs::codon_positions` reused (`pub(crate)`), so
+the `CodonOutsideSequence` rule and its arithmetic are already tested
+there; `base_residue` is the inverse, computed from the intervals. Covers
+plus and minus strands and origin-joined CDSs (D036), and counts the
+terminal stop as a codon with no residue number (D010). For the stop codon
+`base_residue` gives `residue: None` and the status line says "stop codon";
+when `terminal_stop()` is false every codon of that CDS has a number
+(D010 excludes a *stop*, and a CDS whose last codon is not one has nothing
+to exclude).
+
+The arc reading a wrapped CDS uses is not open: D036 plus the hand-derived
+`mj1`/`mj2` entry in `tests/fixtures/genbank/README.md` fix it — the CDS's
+text is the joined arc along the molecule, and a minus CDS takes its
+reverse complement, so a minus CDS crossing the origin starts at the
+complement of the arc's lowest-numbered base. `tests/fixtures/view/`
+pins the resulting codons for `pj`, `fP` and `fM`, and its reference script
+compares that walk with Biopython's `location.extract()` for each.
 
 **Not D040.** `residue_bases` returns the three bases in the order the
 codon is read — descending on a minus strand — because that is what
