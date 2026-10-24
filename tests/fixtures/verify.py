@@ -52,6 +52,8 @@ CHECKS = [
     "review/reference/member.py",
     "new/reference/shorthand.py",
     "new/reference/requests.py",
+    "view/reference/make_frames_62.py",
+    "view/reference/cds_map.py",
 ]
 
 

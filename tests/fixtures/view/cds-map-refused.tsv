@@ -1,0 +1,10 @@
+record	cds	rule	detail
+pbr322	ROP-feature	unusable_genbank_cds:no_id	the CDS at index 26 has no /gene, no /locus_tag and no /protein_id
+synthetic	len13	cds_length_not_divisible_by_three	1..13 is 13 bases, and 13 is not divisible by three
+synthetic	mj1	unusable_genbank_cds:alternative_start	complement(join(55..60,1..3)) starts CAT under any reading
+synthetic	mj2	unusable_genbank_cds:alternative_start	join(complement(1..3),complement(55..60)) starts CAT under any reading
+synthetic	fuzzy	unusable_genbank_location:fuzzy_end	the location parser keeps fuzzy ends (D049); the CDS import still refuses
+synthetic	ord	unusable_genbank_location:order	order(...) is not a supported join (D036)
+synthetic	exons	unusable_genbank_location:unsupported_join	join(1..6,7..12) does not abut across the origin (D036)
+synthetic	single	unusable_genbank_location:single_position	a one-base feature is not a CDS interval
+synthetic	remote	unusable_genbank_location:remote_reference	X00001.1:1..12 refers to another record (D036)

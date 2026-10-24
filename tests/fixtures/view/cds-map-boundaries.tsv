@@ -1,0 +1,13 @@
+record	cds	status	strand	codon_reading	residue	bases_reading	bases_ref_ascending
+pbr322	tet	usable	+	1	1	ATG	86,87,88
+pbr322	tet	usable	+	2	2	AAA	89,90,91
+pbr322	tet	usable	+	3	3	TCT	92,93,94
+pbr322	tet	usable	+	395	395	TCG	1268,1269,1270
+pbr322	tet	usable	+	396	396	ACC	1271,1272,1273
+pbr322	tet	usable	+	397	stop	TGA	1274,1275,1276
+pbr322	bla	usable	-	1	1	ATG	4151,4152,4153
+pbr322	bla	usable	-	2	2	AGT	4148,4149,4150
+pbr322	bla	usable	-	3	3	ATT	4145,4146,4147
+pbr322	bla	usable	-	285	285	CAT	3299,3300,3301
+pbr322	bla	usable	-	286	286	TGG	3296,3297,3298
+pbr322	bla	usable	-	287	stop	TAA	3293,3294,3295
