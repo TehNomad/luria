@@ -64,6 +64,14 @@ FRAMES = [
     ("synlin", os.path.join(GENBANK, "synthetic-linear.gb")),
     ("frames62", os.path.join(FIXTURE, "frames-62.gb")),
     ("frames61", os.path.join(FIXTURE, "frames-61.fa")),
+    # 33 bases, 0 mod 3, and the only record here holding IUPAC ambiguity
+    # codes. Its plus-strand frame 1 is eleven hand-designed codons:
+    # ATG TAT TAA TAG TAR AAN GGN CTN NNN GTG TSK - an ordinary codon, both
+    # single-base stop variants, an ambiguity code that could be a stop, codons
+    # whose every expansion is one amino acid (GGN, CTN) which D010 still
+    # refuses to guess, NNN, and a two-fold ambiguous codon (TSK). It exists to
+    # pin the `?` column, which no other record here exercises.
+    ("framesamb", os.path.join(FIXTURE, "frames-amb.fa")),
     ("pbr322", os.path.join(GENBANK, "raw", "J01749.1.gb")),
 ]
 
@@ -86,6 +94,8 @@ SAMPLE_EVERY = 100
 CANONICAL_DIGEST = {
     "frames61":
         "60a3b3f88a4a09816494160a8b36694dcba03f23c76fa46a370b3db563b1143c",
+    "framesamb":
+        "dad6739778314aed63617363569469465d36df95353a236de7ca535254370469",
 }
 
 TABLE_HEADER = [
@@ -156,6 +166,25 @@ def codon_of(seq: str, codon_positions: list[int], strand: str) -> str:
     return str(Seq(text).reverse_complement()) if strand == "-" else text
 
 
+def luria_symbol(codon: str) -> str:
+    """The letter a frame shows for a **complete** codon - not what Biopython
+    answers for every codon.
+
+    One of the 64 codons made only of A, C, G and T is read from the standard
+    genetic code: one letter, or `*` for a stop. Every other complete codon -
+    one holding any IUPAC ambiguity code - is `?`. That is what core does:
+    `genetic_code::lookup` returns `CodonOutcome::Ambiguous` for a codon whose
+    bases are not all in `DNA_BASES`, and `translate` turns that into a refusal
+    rather than a guess. D052 states the same rule for the display, including
+    for `N`. `GGN` and `CTN` are the discriminating rows: every expansion of
+    them is the same amino acid, so a script that collapsed them would print G
+    and L, and D010 says there is no guess to be made.
+
+    See `docs/decisions.md` D010 and D052 and `docs/tasks/milestone-8-view.md`
+    §4.3."""
+    return CODONS.get(codon, "?")
+
+
 def stored(index: int, complete: int, seq_len: int) -> bool:
     """Whether this codon of a frame gets a row in the table."""
     if seq_len <= LONG_RECORD:
@@ -180,7 +209,7 @@ def rows_for(name: str, rec) -> tuple[list[list[str]], list[list[str]]]:
                 codon = codon_of(seq, place, strand)
                 row = [
                     name, str(seq_len), circle, strand, str(frame),
-                    str(index), str(index), CODONS.get(codon, "?"), codon,
+                    str(index), str(index), luria_symbol(codon), codon,
                     ",".join(str(p) for p in sorted(place)),
                     "yes" if seq_len > LONG_RECORD else "no",
                 ]
@@ -206,10 +235,19 @@ def tails_for(name: str, rec) -> list[list[str]]:
     return rows
 
 
-def cross_check(name: str, rec, rows: list[list[str]]) -> None:
+def cross_check(name: str, rec, rows: list[list[str]],
+                divergences: set[str]) -> None:
     """Every frame's whole letter run against Biopython translating the same
     linear slice - all codons, stored in the table or not. If the mapping from a
-    frame codon to a slice were wrong, the two runs would differ."""
+    frame codon to a slice were wrong, the two runs would differ.
+
+    The comparison is per codon, and covers only codons made of A, C, G and T.
+    For a codon holding an ambiguity code Biopython and luria disagree by rule:
+    luria prints `?` (D010, D052), where Biopython applies its own table.
+    `divergences` collects what Biopython answers there so the README can record
+    the disagreement instead of hiding it. Every codon of an ACGT-only record is
+    compared, so this is still a whole-run check for the records where the two
+    agree by rule."""
     seq: Seq = rec.seq
     seq_len = len(seq)
     revcomp: Seq = seq.reverse_complement()
@@ -223,12 +261,27 @@ def cross_check(name: str, rec, rows: list[list[str]]) -> None:
             mine = "".join(row[7] for row in rows
                            if row[0] == name and row[3] == strand
                            and row[4] == str(frame))
-            assert len(bio) == len(mine) == complete, (
+            codons = [row[8] for row in rows
+                      if row[0] == name and row[3] == strand
+                      and row[4] == str(frame)]
+            assert len(bio) == len(mine) == len(codons) == complete, (
                 f"{name} {strand} frame {frame}: {len(bio)} Biopython letters, "
                 f"{len(mine)} here, {complete} complete codons expected")
-            assert bio == mine, (
-                f"{name} {strand} frame {frame}: Biopython reads "
-                f"{bio[:48]}..., this script reads {mine[:48]}...")
+            checked = 0
+            for index, codon in enumerate(codons):
+                if set(codon) <= {"A", "C", "G", "T"}:
+                    assert bio[index] == mine[index], (
+                        f"{name} {strand} frame {frame} codon {index + 1} "
+                        f"{codon}: Biopython reads {bio[index]!r}, this script "
+                        f"reads {mine[index]!r}")
+                    checked += 1
+                elif bio[index] != mine[index]:
+                    divergences.add(
+                        f"{codon}: Biopython {bio[index]!r}, luria {mine[index]!r}")
+            if set(map(str, slice_of)) <= set("ACGT"):
+                assert checked == complete, (
+                    f"{name} {strand} frame {frame}: an ACGT-only slice "
+                    f"compared {checked} of {complete} codons")
 
 
 def validate(rows: list[list[str]], tails: list[list[str]]) -> None:
@@ -236,7 +289,13 @@ def validate(rows: list[list[str]], tails: list[list[str]]) -> None:
         assert len(row[8]) == 3, row
         assert row[5] == row[6], f"codon index and residue must agree: {row}"
         assert len(row[9].split(",")) == 3, row
-        assert row[7] != "?", f"no fixture here holds a base outside ACGT: {row}"
+        # `?` stands for a complete codon that cannot be read, and nothing
+        # else: it appears exactly when the codon holds a base outside ACGT.
+        # A stop is `*`, never `?`, and a leftover base has no row at all.
+        ambiguous = not set(row[8]) <= set("ACGT")
+        assert (row[7] == "?") == ambiguous, (
+            f"`?` and a non-ACGT codon must agree: {row}")
+        assert row[7] in "*?" or row[7] in CODONS.values(), row
     for row in tails:
         assert int(row[6]) * 3 + (0 if row[8] == "no" else len(row[7].split(","))) == int(row[5]), row
 
@@ -244,6 +303,7 @@ def validate(rows: list[list[str]], tails: list[list[str]]) -> None:
 def build() -> tuple[str, str, int, int]:
     body: list[str] = []
     tail_body: list[str] = []
+    divergences: set[str] = set()
     for name, path in FRAMES:
         parser = "genbank" if path.endswith(".gb") else "fasta"
         records = list(SeqIO.parse(path, parser))
@@ -256,13 +316,14 @@ def build() -> tuple[str, str, int, int]:
                 f"{path}: canonical text hashes to {digest}, "
                 f"README pins {CANONICAL_DIGEST[name]}")
         rows, kept = rows_for(name, rec)
-        cross_check(name, rec, rows)
+        cross_check(name, rec, rows, divergences)
         body += ["\t".join(row) for row in kept]
         tail_body += ["\t".join(row) for row in tails_for(name, rec)]
     validate([line.split("\t") for line in body],
              [line.split("\t") for line in tail_body])
     table = "\t".join(TABLE_HEADER) + "\n" + "\n".join(body) + "\n"
     tail = "\t".join(TAIL_HEADER) + "\n" + "\n".join(tail_body) + "\n"
+    build.divergences = sorted(divergences)
     return table, tail, len(body), len(tail_body)
 
 
@@ -277,15 +338,28 @@ def main() -> int:
     if "--check" in sys.argv:
         for path, text in zip(TABLES, (table, tail)):
             stored = open(path).read()
-            assert stored == text, (
-                f"{path}: {len(stored)} bytes tracked, {len(text)} re-derived")
+            if stored != text:
+                where = next(
+                    (i for i, (a, b) in enumerate(zip(stored.splitlines(),
+                                                      text.splitlines()), 1)
+                     if a != b), None)
+                raise AssertionError(
+                    f"{path}: tracked and re-derived differ "
+                    f"({len(stored)} bytes tracked, {len(text)} re-derived"
+                    + (f"; first difference on line {where}:\n"
+                       f"  tracked:    {stored.splitlines()[where - 1]}\n"
+                       f"  re-derived: {text.splitlines()[where - 1]}"
+                       if where else "; one file has more lines than the other")
+                    + ")")
         print(f"frame tables re-derived: {codon_rows} codon rows, "
               f"{tail_rows} tail rows")
         return 0
     if "--print" in sys.argv:
         print(f"frame-tables.tsv: {codon_rows} rows; frame-tails.tsv: {tail_rows} rows")
         wanted = [("frames62", "+", "1"), ("frames62", "-", "1"),
-                  ("frames61", "+", "1"), ("pbr322", "+", "1"), ("pbr322", "-", "3")]
+                  ("frames61", "+", "1"), ("framesamb", "+", "1"),
+                  ("framesamb", "-", "1"), ("pbr322", "+", "1"),
+                  ("pbr322", "-", "3")]
         for record, strand, frame in wanted:
             print(f"{record} strand {strand} frame {frame}:")
             shown = 0
@@ -297,6 +371,15 @@ def main() -> int:
                     if shown == 3:
                         break
             print("   ...")
+        for strand in ("+", "-"):
+            print(f"framesamb strand {strand} frame 1 rows (all "
+                  f"{sum(1 for line in table.splitlines()[1:] if line.split(chr(9))[:5] == ['framesamb', '33', 'unknown', strand, '1'])} rows):")
+            for line in table.splitlines()[1:]:
+                if line.split("\t")[:5] == ["framesamb", "33", "unknown", strand, "1"]:
+                    print("  ", line)
+        print("Biopython answers that differ from luria's `?`:")
+        for note in build.divergences:
+            print("  ", note)
         print("tail rows (record, len, topology, strand, frame, bases in frame, "
               "complete codons, leftover bases, leftover):")
         for row in tail.splitlines()[1:]:

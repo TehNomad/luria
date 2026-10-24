@@ -609,7 +609,8 @@ settles.
 8a1 is delivered in slices, because it is three reference scripts and four sets
 of tables rather than one contract: **8a1a** the CDS-map tables (§4.2, written
 first and consumed by contract 8c), **8a1b** the frame and tail tables (§4.3,
-landed), **8a1c** the
+landed, and later amended with `frames-amb.fa` because nothing pinned the `?`
+rule of §4.3), **8a1c** the
 DNA-search and protein-search tables (§4.4–§4.5). Those are delivery labels, not
 new contracts, and **there is no 8a3**. A document in `docs/tasks/` once used the
 label 8a2 for a `luria commit` command and its git plumbing; that was a planning

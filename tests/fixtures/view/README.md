@@ -20,11 +20,12 @@ written out in `reference/`, and each is re-derivable with `--check` (D039).
 | `cds-map-boundaries.tsv` | the first three and last three codons of `tet` and `bla` in `../genbank/raw/J01749.1.gb` |
 | `cds-map-refused.tsv` | the features the view must refuse to number, and the rule that refuses each |
 | `frames-61.fa` | a 61 bp FASTA with no features at all: length 1 mod 3, and a record with no CDS for the picker and for frame mode |
-| `frame-tables.tsv` | every complete codon of every frame on both strands of five records, with that frame's own residue number, the translated letter, and the codon's bases in ascending reference order |
+| `frames-amb.fa` | a 33 bp FASTA holding IUPAC ambiguity codes: the only record here that exercises the `?` column of `frame-tables.tsv` |
+| `frame-tables.tsv` | every complete codon of every frame on both strands of six records, with that frame's own residue number, the translated letter, and the codon's bases in ascending reference order |
 | `frame-tails.tsv` | per record, strand and frame: how many bases the frame covers, how many complete codons that is, and the 1 or 2 leftover reference positions view mode must not draw |
 | `reference/make_frames_62.py` | the deterministic search that chose `frames-62.gb`, and the check that the tracked record still satisfies what it claims |
 | `reference/cds_map.py` | the five CDS-map tables above |
-| `reference/frame_tables.py` | the two frame tables above, and the check that every frame's whole letter run equals Biopython's translation of the same linear slice |
+| `reference/frame_tables.py` | the two frame tables above, and the check that every ACGT codon of every frame equals Biopython's translation of the same linear slice |
 
 No fixture here pins a decision that was still open when it was written.
 `M8-2` — six frames do not run across the origin, D052 — is settled, and the
@@ -150,14 +151,54 @@ residue scale.
 * A frame's own residue numbering runs from 1 inside that frame and says nothing
   about a CDS residue. The CDS scale lives in `cds-map-bases.tsv`; the two
   columns look alike and are not the same thing (D050).
-* `?` in the `aa` column would mean a **complete** codon that cannot be read.
-  It appears nowhere: no fixture in this repository holds a base outside ACGT,
-  so an ambiguity case arrives with the record 8a1c adds.
+* `?` in the `aa` column means a **complete** codon that cannot be read, and
+  nothing else. A codon made only of A, C, G and T gets a letter, or `*` for a
+  stop; a codon holding any IUPAC ambiguity code gets `?`, including `N` (D052,
+  D050, D010). That is what core does rather than what a translation library
+  tends to do: `genetic_code::lookup` answers `CodonOutcome::Ambiguous` for any
+  codon with a base outside `DNA_BASES`, and `translate` turns that into a
+  refusal instead of a guess.
+
+`frames-amb.fa` exists to pin that rule. Its plus-strand frame 1 is eleven
+hand-designed codons — `ATG TAT TAA TAG TAR AAN GGN CTN NNN GTG TSK` — and the
+row that follows each is exactly what a hand reading gives:
+
+```
+M  Y  *  *  ?  ?  ?  ?  ?  V  ?
+```
+
+`GGN` and `CTN` are the discriminating rows: every expansion of them is the same
+amino acid (Gly, Leu), and D010 says there is no guess to make, so they read `?`.
+A script that collapsed them would write `G` and `L` here, and `TSK` and `TAR`
+cover the case where the expansions disagree. The record's minus-strand frames
+re-run the same reading rule on complemented ambiguity codes: plus `TSK` at bases
+31-33 becomes minus-frame-1 codon 1 `MSA`, and plus `TAR` at 13-15 becomes
+`YTA`, because the frame reads bases 15, 14, 13 and complements each. Length 33
+adds nothing to the modulo-3 coverage — it is 0 mod 3 like `synthetic`.
+
+**The Biopython comparison excludes codons with an ambiguity code, by rule, and
+the disagreement is recorded rather than hidden.** `--print` lists what Biopython
+answers where luria prints `?`:
+
+```
+TAR: Biopython '*', luria '?'
+GGN: Biopython 'G', luria '?'
+CTN: Biopython 'L', luria '?'
+TTY: Biopython 'F', luria '?'
+NNN: Biopython 'X', luria '?'
+```
+
+Biopython calls `TAR` a stop and collapses `GGN`, `CTN`, `TTY`, `ACN`, `CCN`,
+`GTS` and `YTA` to one letter; luria refuses. Comparing those codons would have
+the fixture follow the library rather than D010. Every codon of an ACGT-only
+record is still compared codon by codon, and the script asserts that an
+ACGT-only slice compares *all* of its codons, so narrowing the check cannot hide
+a wrong frame mapping.
 
 `frames-61.fa` is `frames-62.gb`'s sequence without its last base — that is the
 whole relationship, and it is why the file exists: 62 is 2 mod 3 and 61 is 1 mod
 3, so between them the tables cover all three tail cases (the other records are
-60, 393 and 4361, and 4361 is 2 mod 3). Its canonical text — upper case, no line
+60, 393, 33 and 4361, and 4361 is 2 mod 3). Its canonical text — upper case, no line
 breaks — hashes to
 `60a3b3f88a4a09816494160a8b36694dcba03f23c76fa46a370b3db563b1143c`, computed
 with the same pipeline `../fasta/README.md` documents:
@@ -171,6 +212,10 @@ the sentence above and the file cannot drift apart. Proved both ways: changing
 one letter of `frames-61.fa` makes `verify.py` fail with
 `canonical text hashes to …, README pins …`, and changing one codon in
 `frame-tables.tsv` makes it fail with a byte-count difference.
+
+`frames-amb.fa`'s canonical text hashes to
+`dad6739778314aed63617363569469465d36df95353a236de7ca535254370469` under the
+same pipeline, and `reference/frame_tables.py` asserts that too.
 
 **The `topology` column reports what the file says, not what the view assumes.**
 A GenBank LOCUS line states `circular` or `linear`, and Biopython puts it in
@@ -191,13 +236,19 @@ Two spot values were checked without going through the script at all:
 * `pbr322 + frame 1`, codons 1-3: the ORIGIN block of
   `../genbank/raw/J01749.1.gb` reads `ttctcatgtt` on its first line, so the
   codons are `TTC TCA TGT` = F S C, read off the file by eye.
+* `framesamb − frame 1`, codon 11: the record's first three bases are `A T G`,
+  so the frame's last codon reads the complement of each in decreasing position
+  order — `C` from base 3, `A` from base 2, `T` from base 1 — which is `CAT` =
+  His. Codon 1 of the same frame is `MSA`, the complement-image of the plus
+  strand's `TSK`, and it reads `?`.
 
 For `pbr322` (4361 bases) the table stores a **sample** — the first three codons
 of each frame, the last three, and every 100th — marked `sampled = yes`;
 records of 500 bases or fewer store every codon and read `sampled = no`. The
 script still compares **every** codon of **every** frame against Biopython's
-translation of the same linear slice before it writes anything, so the sample is
-about how much data the repository carries, not about how much is verified. A
+translation of the same linear slice — codon by codon, over ACGT codons, for the
+reason given above — before it writes anything, so the sample is about how much
+data the repository carries, not about how much is verified. A
 frame implementation that was off by one, or that rotated a circular record
 first, breaks the sample somewhere in a 4361-base record as surely as a full
 table would.

@@ -23,6 +23,12 @@ frames61	61	unknown	+	3	59	19	60,61	yes
 frames61	61	unknown	-	1	61	20	1	yes
 frames61	61	unknown	-	2	60	20	-	no
 frames61	61	unknown	-	3	59	19	1,2	yes
+framesamb	33	unknown	+	1	33	11	-	no
+framesamb	33	unknown	+	2	32	10	32,33	yes
+framesamb	33	unknown	+	3	31	10	33	yes
+framesamb	33	unknown	-	1	33	11	-	no
+framesamb	33	unknown	-	2	32	10	1,2	yes
+framesamb	33	unknown	-	3	31	10	1	yes
 pbr322	4361	circular	+	1	4361	1453	4360,4361	yes
 pbr322	4361	circular	+	2	4360	1453	4361	yes
 pbr322	4361	circular	+	3	4359	1453	-	no
