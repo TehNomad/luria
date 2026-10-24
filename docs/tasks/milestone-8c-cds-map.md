@@ -1,9 +1,20 @@
 # Milestone 8c: the CDS map (core)
 
-Status: **open**. Planner: Claude. Parent: `docs/tasks/milestone-8-view.md`
+Status: **round 1 in progress**. Planner: Claude. Parent: `docs/tasks/milestone-8-view.md`
 §4.2, full tier (D051). The fixtures it needs are already written and
 independently verified (commit `9dc1d38`, `tests/fixtures/view/`); nothing in
 this contract may change them.
+
+**Corrections the planner issued in round 1**, after the worker proved the
+§6.2 block could not pass as handed over. All three are defects in the
+planner's own test code, not in the implementation, and no assertion changed:
+`STANDARD_CODE_NAME` is what every other call site passes to `Cds::create` (a
+bare `"Standard"` is refused as `UnsupportedGeneticCode`); the joined 6-mer's
+arc read `TAG…`, a non-terminal stop `translate` refuses before `CdsMap` is
+built; and `CdsMap` cannot derive `Eq` because its fields are `PartialEq`-only.
+§8's first guard experiment also predicted a failure that does not happen,
+because `codon_positions` refuses residue number 0 on its own. The §6.2 text
+below carries all three corrections.
 
 ## 1. What and why
 
@@ -77,7 +88,10 @@ pub struct CodonPlace {
 /// translation. `Cds` alone cannot answer either direction: whether the last
 /// codon is a stop is a fact about the sequence, and the residue count is the
 /// translation's, not `total_length() / 3` (D010).
-#[derive(Clone, Debug, PartialEq, Eq)]
+///
+/// `Eq` is not derivable here: `NucleotideInterval` and `Strand` derive
+/// `PartialEq` only, and this contract may not touch their files.
+#[derive(Clone, Debug, PartialEq)]
 pub struct CdsMap {
     intervals: Vec<NucleotideInterval>,
     strand: Strand,
@@ -245,6 +259,7 @@ mod tests {
     use crate::cds::Numbering;
     use crate::error::DomainError;
     use crate::error::MutationRequestRule;
+    use crate::genetic_code::STANDARD_CODE_NAME;
     use crate::identity::Identifier;
     use crate::interval::create;
     use crate::interval::OrderedIntervals;
@@ -270,7 +285,7 @@ mod tests {
             intervals,
             strand,
             Completeness::Complete,
-            "Standard".to_string(),
+            STANDARD_CODE_NAME.to_string(),
             Numbering::FromCdsStart,
         )
         .unwrap();
@@ -295,10 +310,14 @@ mod tests {
         (seq, map)
     }
 
-    // A 6-mer whose CDS arc is [2,6) then [0,2): codon 1 is bases 2,3,4 and
-    // codon 2 is bases 5,0,1, which straddles the origin.
+    // A 6-mer whose CDS arc is [2,6) then [0,2): codon 1 is the arc's first
+    // three bases — reference 2, 3, 4, which is TGG (Trp) — and codon 2 is the
+    // arc's last three, reference bases 5, 0 and 1, which straddle the origin
+    // and read TAA, the terminal stop. The literal is chosen for that shape:
+    // an arc that reads a stop in codon 1 would be refused by `translate`
+    // before a map could exist.
     fn joined_circular() -> (Sequence, CdsMap) {
-        let seq: Sequence = sequence("seq-j", "AATAGT", SequenceTopology::Circular);
+        let seq: Sequence = sequence("seq-j", "AATGGT", SequenceTopology::Circular);
         let intervals: OrderedIntervals = vec![
             create(&seq.reference(), 2, 6).unwrap(),
             create(&seq.reference(), 0, 2).unwrap(),
@@ -459,8 +478,11 @@ Then prove the two guards are load-bearing, each in one temporary edit that you
 revert before finishing (report both experiments and the tests that failed):
 
 1. remove the `number > residues()` (and `number == 0`) guard in
-   `residue_bases` → `the_terminal_stop_has_a_codon_and_no_residue` and
-   `residue_zero_is_refused` must fail.
+   `residue_bases` → `the_terminal_stop_has_a_codon_and_no_residue` must fail.
+   `residue_zero_is_refused` is **expected to survive**: `codon_positions`
+   refuses number 0 through its own `checked_sub(1)` (`mutation.rs:2105`), and
+   that path already has coverage in `mutation.rs`'s tests. Report which of the
+   two failed rather than making the prediction come true.
 2. remove the `r / 3 >= codons()` guard in `base_residue` →
    `a_base_of_an_incomplete_final_codon_has_no_place` must fail.
 
