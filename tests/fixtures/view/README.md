@@ -166,6 +166,12 @@ with the same pipeline `../fasta/README.md` documents:
 grep -v '^>' tests/fixtures/view/frames-61.fa | tr -d '\n\r \t' | tr a-z A-Z | sha256sum
 ```
 
+`reference/frame_tables.py` asserts that digest itself before it writes a row, so
+the sentence above and the file cannot drift apart. Proved both ways: changing
+one letter of `frames-61.fa` makes `verify.py` fail with
+`canonical text hashes to …, README pins …`, and changing one codon in
+`frame-tables.tsv` makes it fail with a byte-count difference.
+
 **The `topology` column reports what the file says, not what the view assumes.**
 A GenBank LOCUS line states `circular` or `linear`, and Biopython puts it in
 `annotations["topology"]`; a FASTA record says nothing, and its rows read

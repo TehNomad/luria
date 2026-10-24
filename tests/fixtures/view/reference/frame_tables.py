@@ -44,7 +44,9 @@ Run from the repository root:
 
 from Bio import SeqIO
 from Bio.Seq import Seq
+import hashlib
 import itertools
+import os
 import sys
 
 STD = "FFLLSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG"
@@ -53,12 +55,16 @@ CODONS = {
     for i, t in enumerate(itertools.product("TCAG", "TCAG", "TCAG"))
 }
 
+HERE = os.path.dirname(os.path.abspath(__file__))
+FIXTURE = os.path.dirname(HERE)                       # tests/fixtures/view
+GENBANK = os.path.join(os.path.dirname(FIXTURE), "genbank")
+
 FRAMES = [
-    ("synthetic", "tests/fixtures/genbank/synthetic.gb"),
-    ("synlin", "tests/fixtures/genbank/synthetic-linear.gb"),
-    ("frames62", "tests/fixtures/view/frames-62.gb"),
-    ("frames61", "tests/fixtures/view/frames-61.fa"),
-    ("pbr322", "tests/fixtures/genbank/raw/J01749.1.gb"),
+    ("synthetic", os.path.join(GENBANK, "synthetic.gb")),
+    ("synlin", os.path.join(GENBANK, "synthetic-linear.gb")),
+    ("frames62", os.path.join(FIXTURE, "frames-62.gb")),
+    ("frames61", os.path.join(FIXTURE, "frames-61.fa")),
+    ("pbr322", os.path.join(GENBANK, "raw", "J01749.1.gb")),
 ]
 
 # Records at or below this length store every codon of every frame. Longer ones
@@ -71,6 +77,16 @@ FRAMES = [
 # 393, 62 and 61: 0, 0, 2 and 1 modulo 3, so all three tail cases).
 LONG_RECORD = 500
 SAMPLE_EVERY = 100
+
+# The README pins this digest by hand with the same pipeline
+# `tests/fixtures/fasta/README.md` documents (`grep -v '>' | tr -d '\n\r \t' |
+# tr a-z A-Z | sha256sum`). Asserting it here means the prose and the file
+# cannot drift apart, and it is why `frames-61.fa` is the length it is: 61 is
+# 1 mod 3, which the other records (60, 393, 62, 4361) do not cover.
+CANONICAL_DIGEST = {
+    "frames61":
+        "60a3b3f88a4a09816494160a8b36694dcba03f23c76fa46a370b3db563b1143c",
+}
 
 TABLE_HEADER = [
     "record", "seq_len", "topology", "strand", "frame",
@@ -233,6 +249,12 @@ def build() -> tuple[str, str, int, int]:
         records = list(SeqIO.parse(path, parser))
         assert len(records) == 1, f"{path}: {len(records)} records, expected 1"
         rec = records[0]
+        if name in CANONICAL_DIGEST:
+            text = str(rec.seq).upper()
+            digest = hashlib.sha256(text.encode()).hexdigest()
+            assert digest == CANONICAL_DIGEST[name], (
+                f"{path}: canonical text hashes to {digest}, "
+                f"README pins {CANONICAL_DIGEST[name]}")
         rows, kept = rows_for(name, rec)
         cross_check(name, rec, rows)
         body += ["\t".join(row) for row in kept]
@@ -245,8 +267,8 @@ def build() -> tuple[str, str, int, int]:
 
 
 TABLES = [
-    "tests/fixtures/view/frame-tables.tsv",
-    "tests/fixtures/view/frame-tails.tsv",
+    os.path.join(FIXTURE, "frame-tables.tsv"),
+    os.path.join(FIXTURE, "frame-tails.tsv"),
 ]
 
 
