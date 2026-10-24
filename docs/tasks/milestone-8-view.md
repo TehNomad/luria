@@ -574,14 +574,19 @@ luria find FILE PATTERN [--aa] [--cds ID]
 
 ## 7. Contracts (tentative)
 
-Order matters. 8a is the critical path: seven contracts wait on it, it is
-planner-written, and §9 is now closed (D048–D052), so all of it is
-writable. It still lands in two pieces, and the **CDS-map** tables land
-first: §4.2 rests on decided rules alone (D006, D010, D036, D040, M8-11
-and D050's order note), so contract 8c gets its fixtures first and the
-worker starts while the frame and search tables of 8a1 are being verified.
-Splitting it is also the schedule decision: one contract that blocks seven
-is the risk this plan should not carry.
+Order matters. 8a is the critical path: seven contracts wait on it, its
+contract is written here, and §9 is now closed (D048–D052), so all of it is
+writable. The code still goes to the worker: `AGENTS.md` gives the planner
+the task contracts, the fixtures and the review, and every line under
+`crates/` to the worker — including this module. The one exception in this
+plan is 8a1, whose fixtures are planner-written by design (they are
+expectations, not implementation, and D039 requires them to be derived
+without running luria). It still lands in two pieces, and the **CDS-map**
+tables land first: §4.2 rests on decided rules alone (D006, D010, D036,
+D040, M8-11 and D050's order note), so contract 8c gets its fixtures first
+and the worker starts while the frame and search tables of 8a1 are being
+verified. Splitting it is also the schedule decision: one contract that
+blocks seven is the risk this plan should not carry.
 
 **Full tier** (D051: 8a1, 8a2, 8b–8g, 8j) — one function or module each,
 with the process the milestones so far used: named signatures, exact tests
