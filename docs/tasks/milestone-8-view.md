@@ -606,6 +606,17 @@ settles.
 | 8g | core: the overview scale (§4.6) |
 | 8j | cli: the block layout (§5.1), pure, tested against the 8a2 column tables — the D050 phase rule lives here, so it is full tier |
 
+8a1 is delivered in slices, because it is three reference scripts and four sets
+of tables rather than one contract: **8a1a** the CDS-map tables (§4.2, written
+first and consumed by contract 8c), **8a1b** the frame and tail tables (§4.3,
+landed), **8a1c** the
+DNA-search and protein-search tables (§4.4–§4.5). Those are delivery labels, not
+new contracts, and **there is no 8a3**. A document in `docs/tasks/` once used the
+label 8a2 for a `luria commit` command and its git plumbing; that was a planning
+error — no document asks luria to run git, and saving belongs to milestone 9 —
+and it is withdrawn in `milestone-8x-worktree-safety-withdrawn.md`. Here **8a2
+means only the row above**.
+
 **Light tier** (D051: 8h, 8i, 8k1–8k3, 8l1–8l2 — the screen). Contract
 size per triage P3; process per D051: a key binding, a colour or an
 on-screen sentence is not an M8-n question and gets no decision entry, and
