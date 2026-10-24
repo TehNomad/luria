@@ -1,8 +1,10 @@
 # Milestone 8 plan: the sequence view (`luria FILE`) and `luria find`
 
 Status: **Draft for the owner, 2026-10-23; amended 2026-10-24 after the
-planner re-checked §2 against the code and the fixtures. Not approved as
-a whole.** Planner: Claude. Branch: `feat/milestone-8`.
+planner re-checked §2 against the code and the fixtures. Every question is
+now answered (§9), so §4–§6 are settled by D048–D052; what has not been
+approved is the plan's contract split, which is exercised one contract at a
+time.** Planner: Claude. Branch: `feat/milestone-8`.
 
 Owner answers (2026-10-24): M8-11 to M8-14 as proposed; M8-16 to M8-19
 as proposed; M8-1, M8-3, M8-6 and M8-20 as proposed (partials drawn by
@@ -17,11 +19,10 @@ M8-6, M8-15, M8-20), **D050** (the search and layout rules the search
 fixtures encode: M8-16 to M8-19), **D051** (the two-tier process for
 this milestone).
 
-Still open, all with a planner proposal attached: **M8-2** (frames do not
-run across the origin), **M8-7** (the subset matching rule), **M8-8**
-(palindrome reported once as `both`) — these three decide rows in 8a1 —
-and **M8-9** (`find`'s exit code when nothing matches), **M8-4** (ORFs in
-milestone 9), **M8-5** (unusable CDSs shown greyed in the picker).
+Still open: none. **M8-2, M8-4, M8-5, M8-7, M8-8 and M8-9** were accepted
+as proposed on 2026-10-24 and are recorded as **D052**, alongside D049
+(reading the record) and D050 (the search and frame rules). §9 is closed;
+the contracts can be written against §4–§6 as they stand.
 
 Builds on the owner-approved parts of the 2026-10-23 proposals:
 `proposal-sequence-view.md` (the block layout, the overview inset, the
@@ -221,7 +222,9 @@ on either strand. On the plus strand, frame *f* starts at base *f*
 (1-based). On the minus strand, frame *f* starts at the last base minus
 (*f* − 1) and reads leftwards. Frames are counted on the linear
 coordinates and **do not run across the origin**: a codon that would
-cross it isn't shown in frame mode (M8-2). Symbols follow
+cross it isn't shown in frame mode (M8-2, owner 2026-10-24, D052). The
+numbering is the same on a circular record — a codon that would wrap is
+excluded whether or not the record is circular. Symbols follow
 `FrameResidue`: one letter, `*` for a stop, `?` for an unreadable codon.
 
 A frame's last codon is complete or absent. When the length isn't a
@@ -244,12 +247,13 @@ start, a length, a strand, and whether it wraps the origin.
 - **Matching rule.** A template letter matches a pattern letter when the
   template letter's base set is a subset of the pattern letter's
   (`bases_of`). So pattern `N` matches anything, pattern `R` matches `A`,
-  `G` and `R`, and a template `N` matches only pattern `N` (M8-7).
+  `G` and `R`, and a template `N` matches only pattern `N` (M8-7, owner
+  2026-10-24, D052).
 - **Both strands.** The minus-strand hits are the hits of the pattern's
   reverse complement on the top strand, reported with strand `-` and the
   same top-strand coordinates.
 - **Palindromes.** A hit found on both strands at the same span is
-  reported once, as strand `both` (M8-8).
+  reported once, as strand `both` (M8-8, owner 2026-10-24, D052).
 - **Circular.** On a circular sequence, a hit may start in the last
   `len(pattern) − 1` bases and wrap. A pattern longer than the sequence
   finds nothing. On a linear sequence nothing wraps.
@@ -342,8 +346,8 @@ them. Details fixed here:
 ### 5.2 Keys
 
 As `proposal-sequence-view.md` §3, plus `o` for the overview inset and,
-if M8-3 is accepted, `T` to switch a FASTA's assumed topology for the
-session (capital: `t` already cycles the translation lanes, §9). `q` quits; `ctrl-c` quits from anywhere. Nothing is ever
+if M8-3, `T` to switch a FASTA's assumed topology for the
+session (capital: `t` already cycles the translation lanes, §5.5, D049). `q` quits; `ctrl-c` quits from anywhere. Nothing is ever
 written.
 
 ### 5.3 Go-to
@@ -380,7 +384,7 @@ empty pattern is DNA mode, no search, no error.
 the status line says `showing the first 200 of 8521 hits — refine your
 pattern`; `n` cycles inside what is shown. An all-ambiguity pattern such
 as `N` or `NNNN` matches at every position of the record, each hit
-reported once as strand `both` (M8-8): 8521 hits on an 8521 bp construct.
+reported once as strand `both` (M8-8, D052): 8521 hits on an 8521 bp construct.
 An uncapped hit list is not a UI.
 
 ### 5.5 `luria find`
@@ -418,7 +422,12 @@ luria find FILE PATTERN [--aa] [--cds ID]
   `end < start`. Residue numbers follow §4.5, so `last_residue` can be
   the word `stop`, and in frame mode they count within the frame. At most
   200 rows print (M8-12), and past that the count line reads `showing the
-  first 200 of N hits`. The last line is `N hits`. Exit codes: M8-9.
+  first 200 of N hits`. The last line is `N hits`. **A search that finds
+  nothing is a successful run**: exit 0 with `0 hits` (M8-9, owner
+  2026-10-24, D052). luria reserves exit 1 for an internal error, and the
+  `grep` habit of exiting 1 on no match would read here as a broken
+  program; the usage, malformed-input and design-failure codes stay as
+  `docs/cli.md` §5–§6 has them (2, 4, 7).
 
 ### 5.6 Dispatch
 
@@ -462,7 +471,12 @@ luria find FILE PATTERN [--aa] [--cds ID]
     `GTG` start) unusable. `GAATTC` occurs **nowhere inside** this record
     — it exists only as the wrap at 4359 (`GAA` + `TTC`), so pBR322 proves
     circular search or nothing. Internal palindromic sites are there for
-    M8-8: `GGATCC` at 375, `AAGCTT` at 29, `CATATG` at 2295. An IUPAC
+    M8-8: `GGATCC` at 375, `AAGCTT` at 29, `CATATG` at 2295 — **each of
+    those four sites occurs exactly once in the whole record**, which
+    Biopython confirms and which matches pBR322's well-known single EcoRI,
+    BamHI, HindIII and NdeI sites; a palindromic search for `GAATTC` here
+    is therefore **one** hit at 4359 with strand `both`, never two. An
+    IUPAC
     pattern; `p:` searches for a motif in `tet` and in six frames; base ↔
     residue for the first, last and stop codons of `tet` and `bla`.
   - **The existing synthetic records**, read and never modified (§8):
@@ -480,6 +494,17 @@ luria find FILE PATTERN [--aa] [--cds ID]
     frame. New records and TSVs live under `tests/fixtures/view/` and get
     their `--check` wired into `verify.py`; nothing under
     `tests/fixtures/genbank/` is touched.
+  - **No existing fixture has an ambiguity code.** Checked across every
+    `.gb`, `.fa` and `.fasta` under `tests/fixtures/`: every base is `A`,
+    `C`, `G` or `T`, including J01749.1 at 4361 bases. Three now-settled
+    rules therefore have no source data anywhere: the degenerate codon
+    drawn as `?` (§4.3), a template `N` that must not match pattern `A`
+    (M8-7, D052), and the all-ambiguity pattern that hits at every base
+    and makes the 200 cap matter (M8-12, D048). 8a1 adds
+    `tests/fixtures/view/ambiguity.gb`, a short circular GenBank record
+    with IUPAC letters both inside and outside its CDS, and the README
+    records which script produced which column. A new file, not an edit of
+    an existing one (§8).
   - **Edge cases**: a pattern longer than the sequence; a pattern exactly
     as long as it, on a circular and on a linear record (§4.4); a one-base
     sequence; a template with `N`; overlapping hits; an empty pattern; an
@@ -505,14 +530,13 @@ luria find FILE PATTERN [--aa] [--cds ID]
 ## 7. Contracts (tentative)
 
 Order matters. 8a is the critical path: seven contracts wait on it, it is
-planner-written, and its contents depend on §4 being closed. Six §9
-answers are still open — M8-2, M8-7 and M8-8 decide rows of 8a1, and
-M8-9, M8-4 and M8-5 decide the command and the picker — so 8a1's
-**search and frame** tables wait on those three. What does not wait is
-the CDS map: §4.2 rests on decided rules alone (D006, D010, D036, D040,
-M8-11), so its fixtures and contract 8c go first and the worker starts
-while the rest is settled. 8a is split in two because one contract that
-blocks seven is the schedule risk this plan should not carry.
+planner-written, and §9 is now closed (D048–D052), so all of it is
+writable. It still lands in two pieces, and the **CDS-map** tables land
+first: §4.2 rests on decided rules alone (D006, D010, D036, D040, M8-11
+and D050's order note), so contract 8c gets its fixtures first and the
+worker starts while the frame and search tables of 8a1 are being verified.
+Splitting it is also the schedule decision: one contract that blocks seven
+is the risk this plan should not carry.
 
 **Full tier** (D051: 8a1, 8a2, 8b–8g, 8j) — one function or module each,
 with the process the milestones so far used: named signatures, exact tests
@@ -577,19 +601,23 @@ file-size limits are not tunables: a contract may not grow a flag or an
 environment variable for them. 8m, 8n and any polish contract are not
 permission to fix anything §4–§6 left undecided.
 
-## 9. Questions for the owner
+## 9. Questions and answers — closed 2026-10-24
 
-| # | Question | Planner's proposal |
+Every row below is answered. The rows keep the planner's reasoning because
+the contracts cite it; the bold text is the owner's decision and the
+D-number that records it.
+
+| # | Question | Answer |
 | --- | --- | --- |
 | M8-1 | Features with fuzzy ends (`<1..12`, `1..>900`) are common in real records, and the location parser refuses them. Draw them in the view? | **Owner, 2026-10-24: accepted as proposed.** The view reads `<` and `>` as the stated base and marks the feature as partial in the feature list. Display only; CDS import (D041) still refuses them. **Its own display-only parser**, not a flag on `parse_genbank_location`: a boolean that changes what the shared parser accepts is exactly the shape D009/D036 do not want, and the science parser then stays untouched. Go-to does not jump to a feature whose start is not stated (§5.3). D049. |
-| M8-2 | In frame mode on a circular sequence, should frames run across the origin? | No. Frames are counted from base 1 and stop at the end. A CDS crossing the origin is still translated across it in CDS mode. |
+| M8-2 | In frame mode on a circular sequence, should frames run across the origin? | **Owner, 2026-10-24: accepted as proposed.** No. Frames are counted from base 1 and stop at the end. A CDS crossing the origin is still translated across it in CDS mode. D052. |
 | M8-3 | FASTA has no topology. What should the view assume? | **Owner, 2026-10-24: accepted as proposed.** Linear, shown as `linear (assumed)` in the title, with `T` switching it to circular for the session. Circular changes wrapping search and the overview. D049 records the explicit exception to D005: one visible, changeable, labelled assumption, not a silent inference. It does **not** reword D005 as a whole and does not touch D035 — what an assumed-circular FASTA may be designed on is milestone 9's question. |
-| M8-4 | ORF detection (triage T2): in milestone 8 so a FASTA file has something to number, or milestone 9 as planned? | Milestone 9. Six-frame translation covers looking at a FASTA in milestone 8. |
-| M8-5 | Should the CDS picker show unusable CDSs (such as pBR322's ROP)? | Yes, greyed, with the reason, not selectable. Triage T3 (accepting `GTG` starts) would make ROP usable. |
+| M8-4 | ORF detection (triage T2): in milestone 8 so a FASTA file has something to number, or milestone 9 as planned? | **Owner, 2026-10-24: accepted as proposed.** Milestone 9. Six-frame translation covers looking at a FASTA in milestone 8. Triage T2 stays unapproved. D052. |
+| M8-5 | Should the CDS picker show unusable CDSs (such as pBR322's ROP)? | **Owner, 2026-10-24: accepted as proposed.** Yes, greyed, with the reason, not selectable. The reason is 8b's refusal code rendered by the cli (D042), not a second judgement in the ui. Triage T3 (accepting `GTG` starts) would make ROP usable and stays unapproved. D052. |
 | M8-6 | A file whose extension and content disagree (a `.txt` that is GenBank)? | **Owner, 2026-10-24: accepted as proposed.** Decide by content: `LOCUS` first means GenBank, `>` first means FASTA, anything else is refused. One core `open_record` does it for the view and for `find` (§4.1). D049. |
-| M8-7 | A template `N` (or other ambiguity code): should it match pattern `A`? | No: a template letter matches only a pattern letter whose base set contains all of its bases (§4.4). |
-| M8-8 | A palindromic site matches on both strands at the same place. One hit or two? | One, strand `both`, in the view and in `luria find`. |
-| M8-9 | `luria find` exit code when nothing matches? | 0 with `0 hits`, like a report rather than `grep` (exit 1 is luria's internal error). |
+| M8-7 | A template `N` (or other ambiguity code): should it match pattern `A`? | **Owner, 2026-10-24: accepted as proposed.** No: a template letter matches only a pattern letter whose base set contains all of its bases (§4.4). Biopython's IUPAC matching is intersection-based and answers the opposite way, so the reference script hand-codes §4.4's subset rule (§6). D052. |
+| M8-8 | A palindromic site matches on both strands at the same place. One hit or two? | **Owner, 2026-10-24: accepted as proposed.** One, strand `both`, in the view and in `luria find`. In pBR322 that means its **single** EcoRI site at 4359 is one hit with strand `both`, not two — likewise its single BamHI (375), HindIII (29) and NdeI (2295) sites, each verified to occur exactly once in the record. D052. |
+| M8-9 | `luria find` exit code when nothing matches? | **Owner, 2026-10-24: accepted as proposed.** 0 with `0 hits`, like a report rather than `grep`; exit 1 stays what `docs/cli.md` says it is — an internal error. D052. |
 | M8-10 | Use the two-tier process (triage P1, P2) in this milestone: full contracts and fixtures for 8a–8g and 8j, lighter contracts for 8h, 8i, 8k1–8k3 and 8l1–8l2, and no decision entries for keys and wording? | **Owner, 2026-10-24: accepted — for milestone 8 only.** The science tier's process is unchanged; keys, colours and on-screen wording get short contracts and no decision entries, so the hand test can change them without approval rounds. Recorded as D051, which names its own scope and expires with the milestone; the rest of the triage (T1–T6, P3–P5) stays unapproved and `AGENTS.md` is untouched. |
 | M8-11 | Which CDS, if any, is selected when the view opens? It decides the status line, `w`/`b`, residue numbering and the default for an AA search. | **Owner, 2026-10-24: accepted.** Exactly one usable CDS → select it. Several → select none and say `no CDS selected` in the title bar. Never pick one silently (D005). D048. |
 | M8-12 | A cap on hits? An all-ambiguity pattern (`N`, `NNNN`) hits at every base, so an 8521 bp construct gives 8521 hits and `luria find` would print every one. | **Owner, 2026-10-24: accepted.** 200 in both the view and `find`; the count line reads `showing the first 200 of N hits`; exit status unchanged. Core keeps no cap (§4.4, §5.4, §5.5). D048. |

@@ -1854,3 +1854,62 @@ The owner can pull any named screen back to the full process at any point
 in the milestone by naming it. A later milestone that approves triage P1
 and P2 supersedes this entry; one that does not returns to `AGENTS.md`
 by default.
+
+## D052: Frames, ambiguity codes, palindromic sites, and what `find` exits with
+
+Status: approved by the owner, 2026-10-24
+(`docs/tasks/milestone-8-view.md`, answers M8-2, M8-4, M8-5, M8-7, M8-8
+and M8-9, all as proposed). Applies D006, D010, D018, D028, D041, D042,
+D048, D049 and D050. With this entry, Milestone 8's open-question list is
+closed.
+
+Decision:
+
+* **Six frames do not run across the origin** (M8-2). Frames are counted
+  on the linear coordinates from base 1 and stop at the last base, on a
+  circular record as on a linear one: a codon that would wrap is not
+  translated in frame mode. A CDS that crosses the origin is still one
+  translation in CDS mode, joined as D018 has it. Frame numbering is
+  therefore independent of topology, and switching a FASTA to circular
+  (D049) changes search and the overview, not the frames.
+* **A template ambiguity code matches only what it truly is** (M8-7). At
+  an aligned position, the template letter matches a pattern letter only
+  when the pattern letter's base set contains **all** the template
+  letter's bases: template `A` matches pattern `A`, `R` and `N`; template
+  `N` matches pattern `N` alone. This is not Biopython's rule — its IUPAC
+  matching is intersection-based, so `N` versus `A` matches there and must
+  not here — so the reference script hand-codes the subset rule and says
+  so in `tests/fixtures/README.md`.
+* **A palindromic site is one hit** (M8-8). A site equal to its own
+  reverse complement is reported once, with strand `both`, in the view and
+  in `luria find`; a non-palindromic match still yields separate `+` and
+  `−` hits. pBR322 makes the count checkable: its EcoRI site `GAATTC`
+  occurs **exactly once** in the whole record, at 4359, only because the
+  record is circular (`GAA` at 4359–4361 plus `TTC` at 1–3), and its
+  BamHI (375), HindIII (29) and NdeI (2295) sites likewise occur exactly
+  once — matching the map every pBR322 prep sheet carries. Searching it
+  for `GAATTC` yields one hit, not two, and zero if the search refuses to
+  wrap.
+* **`luria find` exits 0 when nothing matches** (M8-9). A search that
+  finds nothing is a successful run: exit 0, `0 hits` on stdout. Exit 1
+  stays what `docs/cli.md` reserves it for — an internal error — and the
+  usage, malformed-input and design-failure codes stay 2, 4 and 7.
+  `grep`'s habit of exiting 1 on no match would read here as a broken
+  program, and a script that chains on `&&` would treat a clean search as
+  a failure.
+* **ORF finding stays in milestone 9** (M8-4). Milestone 8 gives a FASTA
+  file six-frame translation and nothing that numbers an ORF. Triage T2
+  is not approved and is not implemented here.
+* **The CDS picker shows unusable CDSs** (M8-5). pBR322's ROP CDS appears
+  in the picker, greyed, with the reason it cannot be selected, and
+  cannot be chosen. The reason comes from the refusal code the core
+  returns (D042), not from a second judgement in the ui — the ui renders
+  a code, it does not decide biology. Whether `GTG` starts become usable
+  is triage T3, unapproved.
+
+Reversibility:
+
+Letting frames wrap, using Biopython's intersection matching, reporting a
+palindromic site twice, exiting 1 on no matches, or deciding greyness in
+the ui instead of from a core refusal code each need approval, and the
+first three change fixture rows written against them.
