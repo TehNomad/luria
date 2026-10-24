@@ -1664,10 +1664,10 @@ any other default for a scientific value needs approval.
 
 Status: approved by the owner, 2026-10-24
 (`docs/tasks/milestone-8-view.md`, answers M8-11 to M8-14). Applies
-D003, D005, D006, D018, D041, D046 and D047. Not in this entry: M8-15
-(`luria find --cds`), answered with an amendment the planner has not
-confirmed, and M8-1 to M8-10 and M8-16 to M8-20, still open. They join
-this decision or become their own once answered.
+D003, D005, D006, D018, D041, D046 and D047. M8-15 was answered on
+2026-10-24 and is recorded in D049; M8-1, M8-3, M8-6 and M8-20 are in
+D049, M8-16 to M8-19 in D050, M8-10 in D051. Still open there: M8-2,
+M8-4, M8-5, M8-7, M8-8 and M8-9.
 
 Decision:
 
@@ -1707,3 +1707,150 @@ Reversibility:
 Raising or removing either ceiling, a different hit cap, or selecting one
 CDS when a record offers several needs approval, since the last one would
 put numbers on screen that the user did not choose.
+
+## D049: Reading a record for the view: partials, format, topology, CDS names
+
+Status: approved by the owner, 2026-10-24
+(`docs/tasks/milestone-8-view.md`, answers M8-1, M8-3, M8-6, M8-15 and
+M8-20). Applies D005, D006, D009, D036, D041 and D042.
+
+Decision:
+
+* **Partial features are drawn, by their own parser** (M8-1). A feature
+  location with `<` or `>` — `<1..12`, `1..>900` — is read for display by
+  a separate display-only parser, which takes the stated base as the
+  bound and records which end is uncertain. The feature list names the
+  uncertain end; go-to does not jump to a feature whose start is not
+  stated. `parse_genbank_location` and its tests stay exactly as they
+  are: no flag is added to the shared parser, because a boolean that
+  changes what it accepts is the shape D009 and D036 reject. CDS import
+  still refuses a partial location (D041), so a partial feature is never
+  selectable for numbering and D042 is unchanged.
+* **Format by content, not by name** (M8-6). `LOCUS` first is GenBank,
+  `>` first is FASTA, anything else is refused. The view and `luria find`
+  read the record through one core entry point, so they cannot disagree
+  about what a file is (D048).
+* **FASTA topology is assumed, stated, and switchable** (M8-3, M8-20).
+  FASTA carries no topology, so the view assumes linear and labels it
+  `linear (assumed)`; `T` switches the record to circular for that
+  session, and `luria find --circular` does the same for one run. A
+  GenBank record's declared topology stays authoritative as D036 reads
+  it. This is a bounded exception to D005's "never guess": the
+  assumption is named on screen, changed by one visible key, and cannot
+  enter a design's arithmetic — no design is built from a view-only
+  assumption, and `find` names the mode it searched in. It licenses no
+  other inference, and what an assumed-circular FASTA may be *designed*
+  on remains milestone 9's question (T1, D035 — unchanged, unapproved).
+* **`--cds VALUE` names a CDS by any id the record offers** (M8-15). It
+  matches the display name, `/gene`, `/locus_tag` and `/protein_id`, and
+  the list form's `name (start..end)` only as the whole string. Matching
+  ignores ASCII case and interior whitespace; a substring must start at
+  a word boundary; a case-folded prefix is accepted when it matches one
+  CDS and rejected when it matches several. When several CDSs match,
+  `luria find` **refuses and lists the candidates** with the id source
+  and span that matched — it does not pause, because a command a script
+  runs must fail fast; choosing among them by eye is the view's picker.
+  The flag takes no range in milestone 8; `86..1276` is refused with a
+  message saying ranges come later, so the grammar does not change under
+  `proposal-commands.md` §3.2.
+
+Reversibility:
+
+Drawing a partial feature without marking the uncertain end, letting the
+science parser accept `<` or `>`, making FASTA circular by default, or
+letting an ambiguous `--cds` pick a CDS instead of listing the candidates
+all need approval.
+
+## D050: What the Milestone 8 search and frame fixtures encode
+
+Status: approved by the owner, 2026-10-24
+(`docs/tasks/milestone-8-view.md`, answers M8-16 to M8-19). Applies
+D006, D010, D018, D028, D040 and D048.
+
+Decision:
+
+* **Overlapping hits are all reported** (M8-16). `AA` on `AAA` is three
+  hits. On a circular sequence an equal-length pattern matches at every
+  rotation — a 6 bp pattern has as many start positions per strand as the
+  record has bases, including starts that run across the origin, and
+  those are not omitted. luria-core returns them uncapped; the 200 cap is
+  presentation (D048).
+* **Whose residue numbers a protein hit carries** (M8-17). In CDS mode it
+  carries that CDS's residue numbering (D006), and a hit ending on the
+  terminal stop carries none, because D010 says that codon is not a
+  residue — `luria find` prints `stop` there and the view says "to the
+  stop codon". In six-frame mode the number counts codons within that
+  frame from its first complete codon, and the strand and frame columns
+  are never empty.
+* **Reference order is not reading order.** `residue_bases` returns
+  reading order, as D040 records: descending base ranges on a
+  minus-strand CDS, so `bla` residue 1 sits on bases 4153, 4152, 4151.
+  D040's `aa_to_base` columns are ascending reference order, because
+  design intervals are sorted and merged. They are the same bases in two
+  orders, and every Milestone 8 fixture column states which one it holds.
+* **A leftover codon in a frame is not drawn** (M8-18). When a frame's
+  length is not a multiple of 3, the trailing one or two bases have no
+  letter above them. `?` means a *complete* codon that cannot be read —
+  an ambiguity code, or a codon D010 refuses to guess at. The Python
+  reference script maps Biopython's partial-codon output by hand and
+  states what it did, because Rust and Biopython disagree there first.
+* **Blocks snap to the translation's phase** (M8-19). In CDS mode a block
+  starts on the selected CDS's phase even when the terminal is too narrow
+  for a whole codon's worth of columns; the block widens or the view
+  scrolls. A residue never moves off its own bases, so single-basing past
+  a block edge does not re-seat every letter on the screen. The rejected
+  alternative — a split codon drawn over the line holding its middle base
+  — would make the residue-to-base relationship depend on scroll position
+  and double the layout fixtures.
+
+Reversibility:
+
+Collapsing overlapping hits, numbering frame-mode residues from the
+sequence start instead of the frame, drawing the leftover codon, or
+splitting a codon across a block edge all need approval, and each changes
+fixture rows already written against them.
+
+## D051: The two-tier process, for Milestone 8 only
+
+Status: approved by the owner, 2026-10-24
+(`docs/tasks/milestone-8-view.md`, answer M8-10; triage P1 and P2 of
+`docs/tasks/proposal-decision-triage.md`, which remains otherwise
+unapproved). `AGENTS.md` is **not** edited by this entry: the rules there
+stay as they are, and this is the owner's exception for one milestone,
+recorded here so the difference is visible rather than inferred.
+
+Decision:
+
+* **Science tier keeps the full process.** Contracts 8a1, 8a2, 8b, 8c,
+  8d, 8e, 8f, 8g and 8j are written as the milestones so far were: named
+  functions and signatures, the exact tests and commands, a "do not"
+  list, planner-written fixtures with independently verified expectations
+  recorded under `tests/fixtures/`, and decision entries for what they
+  settle. Nothing about that changes.
+* **Presentation tier is lighter.** Contracts 8h, 8i, 8k1, 8k2, 8k3, 8l1
+  and 8l2 name the behaviour, the keys and the tests, but key bindings,
+  colours and on-screen sentences are not numbered as M8-n questions and
+  get no decision entry. Their tests assert what a command does — that
+  pressing `j` moves the selection to the next base, that the view opens
+  a file and refuses one it cannot read — not the exact wording of a
+  status line. The planner may change such wording or a key between
+  contracts without an approval round.
+* **Scope and expiry.** This applies to Milestone 8 and nothing else. It
+  expires when Milestone 8 merges: the next milestone returns to
+  `AGENTS.md` unless the owner approves triage P1 and P2 as standing
+  rules. T1–T6 and P3–P5 stay unapproved, so the biology and the
+  design-side rules they would change are untouched.
+* **Why.** The milestone exists to find out how luria's sequences read at
+  a keyboard. A keystroke set chosen before that test is a set the owner
+  will want to change after it, and under the current rules each change
+  costs a contract amendment and a decision entry. The part of the
+  process that protects the science — fixtures, independent verification,
+  no silent inference, no expectation copied from an implementation — is
+  kept in full.
+
+Reversibility:
+
+The owner can pull any named screen back to the full process at any point
+in the milestone by naming it. A later milestone that approves triage P1
+and P2 supersedes this entry; one that does not returns to `AGENTS.md`
+by default.
