@@ -19,12 +19,17 @@ written out in `reference/`, and each is re-derivable with `--check` (D039).
 | `cds-map-counts.tsv` | per CDS: length, codon count, residue count, whether the last codon is a stop, and the reference positions of the first codon, the last codon and the last residue's codon |
 | `cds-map-boundaries.tsv` | the first three and last three codons of `tet` and `bla` in `../genbank/raw/J01749.1.gb` |
 | `cds-map-refused.tsv` | the features the view must refuse to number, and the rule that refuses each |
+| `frames-61.fa` | a 61 bp FASTA with no features at all: length 1 mod 3, and a record with no CDS for the picker and for frame mode |
+| `frame-tables.tsv` | every complete codon of every frame on both strands of five records, with that frame's own residue number, the translated letter, and the codon's bases in ascending reference order |
+| `frame-tails.tsv` | per record, strand and frame: how many bases the frame covers, how many complete codons that is, and the 1 or 2 leftover reference positions view mode must not draw |
 | `reference/make_frames_62.py` | the deterministic search that chose `frames-62.gb`, and the check that the tracked record still satisfies what it claims |
-| `reference/cds_map.py` | the five tables above |
+| `reference/cds_map.py` | the five CDS-map tables above |
+| `reference/frame_tables.py` | the two frame tables above, and the check that every frame's whole letter run equals Biopython's translation of the same linear slice |
 
-No fixture here is a fixture of a decision that is still open. `M8-7`'s
-phase-offset question is about a six-frame **run** meeting a partial codon at
-the origin, not about a CDS arc, and the tables below do not touch it.
+No fixture here pins a decision that was still open when it was written.
+`M8-2` — six frames do not run across the origin, D052 — is settled, and the
+frame tables below are what pins it; `M8-18` (D050) says what happens to the
+leftover bases of a frame.
 
 ## How a wrapped CDS reads, and why that is not an open question here
 
@@ -125,6 +130,76 @@ pBR322 (no id), `len13` (13 bases, not divisible by three), `mj1` and `mj2`
 `luria`'s own code names it. D049 draws a partial feature in the view without
 numbering it, so a refused feature still gets a bar; what it must not get is a
 residue scale.
+
+## Six frames, and the bases a frame cannot use (8a1b)
+
+`frame-tables.tsv` and `frame-tails.tsv` come from the rules in
+`docs/tasks/milestone-8-view.md` §4.3, D052 and D050:
+
+* Frames are numbered **1, 2, 3 on either strand**. On the plus strand frame *f*
+  starts at base *f* (1-based) and reads rightwards; on the minus strand frame
+  *f* starts at **the last base minus (*f* − 1)** and reads leftwards. The
+  tables keep `strand` and `frame` as separate columns, so nothing has to
+  remember a 4-6 numbering that no part of the plan uses.
+* A frame **never runs across the origin**, on a circular record exactly as on a
+  linear one. `frames62 + frame 1` has 20 complete codons and stops at base 60;
+  bases 61 and 62 are recorded in `frame-tails.tsv` as leftover and never
+  translated. An implementation that rotated the sequence first — the habit
+  six-frame callers have when they want every rotation to get the same codon
+  set — would produce a 21st codon from 61, 62 and 1, and would fail this table.
+* A frame's own residue numbering runs from 1 inside that frame and says nothing
+  about a CDS residue. The CDS scale lives in `cds-map-bases.tsv`; the two
+  columns look alike and are not the same thing (D050).
+* `?` in the `aa` column would mean a **complete** codon that cannot be read.
+  It appears nowhere: no fixture in this repository holds a base outside ACGT,
+  so an ambiguity case arrives with the record 8a1c adds.
+
+`frames-61.fa` is `frames-62.gb`'s sequence without its last base — that is the
+whole relationship, and it is why the file exists: 62 is 2 mod 3 and 61 is 1 mod
+3, so between them the tables cover all three tail cases (the other records are
+60, 393 and 4361, and 4361 is 2 mod 3). Its canonical text — upper case, no line
+breaks — hashes to
+`60a3b3f88a4a09816494160a8b36694dcba03f23c76fa46a370b3db563b1143c`, computed
+with the same pipeline `../fasta/README.md` documents:
+
+```
+grep -v '^>' tests/fixtures/view/frames-61.fa | tr -d '\n\r \t' | tr a-z A-Z | sha256sum
+```
+
+**The `topology` column reports what the file says, not what the view assumes.**
+A GenBank LOCUS line states `circular` or `linear`, and Biopython puts it in
+`annotations["topology"]`; a FASTA record says nothing, and its rows read
+`unknown`. D049 makes the view assume linear for a FASTA **and show that
+assumption**, which is a display decision a fixture must not silently make for
+it.
+
+Two spot values were checked without going through the script at all:
+
+* `frames62 − frame 1`, codon 1: the record's last three bases are `G C A`
+  (positions 60, 61, 62), so the frame's first codon reads `TGC` = Cys — the
+  complement of each reference base in decreasing position order, the same rule
+  `../genbank/README.md` derives by hand for `mj1`/`mj2`. Taking the reverse
+  complement of the bases *written in reading order* instead of of the ascending
+  span gives `CGT`, and this table would be wrong in every minus-strand row; an
+  earlier reference script had exactly that bug.
+* `pbr322 + frame 1`, codons 1-3: the ORIGIN block of
+  `../genbank/raw/J01749.1.gb` reads `ttctcatgtt` on its first line, so the
+  codons are `TTC TCA TGT` = F S C, read off the file by eye.
+
+For `pbr322` (4361 bases) the table stores a **sample** — the first three codons
+of each frame, the last three, and every 100th — marked `sampled = yes`;
+records of 500 bases or fewer store every codon and read `sampled = no`. The
+script still compares **every** codon of **every** frame against Biopython's
+translation of the same linear slice before it writes anything, so the sample is
+about how much data the repository carries, not about how much is verified. A
+frame implementation that was off by one, or that rotated a circular record
+first, breaks the sample somewhere in a 4361-base record as surely as a full
+table would.
+
+```
+python -I tests/fixtures/view/reference/frame_tables.py --print
+python -I tests/fixtures/view/reference/frame_tables.py --check
+```
 
 ## Regenerating
 
