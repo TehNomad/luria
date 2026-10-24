@@ -23,9 +23,13 @@ written out in `reference/`, and each is re-derivable with `--check` (D039).
 | `frames-amb.fa` | a 33 bp FASTA holding IUPAC ambiguity codes: the only record here that exercises the `?` column of `frame-tables.tsv` |
 | `frame-tables.tsv` | every complete codon of every frame on both strands of six records, with that frame's own residue number, the translated letter, and the codon's bases in ascending reference order |
 | `frame-tails.tsv` | per record, strand and frame: how many bases the frame covers, how many complete codons that is, and the 1 or 2 leftover reference positions view mode must not draw |
+| `search-letters.tsv` | all 225 pairs of IUPAC letters, pattern against template: whether luria's containment rule matches, whether the intersection rule would, and where the two part company |
+| `search-dna-patterns.tsv` | every DNA-search pattern the tables pin, per record: as written, after folding, its reverse complement, whether the record was searched as wrapping, and what the row is there to pin |
+| `search-dna-hits.tsv` | every hit of every listed pattern: strand, zero-based start, length, whether it wraps the origin, and the bases it covers |
 | `reference/make_frames_62.py` | the deterministic search that chose `frames-62.gb`, and the check that the tracked record still satisfies what it claims |
 | `reference/cds_map.py` | the five CDS-map tables above |
 | `reference/frame_tables.py` | the two frame tables above, and the check that every ACGT codon of every frame equals Biopython's translation of the same linear slice |
+| `reference/search_dna.py` | the three search tables above, and the cross-checks described in the DNA-search section |
 
 No fixture here pins a decision that was still open when it was written.
 `M8-2` — six frames do not run across the origin, D052 — is settled, and the
@@ -258,6 +262,120 @@ python -I tests/fixtures/view/reference/frame_tables.py --print
 python -I tests/fixtures/view/reference/frame_tables.py --check
 ```
 
+## DNA search: which letters a pattern may match, and what a hit covers (8a1c)
+
+`search-letters.tsv`, `search-dna-patterns.tsv` and `search-dna-hits.tsv` come
+from §4.4 of the plan and from D052 (M8-7, M8-8, M8-16) and D050. They cover the
+DNA half of §4.4 only; the protein rows of §4.5 wait for the types contract 8f
+fixes, because a fixture written against a signature that changes gets rewritten
+(§7).
+
+* **Containment, not intersection** (M8-7). A record letter matches a pattern
+  letter only when every base the record letter stands for is in the pattern
+  letter's set. `search-letters.tsv` pins the whole 15 × 15 grid: a template
+  `A` is covered by exactly `A R W M D H V N`, a template `R` by exactly
+  `R D V N`, and a template `N` by `N` alone. 110 of the 225 pairs disagree with
+  an intersection rule, and every one of those is intersection-yes,
+  luria-no — containment can only refuse what intersection would accept.
+* **One hit per place** (M8-8). pBR322's four landmark sites appear once each,
+  strand `both`: zero-based 4358 (`GAATTC`), 374 (`GGATCC`), 28 (`AAGCTT`), 2294
+  (`CATATG`) — D052's 1-based 4359, 375, 29, 2295. The EcoRI row reads
+  `wraps_origin = yes`, because the site is `GAA` at 4359-4361 plus `TTC` at
+  1-3; the pattern `GAATTT` does not match there, and `AATT` gives a hit at
+  zero-based 4359, also wrapping — the same site, one base in.
+* **Every position, no cap** (M8-16). On `framesamb` pattern `N` gives 33 hits,
+  one per base, each `both` and length 1. `S` gives 8, every one `both`; `R`
+  gives 25, none of them `both`, because no IUPAC letter sits inside both
+  `{A,G}` and `{C,T}`. A pattern that is its own reverse complement — `RATY`,
+  not `RYAT`, whose reverse complement is `ATRY` — is `both` at every hit,
+  including spans like `AATC` where a concrete base sits inside a pattern `Y`.
+* **Wrapping only where the record says circular.** Several patterns are cut
+  from a record's own text, so the hit follows from the rules rather than from
+  arithmetic: a substring matches on the top strand at its own start, the
+  reverse complement of one matches at the same coordinates on the minus strand,
+  and a pattern made of the last *k* bases followed by the first *k* matches only
+  if the record wraps, at zero-based start `len - k`. On the two linear records
+  that same pattern gives zero hits, and the script refuses to accept that claim
+  unless the pattern really would match at that start — a zero-hit assertion
+  about a pattern that never occurs would pin nothing.
+* **Case and `U` are folded before matching** (D052). `gaattc` and `GAATUC` each
+  give one hit at the same start as `GAATTC`, and their rows carry the record's
+  bases, `GAATTC`. A pattern may hold `U` where a stored sequence may not: core's
+  alphabet rejects `U` as RNA, so this is a rule about patterns only.
+
+`framesamb` is where the two matching rules part company, and the discriminating
+rows are pinned by what must be absent as well as what is present. `AAN` hits at
+1-based 8 and 16, plus a minus-strand hit at 5; `AAY` hits at 8 but **not** at 16,
+which is the place an intersection rule would match; `AAR` finds nothing at all,
+because the only `AA` run that could serve is followed by `N`. `GTGTSK` hits at
+28, `GTGTNN` hits at the same place, and `GTGTCK` and `GTGTKK` find nothing.
+
+**Biopython is an oracle for some of this and not for the matching rule, and the
+limit is measured.** `reference/search_dna.py` uses it for three things: the
+letter-to-bases table (identical to `bases_of` in `crates/core/src/sequence.rs`),
+the complement table (identical to core's, and asserted), and a **site count**
+for the four landmark patterns on records that are all A, C, G and T, where
+`len(hits)` must equal `len(enzyme.search(Seq(text), linear=...))` —
+circular-aware exactly where the tables allow wrapping, and every enzyme sharing
+a site must answer the same. That comparison is sound only for patterns that are
+their own reverse complement, because luria merges a place that matches on both
+strands into one `both` hit.
+
+It is **not** an oracle for a record's own ambiguity codes. `Bio.Restriction`
+compiles a regex out of the *site* and matches the record literally: `BstEII`
+(`GGTNACC`) matches `GGTXACC`, where `X` is not an IUPAC letter at all, because
+the site's `N` became a regex `.`; `Dpi3090II` (`AAGRAG`) refuses a record `R`
+at its own `R`, where luria's containment rule accepts it and so would an
+intersection rule. So its answer is neither subset-based nor intersection-based,
+and the `intersection_match` column of `search-letters.tsv` says what the
+rejected rule would answer, computed from Biopython's letter sets — not what
+Biopython answers. That is why §4.4's rule is hand-coded here, as §6 of the plan
+requires; but the plan's M8-7 note attributes the opposite behaviour to Biopython
+and that attribution is not supported, which is recorded rather than argued away.
+
+**The cross-checks are two, with separate ranges.** For a pattern of concrete
+bases only, occurrences are enumerated with Python's own substring search over
+the record plus its first `width - 1` bases when the record wraps — code shared
+with nothing else in the file, which pins the legal start range, the wrapping
+flag and the report-every-overlap rule. For a pattern holding ambiguity codes,
+every candidate start whose window is all concrete is re-matched against Biopython's
+letter classes; starts whose window holds an ambiguity code are outside that
+range, counted, and asserted non-zero (200 such starts), so an oracle that
+judged nothing could not pass as a check.
+
+Two values were checked without the script. The `frames62` pattern
+`ATGCGCACAGACCATTAA` is that record's `fP` join — bases 56-62 then 1-11, 18
+letters — and read as codons it is `ATG CGC ACA GAC CAT TAA` = M R T D H stop,
+which is the file's own `/translation="MRTDH"`; so the pattern in the table is
+the annotated span, not something near it. And `frames-amb.fa`'s canonical digest
+is pinned by this script too, the same digest `reference/frame_tables.py` and the
+README pin, so a single base change anywhere in the record is caught by two
+scripts that read it for different reasons.
+
+Twelve controls, each run once and then restored: intersection instead of
+containment fails at `framesamb + AAG: this script [15, 16, 23, 24, 25],
+substring search []`; dropping the minus strand fails at a constructed `TTAAGCTT`
+hit; searching a circular record as linear fails at a whole-record rotation that
+only exists by wrapping; letting a linear record wrap fails at the same rule from
+the other side; removing the `U` fold fails naming the letter `U`; not merging
+the two strands fails at pattern `N`; stepping past overlaps instead of reporting
+them fails at the substring oracle; ordering hits descending fails with
+`hits must be ordered by start: ('synthetic', 'AAAT')`. Flipping one
+`rules_agree`, moving the EcoRI start by one, and shortening one `purpose` cell
+are each reported by `--check` with the line number and both rows. Changing base
+24 of `frames-amb.fa` — outside every region this script pins by hand — fails
+with the digest message.
+
+`reference/search_dna.py` is **not yet registered in `../verify.py`**: the run
+that produced contract 8d was told the suite has 22 registered checks, and
+changing that number mid-round would read as tampering in its report. Adding it
+is a separate commit, taking the count to 23.
+
+What these tables do not pin: the cap on displayed hits (M8-12 is presentation,
+§5.4 and §5.5), the refusal of an empty pattern or an illegal pattern letter
+(they go through `normalize()` here, and belong in contract 8e's unit tests),
+wording of any output, and anything from §4.5.
+
 ## Regenerating
 
 From the repository root, with the pinned environment
@@ -268,6 +386,8 @@ python -I tests/fixtures/view/reference/make_frames_62.py --print
 python -I tests/fixtures/view/reference/make_frames_62.py --check
 python -I tests/fixtures/view/reference/cds_map.py
 python -I tests/fixtures/view/reference/cds_map.py --check
+python -I tests/fixtures/view/reference/search_dna.py
+python -I tests/fixtures/view/reference/search_dna.py --check
 python -I tests/fixtures/verify.py
 ```
 
