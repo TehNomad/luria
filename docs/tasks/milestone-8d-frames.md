@@ -4,7 +4,7 @@ Planner: Claude.
 
 Status: round 1 delegated to the worker (label `w8d`), with this file and
 `tests/fixtures/view/README.md` as the evidence it was given; work order
-`frames.rs` plus its unit tests, then `crates/core/tests/frame_fixtures.rs`,
+`frames.rs` plus its unit tests, then `crates/core/tests/frames_fixtures.rs`,
 then the checks, then the guard experiments. Full tier (D051). Plan row **8d**
 in `docs/tasks/milestone-8-view.md` §7.
 
@@ -80,7 +80,19 @@ the one-letter symbol, and the zero-based position of the codon's middle base.
      `frames::frame_residues`), and the `middle` doc naming both zero-based
      coordinate spaces. Keep the fields, their order, their types and their
      meaning.
-4. `crates/core/tests/frame_fixtures.rs` — new, the fixture-driven test file.
+4. `crates/core/tests/frames_fixtures.rs` — new, the fixture-driven test file.
+
+   **Naming correction, 2026-10-24, a planner error in this contract's first
+   draft.** It originally named `crates/core/tests/frame_fixtures.rs`, which is
+   **not free**: that file is contract 7i1's mutant-frame table test from
+   milestone 7 (committed in 9218b08, one test `every_frame_row_matches`, reading
+   `tests/fixtures/review/frame.tsv`). Writing there would replace another
+   contract's test, which §8 forbids. The file name follows the module under
+   test, as `cds_map_fixtures.rs` follows `cds_map` and `fasta_fixtures.rs`
+   follows `fasta`: plural `frames_fixtures.rs` for `frames.rs`. The singular
+   file is not to be opened, edited or referenced by this contract, and its own
+   command, `cargo test -p luria-core --test frame_fixtures`, still runs it as
+   part of `cargo test --workspace`.
 
 Nothing else in the repository. `tests/fixtures/` is read, never written, by
 this contract; its tables and its Python reference scripts are already committed
@@ -174,7 +186,7 @@ Behaviour, point by point, each one already pinned by the fixtures:
 
 ## 5. Tests the worker writes
 
-`crates/core/tests/frame_fixtures.rs` reads the two tracked tables. Follow the
+`crates/core/tests/frames_fixtures.rs` reads the two tracked tables. Follow the
 house pattern of `crates/core/tests/cds_map_fixtures.rs`: one `zero_based()`
 helper applying the D006 conversion once per parsed column, a `record_of()` map
 from record name to file, headers pinned verbatim, no rule re-derived in the
@@ -271,7 +283,7 @@ Inside `crates/core/src/frames.rs`, `mod tests` (build sequences with
 ```
 cargo fmt --all -- --check
 cargo test --workspace
-cargo test -p luria-core --test frame_fixtures
+cargo test -p luria-core --test frames_fixtures
 cargo clippy --workspace --all-targets -- -D warnings
 python3 -I tests/fixtures/verify.py
 git diff --check
