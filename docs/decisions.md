@@ -1876,10 +1876,25 @@ Decision:
   an aligned position, the template letter matches a pattern letter only
   when the pattern letter's base set contains **all** the template
   letter's bases: template `A` matches pattern `A`, `R` and `N`; template
-  `N` matches pattern `N` alone. This is not Biopython's rule — its IUPAC
-  matching is intersection-based, so `N` versus `A` matches there and must
-  not here — so the reference script hand-codes the subset rule and says
-  so in `tests/fixtures/README.md`.
+  `N` matches pattern `N` alone. This rule is not derived from any
+  library. An earlier version of this bullet said Biopython's IUPAC
+  matching is intersection-based and answers `N` versus `A` the other way
+  round; measured on the pinned `biopython==1.88` that is not what
+  `Bio.Restriction` does — it compiles a regular expression out of the
+  enzyme's own site and matches the record literally, so `BstEII`
+  (`GGTNACC`) matches `GGTXACC`, where `X` is no IUPAC letter at all,
+  while `Dpi3090II` (`AAGRAG`) and `SenSARA26III` (`ACRCAG`) refuse a
+  record `R` at the position of their own `R`, which this rule accepts.
+  Neither containment nor intersection: Biopython says nothing about how
+  a record's own ambiguity codes should be read. So the reference script
+  hand-codes the containment rule, and Biopython is used in the fixtures
+  only where measurement supports it — the letter sets, the complement
+  table, and site counts over records whose bases are all `A`, `C`, `G`
+  and `T`. The answers are asserted in
+  `tests/fixtures/view/reference/search_dna.py`, corrected in
+  `docs/tasks/milestone-8-view.md` §6 and §8, and recorded in
+  `tests/fixtures/view/README.md` (text amended 2026-10-24 on the
+  owner's instruction; the rule itself is unchanged).
 * **A palindromic site is one hit** (M8-8). A site equal to its own
   reverse complement is reported once, with strand `both`, in the view and
   in `luria find`; a non-palindromic match still yields separate `+` and
@@ -1909,7 +1924,8 @@ Decision:
 
 Reversibility:
 
-Letting frames wrap, using Biopython's intersection matching, reporting a
-palindromic site twice, exiting 1 on no matches, or deciding greyness in
-the ui instead of from a core refusal code each need approval, and the
-first three change fixture rows written against them.
+Letting frames wrap, matching a record's ambiguity codes by intersection
+instead of containment, reporting a palindromic site twice, exiting 1 on
+no matches, or deciding greyness in the ui instead of from a core refusal
+code each need approval, and the first three change fixture rows written
+against them.
