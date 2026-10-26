@@ -61,6 +61,7 @@ CHECKS = [
     "view/reference/frame_tables.py",
     "view/reference/search_dna.py",
     "view/reference/search_protein.py",
+    "view/reference/layout_columns.py",
 ]
 
 

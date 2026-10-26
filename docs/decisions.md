@@ -2011,3 +2011,46 @@ Each is local to one function: `find_protein`'s matcher or its sort, or
 `overview_columns`. The first two also fix rows in
 `tests/fixtures/view/search-protein-hits.tsv` and the order `luria find`
 prints, so reversing either rewrites that table and needs approval.
+
+## D055: How the view's blocks meet codons, frames and numbers
+
+Status: approved by the owner, 2026-10-26, all four as the planner
+proposed them with mockups drawn from pBR322. Applies D050 (M8-19, blocks
+snap to the translation's phase) and `docs/tasks/milestone-8-view.md` §5.1;
+contracts 8a2 and 8j carry the column rules.
+
+Decision:
+
+* **With a CDS selected, one line is shortened rather than the grid
+  shifted.** Lines start at base 1 and are the full line width; a line that
+  would end inside a codon of the selected CDS ends just before that codon
+  instead, so it is 1 or 2 bases short and the lines after it continue from
+  there. In pBR322 with `tet` selected on 30-base lines, the line from 61
+  ends at 88 and the next starts at `tet`'s codon at 89. The same rule
+  covers a CDS that crosses the origin of a record whose length is not a
+  multiple of 3, where the codons on the two sides of the origin are in
+  different phases (`frames-62.gb`), with no extra case. The rejected
+  alternative started the first line one or two blank columns before base 1,
+  and still needed this rule for the origin.
+* **In three- and six-frame modes, a residue sits over its codon's middle
+  base, on whichever line holds that base.** No grid keeps three frames'
+  codons whole, so a codon cut by a line edge keeps its residue over its
+  middle base and its other bases on the neighbouring line. The grid is
+  fixed from base 1, so a residue never moves when the view scrolls. Frame
+  labels (`+1` … `-3`) sit in the number gutter; forward frames above the
+  top strand, `+1` nearest it, and reverse frames below the bottom strand,
+  `-1` nearest it. The rejected alternative hid the residue of a cut codon.
+* **Residue numbers are drawn for the selected CDS only.** Under (plus
+  strand) or over (minus strand) its residues, next to the strand: every
+  fifth residue and the first on the line, centred on the residue. Frame
+  modes draw no number lines; the status line gives a frame residue's own
+  number (D050) at the cursor.
+* **No display toggles in milestone 8.** The bottom strand is always shown
+  and there is no gap every 10 bases, so there is one layout per width and
+  one set of column tables. `r` and `space` from the proposal can come in a
+  polish contract after the hand test (8m).
+
+Reversibility:
+
+Each changes rows of the 8a2 column tables and the 8j layout tests; the
+toggles add a dimension to both. Needs approval.

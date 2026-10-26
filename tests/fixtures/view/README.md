@@ -28,11 +28,14 @@ written out in `reference/`, and each is re-derivable with `--check` (D039).
 | `search-dna-hits.tsv` | every hit of every listed pattern: strand, zero-based start, length, whether it wraps the origin, and the bases it covers |
 | `search-protein-patterns.tsv` | every protein-search pattern the tables pin, per record and target (`frames` or a CDS id): as written, after folding, its length, its hit count, and what the row is there to pin |
 | `search-protein-hits.tsv` | every hit of every listed protein pattern: strand, frame, zero-based start and length of the bases its codons cover, whether that run wraps, first and last residue numbers (`stop` for the stop codon), the symbols matched, and the bases |
+| `layout-blocks.tsv` | every block of sixteen layout cases (record, width, mode): the line width that width allows, and each block's first and last base and base count |
+| `layout-cells.tsv` | for chosen blocks, every item the layout places: line, role, kind, first column, columns covered, and text — columns only, no glyph or style |
 | `reference/make_frames_62.py` | the deterministic search that chose `frames-62.gb`, and the check that the tracked record still satisfies what it claims |
 | `reference/cds_map.py` | the five CDS-map tables above |
 | `reference/frame_tables.py` | the two frame tables above, and the check that every ACGT codon of every frame equals Biopython's translation of the same linear slice |
 | `reference/search_dna.py` | the three search tables above, and the cross-checks described in the DNA-search section |
 | `reference/search_protein.py` | the two protein-search tables above, and the cross-checks described in the protein-search section |
+| `reference/layout_columns.py` | the two layout tables above, and the cross-checks described in the block-layout section |
 
 No fixture here pins a decision that was still open when it was written.
 `M8-2` — six frames do not run across the origin, D052 — is settled, and the
@@ -440,6 +443,74 @@ letter (contract 8f's unit tests), the cap on displayed hits (M8-12,
 presentation), and wording. `reference/search_protein.py` is registered in
 `../verify.py`, as `search_dna.py` is.
 
+## Block layout: where every base, residue and number goes (8a2)
+
+`layout-blocks.tsv` and `layout-cells.tsv` are the column tables of plan §6 for
+§5.1's layout, under D050 (M8-19) and D055. They pin columns, not screens: no
+border, box-drawing glyph, colour or style appears, so a glyph change in the
+view never rewrites them. `width` is the number of columns the layout is given
+for its lines; a `column` counts from 0 at the left edge of that width.
+
+* **Gutter and line width.** `d = max(2, digits of the record length)`: a line's
+  label (its first base's number, or a frame label) is right-aligned in columns
+  `[0, d)`, column `d` is blank, bases start at `d + 1`, and the top strand's
+  right number starts one blank column after the last base. The line width is
+  the largest multiple of 10, or of 30 in any translation mode, with
+  `2d + 2 + N <= width`: pBR322 (`d = 4`) gets 60 at width 78, 30 at width 40
+  and 90 at width 118.
+* **A shortened line, not a shifted grid** (D055). With `tet` selected on
+  30-base lines the line from 61 ends at 88 and the next starts at `tet`'s codon
+  at 89; on 60-base lines the line from 61 ends at 118. `frames-62.gb`'s two
+  origin-crossing CDSs both put their block edge at 58, not 60, because
+  59-61 is one codon of each; in six-frame mode the same record's edge stays at
+  60, since without a CDS no line is shortened.
+* **Residues over middle bases** (D055). `tet`'s `M` sits over base 87, the
+  middle of 86-88. `pj` on synthetic gives `M` at columns 58 and 4 (codons 1 and
+  3), and its lane is two runs on one line. `frames-62.gb`'s `fP` codon 3 is
+  split by the origin (bases 62, 1, 2): its `T` is over base 1 in block 0.
+  `framesamb`'s unreadable `TAR` codon is `?` over base 14 in frame +1.
+* **Lines, top to bottom.** Up to four lanes, then `more`; a plus-strand CDS's
+  residues then numbers; `+3 +2 +1`; top; bottom; a minus-strand CDS's numbers
+  then residues; `-1 -2 -3`. Lanes are every drawn feature except `source`,
+  longest first then file order: on `tet`'s first line the `tet` gene and CDS
+  come before the two 4-base `misc_binding` sites. Synthetic, with 22 drawn
+  features over base 1, shows four lanes and a `more` line.
+* **Numbers** (D055). Multiples of 5 first, then the line's leftmost numbered
+  residue, each centred on its residue, moved inward to stay over the line's
+  bases, and dropped if it would touch a number already placed. On pBR322's
+  1259-1318 line, `392` (leftmost) starts at column 5 and `395` at 14; the stop
+  codon's `*` at column 21 has no number.
+
+Rules a choice of the planner's, settled with the owner only through D055's
+mockups and recorded in contract 8j: `source` features have no lane; lane order
+is drawn length, then file order; a feature's lane covers its bases as cell
+runs, with its name and arrow drawn inside those cells by the view; the `more`
+line is a line of its own.
+
+**How the values were checked.** Translations use a hand-coded table checked
+against Biopython's table 11. Each CDS's codons come from Biopython's reading of
+its location, must give the file's `/translation`, and must match
+`cds-map-codons.tsv` where it has rows. Frames are checked against 418
+`frame-tables.tsv` rows. Whether a synthetic feature is drawn comes from
+`../genbank/synthetic-unused.tsv`: a location refusal other than `fuzzy_end` is
+not drawn (D053). The script asserts that blocks tile the record, that no line
+but the last is short without a CDS, that a short line is at most 2 bases short,
+that no block edge falls inside a codon of the selected CDS (the codon the
+origin splits excepted), and that no two items on a line overlap. The values
+above are asserted by hand in the script.
+
+Eight controls, each run once: a shifted grid fails at `frames62 cds:fM: a block
+starts inside the codon at [58, 59, 60]`; no shortening fails the same way for
+`fP`; residues over first bases fail at `tet`'s `M`; left-aligned numbers fail at
+`392`; lanes by start fail at the `tet` line's lanes; frames across the origin
+fail at `frame-tables.tsv` row `synthetic - 1 1`; a minus CDS's residues beside
+the strand fail the line-order check. One is not caught: dropping the gutter's
+minimum of 2, because every record here has at least 10 bases. Contract 8j
+pins that with a unit test.
+
+What these tables do not pin: glyphs, styles, the cursor, the status line, the
+title bar, the overview inset (8l2), and the gutter's minimum of 2.
+
 ## Regenerating
 
 From the repository root, with the pinned environment
@@ -454,6 +525,8 @@ python -I tests/fixtures/view/reference/search_dna.py
 python -I tests/fixtures/view/reference/search_dna.py --check
 python -I tests/fixtures/view/reference/search_protein.py
 python -I tests/fixtures/view/reference/search_protein.py --check
+python -I tests/fixtures/view/reference/layout_columns.py
+python -I tests/fixtures/view/reference/layout_columns.py --check
 python -I tests/fixtures/verify.py
 ```
 
