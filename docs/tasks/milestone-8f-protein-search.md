@@ -19,8 +19,8 @@ approved by the owner 2026-10-26. Tier: full (D051). Plan row: **8f** in
   11, G7 also 2, G9 also 10, G11 also 5, and test 12 fails under every
   guard. G3 as written trips a `debug_assert` first; with it removed it
   fails 5, 7 and 8.
-* CDS targets never hold `?`: `translate` refuses an unreadable codon, so in
-  CDS mode only frame mode can exercise the `?` rule of plan §4.5.
+* CDS targets never hold `?`: `translate` refuses an unreadable codon, so
+  only frame mode can exercise the `?` rule of plan §4.5.
 * Planner re-ran nine mutations on a scratch copy (`X` not matching `?`,
   ties minus first, minus-frame start at `middle`, `wraps` on `>=`, `B`
   allowed, the last offset skipped, the refusal naming the folded letter,

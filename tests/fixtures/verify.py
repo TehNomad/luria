@@ -59,6 +59,8 @@ CHECKS = [
     "view/reference/make_frames_62.py",
     "view/reference/cds_map.py",
     "view/reference/frame_tables.py",
+    "view/reference/search_dna.py",
+    "view/reference/search_protein.py",
 ]
 
 

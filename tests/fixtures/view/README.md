@@ -369,10 +369,10 @@ are each reported by `--check` with the line number and both rows. Changing base
 24 of `frames-amb.fa` — outside every region this script pins by hand — fails
 with the digest message.
 
-`reference/search_dna.py` is **not yet registered in `../verify.py`**: the run
-that produced contract 8d was told the suite has 22 registered checks, and
-changing that number mid-round would read as tampering in its report. Adding it
-is a separate commit, taking the count to 23.
+`reference/search_dna.py` was registered in `../verify.py` only after contracts
+8d, 8e and 8f had landed, because their runs were told the suite has 22
+registered checks. It and `search_protein.py` were added together, taking the
+count to 24.
 
 What these tables do not pin: the cap on displayed hits (M8-12 is presentation,
 §5.4 and §5.5), the refusal of an empty pattern or an illegal pattern letter
@@ -437,8 +437,8 @@ with `hits must run by start, plus first on a tie`.
 
 What these tables do not pin: refusals of an empty pattern or an illegal
 letter (contract 8f's unit tests), the cap on displayed hits (M8-12,
-presentation), and wording. `reference/search_protein.py`, like
-`search_dna.py`, is not yet registered in `../verify.py`.
+presentation), and wording. `reference/search_protein.py` is registered in
+`../verify.py`, as `search_dna.py` is.
 
 ## Regenerating
 
