@@ -1,9 +1,35 @@
 # Contract 8b1 — core: the display-only location parser (§4.1, M8-1)
 
-Planner: Claude. Status: ready, delegated 2026-10-26. The two decisions in
-§4 are D053, approved by the owner 2026-10-26. Tier: full (D051). Plan row:
-**8b** in `docs/tasks/milestone-8-view.md` §7, first half; 8b2
-(`ViewRecord`, `open_record`) uses this.
+Planner: Claude. Status: **Implemented 2026-10-26** by worker `w-8b1` in two
+rounds, reviewed and accepted. The two decisions in §4 are D053, approved by
+the owner 2026-10-26. Tier: full (D051). Plan row: **8b** in
+`docs/tasks/milestone-8-view.md` §7, first half; 8b2 (`ViewRecord`,
+`open_record`) uses this. Findings from review:
+
+* Round 2: test 9 had no whitespace between a marker and its digits, so
+  removing the space rule from `compact` left every test passing (planner's
+  mutation). The worker added `complement(< 1..12)`, `complement(<\n1..12)`
+  and `1..> 12`, and showed each of the space and newline removals fails.
+* §7 was incomplete: E1 also fails test 8 (the truer refusal is step 3's),
+  E5 also fails test 7 (`join(55..>60,1..5)` is drawn), and E6 fails
+  nothing: `<<1..12` and `<1..>>12` are refused by step 2's other half (a
+  marker not followed by a digit), so the count check guards no listed row.
+* Planner re-ran seven mutations on a scratch copy (`<` compared without
+  the `+ 1`, `>` against the last start, open ends swapped, step 3 always
+  `fuzzy_end`, step 1 opening an end, `compact` without spaces, step 3 on the
+  marked text): all caught.
+* Known limit, not a defect: step 4 compares values, not where the marker
+  is written, so when both ends of a range are the same number it cannot
+  tell them apart. `5..<5`, and the overlapping origin join
+  `join(55..60,1..<55)` (the shared parser does not refuse the overlap),
+  are drawn with `open_before`. No real annotation is expected to look
+  like this.
+* Step 4's "run does not parse" and `checked_sub` branches cannot be
+  reached after steps 2 and 3; they stay as §4 asks.
+* For 8b2 and the feature list: step 3's truer refusal can be any rule,
+  `syntax` included (`<1..12,>20..30`); `1..>60` on a 60-base record is
+  drawn with `open_after == Some(59)`; on a circle `1..>60` is drawn while
+  `join(55..>60,1..5)` is refused (D053); `<01..12` is drawn as `<1..12`.
 
 ## 1. What this contract builds
 
