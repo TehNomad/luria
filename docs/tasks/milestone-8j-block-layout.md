@@ -1,8 +1,24 @@
 # Contract 8j — cli: the block layout (§5.1)
 
-Planner: Claude. Status: delegated to `w-8j` 2026-10-26; runs after 8i2 (D056 order).
-Tier: full (D051). Plan row: **8j** in `docs/tasks/milestone-8-view.md` §7.
-The view's state, cursor and status line (8k1) draw with this.
+Planner: Claude. Status: **Implemented 2026-10-26** by worker `w-8j` in two
+rounds, reviewed and accepted. Tier: full (D051). Plan row: **8j** in
+`docs/tasks/milestone-8-view.md` §7. The view's state, cursor and status line
+(8k1) draw with this. Findings from review:
+
+* Round 1: tests 1 and 2 read all 645 block rows and all 845 cell rows (the
+  cells table covers 24 blocks); G1–G7 behaved as §7 says, and the worker
+  added two of its own (the stop style on every residue; a left-aligned
+  frame label), both caught.
+* The planner ran nine mutations. Two README rules survived, because no
+  tabled block reaches them: numbers that touch with no blank column
+  between them, and the inward clamp at a line's right end. Round 2 added
+  unit tests 8 and 9 (below) on `number_cells` directly, with guards G8 and
+  G9; both are now caught. Those are gaps in the 8a2 tables, not in the code.
+* Merging abutting intervals of one location into one run (`merged`) is the
+  worker's choice; no rule asks for it and no fixture reaches it. A stop
+  drawn without `terminal_stop()` is unreachable for a usable CDS.
+* The worker's report said a wrong arrow glyph would pass test 2; it would
+  not, because the test's `run_text` builds `▸`/`◂` independently.
 
 ## 1. What this contract builds
 
@@ -96,6 +112,8 @@ Rules:
 | 5 | `a_lane_name_longer_than_its_run_is_cut` | pBR322, width 40, `Cds(0)` (`tet`), block 2 (bases 61-88): lane 1's run at columns 30-32 reads `tet`, lane 3's at 11-14 reads `misc` |
 | 6 | `an_unusable_cds_is_refused` | pBR322's ROP (cdss 1) → `NotUsable(1)` from `layout` |
 | 7 | `the_stop_is_bold_red` | synthetic `Cds(2)` (`pj`): the `*` cell has `fg == Red` and `BOLD`; an `M` cell has neither |
+| 8 | `a_number_touching_a_placed_one_is_dropped` | round 2, unit on `number_cells`: residues 119 at column 10 and 120 at 13, `g = 4` → only `120`, at column 12 |
+| 9 | `a_number_is_clamped_inside_the_bases` | round 2: residue 1000 at column 63, `g = 5`, `bases_end = 65` → `1000` at column 61 |
 
 Test 1 and 2's records are read with `open_record` from the files the README
 names. `framesamb` and any FASTA is read as `open_record` reads it (linear
@@ -117,6 +135,8 @@ assumed). `cds:ID` selects the `record.cdss` entry whose `id` is `ID`.
 | G5 | Gutter without the minimum of 2 | 3 |
 | G6 | Minus-strand CDS lines in the plus order (residues, numbers above) | 2 |
 | G7 | `source` features given lanes | 2 |
+| G8 | Numbers may touch (no blank column needed), round 2 | 8 |
+| G9 | No inward clamp at the right end, round 2 | 9 |
 
 ## 8. Do not
 
