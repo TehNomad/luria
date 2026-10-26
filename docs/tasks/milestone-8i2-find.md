@@ -1,7 +1,20 @@
 # Contract 8i2 — cli: `luria find` (§5.5)
 
-Planner: Claude. Status: not yet delegated; runs after 8i1 (D056 order).
-Tier: light on wording, full on behaviour (plan §7). Plan row: **8i2** (D056).
+Planner: Claude. Status: **Implemented 2026-10-26** by worker `w-8i2` in two
+rounds, reviewed and accepted. Tier: light on wording, full on behaviour (plan
+§7). Plan row: **8i2** (D056). Findings from review:
+
+* Round 1 built §4 as written; all 14 tests and G1–G7 behaved as §7 says,
+  except that G5 also fails 13 (its pattern `N` is IUPAC but not `ACGT`).
+* The planner ran nine mutations; four survived because §5 named no test
+  for them: `--aa` ignored, a linear GenBank record reported `circular`, a
+  non-UTF-8 file read lossily, and spaces kept in the record name (which
+  panics in `Identifier::create`). Round 2 added tests 15–18 and guards
+  G8–G11 (below) without touching the source; all nine are now caught.
+* The `--cds` range is refused in `find::run` before the file is read, not
+  in `parse_find`; it still prints the usage text and exits 2.
+* `--cds` on a FASTA (no CDSs) gives the "no CDS … is named" refusal; no
+  test has one.
 
 ## 1. What this contract builds
 
@@ -127,6 +140,10 @@ here). Temporary FASTA files are written as `end_to_end.rs` writes its inputs.
 | 12 | `circular_is_refused_for_genbank` | `find pbr GAATTC --circular` → exit 2, the §4.4 message, no usage text |
 | 13 | `the_cap_is_200_rows` | FASTA of 300 `N`, pattern `N`: 200 rows, `showing the first 200 of 300 hits`, `300 hits` |
 | 14 | `usage_and_input_errors` | no pattern, an extra word, `--bogus`, `--aa --aa`, `--cds` last → exit 2 with usage text. A missing file → exit 4, `cannot read`. Pattern `""` → exit 4 (`EmptySearchPattern`); `GAA1` → exit 4 naming `1` |
+| 15 | `the_aa_flag_makes_a_dna_looking_pattern_protein` | round 2: `find pbr MKSNNA --aa` → six frames, row `86\t103\t+\t2\t29\t34` |
+| 16 | `a_linear_genbank_record_states_its_topology` | round 2: `synthetic-linear.gb` → `GenBank, 393 bp, linear`, `0 hits`, the linear line |
+| 17 | `a_file_that_is_not_utf8_is_refused` | round 2: bytes `>x\n\xff\n` → exit 4, `is not UTF-8 text` |
+| 18 | `the_record_name_is_the_file_name_made_printable` | round 2: `my plasmid.txt` → record `my_plasmid.txt`; `pé.gb` → `p_.gb` |
 
 ## 6. Checks
 
@@ -144,6 +161,10 @@ here). Temporary FASTA files are written as `end_to_end.rs` writes its inputs.
 | G5 | Mode is protein whenever a letter is outside `ACGT` | 7 |
 | G6 | No cap | 13 |
 | G7 | `--circular` accepted for GenBank | 12 |
+| G8 | `--aa` ignored by the mode rule (round 2) | 15 |
+| G9 | a stated topology always printed `circular` (round 2) | 16 |
+| G10 | non-UTF-8 bytes read lossily (round 2) | 17 |
+| G11 | spaces kept in the record name (round 2) | 18 (a panic, exit 101) |
 
 ## 8. Do not
 

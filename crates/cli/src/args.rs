@@ -39,6 +39,13 @@ pub enum Command {
         export: Option<PathBuf>,
         backend: Option<NewBackend>,
     },
+    Find {
+        file: PathBuf,
+        pattern: String,
+        aa: bool,
+        cds: Option<String>,
+        circular: bool,
+    },
 }
 
 /// The model `luria new`'s `In words` box sends its text to (7k7, M7-40): the
@@ -71,6 +78,7 @@ pub const USAGE: &str = "usage:
       --request FILE.json [--design PROFILE.json] [--allow-remote] [--export DIR]
   luria new [--design PROFILE.json] [--export DIR]
       [--backend openai-compatible --endpoint URL --model NAME [--allow-remote]]
+  luria find FILE PATTERN [--aa] [--cds NAME] [--circular]
   luria version
   luria help
 
@@ -138,6 +146,9 @@ pub fn parse(arguments: &[String]) -> Result<Command, UsageError> {
     }
     if word == "new" {
         return parse_new(rest);
+    }
+    if word == "find" {
+        return parse_find(rest);
     }
     reject(format!("unknown command '{}'", word))
 }
@@ -487,6 +498,102 @@ fn parse_new(words: &[String]) -> Result<Command, UsageError> {
             model,
             allow_remote,
         }),
+    })
+}
+
+/// Read the words after `find` (8i2 §4.1): the file and the pattern, in that
+/// order, and any of `--aa`, `--cds NAME` and `--circular`, each given at most
+/// once, anywhere after the word `find`. Those three are the whole option set,
+/// so unlike `q5 design` there is no `--` that ends the options: any other word
+/// starting with `-` is an unknown option, named as the parser names it in
+/// `q5 design`. A missing positional, an extra one, an unknown option, a
+/// repeated option and a `--cds` with no value are all usage errors, and the
+/// first one found is the one reported. An empty positional is not one: the
+/// empty pattern reaches core and is refused there as `empty_search_pattern`,
+/// whose category is exit 4 (test 14), and an empty file path is a file that
+/// cannot be read, also exit 4. What `--cds` takes is not looked at here: the
+/// range form `86..1276` is refused by `find`, with D049's message that ranges
+/// come in milestone 9, after the arguments and before the file is read (§4.2).
+fn parse_find(words: &[String]) -> Result<Command, UsageError> {
+    let mut file: Option<String> = None;
+    let mut pattern: Option<String> = None;
+    let mut aa: bool = false;
+    let mut circular: bool = false;
+    let mut cds: Option<String> = None;
+    let last: usize = words.len();
+    let mut index: usize = 0;
+
+    while index < last {
+        let word: &str = &words[index];
+
+        if word == "--aa" {
+            match aa {
+                true => return reject("--aa is given more than once".to_string()),
+                false => aa = true,
+            }
+            index += 1;
+            continue;
+        }
+
+        if word == "--circular" {
+            match circular {
+                true => return reject("--circular is given more than once".to_string()),
+                false => circular = true,
+            }
+            index += 1;
+            continue;
+        }
+
+        if word == "--cds" {
+            match cds {
+                Some(_) => return reject("--cds is given more than once".to_string()),
+                None => {
+                    index += 1;
+                    if index == last {
+                        return reject("--cds needs a value".to_string());
+                    }
+                    cds = Some(words[index].to_string());
+                }
+            }
+            index += 1;
+            continue;
+        }
+
+        if word.starts_with("-") {
+            return reject(format!("unknown option '{}'", word));
+        }
+
+        // The two positionals, in the order the usage line gives them: FILE then
+        // PATTERN. A third word is named as the extra word it is.
+        if file.is_none() {
+            file = Some(word.to_string());
+        } else if pattern.is_none() {
+            pattern = Some(word.to_string());
+        } else {
+            return reject(format!(
+                "'find' takes a file and a pattern, got a third: '{}'",
+                word
+            ));
+        }
+
+        index += 1;
+    }
+
+    let file: String = match file {
+        Some(path) => path,
+        None => return reject("'find' needs a file and a pattern".to_string()),
+    };
+    let pattern: String = match pattern {
+        Some(text) => text,
+        None => return reject(format!("'find' needs a pattern, got only '{}'", file)),
+    };
+
+    Ok(Command::Find {
+        file: PathBuf::from(file),
+        pattern,
+        aa,
+        cds,
+        circular,
     })
 }
 

@@ -12,6 +12,7 @@ use luria_cli::args::{
     checked_endpoint, checked_key, parse, utf8_arguments, Command, NewBackend, UsageError, USAGE,
 };
 use luria_cli::exit::ExitStatus;
+use luria_cli::find;
 use luria_cli::interpret::document::render_interpretation;
 use luria_cli::interpret::document::InterpretationDocument;
 use luria_cli::interpret::run::{
@@ -529,6 +530,16 @@ fn main() -> ExitCode {
                 export,
                 backend,
             }) => emit_new(design, export, backend),
+            // 8i2: one file, one pattern, tab-separated rows. `find` prints its
+            // own rows and its own refusal, and the status is what the outcome
+            // says it is (contract §4).
+            Ok(Command::Find {
+                file,
+                pattern,
+                aa,
+                cds,
+                circular,
+            }) => find::run(&file, &pattern, aa, cds.as_deref(), circular),
             Err(problem) => report_usage(problem),
         },
     };

@@ -4,10 +4,12 @@
 
 pub mod args;
 pub mod exit;
+pub mod find;
 pub mod interpret;
 pub mod json;
 pub mod new;
 pub mod prepare;
+pub mod record_file;
 pub mod request;
 pub mod result;
 pub mod review;
