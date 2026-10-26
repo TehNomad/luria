@@ -1,0 +1,114 @@
+#!/usr/bin/env bash
+# Launch and drive a sandboxed pi worker in a herdr pane.
+#
+#   scripts/pi-worker start  <name>                 open a pane and start pi
+#   scripts/pi-worker prompt <name> <file> [mins]   send a prompt, wait (default 60 min)
+#   scripts/pi-worker read   <name> [lines]         print recent pane output
+#   scripts/pi-worker report <name>                 print the worker's last reply
+#   scripts/pi-worker stop   <name>                 close the worker's pane
+#
+# pi runs under `nono wrap` with the luria-worker profile, so it is the
+# pane's foreground process and herdr can track it as an agent. Network is
+# limited to the model server's port.
+set -euo pipefail
+
+MODEL=strata/qwen3.8-flash-next
+THINKING=medium
+TOOLS=read,bash,edit,write,grep,find,ls
+LLM_PORT=8080
+PROFILE=luria-worker
+
+ROOT=$(git rev-parse --show-toplevel)
+SESSIONS="$ROOT/target/tmp/pi-sessions"
+
+die() { echo "pi-worker: $*" >&2; exit 1; }
+usage() { sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2; }
+
+[ "${HERDR_ENV:-}" = 1 ] || die "not running inside a herdr pane"
+command -v jq >/dev/null || die "jq is required"
+
+check_name() {
+  [[ "$1" =~ ^[a-z][a-z0-9_-]{0,31}$ ]] || die "invalid name '$1' (want [a-z][a-z0-9_-]{0,31})"
+}
+
+pane_of() {
+  herdr agent get "$1" 2>/dev/null | jq -er '.result.agent.pane_id' \
+    || die "no live worker named '$1'"
+}
+
+cmd_start() {
+  local name=$1 pane launch
+  check_name "$name"
+  if herdr agent get "$name" >/dev/null 2>&1; then
+    die "a worker named '$name' is already running"
+  fi
+  mkdir -p "$SESSIONS"
+
+  pane=$(herdr pane split --current --direction right --cwd "$ROOT" --no-focus \
+    | jq -er '.result.pane.pane_id')
+
+  launch="nono wrap -s --profile $PROFILE --allow-cwd --allow-connect-port $LLM_PORT --"
+  launch+=" pi --offline --no-extensions -e '$HOME/.pi/agent/extensions/herdr-agent-state.ts'"
+  launch+=" --model $MODEL --thinking $THINKING --tools $TOOLS --no-context-files"
+  launch+=" --append-system-prompt '$ROOT/AGENTS.md'"
+  launch+=" --append-system-prompt '$ROOT/docs/agents/worker.md'"
+  launch+=" --session-dir '$SESSIONS' --name '$name'"
+  herdr pane run "$pane" "$launch" >/dev/null
+
+  local i
+  for i in $(seq 30); do
+    if herdr agent list | jq -e --arg p "$pane" '.result.agents[] | select(.pane_id == $p)' >/dev/null; then
+      break
+    fi
+    [ "$i" = 30 ] && die "pi was not detected in pane $pane after 60s; check the pane"
+    sleep 2
+  done
+  herdr agent wait "$pane" --until idle --timeout 60000 >/dev/null \
+    || die "pi in pane $pane did not become idle; check the pane"
+  herdr agent rename "$pane" "$name" >/dev/null
+  echo "$name started in pane $pane"
+}
+
+cmd_prompt() {
+  local name=$1 file=$2 mins=${3:-60} out status
+  [ -f "$file" ] || die "no such prompt file: $file"
+  pane_of "$name" >/dev/null
+  out=$(herdr agent prompt "$name" "$(cat "$file")" --wait --timeout $((mins * 60000)) 2>&1) || true
+  status=$(jq -r '.result.agent.agent_status // .error.code // "unknown"' <<<"$out" 2>/dev/null || echo unknown)
+  echo "$name: $status"
+  case "$status" in
+    idle | done) ;;
+    blocked) echo "worker is waiting at an approval or question prompt" >&2; exit 3 ;;
+    *) echo "$out" >&2; exit 1 ;;
+  esac
+}
+
+cmd_read() {
+  herdr agent read "$1" --source recent-unwrapped --lines "${2:-120}"
+}
+
+cmd_report() {
+  local file
+  file=$(grep -l -- "\"type\":\"session_info\".*\"name\":\"$1\"" "$SESSIONS"/*.jsonl 2>/dev/null \
+    | xargs -r ls -t | head -1) || true
+  [ -n "$file" ] || die "no session named '$1' in $SESSIONS"
+  jq -rs '[.[] | select(.type == "message" and .message.role == "assistant")
+           | [.message.content[]? | select(.type == "text") | .text] | join("")
+           | select(. != "")] | last // empty' "$file"
+}
+
+cmd_stop() {
+  local pane
+  pane=$(pane_of "$1")
+  herdr pane close "$pane" >/dev/null
+  echo "$1 stopped (pane $pane closed)"
+}
+
+case "${1:-}" in
+  start) [ $# = 2 ] || usage; cmd_start "$2" ;;
+  prompt) [ $# -ge 3 ] && [ $# -le 4 ] || usage; cmd_prompt "$2" "$3" "${4:-60}" ;;
+  read) [ $# -ge 2 ] && [ $# -le 3 ] || usage; cmd_read "$2" "${3:-120}" ;;
+  report) [ $# = 2 ] || usage; check_name "$2"; cmd_report "$2" ;;
+  stop) [ $# = 2 ] || usage; cmd_stop "$2" ;;
+  *) usage ;;
+esac
