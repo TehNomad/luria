@@ -80,6 +80,7 @@ use crate::genbank_cds::import_cds;
 use crate::genbank_cds::GenBankImport;
 use crate::genbank_cds::UnusedFeature;
 use crate::identity::Identifier;
+use crate::name_match::NameSource;
 use crate::sequence::Sequence;
 use crate::sequence::SequenceTopology;
 
@@ -141,6 +142,10 @@ pub struct ViewCds {
     pub feature: usize,
     /// Its D041 id (`UnusedFeature::id`), `None` when it has none.
     pub id: Option<String>,
+    /// Every id D049 matches, in this order: the display name, then each
+    /// non-empty `/gene`, `/locus_tag` and `/protein_id` value, each source in
+    /// file order. Duplicates are kept: the first source is reported.
+    pub names: Vec<(NameSource, String)>,
     pub status: CdsStatus,
 }
 
@@ -160,6 +165,16 @@ pub struct ViewRecord {
 /// This is not the D041 id, which prefers `/locus_tag` first, then `/gene`,
 /// then `/label`, and never `/product`.
 const NAME_QUALIFIERS: [&str; 4] = ["label", "gene", "locus_tag", "product"];
+
+/// The qualifiers D049's `--cds` matcher takes as ids, after the display name
+/// and in the order D049 lists them, each with the `NameSource` it reports.
+/// `/product` is not one of them: it names a feature for display (D053) and
+/// reaches a CDS's ids only when it *is* that display name.
+const ID_QUALIFIERS: [(&str, NameSource); 3] = [
+    ("gene", NameSource::Gene),
+    ("locus_tag", NameSource::LocusTag),
+    ("protein_id", NameSource::ProteinId),
+];
 
 /// True for a blank line: empty, or made only of spaces, tabs and `\r`. The
 /// same line both readers call blank (`genbank.rs` rule 2, `fasta.rs` rule 3),
@@ -293,6 +308,7 @@ fn view_cdss(record: &GenBankRecord) -> Result<Vec<ViewCds>, DomainError> {
 
     // `unused()` is in file order and covers every feature, so this lists the
     // CDSs in file order with their ids and their refusals.
+    let features: &[GenBankFeature] = record.feature_slice();
     let mut cdss: Vec<ViewCds> = Vec::new();
     for feature in unused.iter() {
         if feature.key() != "CDS" {
@@ -308,9 +324,35 @@ fn view_cdss(record: &GenBankRecord) -> Result<Vec<ViewCds>, DomainError> {
                 ),
             },
         };
+        // Every id D049 matches for this CDS (M8-15), whatever `import_cds`
+        // answered: an unusable CDS still has a name, because `find` and the
+        // view list the candidates a value matched before they refuse them.
+        // The display name leads, because it is what the list shows and what
+        // the list form is built from (D053); the three id qualifiers follow,
+        // each in the order they are written, and a bare qualifier or one with
+        // an empty value states no id, exactly as it states no display name.
+        // Duplicates are kept: `match_name` reports the first of an item's
+        // matching names and never picks among them (D049, D056).
+        let written: &GenBankFeature = &features[feature.index()];
+        let qualifiers: Vec<GenBankQualifier> = written.qualifiers();
+        let mut names: Vec<(NameSource, String)> =
+            vec![(NameSource::DisplayName, display_name(written))];
+        for pair in ID_QUALIFIERS.iter() {
+            let (wanted, source): (&str, NameSource) = *pair;
+            for qualifier in qualifiers.iter() {
+                if qualifier.name() != wanted {
+                    continue;
+                }
+                match qualifier.value() {
+                    Some(value) if !value.is_empty() => names.push((source, value)),
+                    _ => continue,
+                }
+            }
+        }
         cdss.push(ViewCds {
             feature: feature.index(),
             id: feature.id(),
+            names,
             status,
         });
     }

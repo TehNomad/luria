@@ -17,6 +17,7 @@ pub mod genetic_code;
 pub mod identity;
 pub mod interval;
 pub mod mutation;
+pub mod name_match;
 pub mod overview;
 pub mod primer;
 pub mod primer_design;

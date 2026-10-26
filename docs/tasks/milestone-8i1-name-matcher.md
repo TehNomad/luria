@@ -1,8 +1,20 @@
 # Contract 8i1 — core: matching a name to a CDS (M8-15)
 
-Planner: Claude. Status: not yet delegated. Tier: full (D051). Plan rows:
-8i1 and 8i2 replace **8i** in `docs/tasks/milestone-8-view.md` §7, by D056.
+Planner: Claude. Status: **Implemented 2026-10-26** by worker `w-8i1` in one
+round, reviewed and accepted. Tier: full (D051). Plan rows: 8i1 and 8i2
+replace **8i** in `docs/tasks/milestone-8-view.md` §7, by D056.
 `luria find --cds` (8i2), go-to (8k2) and the feature list (8k3) use this.
+Findings from review:
+
+* §7 understated four guards: G1 also fails 6 (a list form is reachable only
+  through the exact tier), G4 and G6 also fail 11, G7 also fails 10 and 11.
+* `cds_names` lists each CDS's names and then its list form, CDS by CDS,
+  rather than all list forms after all names; no test tells the two apart,
+  and only the reported source of a two-name prefix match could differ.
+* A bare or empty `/gene`, `/locus_tag` or `/protein_id` states no id, as
+  `display_name` already treats a bare name qualifier; no fixture has one.
+* Planner re-ran three mutations (word starts read after folding, `/product`
+  counted as an id, no empty-value check): all caught.
 
 ## 1. What this contract builds
 
