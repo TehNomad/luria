@@ -8,6 +8,7 @@ pub mod extraction;
 pub mod fasta;
 pub mod feature;
 pub mod frame;
+pub mod frames;
 pub mod genbank;
 pub mod genbank_cds;
 pub mod genbank_location;

@@ -44,14 +44,22 @@ use crate::sequence::complement_letter;
 use crate::sequence::Sequence;
 use crate::strand::Strand;
 
-/// One residue of the mutant protein.
+/// One residue laid on the sequence it was read from: the edited construct for
+/// `mutant_residues`, a record for `crate::frames::frame_residues`. At both
+/// call sites the three fields mean the same three things — an index counting
+/// from 1 in the context being read, the one-letter symbol, and the position of
+/// the codon's middle base on that same sequence.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FrameResidue {
     /// 1 at the CDS's first codon.
     pub number: u64,
     /// The one-letter symbol, `*` for a stop, `?` for an unreadable codon.
     pub symbol: char,
-    /// The edited construct's zero-based position of the codon's middle base.
+    /// The zero-based position, within the sequence this residue was laid on,
+    /// of the codon's middle base: inside the edited construct for
+    /// `mutant_residues`, and a zero-based position of the record for
+    /// `crate::frames::frame_residues`. Both are zero-based half-open
+    /// spaces (D006), and they are not the same space.
     pub middle: u64,
 }
 
@@ -68,7 +76,7 @@ pub struct EditSpan {
 /// codon that cannot be read, that is one with a base outside `A`, `C`, `G`,
 /// `T` — an IUPAC ambiguity code, which stands for several bases, or a letter
 /// outside the DNA alphabet.
-fn codon_symbol(codon: String) -> char {
+pub(crate) fn codon_symbol(codon: String) -> char {
     match lookup(codon) {
         CodonOutcome::Residue(residue) => {
             let text: String = residue.symbol();
@@ -101,7 +109,7 @@ fn first_base(cds: &Cds, intervals: &[NucleotideInterval]) -> u64 {
 /// A minus-strand codon is the complement of positions `p`, `p-1`, `p-2`, in
 /// that order. A base outside the DNA alphabet cannot be complemented; it
 /// becomes `N`, which the genetic code reports as unreadable.
-fn codon_at(letters: &[char], position: i64, plus: bool) -> Option<String> {
+pub(crate) fn codon_at(letters: &[char], position: i64, plus: bool) -> Option<String> {
     let length: i64 = letters.len() as i64;
     if plus {
         if position < 0 || position + 2 >= length {

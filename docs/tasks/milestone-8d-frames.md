@@ -2,11 +2,29 @@
 
 Planner: Claude.
 
-Status: round 1 delegated to the worker (label `w8d`), with this file and
-`tests/fixtures/view/README.md` as the evidence it was given; work order
-`frames.rs` plus its unit tests, then `crates/core/tests/frames_fixtures.rs`,
-then the checks, then the guard experiments. Full tier (D051). Plan row **8d**
-in `docs/tasks/milestone-8-view.md` §7.
+Status: **Implemented 2026-10-24** by the local worker in one round (label
+`w8d`), reviewed and accepted 2026-10-26. Full tier (D051). Plan row **8d** in
+`docs/tasks/milestone-8-view.md` §7. The worker's own report was not kept; its
+`md5-8d.txt` matched the tree, so its guard experiments were restored. Findings
+from review:
+
+* The one defect was formatting: two asserts in `frames.rs`'s
+  `a_minus_frame_counts_from_the_far_end` failed `cargo fmt --check`. The
+  planner applied `cargo fmt --all` (a formatting fix, allowed by `CLAUDE.md`);
+  no other line changed.
+* The planner re-ran E1–E8 on a scratch copy; every one fails at least one
+  test. Two §7 predictions were wrong, both planner errors: E6 (ignore the
+  window) cannot fail test 11, whose window is the whole record — it fails
+  test 10 and test 8's empty window instead; E4 first fails test 4 on
+  `synthetic` frame 2, not `frames62`, which is the same rule.
+* Contract gap: §3 let the worker reword only `FrameResidue`'s own doc and its
+  `middle` doc, so `number`'s doc (`frame.rs` line 55) still reads "1 at the
+  CDS's first codon", false for `frame_residues`. Fix it in the next contract
+  that touches `frame.rs`.
+* Latent, older than 8d: `codon_at`'s minus branch checks only `position - 2 <
+  0`, so a position at or past the end panics on the index. 8d never passes one
+  (a minus frame starts at `length - f`), but E1 reached it. Now that two
+  modules share `codon_at`, a later contract should bound it.
 
 ## 1. What this contract builds
 
