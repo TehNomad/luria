@@ -234,6 +234,8 @@ fn variant_name(error: &DomainError) -> String {
         DomainError::MalformedGenBank(_) => "MalformedGenBank",
         DomainError::UnusableGenBankCds(_) => "UnusableGenBankCds",
         DomainError::GenBankTranslationMismatch(_) => "GenBankTranslationMismatch",
+        DomainError::EmptySearchPattern => "EmptySearchPattern",
+        DomainError::InvalidSearchPatternCharacters(_) => "InvalidSearchPatternCharacters",
     }
     .to_string()
 }

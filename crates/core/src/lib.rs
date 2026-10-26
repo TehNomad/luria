@@ -22,6 +22,7 @@ pub mod primer_quality;
 pub mod q5;
 pub mod q5_design;
 pub mod q5_expand;
+pub mod search;
 pub mod sequence;
 pub mod strand;
 pub mod tm;

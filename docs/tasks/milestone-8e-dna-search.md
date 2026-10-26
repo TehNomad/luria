@@ -2,15 +2,40 @@
 
 Planner: Claude.
 
-Status: written, not yet delegated — it waits for 8d to land, because both
-contracts add one line to `crates/core/src/lib.rs`. Tier: **full** (D051):
-tests first-class, every rule pinned by a named test, guard experiments
-required. Plan row **8e** in `docs/tasks/milestone-8-view.md` §7.
+Status: **Implemented 2026-10-26** by worker `w-8e` in two rounds, reviewed
+and accepted. Tier: **full** (D051). Plan row **8e** in
+`docs/tasks/milestone-8-view.md` §7. Findings from review:
+
+* §3 was wrong, a planner error: two new `DomainError` variants break four
+  exhaustive matches it did not list — `crates/cli/src/result.rs` `rule_code`
+  and `error_details`, and `variant_name` in `crates/core/tests/core_foundation.rs`,
+  `mutation_fixtures.rs` and `mutation_invariants.rs`. The worker added one
+  mechanical arm per variant and reported it; accepted, no expectation
+  changed. Both refusals exit 4 (`MalformedInput`). Contract 8b2 lists these
+  files up front.
+* Round 2: `illegal_pattern_letter_names_the_letter` asserted
+  `message.contains('x')`, which the quoted pattern `gaatxc` satisfies on its
+  own. It now asserts `'x'` and `position 4`, and dropping the letter from the
+  message fails it (worker's proof, md5-restored; planner re-ran the checks).
+* The planner re-ran G1, G3, G4, G6, G9 and G11 on a scratch copy, plus W1
+  (`wraps_origin` with `>=`): each fails at least one test. G9 (skip
+  overlaps) fails only `aa_on_aaa_is_three_plus_hits`: the 8a1c tables hold
+  no overlapping hits, so a fixture row with overlaps is owed to a later
+  8a1 slice.
+* `covers` allocates two `Vec`s per comparison through `bases_of`. The scan is
+  still linear (`Sequence::letter_at` is an index), so this is speed, not a
+  defect; revisit if `luria find` on a 10 Mb record is slow.
+* The worker's sandbox cannot bind a listening socket, so 16 nl/cli tests fail
+  there. They pass outside it (1195 passed).
 
 Depends on: **8a1c** (landed as 8496c52 — `search-letters.tsv`,
 `search-dna-patterns.tsv`, `search-dna-hits.tsv` and
-`tests/fixtures/view/reference/search_dna.py`). Do not start 8e while a worker
-still owns 8d.
+`tests/fixtures/view/reference/search_dna.py`) and **8d** (845a6c9).
+
+Coordinates: `search-dna-hits.tsv`'s `start` column is already zero-based
+(`tests/fixtures/view/README.md`, its file table), so it is compared with
+`DnaHit::start` as it stands. Unlike `cds_map_fixtures.rs`, this test applies no
+1-based conversion to it.
 
 Read before working: this file, plan §4.4, D052 (M8-7, M8-8, M8-16), D050, D049,
 and `tests/fixtures/view/README.md` ("DNA search: which letters a pattern may

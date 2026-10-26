@@ -49,6 +49,18 @@ pub struct EmptySequenceProblem {
     pub sequence: String,
 }
 
+/// Payload: a DNA search pattern holds a letter the IUPAC DNA alphabet has no
+/// such set for. `position` counts characters in `pattern`, which is the
+/// pattern as the user wrote it, before case folding and the `U` -> `T` fold;
+/// `characters` is the offending letter as written, because a refusal that
+/// names only "invalid pattern" does not say what to fix.
+#[derive(Clone, Debug, PartialEq)]
+pub struct InvalidSearchPatternCharactersProblem {
+    pub pattern: String,
+    pub position: u64,
+    pub characters: String,
+}
+
 /// Payload: signed coordinates that are negative.
 #[derive(Clone, Debug, PartialEq)]
 pub struct NegativeCoordinateProblem {
@@ -792,6 +804,10 @@ pub enum DomainError {
     InvalidIdentifierCharacters(InvalidIdentifierProblem),
     EmptySequenceContent(EmptySequenceProblem),
     InvalidSequenceCharacters(InvalidSequenceCharactersProblem),
+    /// Payload: a search pattern with nothing in it.
+    EmptySearchPattern,
+    /// Payload: a pattern letter outside the IUPAC DNA set after folding.
+    InvalidSearchPatternCharacters(InvalidSearchPatternCharactersProblem),
     NegativeCoordinate(NegativeCoordinateProblem),
     ReversedInterval(ReversedIntervalProblem),
     EmptyInterval(EmptyIntervalProblem),
@@ -864,6 +880,8 @@ impl DomainError {
             | DomainError::InvalidIdentifierCharacters(_)
             | DomainError::EmptySequenceContent(_)
             | DomainError::InvalidSequenceCharacters(_)
+            | DomainError::EmptySearchPattern
+            | DomainError::InvalidSearchPatternCharacters(_)
             | DomainError::NegativeCoordinate(_)
             | DomainError::ReversedInterval(_)
             | DomainError::EmptyInterval(_)
@@ -927,6 +945,8 @@ impl DomainError {
             DomainError::InvalidIdentifierCharacters(_) => "invalid_identifier_characters",
             DomainError::EmptySequenceContent(_) => "empty_sequence_content",
             DomainError::InvalidSequenceCharacters(_) => "invalid_sequence_characters",
+            DomainError::EmptySearchPattern => "empty_search_pattern",
+            DomainError::InvalidSearchPatternCharacters(_) => "invalid_search_pattern_characters",
             DomainError::NegativeCoordinate(_) => "negative_coordinate",
             DomainError::ReversedInterval(_) => "reversed_interval",
             DomainError::EmptyInterval(_) => "empty_interval",
@@ -991,6 +1011,11 @@ impl DomainError {
             DomainError::InvalidSequenceCharacters(problem) =>
                 format!("sequence record '{}' contains unsupported characters '{}' at zero-based position {}",
                     problem.sequence, problem.characters, problem.position),
+            DomainError::EmptySearchPattern =>
+                "a search pattern was not supplied".to_string(),
+            DomainError::InvalidSearchPatternCharacters(problem) =>
+                format!("search pattern '{}' contains the unsupported pattern letter '{}' at zero-based position {}",
+                    problem.pattern, problem.characters, problem.position),
             DomainError::NegativeCoordinate(problem) =>
                 format!("interval [{}, {}) on '{}' uses negative coordinates",
                     problem.start, problem.end, problem.sequence),
@@ -1466,6 +1491,17 @@ mod tests {
                 }),
                 "invalid_sequence_characters",
             ),
+            (DomainError::EmptySearchPattern, "empty_search_pattern"),
+            (
+                DomainError::InvalidSearchPatternCharacters(
+                    InvalidSearchPatternCharactersProblem {
+                        pattern: s(),
+                        position: 0,
+                        characters: s(),
+                    },
+                ),
+                "invalid_search_pattern_characters",
+            ),
             (
                 DomainError::NegativeCoordinate(NegativeCoordinateProblem {
                     sequence: s(),
@@ -1844,7 +1880,7 @@ mod tests {
                 "genbank_translation_mismatch",
             ),
         ];
-        assert_eq!(cases.len(), 52);
+        assert_eq!(cases.len(), 54);
         let mut seen = std::collections::BTreeSet::new();
         for (error, code) in &cases {
             assert_eq!(error.code(), *code, "{:?}", error);

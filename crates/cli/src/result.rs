@@ -1675,7 +1675,9 @@ pub fn rule_code(error: &DomainError) -> Option<&'static str> {
         | DomainError::InvalidBufferModel(_)
         | DomainError::TmParametersUnavailable(_)
         | DomainError::DegenerateExpansionTooLarge(_)
-        | DomainError::GenBankTranslationMismatch(_) => None,
+        | DomainError::GenBankTranslationMismatch(_)
+        | DomainError::EmptySearchPattern
+        | DomainError::InvalidSearchPatternCharacters(_) => None,
     }
 }
 
@@ -2034,6 +2036,16 @@ pub fn error_details(error: &DomainError) -> Details {
                     None => DetailValue::Absent,
                 },
             ),
+        ]),
+        // 8e: a pattern is something the caller wrote, so both refusals sit in
+        // `MalformedInput` and take exit 4, `malformed_input`, like every other
+        // input the caller wrote wrong. `EmptySearchPattern` names no field;
+        // the other names its three, `position` already zero-based.
+        DomainError::EmptySearchPattern => Details(vec![]),
+        DomainError::InvalidSearchPatternCharacters(problem) => Details(vec![
+            ("pattern", DetailValue::Text(problem.pattern.clone())),
+            ("position", DetailValue::Count(problem.position)),
+            ("characters", DetailValue::Text(problem.characters.clone())),
         ]),
     }
 }
