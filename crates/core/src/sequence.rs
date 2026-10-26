@@ -397,6 +397,11 @@ impl Sequence {
         self.letters.clone()
     }
 
+    /// The same letters, borrowed; `letters()` clones them.
+    pub(crate) fn letter_slice(&self) -> &[char] {
+        &self.letters
+    }
+
     pub fn canonical_text(&self) -> String {
         canonical_text(self.letters.clone())
     }

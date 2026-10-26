@@ -1,9 +1,21 @@
 # Contract 8b3 — core: CDS import without per-CDS copies
 
-Planner: Claude. Status: not yet delegated. Requested by the owner
-2026-10-26 after review of 8b2. Tier: light (D051): no behaviour changes,
-so no decision entry and no fixture. Follows **8b2** (`open_record`), which
-calls `import_cds` twice per record.
+Planner: Claude. Status: **Implemented 2026-10-26** by worker `w-8b3` in one
+round, reviewed and accepted. Requested by the owner 2026-10-26 after review
+of 8b2. Tier: light (D051): no behaviour changes, so no decision entry and no
+fixture. Follows **8b2** (`open_record`), which calls `import_cds` twice per
+record. Findings from review:
+
+* Planner's benchmark after the change, same record shape as §1, release
+  build: `import_cds(&record, &[])` 0.18 s at 1 000 CDSs and 0.44 s at 4 300
+  (was 0.9 s and 61 s); `open_record` 0.78 s and 2.9 s (was 2.4 s and 156 s),
+  and 5.3 s at 9 000 CDSs. The rest of `open_record` at 4 300 CDSs, about
+  1 s, is outside `import_cds`, and no contract covers it.
+* G3 found a test gap: making only the §4.2 step 3 site report the first
+  line breaks no test. The unused list's refusal *line* is not pinned
+  anywhere, only its code. Step 2's site is pinned by
+  `the_synthetic_record_imports_each_name_as_expected`.
+* G2 breaks 9 of the 12 `genbank_fixtures` tests as well as test 2.
 
 ## 1. Why
 
