@@ -1929,3 +1929,40 @@ instead of containment, reporting a palindromic site twice, exiting 1 on
 no matches, or deciding greyness in the ui instead of from a core refusal
 code each need approval, and the first three change fixture rows written
 against them.
+
+## D053: How the view draws partial features and names refusals
+
+Status: approved by the owner, 2026-10-26, all four as proposed in
+contracts 8b1 and 8b2. Applies D036, D041, D042 and D049.
+
+Decision:
+
+* **A partial marker is drawn only on a feature's outer ends.** A `<` is
+  drawn when its base is the first interval's start, and a `>` when its
+  base is the last interval's end, both in D036 order. A marker on an
+  inner boundary (`1..<12`, or `join(55..>60,1..5)`, whose `>` sits on the
+  origin boundary) is not drawn and keeps its `fuzzy_end` refusal: one bar
+  with an open inner end has no honest drawing, and no fixture holds one.
+* **The feature list gives the refusal that stands without the marker.**
+  The display parser removes outer markers before calling the shared
+  parser, so `order(<1..10,20..30)` is refused there as `order` and
+  `join(1..>5,8..10)` as `unsupported_join`, while
+  `parse_genbank_location` keeps answering `fuzzy_end` for both.
+* **Refusals shown in the view are the existing `DomainError` codes.**
+  `docs/tasks/milestone-8-view.md` §4.1's `partial_location`,
+  `non_atg_start` and `fuzzy_start` were illustrations; inventing them
+  would give one rule two codes. A CDS shows the first rule that refuses
+  it, so pBR322's ROP is unusable as `no_id`, though it also has a `GTG`
+  start.
+* **A feature's display name is not its CDS id.** The name is the first
+  of `/label`, `/gene`, `/locus_tag` and `/product` with a value, else the
+  feature key; the D041 id is unchanged. synthetic's `m1` CDS is named
+  `ignored-gene` in the feature list, and ROP is named `ROP protein` with
+  no id.
+
+Reversibility:
+
+Drawing inner markers needs a drawing rule for an open inner boundary.
+New refusal codes for the view would change `docs/cli.md`'s stable codes
+(5a1). Either needs approval and changes fixture rows written against
+these answers.
