@@ -49,11 +49,12 @@ pub struct EmptySequenceProblem {
     pub sequence: String,
 }
 
-/// Payload: a DNA search pattern holds a letter the IUPAC DNA alphabet has no
-/// such set for. `position` counts characters in `pattern`, which is the
-/// pattern as the user wrote it, before case folding and the `U` -> `T` fold;
-/// `characters` is the offending letter as written, because a refusal that
-/// names only "invalid pattern" does not say what to fix.
+/// Payload: a search pattern holds a letter outside its alphabet: IUPAC DNA
+/// (`find_dna`) or the protein letters (`find_protein`). `position` counts
+/// characters in `pattern`, which is the pattern as the user wrote it, before
+/// case folding and — DNA only — the `U` -> `T` fold; `characters` is the
+/// offending letter as written, because a refusal that names only "invalid
+/// pattern" does not say what to fix.
 #[derive(Clone, Debug, PartialEq)]
 pub struct InvalidSearchPatternCharactersProblem {
     pub pattern: String,

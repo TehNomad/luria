@@ -1,11 +1,30 @@
 # Contract 8f — core: protein search (§4.5)
 
-Planner: Claude. Status: not yet delegated. It fixes `ProteinTarget` and
-`ProteinHit` first, because plan §4.5 asks for them to be fixed before the
-protein tables are written, and it waits for those tables (8a1c's §4.5 half:
-`search-protein-patterns.tsv`, `search-protein-hits.tsv`). The matching and
-order rules in §4 are D054, approved by the owner 2026-10-26. Tier: full
-(D051). Plan row: **8f** in `docs/tasks/milestone-8-view.md` §7.
+Planner: Claude. Status: **Implemented 2026-10-26** by worker `w-8f` in two
+rounds, reviewed and accepted. It fixed `ProteinTarget` and `ProteinHit`
+before the protein tables were written, as plan §4.5 asks; those tables
+(8a1c's §4.5 half: `search-protein-patterns.tsv`, `search-protein-hits.tsv`)
+landed in commit 8b81222. The matching and order rules in §4 are D054,
+approved by the owner 2026-10-26. Tier: full (D051). Plan row: **8f** in
+`docs/tasks/milestone-8-view.md` §7. Findings from review:
+
+* Round 2, memory: six-frame mode built all six frames' codons before
+  searching any, about 370 MB on a 4.6 Mb record and 800 MB at D048's
+  ceiling. Frames are now built, searched and dropped one at a time; the
+  worker measured the search's peak falling from 416 MiB to 124 MiB on a
+  4.6 Mb record. The floor left is one frame's `frame_residues` vector plus
+  its codons; lowering it means changing `frames.rs`, which no contract
+  covers.
+* §7 understated most guards: G2 also fails 3, G3 and G4 also 5, G6 also
+  11, G7 also 2, G9 also 10, G11 also 5, and test 12 fails under every
+  guard. G3 as written trips a `debug_assert` first; with it removed it
+  fails 5, 7 and 8.
+* CDS targets never hold `?`: `translate` refuses an unreadable codon, so in
+  CDS mode only frame mode can exercise the `?` rule of plan §4.5.
+* Planner re-ran nine mutations on a scratch copy (`X` not matching `?`,
+  ties minus first, minus-frame start at `middle`, `wraps` on `>=`, `B`
+  allowed, the last offset skipped, the refusal naming the folded letter,
+  no stop appended, no sort): all caught, before and after round 2.
 
 ## 1. What this contract builds
 

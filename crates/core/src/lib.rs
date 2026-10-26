@@ -21,6 +21,7 @@ pub mod overview;
 pub mod primer;
 pub mod primer_design;
 pub mod primer_quality;
+pub mod protein_search;
 pub mod q5;
 pub mod q5_design;
 pub mod q5_expand;
