@@ -660,6 +660,16 @@ wording is what the hand test will change.
 | 8m | the owner's hand test, then a polish contract as 7m was |
 | 8n | docs: `docs/cli.md` §13, the decisions this milestone settled, the product brief's milestone list |
 
+**Order changed by D056 (owner, 2026-10-26).** 8i is split: **8i1** (core,
+full tier) is the name matcher every `--cds`, go-to and feature-list lookup
+shares, and **8i2** (cli) is `luria find` with its dispatch arm, the byte
+ceiling (`MAX_RECORD_BYTES` = 64 MiB) and the file reader the view will share.
+They run first. **8h** (opening a bare file: the terminal check, the `.json`
+refusal, "did you mean") runs just after 8k1, when there is a view to open.
+Contracts run one at a time, so the order is 8i1, 8i2, 8j, 8k1, 8h, 8k2, 8k3,
+8l1, 8l2. **8b3** (CDS import without per-CDS copies, owner 2026-10-26) was
+added after 8b2.
+
 8k as a single contract bundles five user-visible features — state,
 keys, cursor, status line, go-to, feature list, CDS picker — and will end
 on the 120-turn worker cap (`worker.md`) rather than on a defect. Split
