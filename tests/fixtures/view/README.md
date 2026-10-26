@@ -26,10 +26,13 @@ written out in `reference/`, and each is re-derivable with `--check` (D039).
 | `search-letters.tsv` | all 225 pairs of IUPAC letters, pattern against template: whether luria's containment rule matches, whether the intersection rule would, and where the two part company |
 | `search-dna-patterns.tsv` | every DNA-search pattern the tables pin, per record: as written, after folding, its reverse complement, whether the record was searched as wrapping, and what the row is there to pin |
 | `search-dna-hits.tsv` | every hit of every listed pattern: strand, zero-based start, length, whether it wraps the origin, and the bases it covers |
+| `search-protein-patterns.tsv` | every protein-search pattern the tables pin, per record and target (`frames` or a CDS id): as written, after folding, its length, its hit count, and what the row is there to pin |
+| `search-protein-hits.tsv` | every hit of every listed protein pattern: strand, frame, zero-based start and length of the bases its codons cover, whether that run wraps, first and last residue numbers (`stop` for the stop codon), the symbols matched, and the bases |
 | `reference/make_frames_62.py` | the deterministic search that chose `frames-62.gb`, and the check that the tracked record still satisfies what it claims |
 | `reference/cds_map.py` | the five CDS-map tables above |
 | `reference/frame_tables.py` | the two frame tables above, and the check that every ACGT codon of every frame equals Biopython's translation of the same linear slice |
 | `reference/search_dna.py` | the three search tables above, and the cross-checks described in the DNA-search section |
+| `reference/search_protein.py` | the two protein-search tables above, and the cross-checks described in the protein-search section |
 
 No fixture here pins a decision that was still open when it was written.
 `M8-2` — six frames do not run across the origin, D052 — is settled, and the
@@ -376,6 +379,67 @@ What these tables do not pin: the cap on displayed hits (M8-12 is presentation,
 (they go through `normalize()` here, and belong in contract 8e's unit tests),
 wording of any output, and anything from §4.5.
 
+## Protein search: what `X` matches, and the order hits come in (8a1c)
+
+`search-protein-patterns.tsv` and `search-protein-hits.tsv` are the §4.5 half of
+8a1c, written once contract 8f fixed `ProteinTarget` and `ProteinHit`. They
+come from §4.5 of the plan, D050, D052 and D054, on three records: `synthetic`
+(its usable CDSs `p1`, `m1` and `pj`, and its frames), `pbr322` (`tet`, `bla`,
+frames) and `framesamb` (frames only, read as linear). `frame` is `1`, `2`, `3`,
+or `-` for a CDS hit; `first` and `last` are residue numbers, `stop` for a CDS's
+stop codon, and in frame mode count codons within the frame (D050). Hits run by
+zero-based `start`, plus strand first on a tie, in both modes (D054).
+
+* **`X` matches the stop** (D054). On `synthetic` frames `X` gives 116 hits, one
+  per complete codon of the six frames, stops included; `pj`'s `X` gives six,
+  at starts 0, 3, 6, 9, 54, 57, and the one at 9 is the stop, `first` and
+  `last` both `stop`. `MKMAWX` finds all of `pj`, `last` = `stop`, the run at
+  54 for 18 bases and wrapping.
+* **`?` is matched only by `X`.** On `framesamb` frame +1 reads `M Y * * ?`,
+  where the `?` is the codon `TAR`: every reading of it is a stop, and D052
+  still reads it `?`. So `**X` finds it and `***` finds nothing. `GGN` reads `?`
+  though every reading is `G`, and `G` finds nothing on that record at all.
+* **Base order, not reading order, in a CDS** (D054). `pj`'s `M` lists residue 3
+  (base 0) before residue 1 (base 54); `m1`'s `Q` lists residue 3 before 2;
+  `bla`'s `M` gives ten hits and residue 1, at 4150, is the last of them.
+* **Frames do not wrap** (D052). `MKMA` is frame +1 of `synthetic` read across
+  its origin, its last two residues then its first two; the script asserts it
+  would match a wrapped +1, and the table pins zero hits.
+* **One peptide, two modes.** `tet`'s and `bla`'s first six residues, searched
+  in six frames, each give the hit their CDS gives: same start, same strand,
+  in frame +2 and −2, numbered there by frame (70–75 for `bla`).
+* **Length.** A pattern of 11 `X` matches `framesamb`'s two 11-codon frames,
+  +1 and −1, once each; 12 finds nothing, nor does `MKMAW*M` on `pj` or `MAWXX`
+  on `p1`. Case is folded: `mkm` and `y` give the hits `MKM` and `Y` give.
+
+**How the values were checked.** The codon table is hand-coded and compared
+with Biopython's table 11 for all 64 codons. Frames are rebuilt in the script
+and compared with every `frame-tables.tsv` row for the three records (298
+rows; pBR322's frame rows are sampled). A CDS's codons come from Biopython's
+reading of its location; its residues must equal the file's own
+`/translation`, its bases `feature.extract`, and for `synthetic` every codon
+matches `cds-map-codons.tsv` (14 rows). Each hit is found twice, by the
+script's matcher and by a regular expression over the same symbols (`X` as
+`.`), and the offsets must agree. Each hit's `top_strand_bases` is translated
+again on its own, reverse-complemented for `-`, and must give back `residues`.
+Hand-derived values in contract 8f's tests 3–11 agree with these rows where
+they overlap.
+
+Eight controls, each run once against an unchanged copy of the script: `X`
+not matching `*` fails at the regex cross-check on `synthetic frames X`; `?`
+matched by every letter fails at `framesamb frames **X`; CDS hits in reading
+order fail the `pj` `M` construction; a minus run taken from the first codon
+fails because the bases read `PS` where the hit says `SH`; reading ambiguous
+codons as Biopython does fails at `frame-tables.tsv` row `framesamb + 1 5`
+(`TAR`); frames read across the origin fail at `synthetic - 1 1`; a numbered
+stop codon fails the `MQQ*` construction; and ties ordered minus first fail
+with `hits must run by start, plus first on a tie`.
+
+What these tables do not pin: refusals of an empty pattern or an illegal
+letter (contract 8f's unit tests), the cap on displayed hits (M8-12,
+presentation), and wording. `reference/search_protein.py`, like
+`search_dna.py`, is not yet registered in `../verify.py`.
+
 ## Regenerating
 
 From the repository root, with the pinned environment
@@ -388,6 +452,8 @@ python -I tests/fixtures/view/reference/cds_map.py
 python -I tests/fixtures/view/reference/cds_map.py --check
 python -I tests/fixtures/view/reference/search_dna.py
 python -I tests/fixtures/view/reference/search_dna.py --check
+python -I tests/fixtures/view/reference/search_protein.py
+python -I tests/fixtures/view/reference/search_protein.py --check
 python -I tests/fixtures/verify.py
 ```
 
