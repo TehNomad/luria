@@ -309,8 +309,9 @@ start, a length, a strand, and whether it wraps the origin.
 
 `find_protein(target, pattern) -> Vec<ProteinHit>`:
 
-- Pattern letters: the 20 one-letter residues, `X` (any residue) and `*`
-  (stop); case ignored; anything else is an error naming the letter.
+- Pattern letters: the 20 one-letter residues, `X` (any symbol, the stop
+  included: D054) and `*` (stop); case ignored; anything else is an error
+  naming the letter.
 - **In a CDS:** matches the CDS's translation (with the terminal stop as
   `*`). A hit gives its first and last residue numbers — the CDS's own
   numbering, 1 at the first translated codon (D010) — and the bases it
@@ -341,7 +342,8 @@ of `width` columns stands for. The ranges tile the sequence exactly,
 differ in size by at most one base, and are in order. Also the inverse,
 `overview_column(length, width, position)`. A feature, the visible part,
 the cursor and every hit are drawn in the columns their bases fall in. A
-feature crossing the origin is drawn in both end ranges.
+feature crossing the origin is drawn in both end ranges. D054 fixes the
+formula, and draws a record shorter than `width` one column per base.
 
 ## 5. Presentation
 
