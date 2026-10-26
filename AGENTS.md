@@ -1,30 +1,11 @@
 # Molecular biology toolbox: agent instructions
 
-Shared rules for every agent on this project. The planner's own rules are in
+Shared rules for every agent on `luria`. The planner's rules are in
 `CLAUDE.md`; the worker's are in `docs/agents/worker.md`.
 
-## Naming
-- The project name is `luria`, styled in lowercase.
-- Use “molecular-biology toolbox” as a descriptive phrase, not a second name.
-- Use `luria` for the eventual user-facing executable.
-- Prefer `luria-<component>` for Rust package names when components are added.
-- Do not rename the project or introduce branding without approval.
-
-## Product boundary
-Build a standalone Rust application. Claude and pi are development tools,
-not runtime dependencies. Rust owns domain models, canonical
-sequence semantics, validation, and orchestration. Future Python workers
-perform selected scientific computations behind a versioned
-request/response interface. The LLM may parse requests into typed
-operations; it must not invent sequences, primer designs, coordinates, or
-experimental results.
-
 ## Roles
-- The planner (Claude) writes task contracts, resolves ambiguity with the
-  user, reviews diffs and commits. It does not implement.
-- The worker (pi on a local model) implements all source and test code.
-  Code quality is established by tests, clippy, fixtures and planner
-  review, not by who wrote the code.
+- The planner (Claude) writes task contracts, reviews and commits. The
+  worker (pi on a local model) implements all source and test code.
 - Workers cannot ask the user. If blocked or uncertain, stop and report to
   the planner instead of guessing.
 
@@ -34,7 +15,6 @@ experimental results.
   anything outside it.
 - Files in `docs/tasks/` marked as implemented are historical records, not
   instructions.
-- If no contract is named, ask (planner) or stop and report (worker).
 
 ## Working method
 - Implement one agreed task contract at a time.
@@ -42,21 +22,21 @@ experimental results.
 - Prefer small, testable changes to speculative framework construction.
 - Treat `docs/decisions.md` and `tests/fixtures/README.md` as requirements.
   Read only the sections the task contract names or that the code you touch
-  depends on; do not skim the whole file.
+  depends on; do not skim the whole file. `scripts/decision` lists every
+  decision; `scripts/decision D052` prints one entry.
 - If coordinates, strand, CDS, numbering, or expected biology are
   ambiguous, stop and report the ambiguity rather than choosing silently.
 - Do not edit `AGENTS.md`, `CLAUDE.md`, `docs/agents/`, `docs/decisions.md`,
   task contracts, or existing fixture expectations unless the contract says
-  to. Never change a requirement or an expected result to make a test pass.
+  to. Never change a requirement or an expected result to make a test
+  pass; if a test seems wrong, report it.
 - Never generate fixture expectations by running the implementation and
   copying its output. Expectations need independent verification, recorded
   in `tests/fixtures/README.md`.
 
 ## Temporary files
-- Under the nono sandbox, `/tmp` is write-only: files can be created there
-  but not read back. Do not use it.
-- Put scratch files in `target/tmp/` (gitignored, readable and writable).
-  Create it with `mkdir -p target/tmp`.
+- Under the nono sandbox, `/tmp` is write-only. Put scratch files in
+  `target/tmp/` (gitignored); create it with `mkdir -p target/tmp`.
 - For other permission errors, run `nono why` before trying workarounds.
 
 ## Git
@@ -76,7 +56,9 @@ git diff --check
 git status --short
 ```
 
-The task contract may add further checks. Report exact commands and results.
+`scripts/check` runs all five and prints a one-line result per check, with
+the tail of any failure (`-v` for full output). The task contract may add
+further checks.
 
 ## Handoff
 Report changed files, exact checks run and their results, assumptions,

@@ -2,9 +2,11 @@
 # Launch and drive a sandboxed pi worker in a herdr pane.
 #
 #   scripts/pi-worker start  <name>                 open a pane and start pi
-#   scripts/pi-worker prompt <name> <file> [mins]   send a prompt, wait (default 60 min)
+#   scripts/pi-worker prompt <name> <file> [mins]   snapshot the tree, send a prompt, wait
+#                                                   (default 60 min)
 #   scripts/pi-worker read   <name> [lines]         print recent pane output
 #   scripts/pi-worker report <name>                 print the worker's last reply
+#   scripts/pi-worker diff   <name> [git-diff-args] changes since the last prompt's snapshot
 #   scripts/pi-worker stop   <name>                 close the worker's pane
 #
 # pi runs under `nono wrap` with the luria-worker profile, so it is the
@@ -20,9 +22,10 @@ PROFILE=luria-worker
 
 ROOT=$(git rev-parse --show-toplevel)
 SESSIONS="$ROOT/target/tmp/pi-sessions"
+SNAPLOG="$SESSIONS/snapshots.log"
 
 die() { echo "pi-worker: $*" >&2; exit 1; }
-usage() { sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2; }
+usage() { sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2; }
 
 [ "${HERDR_ENV:-}" = 1 ] || die "not running inside a herdr pane"
 command -v jq >/dev/null || die "jq is required"
@@ -69,10 +72,30 @@ cmd_start() {
   echo "$name started in pane $pane"
 }
 
+# Record the whole working tree, untracked files included, as a git tree
+# object. A throwaway index keeps the real staging area untouched, and no
+# commit or ref is created. .gitignore'd paths (target/, vendor/) are skipped.
+snapshot_tree() {
+  local idx="$ROOT/target/tmp/pi-worker.index"
+  rm -f "$idx"
+  GIT_INDEX_FILE="$idx" git read-tree HEAD
+  GIT_INDEX_FILE="$idx" git add --all
+  GIT_INDEX_FILE="$idx" git write-tree
+  rm -f "$idx"
+}
+
+last_snapshot() {
+  awk -v n="$1" '$2 == n { t = $3 } END { print t }' "$SNAPLOG" 2>/dev/null
+}
+
 cmd_prompt() {
-  local name=$1 file=$2 mins=${3:-60} out status
+  local name=$1 file=$2 mins=${3:-60} out status tree
   [ -f "$file" ] || die "no such prompt file: $file"
   pane_of "$name" >/dev/null
+  mkdir -p "$SESSIONS"
+  tree=$(snapshot_tree) || die "could not snapshot the working tree"
+  echo "$(date -Iseconds) $name $tree" >>"$SNAPLOG"
+  echo "$name: snapshot $tree"
   out=$(herdr agent prompt "$name" "$(cat "$file")" --wait --timeout $((mins * 60000)) 2>&1) || true
   status=$(jq -r '.result.agent.agent_status // .error.code // "unknown"' <<<"$out" 2>/dev/null || echo unknown)
   echo "$name: $status"
@@ -97,6 +120,14 @@ cmd_report() {
            | select(. != "")] | last // empty' "$file"
 }
 
+cmd_diff() {
+  local name=$1 snap
+  shift
+  snap=$(last_snapshot "$name")
+  [ -n "$snap" ] || die "no snapshot recorded for '$name'"
+  git diff "$snap" "$(snapshot_tree)" "$@"
+}
+
 cmd_stop() {
   local pane
   pane=$(pane_of "$1")
@@ -109,6 +140,7 @@ case "${1:-}" in
   prompt) [ $# -ge 3 ] && [ $# -le 4 ] || usage; cmd_prompt "$2" "$3" "${4:-60}" ;;
   read) [ $# -ge 2 ] && [ $# -le 3 ] || usage; cmd_read "$2" "${3:-120}" ;;
   report) [ $# = 2 ] || usage; check_name "$2"; cmd_report "$2" ;;
+  diff) [ $# -ge 2 ] || usage; check_name "$2"; cmd_diff "${@:2}" ;;
   stop) [ $# = 2 ] || usage; cmd_stop "$2" ;;
   *) usage ;;
 esac

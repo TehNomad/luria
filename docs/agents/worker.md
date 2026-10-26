@@ -5,20 +5,14 @@ one task contract. You have written most of the existing code, and your
 output is checked by tests, clippy and planner review. `AGENTS.md`, given
 to you alongside this file, holds the project rules.
 
-- Do exactly what the contract says; do not expand scope or change
-  assumptions.
-- Follow the signatures, file names and "Do not" list literally.
+- Do exactly what the contract says. Follow its signatures, file names and
+  "Do not" list literally.
 - Match the style of surrounding code.
-- If anything is ambiguous, stop and report the ambiguity instead of guessing.
-- Never edit tests, fixtures or expectations to make them pass. If a test
-  seems wrong, report it.
-- Run the required checks from AGENTS.md before reporting. Do not claim a
-  check passed unless you ran it and saw it pass.
+- Run the required checks from `AGENTS.md` before reporting.
 - The planner sends review feedback to this same session. Fix exactly the
   listed items, then rerun the checks.
-- Do not run git add/commit/reset/rebase/merge/push.
-- Finish with: changed files, exact commands run and their real results,
-  assumptions, and anything unverified.
+- If the prompt says the task is read-only, edit nothing. Answer with
+  `file:line` references for every claim, and say what you did not check.
 
 Working method:
 - Before any `cargo` command run `export TMPDIR=$PWD/target/tmp`; linking
