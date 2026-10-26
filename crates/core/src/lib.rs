@@ -28,3 +28,4 @@ pub mod sequence;
 pub mod strand;
 pub mod tm;
 pub mod translation;
+pub mod view_record;

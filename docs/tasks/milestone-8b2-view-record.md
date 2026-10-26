@@ -1,8 +1,36 @@
 # Contract 8b2 — core: `ViewRecord` and `open_record` (§4.1)
 
-Planner: Claude. Status: ready, not delegated — waits for 8b1 to land (this
-uses its parser). The two decisions in §4 are D053, approved by the owner
-2026-10-26. Tier: full (D051). Plan row: **8b** in
+Planner: Claude. Status: **Implemented 2026-10-26** by worker `w-8b2` in
+four rounds, reviewed and accepted. The two decisions in §4 are D053,
+approved by the owner 2026-10-26. Findings from review:
+
+* Round 2: the ceiling was checked after steps 5 and 6, so a record over the
+  limit had every feature parsed and every CDS imported before it was
+  refused. It now runs as soon as each reader returns. No test can see the
+  order, and a comment at the check says so. The usable-CDS lookup scanned
+  every imported CDS once per CDS; it is now a `BTreeMap` by feature index.
+  The `unknown_record_format` message now says "first non-blank line".
+* Round 3, a contract omission: no test looked inside `Usable(cds)`, so a
+  wrong `Cds` passed. Test 2 now checks tet's and bla's id, strand and
+  intervals, and test 3 checks the id of each usable synthetic CDS.
+* Round 4: `sniff` with `contains("LOCUS")` passed every test. Test 6 now
+  has `>LOCUS` (FASTA) and ` LOCUS` (refused).
+* Planner re-ran seven mutations on a scratch copy: an empty name for a bare
+  qualifier, no key fallback, GenBank marked `Assumed`, the id dropped,
+  feature index + 1, the `LOCUS` sniff and the wrong `Cds`. All are caught.
+* §4 step 6's reason for one call was only half right. `import_cds` is
+  itself quadratic in the names it is given: each name scans every feature,
+  and `used.contains` runs per feature (`genbank_cds.rs:575-598`). So the
+  second call costs CDSs × features, about 4 × 10⁷ `is_named_cds` calls on
+  an E. coli-sized record. A linear way to import every usable CDS needs
+  its own contract, since `genbank_cds.rs` is outside this one, before the
+  view opens genome-sized records (8k).
+* Test 7 reads 10 000 000 and 10 000 001 bases in a debug build and takes
+  about 20 s, which is the whole core lib suite's wall time.
+* `view_cdss` has two `unreachable!` invariants: a CDS with no refusal has
+  an id and is imported. They are checked against `genbank_cds.rs` and
+  accepted; core already has invariant `unwrap`s.
+* The 16 socket tests fail only inside the worker sandbox; they pass here. Tier: full (D051). Plan row: **8b** in
 `docs/tasks/milestone-8-view.md` §7, second half.
 
 ## 1. What this contract builds
@@ -33,7 +61,7 @@ Rules that apply, already settled:
 | `read_fasta(name, text, topology)` | `fasta.rs:106` | FASTA records, always with `SequenceTopology::Linear` |
 | blank line = empty or only spaces, tabs, `\r` | `genbank.rs:18` | the sniff skips such lines, as both readers do |
 | `GenBankRecord::features()`, `GenBankFeature::{key, location, qualifiers, line}` | `genbank.rs:100-160` | one `ViewFeature` per entry, in file order |
-| `parse_display_location` | `display_location.rs` (8b1) | every feature's shape; never call `parse_genbank_location` here |
+| `parse_display_location` | `display_location.rs:67` (8b1) | every feature's shape; never call `parse_genbank_location` here |
 | `import_cds(record, names)` | `genbank_cds.rs:551` | called **twice**, see §4 step 6; never re-implement a CDS rule |
 | `GenBankImport::{cds, unused}`, `UnusedFeature::{index, key, id, refusal}`, `ImportedCds::{index, cds}` | `genbank_cds.rs:121-204` | statuses and ids |
 | `refusal_text` | `crates/core/tests/genbank_fixtures.rs:257` | copy it into the fixture test to compare with `synthetic-unused.tsv` |

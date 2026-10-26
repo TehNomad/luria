@@ -1677,7 +1677,9 @@ pub fn rule_code(error: &DomainError) -> Option<&'static str> {
         | DomainError::DegenerateExpansionTooLarge(_)
         | DomainError::GenBankTranslationMismatch(_)
         | DomainError::EmptySearchPattern
-        | DomainError::InvalidSearchPatternCharacters(_) => None,
+        | DomainError::InvalidSearchPatternCharacters(_)
+        | DomainError::UnknownRecordFormat(_)
+        | DomainError::RecordTooLong(_) => None,
     }
 }
 
@@ -2046,6 +2048,19 @@ pub fn error_details(error: &DomainError) -> Details {
             ("pattern", DetailValue::Text(problem.pattern.clone())),
             ("position", DetailValue::Count(problem.position)),
             ("characters", DetailValue::Text(problem.characters.clone())),
+        ]),
+        // 8b2: `open_record`'s two refusals (D049, D048). The format refusal is
+        // about the input the caller supplied, so `MalformedInput`; the size
+        // refusal is a limit luria does not go past, so `Unsupported`. Each
+        // names its payload's fields, in core's declaration order.
+        DomainError::UnknownRecordFormat(problem) => Details(vec![(
+            "sequence",
+            DetailValue::Text(problem.sequence.clone()),
+        )]),
+        DomainError::RecordTooLong(problem) => Details(vec![
+            ("sequence", DetailValue::Text(problem.sequence.clone())),
+            ("length", DetailValue::Count(problem.length)),
+            ("limit", DetailValue::Count(problem.limit)),
         ]),
     }
 }

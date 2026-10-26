@@ -797,6 +797,27 @@ pub struct GenBankTranslationMismatchProblem {
     pub translated: Option<String>,
 }
 
+/// Payload: `open_record` could not tell what format a record is written in.
+/// The format comes from the content, never the file name (D049): a GenBank
+/// record's first non-blank line starts with `LOCUS` and a FASTA record's with
+/// `>`; anything else, and a text with no non-blank line at all, is refused
+/// here rather than guessed at (D005).
+#[derive(Clone, Debug, PartialEq)]
+pub struct UnknownRecordFormatProblem {
+    pub sequence: String,
+}
+
+/// Payload: a record holds more bases than luria reads (D048, M8-14).
+/// `length` is the sequence's own base count and `limit` is the ceiling named
+/// in the message; both are exact, because a refusal that says only "too big"
+/// does not tell the caller what to cut down to.
+#[derive(Clone, Debug, PartialEq)]
+pub struct RecordTooLongProblem {
+    pub sequence: String,
+    pub length: u64,
+    pub limit: u64,
+}
+
 /// A structured domain failure.
 #[derive(Clone, Debug, PartialEq)]
 pub enum DomainError {
@@ -856,6 +877,11 @@ pub enum DomainError {
     MalformedGenBank(MalformedGenBankProblem),
     UnusableGenBankCds(UnusableGenBankCdsProblem),
     GenBankTranslationMismatch(GenBankTranslationMismatchProblem),
+    /// Payload: neither `LOCUS` nor `>` starts the record's first non-blank
+    /// line (D049).
+    UnknownRecordFormat(UnknownRecordFormatProblem),
+    /// Payload: a record over `MAX_RECORD_BASES` (D048).
+    RecordTooLong(RecordTooLongProblem),
 }
 
 impl ErrorCategory {
@@ -896,7 +922,8 @@ impl DomainError {
             | DomainError::InvalidPrimerDesignRequest(_)
             | DomainError::InvalidBufferModel(_)
             | DomainError::MalformedFasta(_)
-            | DomainError::MalformedGenBank(_) => ErrorCategory::MalformedInput,
+            | DomainError::MalformedGenBank(_)
+            | DomainError::UnknownRecordFormat(_) => ErrorCategory::MalformedInput,
             DomainError::CoordinateOutOfBounds(_)
             | DomainError::SequenceReferenceMismatch(_)
             | DomainError::CdsLengthNotDivisibleByThree(_)
@@ -927,7 +954,8 @@ impl DomainError {
             | DomainError::UnsupportedPrimerDesignScope(_)
             | DomainError::NoPrimerDesignFits(_)
             | DomainError::TmParametersUnavailable(_)
-            | DomainError::DegenerateExpansionTooLarge(_) => ErrorCategory::Unsupported,
+            | DomainError::DegenerateExpansionTooLarge(_)
+            | DomainError::RecordTooLong(_) => ErrorCategory::Unsupported,
             // The variants whose category comes from their payload: the rule
             // that refused the location or the CDS decides, so `PastSequenceEnd`
             // is `BiologicalValidation` and the rest are `MalformedInput` or
@@ -995,6 +1023,8 @@ impl DomainError {
             DomainError::MalformedGenBank(_) => "malformed_genbank",
             DomainError::UnusableGenBankCds(_) => "unusable_genbank_cds",
             DomainError::GenBankTranslationMismatch(_) => "genbank_translation_mismatch",
+            DomainError::UnknownRecordFormat(_) => "unknown_record_format",
+            DomainError::RecordTooLong(_) => "record_too_long",
         }
     }
 
@@ -1277,6 +1307,12 @@ impl DomainError {
                 format!("GenBank CDS '{}' states a /translation that differs from luria's at residue {}: the record has {}, luria has {} (line {})",
                     problem.cds, problem.residue, stated, translated, problem.line)
             }
+            DomainError::UnknownRecordFormat(problem) =>
+                format!("cannot tell what format record '{}' is written in: its first non-blank line starts with neither 'LOCUS' (GenBank) nor '>' (FASTA)",
+                    problem.sequence),
+            DomainError::RecordTooLong(problem) =>
+                format!("record '{}' holds {} bases, over the limit of {} bases luria reads",
+                    problem.sequence, problem.length, problem.limit),
         }
     }
 }
@@ -1879,8 +1915,20 @@ mod tests {
                 }),
                 "genbank_translation_mismatch",
             ),
+            (
+                DomainError::UnknownRecordFormat(UnknownRecordFormatProblem { sequence: s() }),
+                "unknown_record_format",
+            ),
+            (
+                DomainError::RecordTooLong(RecordTooLongProblem {
+                    sequence: s(),
+                    length: 0,
+                    limit: 0,
+                }),
+                "record_too_long",
+            ),
         ];
-        assert_eq!(cases.len(), 54);
+        assert_eq!(cases.len(), 56);
         let mut seen = std::collections::BTreeSet::new();
         for (error, code) in &cases {
             assert_eq!(error.code(), *code, "{:?}", error);
