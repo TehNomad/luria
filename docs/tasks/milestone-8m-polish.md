@@ -1,6 +1,7 @@
 # Milestone 8m: the owner's hand test of the sequence view, as changes
 
-Status: **In progress, 2026-10-27.** Planner: Claude.
+Status: **Implemented, 2026-10-27** (8m1 to 8m3; awaits the owner's
+second look). Planner: Claude.
 
 The owner tried `luria FILE` in a terminal after 8l2 and reported that all
 the features work. They asked for the changes below. The planner's questions

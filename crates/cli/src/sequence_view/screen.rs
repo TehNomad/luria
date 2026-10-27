@@ -20,11 +20,12 @@
 //!
 //! Below `MIN_WIDTH` by `MIN_HEIGHT` nothing is drawn but the notice on row 0
 //! (§4 rules 1 and 10). There is no second scroll bar, no rule between blocks,
-//! no gutter glyph, no `?` help and no help line: 8k1's screen is the title, the
+//! no gutter glyph and no help line: 8k1's screen is the title, the
 //! blocks, the status line, the keys, the cursor and its codon. While a list is
 //! open — 8k3's `f` and `c` — the same frame, the same status line and the same
 //! key line hold the list's rows instead of the blocks, and nothing is drawn of
-//! the record. While the overview strip is drawn — 8l2's `o` — its two lines take
+//! the record; 8m3's key list, which `?` opens, takes the body the same way (§4
+//! rule 2). While the overview strip is drawn — 8l2's `o` — its two lines take
 //! the frame's first two inner rows and the blocks have what is left.
 
 use crate::review::view::frame_block;
@@ -70,7 +71,7 @@ pub fn draw(frame: &mut Frame, state: &ViewState) {
     // line takes, which is `height - 6` rows: what `ViewState::visible` measures a
     // run of blocks against (8l2 §4 rule 2). While a list is open the strip is not
     // drawn and the list keeps the `height - 4` rows 8k3 gives it.
-    let rows: u16 = if state.overview() && state.list().is_none() {
+    let rows: u16 = if state.overview() && state.list().is_none() && !state.help() {
         OVERVIEW_ROWS
     } else {
         0
@@ -171,13 +172,14 @@ struct Rows {
     bottom: Option<u16>,
 }
 
-/// What the body holds: the open list's rows, or the record's blocks (8k3 §4
-/// rule 7). A list is drawn in place of the blocks and not over them, so the
-/// cursor and its codon mark nothing while a list is open — the bases they mark
-/// are not on screen.
+/// What the body holds: the open list's rows, 8m3's key list, or the record's
+/// blocks (8k3 §4 rule 7, 8m3 §4 rule 2). Each list is drawn in place of the blocks
+/// and not over them, so the cursor and its codon mark nothing while a list is
+/// open — the bases they mark are not on screen.
 fn draw_body(frame: &mut Frame, state: &ViewState, body: Rect) {
     match state.list() {
         Some(_list) => draw_list(frame, state, body),
+        None if state.help() => draw_help(frame, state, body),
         None => draw_blocks(frame, state, body),
     }
 }
@@ -307,6 +309,29 @@ fn draw_list(frame: &mut Frame, state: &ViewState, body: Rect) {
             };
             frame.buffer_mut()[(x, y)].modifier |= modifier;
         }
+    }
+}
+
+/// The key list's rows, one per body row from the body's first row down as
+/// `ViewState::help_rows` writes them (8m3 §4 rule 2). Nothing is marked: the list
+/// is text only, with no highlighted row and no row `enter` acts on. A row that
+/// does not fit the body is not drawn, rather than drawn over the status line, and
+/// the body's rows hold every row the list has at the minimum size.
+fn draw_help(frame: &mut Frame, state: &ViewState, body: Rect) {
+    for (row, text) in state.help_rows().iter().enumerate() {
+        let y: u16 = match u16::try_from(row) {
+            Ok(y) if body.y + y < body.bottom() => body.y + y,
+            _ => break,
+        };
+        frame.render_widget(
+            Paragraph::new(text.clone()),
+            Rect {
+                x: body.x,
+                y,
+                width: body.width,
+                height: 1,
+            },
+        );
     }
 }
 

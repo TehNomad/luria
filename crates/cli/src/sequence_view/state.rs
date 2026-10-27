@@ -234,6 +234,15 @@ pub struct ViewState {
     /// the body rows hold without them. While a list is open they are not drawn,
     /// but the flag is kept, so closing the list brings them back.
     overview: bool,
+    /// Whether the feature lanes' lines are drawn (8m3 §4 rule 1): `F` hides them
+    /// and shows them again, they are drawn at open, and while they are hidden a
+    /// block leaves out every lane line and the `+N more` line. The flag is kept
+    /// while a list or a prompt is open, so the lines come back with the blocks.
+    lanes: bool,
+    /// Whether the key list is open (8m3 §4 rule 2): `?` opens it, its rows take
+    /// the body in place of the blocks, and any key closes it and does nothing
+    /// else.
+    help: bool,
     /// The selected CDS's map and residues, `None` with no selection.
     chosen: Option<Chosen>,
 }
@@ -266,6 +275,8 @@ impl ViewState {
             search: None,
             hits: None,
             overview: false,
+            lanes: true,
+            help: false,
             chosen: None,
         };
         state.choose();
@@ -300,12 +311,23 @@ impl ViewState {
         // `MIN_WIDTH` by `MIN_HEIGHT`, where the list and the prompts draw nothing
         // and only `q` and `ctrl-c` do anything at all (8k1 §4 rule 10).
         let tiny: bool = !big_enough(self.width, self.height);
-        let typing: bool = self.list.is_some() || self.prompt.is_some() || self.search.is_some();
+        let typing: bool = self.list.is_some()
+            || self.prompt.is_some()
+            || self.search.is_some()
+            // 8m3's key list takes `q` itself: any key closes it and does nothing
+            // else, and only `ctrl-c` leaves (8m3 §4 rule 2).
+            || self.help;
         if key == Key::CtrlC || (key == Key::Char('q') && (!typing || tiny)) {
             return Action::Quit;
         }
         self.message = None;
         if tiny {
+            return Action::Continue;
+        }
+        // Any key closes the key list and does nothing else, `q` and `F` and `?`
+        // included (8m3 §4 rule 2). `ctrl-c` left above and `q` did not quit there.
+        if self.help {
+            self.help = false;
             return Action::Continue;
         }
         if self.list.is_some() {
@@ -366,6 +388,11 @@ impl ViewState {
                 self.prompt = Some(String::new());
                 return Action::Continue;
             }
+            // `F` hides the feature lanes' lines and shows them again (8m3 §4
+            // rule 1); inside a list or a prompt it is text, as every printable key
+            // is there. The scroll following the cursor is the `follow` every
+            // cursor-moving key falls through to.
+            Key::Char('F') => self.lanes = !self.lanes,
             Key::Char('f') => self.open_list(ListKind::Features, ""),
             Key::Char('c') => self.open_list(ListKind::Cdss, ""),
             // `/` opens the search prompt with nothing typed (8l1 §4 rule 1); in a
@@ -378,6 +405,9 @@ impl ViewState {
             // prompt is open they are text, which the branch above handles.
             Key::Char('n') => return self.step_hit(true),
             Key::Char('N') => return self.step_hit(false),
+            // `?` opens the key list (8m3 §4 rule 2); in a list or at a prompt the
+            // branches above make it text instead.
+            Key::Char('?') => self.help = true,
             // Every other key changes nothing (§4 rule 10), `enter`, `esc`,
             // `backspace` and `tab` included: outside a list or a prompt they have
             // no row and no mode to act on.
@@ -485,6 +515,18 @@ impl ViewState {
     /// they are not drawn, but this is what `o` left them at.
     pub fn overview(&self) -> bool {
         self.overview
+    }
+
+    /// Whether the feature lanes are drawn: the lines `F` hides and shows (8m3 §4
+    /// rule 1), drawn at open and hidden while `F` says otherwise.
+    pub fn lanes_shown(&self) -> bool {
+        self.lanes
+    }
+
+    /// Whether the key list is open (8m3 §4 rule 2): `?` opens it and any key
+    /// closes it.
+    pub fn help(&self) -> bool {
+        self.help
     }
 
     /// The cursor's zero-based base (D006).
@@ -694,24 +736,28 @@ impl ViewState {
             None if self.search.is_some() => {
                 "type  tab mode  backspace  enter search  esc close".to_string()
             }
-            // The row is the screen's width and no more, so at 80 columns the
-            // words are as short as they can be and the keys that name themselves
-            // — `hjkl`, `f`, `c`, `/`, `n N`, `o` — go without one: `o` and the two
-            // spaces before it are exactly the room 8l1 left (8l1 §4 rule 9, 8l2 §4
-            // rule 6).
-            None => "hjkl  PgUp PgDn Home End  wb codon  t lanes  T circle  f c  / n N  o  q quit"
+            // The key list has no keys to offer, because what it offers is the keys
+            // (8m3 §4 rule 2).
+            None if self.help => "any key closes".to_string(),
+            // The row is the screen's width and no more: 72 columns at `MIN_WIDTH`
+            // by `MIN_HEIGHT`, inside the 80 that
+            // `the_key_line_fits_eighty_columns` measures (8m3 §4 rule 3, M8-26).
+            // `hjkl`, `PgUp PgDn`, `Home End`, `f`, `c`, `g`, `/`, `n N`, `o` and
+            // `?` name themselves and go without a word, and `t frames`, `F lanes`
+            // and `q quit` are the three that do not. `T` is not offered because it
+            // changes nothing unless the topology was assumed, and the key list
+            // leaves it out the same way (M8-25).
+            None => "hjkl PgUp PgDn Home End  t frames  F lanes  f c g  / n N  ? keys  q quit"
                 .to_string(),
         }
     }
 
     /// One block's lines as `layout` gives them, with the cursor and the codon's
     /// underline left for `super::screen` to add (§4 rule 12). A block whose
-    /// lines `layout` refuses draws nothing.
+    /// lines `layout` refuses draws nothing. While `F` has the lanes hidden the
+    /// lane lines are not here (8m3 §4 rule 1).
     pub(super) fn lines(&self, block: usize) -> Vec<(LineRole, Line<'static>)> {
-        match self.layout.as_ref() {
-            Some(built) => block_lines(&self.record, built, &self.mode, block).unwrap_or_default(),
-            None => Vec::new(),
-        }
+        self.drawn_lines(block)
     }
 
     /// The rows of the open list that `super::screen` draws in the body: the
@@ -725,6 +771,41 @@ impl ViewState {
             }
             _ => Vec::new(),
         }
+    }
+
+    /// The key list's rows, one per key the open screen has and in the order the
+    /// list shows them (8m3 §4 rule 2): the key's own text, two spaces, then what
+    /// the key does — each row written from the arm of `handle` that key reaches,
+    /// so `t` is `cycle`, `F` flips `lanes`, `T` is `flip`. `T` has a row only
+    /// where the topology was assumed, which is the only case in which it changes
+    /// anything (M8-25). Empty unless the list is open: the body has 20 rows at
+    /// `MIN_WIDTH` by `MIN_HEIGHT`, more than the 15 the longest list needs.
+    pub(super) fn help_rows(&self) -> Vec<String> {
+        if !self.help {
+            return Vec::new();
+        }
+        let mut rows: Vec<&str> = vec![
+            "hjkl  move the cursor one base left or right, one line up or down",
+            "PgUp PgDn  move the cursor a screen up or down",
+            "Home End  move the cursor to the record's first base and last base",
+            "w b  move the cursor to the next codon and the codon before it",
+            "t  cycle what the lanes show: the CDS, three frames, six frames, off",
+            "F  hide the feature lanes and show them again",
+        ];
+        if self.record.topology == TopologySource::Assumed {
+            rows.push("T  switch the topology the view assumed for this record");
+        }
+        rows.extend_from_slice(&[
+            "f  list the record's features",
+            "c  list the CDSs and select one of them",
+            "g  go to a base, a residue or a name",
+            "/  search the record for bases or a protein",
+            "n N  step through the hits the screen marks",
+            "o  hide the overview strip and show it again",
+            "?  this list of every key the screen has",
+            "q  quit",
+        ]);
+        rows.into_iter().map(str::to_string).collect()
     }
 
     /// Where the cursor stands in the selected CDS, `None` when no CDS is
@@ -887,19 +968,32 @@ impl ViewState {
         self.chosen = built;
     }
 
-    /// How many rows one block takes on the screen: the lines `block_lines`
-    /// gives it for the current mode, gaps aside — the blocks are drawn inside
-    /// one frame, not fenced by their own border (§4 rule 1). A block whose
-    /// lines are refused takes none, the same as `lines` gives it, so a run is
-    /// never measured shorter than it draws.
+    /// How many rows one block takes on the screen: the lines `drawn_lines` gives
+    /// it for the current mode, gaps aside — the blocks are drawn inside one frame,
+    /// not fenced by their own border (§4 rule 1). A block whose lines are refused
+    /// takes none, the same as `lines` gives it, so a run is never measured
+    /// shorter than it draws.
     fn line_count(&self, block: usize) -> usize {
-        match self.layout.as_ref() {
-            Some(built) => match block_lines(&self.record, built, &self.mode, block) {
-                Ok(lines) => lines.len(),
-                Err(_problem) => 0,
-            },
-            None => 0,
+        self.drawn_lines(block).len()
+    }
+
+    /// The one place a block's lines come from, for the drawing and for the rows
+    /// counted (8m3 §4 rule 1): `layout`'s lines for the current mode, with every
+    /// feature lane line and the `+N more` line left out while `F` has the lanes
+    /// hidden. `lines` draws what is here and `line_count` counts it, so the rows
+    /// `visible` and `follow` measure are the rows drawn. A block whose lines
+    /// `layout` refuses has none, for both (8k1 §4 rule 7).
+    fn drawn_lines(&self, block: usize) -> Vec<(LineRole, Line<'static>)> {
+        let laid: Vec<(LineRole, Line<'static>)> = match self.layout.as_ref() {
+            Some(built) => block_lines(&self.record, built, &self.mode, block).unwrap_or_default(),
+            None => Vec::new(),
+        };
+        if self.lanes {
+            return laid;
         }
+        laid.into_iter()
+            .filter(|(role, _line)| !matches!(role, LineRole::Lane(_) | LineRole::More))
+            .collect()
     }
 
     /// The index of the block holding the zero-based base `base`. The blocks

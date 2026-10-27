@@ -1,8 +1,13 @@
 # Contract 8m3 — cli: `F`, `T` and the key list (M8-23, M8-25, M8-26)
 
-Planner: Claude. Status: delegated to `w-8m3` 2026-10-27. Tier: light
-(D051): tests assert behaviour, not wording. Owner's answers:
-`docs/tasks/milestone-8m-polish.md` §1, M8-23, M8-25 and M8-26.
+Planner: Claude. Status: **Implemented 2026-10-27** by worker `w-8m3` in one
+round, reviewed and accepted. Tier: light (D051): tests assert behaviour,
+not wording. Owner's answers: `docs/tasks/milestone-8m-polish.md` §1,
+M8-23, M8-25 and M8-26. Findings from review: tests 1–3 and G1–G5
+behaved as §7 says. Choices accepted: one `drawn_lines` filter shared by
+`lines` and `line_count`; the key list has no highlight and nothing
+`enter` acts on; the lanes flag survives lists, prompts and resizes; the
+descriptions are the worker's wording, for the owner to judge.
 
 ## 1. What this contract builds
 
