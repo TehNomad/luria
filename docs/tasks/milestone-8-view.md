@@ -352,9 +352,10 @@ them. Details fixed here:
 
 ### 5.1 Layout
 
-- **Line width**: the largest multiple of 10 bases that fits beside the
-  base numbers, and of 30 when a translation lane is on. Minimum screen
-  80 × 24, as for `luria review`.
+- **Line width**: the largest multiple of 3 bases that fits beside the
+  base numbers, in every mode (M8-28, owner 2026-10-27, which replaced
+  "a multiple of 10, and of 30 when a translation lane is on"). Minimum
+  screen 80 × 24, as for `luria review`.
 - **Phase, not a fallback** (M8-19, owner 2026-10-24, D050). When a
   translation lane is on, every block starts at a base in phase with the
   displayed translation — for a minus-strand CDS, in phase counted from

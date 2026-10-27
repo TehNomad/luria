@@ -1,11 +1,11 @@
 # Milestone 8m: the owner's hand test of the sequence view, as changes
 
-Status: **Implemented, 2026-10-27** (8m1 to 8m3; awaits the owner's
-second look). Planner: Claude.
+Status: **In progress, 2026-10-27**: 8m1 to 8m3 implemented; the owner's
+second look asked for M8-28, contract 8m4. Planner: Claude.
 
 The owner tried `luria FILE` in a terminal after 8l2 and reported that all
 the features work. They asked for the changes below. The planner's questions
-and the owner's answers are recorded as M8-21 to M8-27. Where an answer
+and the owner's answers are recorded as M8-21 to M8-28. Where an answer
 reverses an earlier rule, the row names it. Light tier (D051): keys,
 glyphs and wording can change again without a decision entry.
 
@@ -20,6 +20,7 @@ glyphs and wording can change again without a decision entry.
 | M8-25 | Topology key | **`T` is offered only where the topology is assumed** (FASTA, D049 M8-3). Where the file states it, `T` already changes nothing and says "the file states its own topology". Now it is also left off the key line and the help. |
 | M8-26 | Key line | (planner's choice, for the owner to judge) **`F` and `g` do not fit an 80-column key line beside the keys already there, so `?` opens a list of every key** the open screen has, as M7-53 did for the review screens. The key line keeps the most-used keys and `? keys`. |
 | M8-27 | Milestone 9 scope | **Milestone 9 is a general sequence editor in the view**: vim-style `v` (select), `i` (insert) and `r` (replace), with cut, yank and paste of any length, features following the edits, and the edited construct saved. Reverses `proposal-product-direction.md` §5's "not a general sequence editor" and pulls milestone 10's export forward. Its plan and decisions belong to milestone 9 and are not part of 8m. |
+| M8-28 | Line width | (owner, 2026-10-27, second look) **A line holds as many bases as fit beside the base numbers, rounded down to a multiple of 3, in every mode**: 66 at 80 columns for pBR322, 108 at 120. The same width with and without a translation, so toggling `t` does not reflow the lines. Replaces plan §5.1's "largest multiple of 10, and of 30 when a translation lane is on". D050's phase and D055's shortened line are unchanged. Contract 8m4. |
 
 Seen at the hand test, with no change asked: the cap sentence is cut short
 on the status line at 80 columns; the list window scrolls as soon as the
@@ -32,3 +33,4 @@ not drawn; pBR322 takes about a second to open.
 1. `8m1`, where the cursor lands: M8-21 and M8-22.
 2. `8m2`, a hit's strand: M8-24.
 3. `8m3`, keys: M8-23, M8-25 and M8-26.
+4. `8m4`, the line width: M8-28.
