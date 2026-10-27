@@ -183,36 +183,29 @@ frames62	78	off	0	2	top	bases	3	62	CAGACCATTAAAAGGTCCTTTGGGGGAATACGCCGAGCAGGTAAT
 frames62	78	off	0	2	top	right_number	66	2	62
 frames62	78	off	0	3	bottom	complement	3	62	GTCTGGTAATTTTCCAGGAAACCCCCTTATGCGGCTCGTCCATTAGTAATTAAATTACGCGT
 frames62	78	cds:fP	0	0	lane1	feature	3	11	fP (+)
-frames62	78	cds:fP	0	0	lane1	feature	58	3	fP (+)
+frames62	78	cds:fP	0	0	lane1	feature	58	7	fP (+)
 frames62	78	cds:fP	0	1	lane2	feature	3	8	fM (-)
-frames62	78	cds:fP	0	1	lane2	feature	55	6	fM (-)
+frames62	78	cds:fP	0	1	lane2	feature	55	10	fM (-)
 frames62	78	cds:fP	0	2	residues	residue	3	1	T
 frames62	78	cds:fP	0	2	residues	residue	6	1	D
 frames62	78	cds:fP	0	2	residues	residue	9	1	H
 frames62	78	cds:fP	0	2	residues	residue	12	1	*
 frames62	78	cds:fP	0	2	residues	residue	59	1	M
+frames62	78	cds:fP	0	2	residues	residue	62	1	R
 frames62	78	cds:fP	0	3	numbers	residue_number	3	1	3
 frames62	78	cds:fP	0	3	numbers	residue_number	9	1	5
 frames62	78	cds:fP	0	4	top	left_number	1	1	1
-frames62	78	cds:fP	0	4	top	bases	3	58	CAGACCATTAAAAGGTCCTTTGGGGGAATACGCCGAGCAGGTAATCATTAATTTAATG
-frames62	78	cds:fP	0	4	top	right_number	62	2	58
-frames62	78	cds:fP	0	5	bottom	complement	3	58	GTCTGGTAATTTTCCAGGAAACCCCCTTATGCGGCTCGTCCATTAGTAATTAAATTAC
-frames62	78	cds:fP	1	0	lane1	feature	3	4	fP (+)
-frames62	78	cds:fP	1	1	lane2	feature	3	4	fM (-)
-frames62	78	cds:fP	1	2	residues	residue	4	1	R
-frames62	78	cds:fP	1	3	numbers	residue_number	4	1	2
-frames62	78	cds:fP	1	4	top	left_number	0	2	59
-frames62	78	cds:fP	1	4	top	bases	3	4	CGCA
-frames62	78	cds:fP	1	4	top	right_number	8	2	62
-frames62	78	cds:fP	1	5	bottom	complement	3	4	GCGT
+frames62	78	cds:fP	0	4	top	bases	3	62	CAGACCATTAAAAGGTCCTTTGGGGGAATACGCCGAGCAGGTAATCATTAATTTAATGCGCA
+frames62	78	cds:fP	0	4	top	right_number	66	2	62
+frames62	78	cds:fP	0	5	bottom	complement	3	62	GTCTGGTAATTTTCCAGGAAACCCCCTTATGCGGCTCGTCCATTAGTAATTAAATTACGCGT
 frames62	78	cds:fM	0	0	lane1	feature	3	11	fP (+)
-frames62	78	cds:fM	0	0	lane1	feature	58	3	fP (+)
+frames62	78	cds:fM	0	0	lane1	feature	58	7	fP (+)
 frames62	78	cds:fM	0	1	lane2	feature	3	8	fM (-)
-frames62	78	cds:fM	0	1	lane2	feature	55	6	fM (-)
+frames62	78	cds:fM	0	1	lane2	feature	55	10	fM (-)
 frames62	78	cds:fM	0	2	top	left_number	1	1	1
-frames62	78	cds:fM	0	2	top	bases	3	58	CAGACCATTAAAAGGTCCTTTGGGGGAATACGCCGAGCAGGTAATCATTAATTTAATG
-frames62	78	cds:fM	0	2	top	right_number	62	2	58
-frames62	78	cds:fM	0	3	bottom	complement	3	58	GTCTGGTAATTTTCCAGGAAACCCCCTTATGCGGCTCGTCCATTAGTAATTAAATTAC
+frames62	78	cds:fM	0	2	top	bases	3	62	CAGACCATTAAAAGGTCCTTTGGGGGAATACGCCGAGCAGGTAATCATTAATTTAATGCGCA
+frames62	78	cds:fM	0	2	top	right_number	66	2	62
+frames62	78	cds:fM	0	3	bottom	complement	3	62	GTCTGGTAATTTTCCAGGAAACCCCCTTATGCGGCTCGTCCATTAGTAATTAAATTACGCGT
 frames62	78	cds:fM	0	4	numbers	residue_number	3	1	3
 frames62	78	cds:fM	0	4	numbers	residue_number	59	1	5
 frames62	78	cds:fM	0	5	residues	residue	3	1	C
@@ -220,18 +213,11 @@ frames62	78	cds:fM	0	5	residues	residue	6	1	V
 frames62	78	cds:fM	0	5	residues	residue	9	1	M
 frames62	78	cds:fM	0	5	residues	residue	56	1	*
 frames62	78	cds:fM	0	5	residues	residue	59	1	H
-frames62	78	cds:fM	1	0	lane1	feature	3	4	fP (+)
-frames62	78	cds:fM	1	1	lane2	feature	3	4	fM (-)
-frames62	78	cds:fM	1	2	top	left_number	0	2	59
-frames62	78	cds:fM	1	2	top	bases	3	4	CGCA
-frames62	78	cds:fM	1	2	top	right_number	8	2	62
-frames62	78	cds:fM	1	3	bottom	complement	3	4	GCGT
-frames62	78	cds:fM	1	4	numbers	residue_number	4	1	4
-frames62	78	cds:fM	1	5	residues	residue	4	1	A
+frames62	78	cds:fM	0	5	residues	residue	62	1	A
 frames62	78	six	0	0	lane1	feature	3	11	fP (+)
-frames62	78	six	0	0	lane1	feature	58	5	fP (+)
+frames62	78	six	0	0	lane1	feature	58	7	fP (+)
 frames62	78	six	0	1	lane2	feature	3	8	fM (-)
-frames62	78	six	0	1	lane2	feature	55	8	fM (-)
+frames62	78	six	0	1	lane2	feature	55	10	fM (-)
 frames62	78	six	0	2	+3	label	0	2	+3
 frames62	78	six	0	2	+3	residue	6	1	D
 frames62	78	six	0	2	+3	residue	9	1	H
@@ -252,6 +238,7 @@ frames62	78	six	0	2	+3	residue	51	1	L
 frames62	78	six	0	2	+3	residue	54	1	I
 frames62	78	six	0	2	+3	residue	57	1	*
 frames62	78	six	0	2	+3	residue	60	1	C
+frames62	78	six	0	2	+3	residue	63	1	A
 frames62	78	six	0	3	+2	label	0	2	+2
 frames62	78	six	0	3	+2	residue	5	1	R
 frames62	78	six	0	3	+2	residue	8	1	P
@@ -295,9 +282,9 @@ frames62	78	six	0	4	+1	residue	55	1	F
 frames62	78	six	0	4	+1	residue	58	1	N
 frames62	78	six	0	4	+1	residue	61	1	A
 frames62	78	six	0	5	top	left_number	1	1	1
-frames62	78	six	0	5	top	bases	3	60	CAGACCATTAAAAGGTCCTTTGGGGGAATACGCCGAGCAGGTAATCATTAATTTAATGCG
-frames62	78	six	0	5	top	right_number	64	2	60
-frames62	78	six	0	6	bottom	complement	3	60	GTCTGGTAATTTTCCAGGAAACCCCCTTATGCGGCTCGTCCATTAGTAATTAAATTACGC
+frames62	78	six	0	5	top	bases	3	62	CAGACCATTAAAAGGTCCTTTGGGGGAATACGCCGAGCAGGTAATCATTAATTTAATGCGCA
+frames62	78	six	0	5	top	right_number	66	2	62
+frames62	78	six	0	6	bottom	complement	3	62	GTCTGGTAATTTTCCAGGAAACCCCCTTATGCGGCTCGTCCATTAGTAATTAAATTACGCGT
 frames62	78	six	0	7	-1	label	0	2	-1
 frames62	78	six	0	7	-1	residue	6	1	V
 frames62	78	six	0	7	-1	residue	9	1	M
@@ -318,6 +305,7 @@ frames62	78	six	0	7	-1	residue	51	1	*
 frames62	78	six	0	7	-1	residue	54	1	N
 frames62	78	six	0	7	-1	residue	57	1	L
 frames62	78	six	0	7	-1	residue	60	1	A
+frames62	78	six	0	7	-1	residue	63	1	C
 frames62	78	six	0	8	-2	label	0	2	-2
 frames62	78	six	0	8	-2	residue	5	1	S
 frames62	78	six	0	8	-2	residue	8	1	W
@@ -360,20 +348,61 @@ frames62	78	six	0	9	-3	residue	52	1	L
 frames62	78	six	0	9	-3	residue	55	1	K
 frames62	78	six	0	9	-3	residue	58	1	I
 frames62	78	six	0	9	-3	residue	61	1	R
-frames62	78	six	1	0	lane1	feature	3	2	fP (+)
-frames62	78	six	1	1	lane2	feature	3	2	fM (-)
-frames62	78	six	1	2	+3	label	0	2	+3
-frames62	78	six	1	2	+3	residue	3	1	A
-frames62	78	six	1	3	+2	label	0	2	+2
-frames62	78	six	1	4	+1	label	0	2	+1
-frames62	78	six	1	5	top	left_number	0	2	61
-frames62	78	six	1	5	top	bases	3	2	CA
-frames62	78	six	1	5	top	right_number	6	2	62
-frames62	78	six	1	6	bottom	complement	3	2	GT
-frames62	78	six	1	7	-1	label	0	2	-1
-frames62	78	six	1	7	-1	residue	3	1	C
-frames62	78	six	1	8	-2	label	0	2	-2
-frames62	78	six	1	9	-3	label	0	2	-3
+frames62	36	cds:fP	0	0	lane1	feature	3	11	fP (+)
+frames62	36	cds:fP	0	1	lane2	feature	3	8	fM (-)
+frames62	36	cds:fP	0	2	residues	residue	3	1	T
+frames62	36	cds:fP	0	2	residues	residue	6	1	D
+frames62	36	cds:fP	0	2	residues	residue	9	1	H
+frames62	36	cds:fP	0	2	residues	residue	12	1	*
+frames62	36	cds:fP	0	3	numbers	residue_number	3	1	3
+frames62	36	cds:fP	0	3	numbers	residue_number	9	1	5
+frames62	36	cds:fP	0	4	top	left_number	1	1	1
+frames62	36	cds:fP	0	4	top	bases	3	30	CAGACCATTAAAAGGTCCTTTGGGGGAATA
+frames62	36	cds:fP	0	4	top	right_number	34	2	30
+frames62	36	cds:fP	0	5	bottom	complement	3	30	GTCTGGTAATTTTCCAGGAAACCCCCTTAT
+frames62	36	cds:fP	1	0	lane1	feature	28	3	fP (+)
+frames62	36	cds:fP	1	1	lane2	feature	25	6	fM (-)
+frames62	36	cds:fP	1	2	residues	residue	29	1	M
+frames62	36	cds:fP	1	3	numbers	residue_number	29	1	1
+frames62	36	cds:fP	1	4	top	left_number	0	2	31
+frames62	36	cds:fP	1	4	top	bases	3	28	CGCCGAGCAGGTAATCATTAATTTAATG
+frames62	36	cds:fP	1	4	top	right_number	32	2	58
+frames62	36	cds:fP	1	5	bottom	complement	3	28	GCGGCTCGTCCATTAGTAATTAAATTAC
+frames62	36	cds:fP	2	0	lane1	feature	3	4	fP (+)
+frames62	36	cds:fP	2	1	lane2	feature	3	4	fM (-)
+frames62	36	cds:fP	2	2	residues	residue	4	1	R
+frames62	36	cds:fP	2	3	numbers	residue_number	4	1	2
+frames62	36	cds:fP	2	4	top	left_number	0	2	59
+frames62	36	cds:fP	2	4	top	bases	3	4	CGCA
+frames62	36	cds:fP	2	4	top	right_number	8	2	62
+frames62	36	cds:fP	2	5	bottom	complement	3	4	GCGT
+frames62	36	cds:fM	0	0	lane1	feature	3	11	fP (+)
+frames62	36	cds:fM	0	1	lane2	feature	3	8	fM (-)
+frames62	36	cds:fM	0	2	top	left_number	1	1	1
+frames62	36	cds:fM	0	2	top	bases	3	30	CAGACCATTAAAAGGTCCTTTGGGGGAATA
+frames62	36	cds:fM	0	2	top	right_number	34	2	30
+frames62	36	cds:fM	0	3	bottom	complement	3	30	GTCTGGTAATTTTCCAGGAAACCCCCTTAT
+frames62	36	cds:fM	0	4	numbers	residue_number	3	1	3
+frames62	36	cds:fM	0	5	residues	residue	3	1	C
+frames62	36	cds:fM	0	5	residues	residue	6	1	V
+frames62	36	cds:fM	0	5	residues	residue	9	1	M
+frames62	36	cds:fM	1	0	lane1	feature	28	3	fP (+)
+frames62	36	cds:fM	1	1	lane2	feature	25	6	fM (-)
+frames62	36	cds:fM	1	2	top	left_number	0	2	31
+frames62	36	cds:fM	1	2	top	bases	3	28	CGCCGAGCAGGTAATCATTAATTTAATG
+frames62	36	cds:fM	1	2	top	right_number	32	2	58
+frames62	36	cds:fM	1	3	bottom	complement	3	28	GCGGCTCGTCCATTAGTAATTAAATTAC
+frames62	36	cds:fM	1	4	numbers	residue_number	29	1	5
+frames62	36	cds:fM	1	5	residues	residue	26	1	*
+frames62	36	cds:fM	1	5	residues	residue	29	1	H
+frames62	36	cds:fM	2	0	lane1	feature	3	4	fP (+)
+frames62	36	cds:fM	2	1	lane2	feature	3	4	fM (-)
+frames62	36	cds:fM	2	2	top	left_number	0	2	59
+frames62	36	cds:fM	2	2	top	bases	3	4	CGCA
+frames62	36	cds:fM	2	2	top	right_number	8	2	62
+frames62	36	cds:fM	2	3	bottom	complement	3	4	GCGT
+frames62	36	cds:fM	2	4	numbers	residue_number	4	1	4
+frames62	36	cds:fM	2	5	residues	residue	4	1	A
 framesamb	78	six	0	0	+3	label	0	2	+3
 framesamb	78	six	0	0	+3	residue	6	1	V
 framesamb	78	six	0	0	+3	residue	9	1	L
@@ -452,77 +481,102 @@ pbr322	78	off	0	2	lane3	feature	28	4	misc_binding (+)
 pbr322	78	off	0	3	lane4	feature	43	4	misc_binding (+)
 pbr322	78	off	0	4	more	more	5	7	+1 more
 pbr322	78	off	0	5	top	left_number	3	1	1
-pbr322	78	off	0	5	top	bases	5	60	TTCTCATGTTTGACAGCTTATCATCGATAAGCTTTAATGCGGTAGTTTATCACAGTTAAA
-pbr322	78	off	0	5	top	right_number	66	2	60
-pbr322	78	off	0	6	bottom	complement	5	60	AAGAGTACAAACTGTCGAATAGTAGCTATTCGAAATTACGCCATCAAATAGTGTCAATTT
-pbr322	78	off	72	0	lane1	feature	5	41	mobile_element (+)
-pbr322	78	off	72	1	lane2	feature	15	4	misc_binding (-)
-pbr322	78	off	72	2	top	left_number	0	4	4321
-pbr322	78	off	72	2	top	bases	5	41	ATAAAAATAGGCGTATCACGAGGCCCTTTCGTCTTCAAGAA
-pbr322	78	off	72	2	top	right_number	47	4	4361
-pbr322	78	off	72	3	bottom	complement	5	41	TATTTTTATCCGCATAGTGCTCCGGGAAAGCAGAAGTTCTT
-pbr322	78	cds:tet	1	0	lane1	feature	30	33	tet (+)
-pbr322	78	cds:tet	1	1	lane2	feature	30	33	tet (+)
-pbr322	78	cds:tet	1	2	lane3	feature	11	4	misc_binding (+)
-pbr322	78	cds:tet	1	3	lane4	feature	24	4	misc_binding (+)
-pbr322	78	cds:tet	1	4	residues	residue	31	1	M
-pbr322	78	cds:tet	1	4	residues	residue	34	1	K
-pbr322	78	cds:tet	1	4	residues	residue	37	1	S
-pbr322	78	cds:tet	1	4	residues	residue	40	1	N
-pbr322	78	cds:tet	1	4	residues	residue	43	1	N
-pbr322	78	cds:tet	1	4	residues	residue	46	1	A
-pbr322	78	cds:tet	1	4	residues	residue	49	1	L
+pbr322	78	off	0	5	top	bases	5	66	TTCTCATGTTTGACAGCTTATCATCGATAAGCTTTAATGCGGTAGTTTATCACAGTTAAATTGCTA
+pbr322	78	off	0	5	top	right_number	72	2	66
+pbr322	78	off	0	6	bottom	complement	5	66	AAGAGTACAAACTGTCGAATAGTAGCTATTCGAAATTACGCCATCAAATAGTGTCAATTTAACGAT
+pbr322	78	off	66	0	lane1	feature	5	5	mobile_element (+)
+pbr322	78	off	66	1	top	left_number	0	4	4357
+pbr322	78	off	66	1	top	bases	5	5	AAGAA
+pbr322	78	off	66	1	top	right_number	11	4	4361
+pbr322	78	off	66	2	bottom	complement	5	5	TTCTT
+pbr322	78	cds:tet	1	0	lane1	feature	24	45	tet (+)
+pbr322	78	cds:tet	1	1	lane2	feature	24	45	tet (+)
+pbr322	78	cds:tet	1	2	lane3	feature	5	4	misc_binding (+)
+pbr322	78	cds:tet	1	3	lane4	feature	18	4	misc_binding (+)
+pbr322	78	cds:tet	1	4	residues	residue	25	1	M
+pbr322	78	cds:tet	1	4	residues	residue	28	1	K
+pbr322	78	cds:tet	1	4	residues	residue	31	1	S
+pbr322	78	cds:tet	1	4	residues	residue	34	1	N
+pbr322	78	cds:tet	1	4	residues	residue	37	1	N
+pbr322	78	cds:tet	1	4	residues	residue	40	1	A
+pbr322	78	cds:tet	1	4	residues	residue	43	1	L
+pbr322	78	cds:tet	1	4	residues	residue	46	1	I
+pbr322	78	cds:tet	1	4	residues	residue	49	1	V
 pbr322	78	cds:tet	1	4	residues	residue	52	1	I
-pbr322	78	cds:tet	1	4	residues	residue	55	1	V
-pbr322	78	cds:tet	1	4	residues	residue	58	1	I
-pbr322	78	cds:tet	1	4	residues	residue	61	1	L
-pbr322	78	cds:tet	1	5	numbers	residue_number	31	1	1
-pbr322	78	cds:tet	1	5	numbers	residue_number	43	1	5
-pbr322	78	cds:tet	1	5	numbers	residue_number	58	2	10
-pbr322	78	cds:tet	1	6	top	left_number	2	2	61
-pbr322	78	cds:tet	1	6	top	bases	5	58	TTGCTAACGCAGTCAGGCACCGTGTATGAAATCTAACAATGCGCTCATCGTCATCCTC
-pbr322	78	cds:tet	1	6	top	right_number	64	3	118
-pbr322	78	cds:tet	1	7	bottom	complement	5	58	AACGATTGCGTCAGTCCGTGGCACATACTTTAGATTGTTACGCGAGTAGCAGTAGGAG
-pbr322	78	cds:tet	21	0	lane1	feature	5	18	tet (+)
-pbr322	78	cds:tet	21	1	lane2	feature	5	18	tet (+)
-pbr322	78	cds:tet	21	2	residues	residue	6	1	R
-pbr322	78	cds:tet	21	2	residues	residue	9	1	A
-pbr322	78	cds:tet	21	2	residues	residue	12	1	T
-pbr322	78	cds:tet	21	2	residues	residue	15	1	S
-pbr322	78	cds:tet	21	2	residues	residue	18	1	T
-pbr322	78	cds:tet	21	2	residues	residue	21	1	*
-pbr322	78	cds:tet	21	3	numbers	residue_number	5	3	392
-pbr322	78	cds:tet	21	3	numbers	residue_number	14	3	395
-pbr322	78	cds:tet	21	4	top	left_number	0	4	1259
-pbr322	78	cds:tet	21	4	top	bases	5	60	CGGGCCACCTCGACCTGAATGGAAGCCGGCGGCACCTCGCTAACGGATTCACCACTCCAA
-pbr322	78	cds:tet	21	4	top	right_number	66	4	1318
-pbr322	78	cds:tet	21	5	bottom	complement	5	60	GCCCGGTGGAGCTGGACTTACCTTCGGCCGCCGTGGAGCGATTGCCTAAGTGGTGAGGTT
-pbr322	78	cds:bla	54	0	lane1	feature	5	58	mobile_element (+)
-pbr322	78	cds:bla	54	1	lane2	feature	57	6	bla (-)
-pbr322	78	cds:bla	54	2	lane3	feature	57	6	bla (-)
-pbr322	78	cds:bla	54	3	lane4	feature	60	3	bla (-)
-pbr322	78	cds:bla	54	4	top	left_number	0	4	3241
-pbr322	78	cds:bla	54	4	top	bases	5	58	AATGAAGTTTTAAATCAATCTAAAGTATATATGAGTAAACTTGGTCTGACAGTTACCA
-pbr322	78	cds:bla	54	4	top	right_number	64	4	3298
-pbr322	78	cds:bla	54	5	bottom	complement	5	58	TTACTTCAAAATTTAGTTAGATTTCATATATACTCATTTGAACCAGACTGTCAATGGT
-pbr322	78	cds:bla	54	6	numbers	residue_number	60	3	286
-pbr322	78	cds:bla	54	7	residues	residue	58	1	*
-pbr322	78	cds:bla	54	7	residues	residue	61	1	W
-pbr322	78	cds:bla	69	0	lane1	feature	5	60	mobile_element (+)
-pbr322	78	cds:bla	69	1	lane2	feature	5	15	bla (-)
-pbr322	78	cds:bla	69	2	lane3	feature	5	15	bla (-)
-pbr322	78	cds:bla	69	3	lane4	feature	5	15	bla (-)
-pbr322	78	cds:bla	69	4	more	more	5	7	+2 more
-pbr322	78	cds:bla	69	5	top	left_number	0	4	4139
-pbr322	78	cds:bla	69	5	top	bases	5	60	ATGTTGAATACTCATACTCTTCCTTTTTCAATATTATTGAAGCATTTATCAGGGTTATTG
-pbr322	78	cds:bla	69	5	top	right_number	66	4	4198
-pbr322	78	cds:bla	69	6	bottom	complement	5	60	TACAACTTATGAGTATGAGAAGGAAAAAGTTATAATAACTTCGTAAATAGTCCCAATAAC
-pbr322	78	cds:bla	69	7	numbers	residue_number	6	1	5
-pbr322	78	cds:bla	69	8	residues	residue	6	1	H
-pbr322	78	cds:bla	69	8	residues	residue	9	1	Q
-pbr322	78	cds:bla	69	8	residues	residue	12	1	I
-pbr322	78	cds:bla	69	8	residues	residue	15	1	S
-pbr322	78	cds:bla	69	8	residues	residue	18	1	M
+pbr322	78	cds:tet	1	4	residues	residue	55	1	L
+pbr322	78	cds:tet	1	4	residues	residue	58	1	G
+pbr322	78	cds:tet	1	4	residues	residue	61	1	T
+pbr322	78	cds:tet	1	4	residues	residue	64	1	V
+pbr322	78	cds:tet	1	4	residues	residue	67	1	T
+pbr322	78	cds:tet	1	5	numbers	residue_number	25	1	1
+pbr322	78	cds:tet	1	5	numbers	residue_number	37	1	5
+pbr322	78	cds:tet	1	5	numbers	residue_number	52	2	10
+pbr322	78	cds:tet	1	5	numbers	residue_number	67	2	15
+pbr322	78	cds:tet	1	6	top	left_number	2	2	67
+pbr322	78	cds:tet	1	6	top	bases	5	64	ACGCAGTCAGGCACCGTGTATGAAATCTAACAATGCGCTCATCGTCATCCTCGGCACCGTCACC
+pbr322	78	cds:tet	1	6	top	right_number	70	3	130
+pbr322	78	cds:tet	1	7	bottom	complement	5	64	TGCGTCAGTCCGTGGCACATACTTTAGATTGTTACGCGAGTAGCAGTAGGAGCCGTGGCAGTGG
+pbr322	78	cds:tet	19	0	lane1	feature	5	24	tet (+)
+pbr322	78	cds:tet	19	1	lane2	feature	5	24	tet (+)
+pbr322	78	cds:tet	19	2	residues	residue	6	1	W
+pbr322	78	cds:tet	19	2	residues	residue	9	1	S
+pbr322	78	cds:tet	19	2	residues	residue	12	1	R
+pbr322	78	cds:tet	19	2	residues	residue	15	1	A
+pbr322	78	cds:tet	19	2	residues	residue	18	1	T
+pbr322	78	cds:tet	19	2	residues	residue	21	1	S
+pbr322	78	cds:tet	19	2	residues	residue	24	1	T
+pbr322	78	cds:tet	19	2	residues	residue	27	1	*
+pbr322	78	cds:tet	19	3	numbers	residue_number	5	3	390
+pbr322	78	cds:tet	19	3	numbers	residue_number	20	3	395
+pbr322	78	cds:tet	19	4	top	left_number	0	4	1253
+pbr322	78	cds:tet	19	4	top	bases	5	66	TGGAGCCGGGCCACCTCGACCTGAATGGAAGCCGGCGGCACCTCGCTAACGGATTCACCACTCCAA
+pbr322	78	cds:tet	19	4	top	right_number	72	4	1318
+pbr322	78	cds:tet	19	5	bottom	complement	5	66	ACCTCGGCCCGGTGGAGCTGGACTTACCTTCGGCCGCCGTGGAGCGATTGCCTAAGTGGTGAGGTT
+pbr322	78	cds:bla	49	0	lane1	feature	5	64	mobile_element (+)
+pbr322	78	cds:bla	49	1	lane2	feature	63	6	bla (-)
+pbr322	78	cds:bla	49	2	lane3	feature	63	6	bla (-)
+pbr322	78	cds:bla	49	3	lane4	feature	66	3	bla (-)
+pbr322	78	cds:bla	49	4	top	left_number	0	4	3235
+pbr322	78	cds:bla	49	4	top	bases	5	64	ATTAAAAATGAAGTTTTAAATCAATCTAAAGTATATATGAGTAAACTTGGTCTGACAGTTACCA
+pbr322	78	cds:bla	49	4	top	right_number	70	4	3298
+pbr322	78	cds:bla	49	5	bottom	complement	5	64	TAATTTTTACTTCAAAATTTAGTTAGATTTCATATATACTCATTTGAACCAGACTGTCAATGGT
+pbr322	78	cds:bla	49	6	numbers	residue_number	66	3	286
+pbr322	78	cds:bla	49	7	residues	residue	64	1	*
+pbr322	78	cds:bla	49	7	residues	residue	67	1	W
+pbr322	78	cds:bla	62	0	lane1	feature	5	66	mobile_element (+)
+pbr322	78	cds:bla	62	1	lane2	feature	5	63	bla (-)
+pbr322	78	cds:bla	62	2	lane3	feature	5	63	bla (-)
+pbr322	78	cds:bla	62	3	lane4	feature	5	63	bla (-)
+pbr322	78	cds:bla	62	4	top	left_number	0	4	4091
+pbr322	78	cds:bla	62	4	top	bases	5	66	AACAGGAAGGCAAAATGCCGCAAAAAAGGGAATAAGGGCGACACGGAAATGTTGAATACTCATACT
+pbr322	78	cds:bla	62	4	top	right_number	72	4	4156
+pbr322	78	cds:bla	62	5	bottom	complement	5	66	TTGTCCTTCCGTTTTACGGCGTTTTTTCCCTTATTCCCGCTGTGCCTTTACAACTTATGAGTATGA
+pbr322	78	cds:bla	62	6	numbers	residue_number	6	2	21
+pbr322	78	cds:bla	62	6	numbers	residue_number	9	2	20
+pbr322	78	cds:bla	62	6	numbers	residue_number	24	2	15
+pbr322	78	cds:bla	62	6	numbers	residue_number	39	2	10
+pbr322	78	cds:bla	62	6	numbers	residue_number	54	1	5
+pbr322	78	cds:bla	62	7	residues	residue	6	1	V
+pbr322	78	cds:bla	62	7	residues	residue	9	1	P
+pbr322	78	cds:bla	62	7	residues	residue	12	1	L
+pbr322	78	cds:bla	62	7	residues	residue	15	1	C
+pbr322	78	cds:bla	62	7	residues	residue	18	1	F
+pbr322	78	cds:bla	62	7	residues	residue	21	1	A
+pbr322	78	cds:bla	62	7	residues	residue	24	1	A
+pbr322	78	cds:bla	62	7	residues	residue	27	1	F
+pbr322	78	cds:bla	62	7	residues	residue	30	1	F
+pbr322	78	cds:bla	62	7	residues	residue	33	1	P
+pbr322	78	cds:bla	62	7	residues	residue	36	1	I
+pbr322	78	cds:bla	62	7	residues	residue	39	1	L
+pbr322	78	cds:bla	62	7	residues	residue	42	1	A
+pbr322	78	cds:bla	62	7	residues	residue	45	1	V
+pbr322	78	cds:bla	62	7	residues	residue	48	1	R
+pbr322	78	cds:bla	62	7	residues	residue	51	1	F
+pbr322	78	cds:bla	62	7	residues	residue	54	1	H
+pbr322	78	cds:bla	62	7	residues	residue	57	1	Q
+pbr322	78	cds:bla	62	7	residues	residue	60	1	I
+pbr322	78	cds:bla	62	7	residues	residue	63	1	S
+pbr322	78	cds:bla	62	7	residues	residue	66	1	M
 pbr322	40	cds:tet	2	0	lane1	feature	30	3	tet (+)
 pbr322	40	cds:tet	2	1	lane2	feature	30	3	tet (+)
 pbr322	40	cds:tet	2	2	lane3	feature	11	4	misc_binding (+)
@@ -603,6 +657,8 @@ pbr322	78	three	0	5	+3	residue	53	1	Y
 pbr322	78	three	0	5	+3	residue	56	1	H
 pbr322	78	three	0	5	+3	residue	59	1	S
 pbr322	78	three	0	5	+3	residue	62	1	*
+pbr322	78	three	0	5	+3	residue	65	1	I
+pbr322	78	three	0	5	+3	residue	68	1	A
 pbr322	78	three	0	6	+2	label	2	2	+2
 pbr322	78	three	0	6	+2	residue	7	1	S
 pbr322	78	three	0	6	+2	residue	10	1	H
@@ -624,6 +680,8 @@ pbr322	78	three	0	6	+2	residue	55	1	S
 pbr322	78	three	0	6	+2	residue	58	1	Q
 pbr322	78	three	0	6	+2	residue	61	1	L
 pbr322	78	three	0	6	+2	residue	64	1	N
+pbr322	78	three	0	6	+2	residue	67	1	C
+pbr322	78	three	0	6	+2	residue	70	1	*
 pbr322	78	three	0	7	+1	label	2	2	+1
 pbr322	78	three	0	7	+1	residue	6	1	F
 pbr322	78	three	0	7	+1	residue	9	1	S
@@ -645,202 +703,240 @@ pbr322	78	three	0	7	+1	residue	54	1	I
 pbr322	78	three	0	7	+1	residue	57	1	T
 pbr322	78	three	0	7	+1	residue	60	1	V
 pbr322	78	three	0	7	+1	residue	63	1	K
+pbr322	78	three	0	7	+1	residue	66	1	L
+pbr322	78	three	0	7	+1	residue	69	1	L
 pbr322	78	three	0	8	top	left_number	3	1	1
-pbr322	78	three	0	8	top	bases	5	60	TTCTCATGTTTGACAGCTTATCATCGATAAGCTTTAATGCGGTAGTTTATCACAGTTAAA
-pbr322	78	three	0	8	top	right_number	66	2	60
-pbr322	78	three	0	9	bottom	complement	5	60	AAGAGTACAAACTGTCGAATAGTAGCTATTCGAAATTACGCCATCAAATAGTGTCAATTT
-pbr322	118	six	47	0	lane1	feature	5	90	mobile_element (+)
-pbr322	118	six	47	1	lane2	feature	42	4	misc_binding (-)
-pbr322	118	six	47	2	lane3	feature	54	4	misc_binding (-)
-pbr322	118	six	47	3	lane4	feature	59	4	misc_binding (-)
-pbr322	118	six	47	4	more	more	5	7	+3 more
-pbr322	118	six	47	5	+3	label	2	2	+3
-pbr322	118	six	47	5	+3	residue	5	1	*
-pbr322	118	six	47	5	+3	residue	8	1	K
-pbr322	118	six	47	5	+3	residue	11	1	N
-pbr322	118	six	47	5	+3	residue	14	1	K
-pbr322	118	six	47	5	+3	residue	17	1	Q
-pbr322	118	six	47	5	+3	residue	20	1	I
-pbr322	118	six	47	5	+3	residue	23	1	G
-pbr322	118	six	47	5	+3	residue	26	1	V
-pbr322	118	six	47	5	+3	residue	29	1	P
-pbr322	118	six	47	5	+3	residue	32	1	R
-pbr322	118	six	47	5	+3	residue	35	1	T
-pbr322	118	six	47	5	+3	residue	38	1	F
-pbr322	118	six	47	5	+3	residue	41	1	P
-pbr322	118	six	47	5	+3	residue	44	1	R
-pbr322	118	six	47	5	+3	residue	47	1	K
-pbr322	118	six	47	5	+3	residue	50	1	V
-pbr322	118	six	47	5	+3	residue	53	1	P
-pbr322	118	six	47	5	+3	residue	56	1	P
-pbr322	118	six	47	5	+3	residue	59	1	D
-pbr322	118	six	47	5	+3	residue	62	1	V
-pbr322	118	six	47	5	+3	residue	65	1	*
-pbr322	118	six	47	5	+3	residue	68	1	E
-pbr322	118	six	47	5	+3	residue	71	1	T
-pbr322	118	six	47	5	+3	residue	74	1	I
-pbr322	118	six	47	5	+3	residue	77	1	I
-pbr322	118	six	47	5	+3	residue	80	1	I
-pbr322	118	six	47	5	+3	residue	83	1	M
-pbr322	118	six	47	5	+3	residue	86	1	T
-pbr322	118	six	47	5	+3	residue	89	1	L
-pbr322	118	six	47	5	+3	residue	92	1	T
-pbr322	118	six	47	6	+2	label	2	2	+2
-pbr322	118	six	47	6	+2	residue	7	1	E
-pbr322	118	six	47	6	+2	residue	10	1	K
-pbr322	118	six	47	6	+2	residue	13	1	*
-pbr322	118	six	47	6	+2	residue	16	1	T
-pbr322	118	six	47	6	+2	residue	19	1	N
-pbr322	118	six	47	6	+2	residue	22	1	R
-pbr322	118	six	47	6	+2	residue	25	1	G
-pbr322	118	six	47	6	+2	residue	28	1	S
-pbr322	118	six	47	6	+2	residue	31	1	A
-pbr322	118	six	47	6	+2	residue	34	1	H
-pbr322	118	six	47	6	+2	residue	37	1	I
-pbr322	118	six	47	6	+2	residue	40	1	S
-pbr322	118	six	47	6	+2	residue	43	1	P
-pbr322	118	six	47	6	+2	residue	46	1	K
-pbr322	118	six	47	6	+2	residue	49	1	S
-pbr322	118	six	47	6	+2	residue	52	1	A
-pbr322	118	six	47	6	+2	residue	55	1	T
-pbr322	118	six	47	6	+2	residue	58	1	*
-pbr322	118	six	47	6	+2	residue	61	1	R
-pbr322	118	six	47	6	+2	residue	64	1	L
-pbr322	118	six	47	6	+2	residue	67	1	R
-pbr322	118	six	47	6	+2	residue	70	1	N
-pbr322	118	six	47	6	+2	residue	73	1	H
-pbr322	118	six	47	6	+2	residue	76	1	Y
-pbr322	118	six	47	6	+2	residue	79	1	Y
-pbr322	118	six	47	6	+2	residue	82	1	H
-pbr322	118	six	47	6	+2	residue	85	1	D
-pbr322	118	six	47	6	+2	residue	88	1	I
-pbr322	118	six	47	6	+2	residue	91	1	N
-pbr322	118	six	47	6	+2	residue	94	1	L
-pbr322	118	six	47	7	+1	label	2	2	+1
-pbr322	118	six	47	7	+1	residue	6	1	R
-pbr322	118	six	47	7	+1	residue	9	1	K
-pbr322	118	six	47	7	+1	residue	12	1	I
-pbr322	118	six	47	7	+1	residue	15	1	N
-pbr322	118	six	47	7	+1	residue	18	1	K
-pbr322	118	six	47	7	+1	residue	21	1	*
-pbr322	118	six	47	7	+1	residue	24	1	G
-pbr322	118	six	47	7	+1	residue	27	1	F
-pbr322	118	six	47	7	+1	residue	30	1	R
-pbr322	118	six	47	7	+1	residue	33	1	A
-pbr322	118	six	47	7	+1	residue	36	1	H
-pbr322	118	six	47	7	+1	residue	39	1	F
-pbr322	118	six	47	7	+1	residue	42	1	P
-pbr322	118	six	47	7	+1	residue	45	1	E
-pbr322	118	six	47	7	+1	residue	48	1	K
-pbr322	118	six	47	7	+1	residue	51	1	C
-pbr322	118	six	47	7	+1	residue	54	1	H
-pbr322	118	six	47	7	+1	residue	57	1	L
-pbr322	118	six	47	7	+1	residue	60	1	T
-pbr322	118	six	47	7	+1	residue	63	1	S
-pbr322	118	six	47	7	+1	residue	66	1	K
-pbr322	118	six	47	7	+1	residue	69	1	K
-pbr322	118	six	47	7	+1	residue	72	1	P
-pbr322	118	six	47	7	+1	residue	75	1	L
-pbr322	118	six	47	7	+1	residue	78	1	L
-pbr322	118	six	47	7	+1	residue	81	1	S
-pbr322	118	six	47	7	+1	residue	84	1	*
-pbr322	118	six	47	7	+1	residue	87	1	H
-pbr322	118	six	47	7	+1	residue	90	1	*
-pbr322	118	six	47	7	+1	residue	93	1	P
-pbr322	118	six	47	8	top	left_number	0	4	4231
-pbr322	118	six	47	8	top	bases	5	90	AGAAAAATAAACAAATAGGGGTTCCGCGCACATTTCCCCGAAAAGTGCCACCTGACGTCTAAGAAACCATTATTATCATGACATTAACCT
-pbr322	118	six	47	8	top	right_number	96	4	4320
-pbr322	118	six	47	9	bottom	complement	5	90	TCTTTTTATTTGTTTATCCCCAAGGCGCGTGTAAAGGGGCTTTTCACGGTGGACTGCAGATTCTTTGGTAATAATAGTACTGTAATTGGA
-pbr322	118	six	47	10	-1	label	2	2	-1
-pbr322	118	six	47	10	-1	residue	5	1	L
-pbr322	118	six	47	10	-1	residue	8	1	F
-pbr322	118	six	47	10	-1	residue	11	1	I
-pbr322	118	six	47	10	-1	residue	14	1	F
-pbr322	118	six	47	10	-1	residue	17	1	L
-pbr322	118	six	47	10	-1	residue	20	1	Y
-pbr322	118	six	47	10	-1	residue	23	1	P
-pbr322	118	six	47	10	-1	residue	26	1	N
-pbr322	118	six	47	10	-1	residue	29	1	R
-pbr322	118	six	47	10	-1	residue	32	1	A
-pbr322	118	six	47	10	-1	residue	35	1	C
-pbr322	118	six	47	10	-1	residue	38	1	K
-pbr322	118	six	47	10	-1	residue	41	1	G
-pbr322	118	six	47	10	-1	residue	44	1	S
-pbr322	118	six	47	10	-1	residue	47	1	F
-pbr322	118	six	47	10	-1	residue	50	1	H
-pbr322	118	six	47	10	-1	residue	53	1	W
-pbr322	118	six	47	10	-1	residue	56	1	R
-pbr322	118	six	47	10	-1	residue	59	1	V
-pbr322	118	six	47	10	-1	residue	62	1	D
-pbr322	118	six	47	10	-1	residue	65	1	L
-pbr322	118	six	47	10	-1	residue	68	1	F
-pbr322	118	six	47	10	-1	residue	71	1	G
-pbr322	118	six	47	10	-1	residue	74	1	N
-pbr322	118	six	47	10	-1	residue	77	1	N
-pbr322	118	six	47	10	-1	residue	80	1	D
-pbr322	118	six	47	10	-1	residue	83	1	H
-pbr322	118	six	47	10	-1	residue	86	1	C
-pbr322	118	six	47	10	-1	residue	89	1	*
-pbr322	118	six	47	10	-1	residue	92	1	G
-pbr322	118	six	47	11	-2	label	2	2	-2
-pbr322	118	six	47	11	-2	residue	7	1	F
-pbr322	118	six	47	11	-2	residue	10	1	F
-pbr322	118	six	47	11	-2	residue	13	1	L
-pbr322	118	six	47	11	-2	residue	16	1	C
-pbr322	118	six	47	11	-2	residue	19	1	I
-pbr322	118	six	47	11	-2	residue	22	1	P
-pbr322	118	six	47	11	-2	residue	25	1	T
-pbr322	118	six	47	11	-2	residue	28	1	G
-pbr322	118	six	47	11	-2	residue	31	1	R
-pbr322	118	six	47	11	-2	residue	34	1	V
-pbr322	118	six	47	11	-2	residue	37	1	N
-pbr322	118	six	47	11	-2	residue	40	1	G
-pbr322	118	six	47	11	-2	residue	43	1	R
-pbr322	118	six	47	11	-2	residue	46	1	F
-pbr322	118	six	47	11	-2	residue	49	1	T
-pbr322	118	six	47	11	-2	residue	52	1	G
-pbr322	118	six	47	11	-2	residue	55	1	G
-pbr322	118	six	47	11	-2	residue	58	1	S
-pbr322	118	six	47	11	-2	residue	61	1	T
-pbr322	118	six	47	11	-2	residue	64	1	*
-pbr322	118	six	47	11	-2	residue	67	1	S
-pbr322	118	six	47	11	-2	residue	70	1	V
-pbr322	118	six	47	11	-2	residue	73	1	M
-pbr322	118	six	47	11	-2	residue	76	1	I
-pbr322	118	six	47	11	-2	residue	79	1	I
-pbr322	118	six	47	11	-2	residue	82	1	M
-pbr322	118	six	47	11	-2	residue	85	1	V
-pbr322	118	six	47	11	-2	residue	88	1	N
-pbr322	118	six	47	11	-2	residue	91	1	V
-pbr322	118	six	47	11	-2	residue	94	1	*
-pbr322	118	six	47	12	-3	label	2	2	-3
-pbr322	118	six	47	12	-3	residue	6	1	S
-pbr322	118	six	47	12	-3	residue	9	1	F
-pbr322	118	six	47	12	-3	residue	12	1	Y
-pbr322	118	six	47	12	-3	residue	15	1	V
-pbr322	118	six	47	12	-3	residue	18	1	F
-pbr322	118	six	47	12	-3	residue	21	1	L
-pbr322	118	six	47	12	-3	residue	24	1	P
-pbr322	118	six	47	12	-3	residue	27	1	E
-pbr322	118	six	47	12	-3	residue	30	1	A
-pbr322	118	six	47	12	-3	residue	33	1	C
-pbr322	118	six	47	12	-3	residue	36	1	M
-pbr322	118	six	47	12	-3	residue	39	1	E
-pbr322	118	six	47	12	-3	residue	42	1	G
-pbr322	118	six	47	12	-3	residue	45	1	F
-pbr322	118	six	47	12	-3	residue	48	1	L
-pbr322	118	six	47	12	-3	residue	51	1	A
-pbr322	118	six	47	12	-3	residue	54	1	V
-pbr322	118	six	47	12	-3	residue	57	1	Q
-pbr322	118	six	47	12	-3	residue	60	1	R
-pbr322	118	six	47	12	-3	residue	63	1	R
-pbr322	118	six	47	12	-3	residue	66	1	L
-pbr322	118	six	47	12	-3	residue	69	1	F
-pbr322	118	six	47	12	-3	residue	72	1	W
-pbr322	118	six	47	12	-3	residue	75	1	*
-pbr322	118	six	47	12	-3	residue	78	1	*
-pbr322	118	six	47	12	-3	residue	81	1	*
-pbr322	118	six	47	12	-3	residue	84	1	S
-pbr322	118	six	47	12	-3	residue	87	1	M
-pbr322	118	six	47	12	-3	residue	90	1	L
-pbr322	118	six	47	12	-3	residue	93	1	R
+pbr322	78	three	0	8	top	bases	5	66	TTCTCATGTTTGACAGCTTATCATCGATAAGCTTTAATGCGGTAGTTTATCACAGTTAAATTGCTA
+pbr322	78	three	0	8	top	right_number	72	2	66
+pbr322	78	three	0	9	bottom	complement	5	66	AAGAGTACAAACTGTCGAATAGTAGCTATTCGAAATTACGCCATCAAATAGTGTCAATTTAACGAT
+pbr322	118	six	39	0	lane1	feature	5	108	mobile_element (+)
+pbr322	118	six	39	1	lane2	feature	60	4	misc_binding (-)
+pbr322	118	six	39	2	lane3	feature	72	4	misc_binding (-)
+pbr322	118	six	39	3	lane4	feature	77	4	misc_binding (-)
+pbr322	118	six	39	4	more	more	5	7	+3 more
+pbr322	118	six	39	5	+3	label	2	2	+3
+pbr322	118	six	39	5	+3	residue	5	1	Y
+pbr322	118	six	39	5	+3	residue	8	1	I
+pbr322	118	six	39	5	+3	residue	11	1	F
+pbr322	118	six	39	5	+3	residue	14	1	E
+pbr322	118	six	39	5	+3	residue	17	1	C
+pbr322	118	six	39	5	+3	residue	20	1	I
+pbr322	118	six	39	5	+3	residue	23	1	*
+pbr322	118	six	39	5	+3	residue	26	1	K
+pbr322	118	six	39	5	+3	residue	29	1	N
+pbr322	118	six	39	5	+3	residue	32	1	K
+pbr322	118	six	39	5	+3	residue	35	1	Q
+pbr322	118	six	39	5	+3	residue	38	1	I
+pbr322	118	six	39	5	+3	residue	41	1	G
+pbr322	118	six	39	5	+3	residue	44	1	V
+pbr322	118	six	39	5	+3	residue	47	1	P
+pbr322	118	six	39	5	+3	residue	50	1	R
+pbr322	118	six	39	5	+3	residue	53	1	T
+pbr322	118	six	39	5	+3	residue	56	1	F
+pbr322	118	six	39	5	+3	residue	59	1	P
+pbr322	118	six	39	5	+3	residue	62	1	R
+pbr322	118	six	39	5	+3	residue	65	1	K
+pbr322	118	six	39	5	+3	residue	68	1	V
+pbr322	118	six	39	5	+3	residue	71	1	P
+pbr322	118	six	39	5	+3	residue	74	1	P
+pbr322	118	six	39	5	+3	residue	77	1	D
+pbr322	118	six	39	5	+3	residue	80	1	V
+pbr322	118	six	39	5	+3	residue	83	1	*
+pbr322	118	six	39	5	+3	residue	86	1	E
+pbr322	118	six	39	5	+3	residue	89	1	T
+pbr322	118	six	39	5	+3	residue	92	1	I
+pbr322	118	six	39	5	+3	residue	95	1	I
+pbr322	118	six	39	5	+3	residue	98	1	I
+pbr322	118	six	39	5	+3	residue	101	1	M
+pbr322	118	six	39	5	+3	residue	104	1	T
+pbr322	118	six	39	5	+3	residue	107	1	L
+pbr322	118	six	39	5	+3	residue	110	1	T
+pbr322	118	six	39	6	+2	label	2	2	+2
+pbr322	118	six	39	6	+2	residue	7	1	H
+pbr322	118	six	39	6	+2	residue	10	1	I
+pbr322	118	six	39	6	+2	residue	13	1	*
+pbr322	118	six	39	6	+2	residue	16	1	M
+pbr322	118	six	39	6	+2	residue	19	1	Y
+pbr322	118	six	39	6	+2	residue	22	1	L
+pbr322	118	six	39	6	+2	residue	25	1	E
+pbr322	118	six	39	6	+2	residue	28	1	K
+pbr322	118	six	39	6	+2	residue	31	1	*
+pbr322	118	six	39	6	+2	residue	34	1	T
+pbr322	118	six	39	6	+2	residue	37	1	N
+pbr322	118	six	39	6	+2	residue	40	1	R
+pbr322	118	six	39	6	+2	residue	43	1	G
+pbr322	118	six	39	6	+2	residue	46	1	S
+pbr322	118	six	39	6	+2	residue	49	1	A
+pbr322	118	six	39	6	+2	residue	52	1	H
+pbr322	118	six	39	6	+2	residue	55	1	I
+pbr322	118	six	39	6	+2	residue	58	1	S
+pbr322	118	six	39	6	+2	residue	61	1	P
+pbr322	118	six	39	6	+2	residue	64	1	K
+pbr322	118	six	39	6	+2	residue	67	1	S
+pbr322	118	six	39	6	+2	residue	70	1	A
+pbr322	118	six	39	6	+2	residue	73	1	T
+pbr322	118	six	39	6	+2	residue	76	1	*
+pbr322	118	six	39	6	+2	residue	79	1	R
+pbr322	118	six	39	6	+2	residue	82	1	L
+pbr322	118	six	39	6	+2	residue	85	1	R
+pbr322	118	six	39	6	+2	residue	88	1	N
+pbr322	118	six	39	6	+2	residue	91	1	H
+pbr322	118	six	39	6	+2	residue	94	1	Y
+pbr322	118	six	39	6	+2	residue	97	1	Y
+pbr322	118	six	39	6	+2	residue	100	1	H
+pbr322	118	six	39	6	+2	residue	103	1	D
+pbr322	118	six	39	6	+2	residue	106	1	I
+pbr322	118	six	39	6	+2	residue	109	1	N
+pbr322	118	six	39	6	+2	residue	112	1	L
+pbr322	118	six	39	7	+1	label	2	2	+1
+pbr322	118	six	39	7	+1	residue	6	1	T
+pbr322	118	six	39	7	+1	residue	9	1	Y
+pbr322	118	six	39	7	+1	residue	12	1	L
+pbr322	118	six	39	7	+1	residue	15	1	N
+pbr322	118	six	39	7	+1	residue	18	1	V
+pbr322	118	six	39	7	+1	residue	21	1	F
+pbr322	118	six	39	7	+1	residue	24	1	R
+pbr322	118	six	39	7	+1	residue	27	1	K
+pbr322	118	six	39	7	+1	residue	30	1	I
+pbr322	118	six	39	7	+1	residue	33	1	N
+pbr322	118	six	39	7	+1	residue	36	1	K
+pbr322	118	six	39	7	+1	residue	39	1	*
+pbr322	118	six	39	7	+1	residue	42	1	G
+pbr322	118	six	39	7	+1	residue	45	1	F
+pbr322	118	six	39	7	+1	residue	48	1	R
+pbr322	118	six	39	7	+1	residue	51	1	A
+pbr322	118	six	39	7	+1	residue	54	1	H
+pbr322	118	six	39	7	+1	residue	57	1	F
+pbr322	118	six	39	7	+1	residue	60	1	P
+pbr322	118	six	39	7	+1	residue	63	1	E
+pbr322	118	six	39	7	+1	residue	66	1	K
+pbr322	118	six	39	7	+1	residue	69	1	C
+pbr322	118	six	39	7	+1	residue	72	1	H
+pbr322	118	six	39	7	+1	residue	75	1	L
+pbr322	118	six	39	7	+1	residue	78	1	T
+pbr322	118	six	39	7	+1	residue	81	1	S
+pbr322	118	six	39	7	+1	residue	84	1	K
+pbr322	118	six	39	7	+1	residue	87	1	K
+pbr322	118	six	39	7	+1	residue	90	1	P
+pbr322	118	six	39	7	+1	residue	93	1	L
+pbr322	118	six	39	7	+1	residue	96	1	L
+pbr322	118	six	39	7	+1	residue	99	1	S
+pbr322	118	six	39	7	+1	residue	102	1	*
+pbr322	118	six	39	7	+1	residue	105	1	H
+pbr322	118	six	39	7	+1	residue	108	1	*
+pbr322	118	six	39	7	+1	residue	111	1	P
+pbr322	118	six	39	8	top	left_number	0	4	4213
+pbr322	118	six	39	8	top	bases	5	108	ACATATTTGAATGTATTTAGAAAAATAAACAAATAGGGGTTCCGCGCACATTTCCCCGAAAAGTGCCACCTGACGTCTAAGAAACCATTATTATCATGACATTAACCT
+pbr322	118	six	39	8	top	right_number	114	4	4320
+pbr322	118	six	39	9	bottom	complement	5	108	TGTATAAACTTACATAAATCTTTTTATTTGTTTATCCCCAAGGCGCGTGTAAAGGGGCTTTTCACGGTGGACTGCAGATTCTTTGGTAATAATAGTACTGTAATTGGA
+pbr322	118	six	39	10	-1	label	2	2	-1
+pbr322	118	six	39	10	-1	residue	5	1	V
+pbr322	118	six	39	10	-1	residue	8	1	Y
+pbr322	118	six	39	10	-1	residue	11	1	K
+pbr322	118	six	39	10	-1	residue	14	1	F
+pbr322	118	six	39	10	-1	residue	17	1	T
+pbr322	118	six	39	10	-1	residue	20	1	N
+pbr322	118	six	39	10	-1	residue	23	1	L
+pbr322	118	six	39	10	-1	residue	26	1	F
+pbr322	118	six	39	10	-1	residue	29	1	I
+pbr322	118	six	39	10	-1	residue	32	1	F
+pbr322	118	six	39	10	-1	residue	35	1	L
+pbr322	118	six	39	10	-1	residue	38	1	Y
+pbr322	118	six	39	10	-1	residue	41	1	P
+pbr322	118	six	39	10	-1	residue	44	1	N
+pbr322	118	six	39	10	-1	residue	47	1	R
+pbr322	118	six	39	10	-1	residue	50	1	A
+pbr322	118	six	39	10	-1	residue	53	1	C
+pbr322	118	six	39	10	-1	residue	56	1	K
+pbr322	118	six	39	10	-1	residue	59	1	G
+pbr322	118	six	39	10	-1	residue	62	1	S
+pbr322	118	six	39	10	-1	residue	65	1	F
+pbr322	118	six	39	10	-1	residue	68	1	H
+pbr322	118	six	39	10	-1	residue	71	1	W
+pbr322	118	six	39	10	-1	residue	74	1	R
+pbr322	118	six	39	10	-1	residue	77	1	V
+pbr322	118	six	39	10	-1	residue	80	1	D
+pbr322	118	six	39	10	-1	residue	83	1	L
+pbr322	118	six	39	10	-1	residue	86	1	F
+pbr322	118	six	39	10	-1	residue	89	1	G
+pbr322	118	six	39	10	-1	residue	92	1	N
+pbr322	118	six	39	10	-1	residue	95	1	N
+pbr322	118	six	39	10	-1	residue	98	1	D
+pbr322	118	six	39	10	-1	residue	101	1	H
+pbr322	118	six	39	10	-1	residue	104	1	C
+pbr322	118	six	39	10	-1	residue	107	1	*
+pbr322	118	six	39	10	-1	residue	110	1	G
+pbr322	118	six	39	11	-2	label	2	2	-2
+pbr322	118	six	39	11	-2	residue	7	1	M
+pbr322	118	six	39	11	-2	residue	10	1	N
+pbr322	118	six	39	11	-2	residue	13	1	S
+pbr322	118	six	39	11	-2	residue	16	1	H
+pbr322	118	six	39	11	-2	residue	19	1	I
+pbr322	118	six	39	11	-2	residue	22	1	*
+pbr322	118	six	39	11	-2	residue	25	1	F
+pbr322	118	six	39	11	-2	residue	28	1	F
+pbr322	118	six	39	11	-2	residue	31	1	L
+pbr322	118	six	39	11	-2	residue	34	1	C
+pbr322	118	six	39	11	-2	residue	37	1	I
+pbr322	118	six	39	11	-2	residue	40	1	P
+pbr322	118	six	39	11	-2	residue	43	1	T
+pbr322	118	six	39	11	-2	residue	46	1	G
+pbr322	118	six	39	11	-2	residue	49	1	R
+pbr322	118	six	39	11	-2	residue	52	1	V
+pbr322	118	six	39	11	-2	residue	55	1	N
+pbr322	118	six	39	11	-2	residue	58	1	G
+pbr322	118	six	39	11	-2	residue	61	1	R
+pbr322	118	six	39	11	-2	residue	64	1	F
+pbr322	118	six	39	11	-2	residue	67	1	T
+pbr322	118	six	39	11	-2	residue	70	1	G
+pbr322	118	six	39	11	-2	residue	73	1	G
+pbr322	118	six	39	11	-2	residue	76	1	S
+pbr322	118	six	39	11	-2	residue	79	1	T
+pbr322	118	six	39	11	-2	residue	82	1	*
+pbr322	118	six	39	11	-2	residue	85	1	S
+pbr322	118	six	39	11	-2	residue	88	1	V
+pbr322	118	six	39	11	-2	residue	91	1	M
+pbr322	118	six	39	11	-2	residue	94	1	I
+pbr322	118	six	39	11	-2	residue	97	1	I
+pbr322	118	six	39	11	-2	residue	100	1	M
+pbr322	118	six	39	11	-2	residue	103	1	V
+pbr322	118	six	39	11	-2	residue	106	1	N
+pbr322	118	six	39	11	-2	residue	109	1	V
+pbr322	118	six	39	11	-2	residue	112	1	*
+pbr322	118	six	39	12	-3	label	2	2	-3
+pbr322	118	six	39	12	-3	residue	6	1	C
+pbr322	118	six	39	12	-3	residue	9	1	I
+pbr322	118	six	39	12	-3	residue	12	1	Q
+pbr322	118	six	39	12	-3	residue	15	1	I
+pbr322	118	six	39	12	-3	residue	18	1	Y
+pbr322	118	six	39	12	-3	residue	21	1	K
+pbr322	118	six	39	12	-3	residue	24	1	S
+pbr322	118	six	39	12	-3	residue	27	1	F
+pbr322	118	six	39	12	-3	residue	30	1	Y
+pbr322	118	six	39	12	-3	residue	33	1	V
+pbr322	118	six	39	12	-3	residue	36	1	F
+pbr322	118	six	39	12	-3	residue	39	1	L
+pbr322	118	six	39	12	-3	residue	42	1	P
+pbr322	118	six	39	12	-3	residue	45	1	E
+pbr322	118	six	39	12	-3	residue	48	1	A
+pbr322	118	six	39	12	-3	residue	51	1	C
+pbr322	118	six	39	12	-3	residue	54	1	M
+pbr322	118	six	39	12	-3	residue	57	1	E
+pbr322	118	six	39	12	-3	residue	60	1	G
+pbr322	118	six	39	12	-3	residue	63	1	F
+pbr322	118	six	39	12	-3	residue	66	1	L
+pbr322	118	six	39	12	-3	residue	69	1	A
+pbr322	118	six	39	12	-3	residue	72	1	V
+pbr322	118	six	39	12	-3	residue	75	1	Q
+pbr322	118	six	39	12	-3	residue	78	1	R
+pbr322	118	six	39	12	-3	residue	81	1	R
+pbr322	118	six	39	12	-3	residue	84	1	L
+pbr322	118	six	39	12	-3	residue	87	1	F
+pbr322	118	six	39	12	-3	residue	90	1	W
+pbr322	118	six	39	12	-3	residue	93	1	*
+pbr322	118	six	39	12	-3	residue	96	1	*
+pbr322	118	six	39	12	-3	residue	99	1	*
+pbr322	118	six	39	12	-3	residue	102	1	S
+pbr322	118	six	39	12	-3	residue	105	1	M
+pbr322	118	six	39	12	-3	residue	108	1	L
+pbr322	118	six	39	12	-3	residue	111	1	R

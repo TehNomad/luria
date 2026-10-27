@@ -362,8 +362,10 @@ fn the_first_hit_at_or_after_the_cursor() {
 
 /// §5.4: a hit whose run crosses the origin is marked on both of its runs, and
 /// only what the screen draws gets cells. pBR322's EcoRI site sits at 4358, 6
-/// bases, wrapping (search-dna-hits.tsv); the block on top starts at 4320 with a
-/// gutter 4 wide, so its bases run from column `1 + 4 + 1 + (4358 - 4320)`.
+/// bases, wrapping (search-dna-hits.tsv); the line is 66 bases wide, so the block
+/// the scroll draws is the record's last, which starts at zero-based 4356 (= 66 ·
+/// 66) and holds 5 bases, and with a gutter 4 wide its bases run from column
+/// `1 + 4 + 1 + (4358 - 4356)` = 8.
 ///
 /// The site is a palindrome — `GAATTC` reads the same along either strand — so
 /// search-dna-hits.tsv gives its one row the strand `both`, and the mark goes on
@@ -389,7 +391,7 @@ fn a_hit_across_the_origin_is_marked() {
         .expect("some cell is marked");
     let expected: Vec<(usize, usize)> = [first, first + 1]
         .into_iter()
-        .flat_map(|row| [44usize, 45, 46].map(move |column| (row, column)))
+        .flat_map(|row| [8usize, 9, 10].map(move |column| (row, column)))
         .collect();
     assert_eq!(
         cells, expected,
@@ -601,13 +603,16 @@ fn a_wrapping_hit_names_its_last_base() {
 /// that pattern are strand `both` — `R` and `A` and `T` and `Y` match the same
 /// bases from either side — so every run marks its columns twice, once on its
 /// block's top row and once on its bottom row (M8-24). The cursor at 58 draws
-/// blocks 0 and 1 — their bases rows are 8 and 15 for the top strand and 9 and 16
+/// blocks 0 and 1 — block 0 holds bases 0 to 65 and block 1 bases 66 to 131 — and
+/// their bases rows are 8 and 15 for the top strand and 9 and 16
 /// for the bottom, two rows lower than 8k1 drew them because 8l2's overview strip
 /// takes the frame's first two
 /// inner rows (8l2 §4 rule 2), and a
-/// base sits at column `1 + 4 + 1 + (base - block start)`. The hit at 4359 wraps
-/// the origin, so its second run, bases 1 and 2, is marked on block 0 as much as
-/// its first run is (D052, 8l1 §4 rule 8); the hit at 58 straddles the two blocks.
+/// base sits at column `1 + 4 + 1 + (base - block start)`: the hit at 58 covers
+/// columns 64 to 67, all of it in block 0, and the hit at 89 columns 29 to 32 in
+/// block 1. The hit at 4359 wraps the origin, so its second run, bases 1 and 2, is
+/// marked on block 0 as much as its first run is (D052, 8l1 §4 rule 8), giving
+/// columns 6 and 7.
 #[test]
 fn every_shown_hit_is_marked() {
     let mut state: ViewState = ViewState::new(pbr(), W, H);
@@ -631,11 +636,15 @@ fn every_shown_hit_is_marked() {
     assert_eq!(state.cursor(), 58, "and the cursor goes to the first");
     let mut cells: Vec<(usize, usize)> = Vec::new();
     for row in [8usize, 9] {
-        cells.extend([6usize, 7, 64, 65].into_iter().map(|column| (row, column)));
+        cells.extend(
+            [6usize, 7, 64, 65, 66, 67]
+                .into_iter()
+                .map(|column| (row, column)),
+        );
     }
     for row in [15usize, 16] {
         cells.extend(
-            [6usize, 7, 35, 36, 37, 38]
+            [29usize, 30, 31, 32]
                 .into_iter()
                 .map(|column| (row, column)),
         );

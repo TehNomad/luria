@@ -137,8 +137,8 @@ fn marks(state: &ViewState, row: usize) -> Vec<(usize, char)> {
 }
 
 /// §5.1: the strip opens drawn on a record too long for the body and not on a short
-/// one. pBR322's 73 blocks — `tests/sequence_view.rs` counts them, 4361 bases in
-/// blocks of 60 — are more than twice the three the body holds with the strip off
+/// one. pBR322's 67 blocks — `tests/sequence_view.rs` counts them, 4361 bases in
+/// blocks of 66 — are more than twice the three the body holds with the strip off
 /// (8l2 §4 rule 1), and its bar line is `1 `, the strip and ` 4361` between
 /// the borders; the 16 bp FASTA and the 62 bp record hold the body at open, so they
 /// open without a strip.
@@ -187,8 +187,9 @@ fn o_flips_it_and_it_takes_two_rows() {
 }
 
 /// §5.3: the marks line holds the part on screen and the cursor, and nothing else.
-/// pBR322 at open draws blocks 0 and 1, bases 0 to 119, and of D054's columns only
-/// column 0 (x 3, where `▲` stands on base 1) and column 1 (x 4) hold a base on
+/// pBR322 at open draws blocks 0 and 1, bases 0 to 131 (66 + 66), and of D054's
+/// columns column 0 (x 3, where `▲` stands on base 1), column 1 (x 4) and column 2
+/// (x 5, since base 131 is in `⌊((131 + 1)·71 − 1)/4361⌋ = 2`) hold a base on
 /// screen. `End` moves the cursor to the record's last base, which is drawn in the
 /// strip's last column, x 73.
 #[test]
@@ -196,8 +197,8 @@ fn line_two_marks_the_screen_and_the_cursor() {
     let mut state: ViewState = ViewState::new(pbr(), W, H);
     assert_eq!(
         marks(&state, MARK_ROW),
-        vec![(3, '▲'), (4, '▀')],
-        "the cursor's column, and the one column the rest of the screen falls in"
+        vec![(3, '▲'), (4, '▀'), (5, '▀')],
+        "the cursor's column, and the two columns the rest of the screen falls in"
     );
     let line: Vec<char> = cells(&state, BAR_ROW);
     assert_eq!(line[1], '1', "the bar line names the record's first base");
@@ -211,7 +212,9 @@ fn line_two_marks_the_screen_and_the_cursor() {
 /// eight rows of `search-dna-hits.tsv`: 58, 251, 1319, 1333, 3233, 3539, 3794 and
 /// 4359, which under `⌊((p + 1)·71 − 1)/4361⌋` come to x 3, 7, 24, 24, 55, 60, 64
 /// and 73 — 1319 and 1333 share a column, and 58 is the cursor's, where `▲` wins the
-/// cell (8l2 §4 rule 5).
+/// cell (8l2 §4 rule 5). The screen holds blocks 0 and 1, bases 0 to 131, so its
+/// columns 0, 1 and 2 are `▀`: the hit at 58 gives column 0 its `▲`, and the hits
+/// in columns 1 and 2 are none.
 #[test]
 fn hits_are_dotted() {
     let mut state: ViewState = ViewState::new(pbr(), W, H);
@@ -226,6 +229,7 @@ fn hits_are_dotted() {
         vec![
             (3, '▲'),
             (4, '▀'),
+            (5, '▀'),
             (7, '·'),
             (24, '·'),
             (55, '·'),
@@ -321,22 +325,22 @@ fn a_feature_across_the_origin_has_two_runs() {
 /// scroll follows the cursor as 8k1 §4 rule 6 has it — the cursor's block stays
 /// drawn and the top moves as little as the rows allow. `pbr` with `t` on and the
 /// strip hidden holds block 0 (10 lines) and block 1 (9) in the 20 rows the body
-/// has without it; base 61, the first base of block 1, is drawn. With the strip
-/// back the same two blocks need 20 rows again, 2 more than the 18 left, so the top
-/// moves to block 1 and no further.
+/// has without it; base 67 as the record numbers it, the first base of block 1 on
+/// the 66-base line, is drawn. With the strip back the same two blocks need 20 rows
+/// again, 2 more than the 18 left, so the top moves to block 1 and no further.
 #[test]
 fn o_keeps_the_cursor_on_screen() {
     let mut state: ViewState = ViewState::new(pbr(), W, H);
     press(&mut state, Key::Char('t'));
     press(&mut state, Key::Char('o'));
     assert!(!state.overview(), "o hides the strip that opens drawn");
-    for key in [Key::Char('g'), Key::Char('6'), Key::Char('1'), Key::Enter] {
+    for key in [Key::Char('g'), Key::Char('6'), Key::Char('7'), Key::Enter] {
         press(&mut state, key);
     }
     assert_eq!(
         state.cursor(),
-        60,
-        "base 61 as the record numbers it (D006)"
+        66,
+        "base 67 as the record numbers it (D006), the first base of block 1"
     );
     assert_eq!(
         state.visible(),
@@ -354,11 +358,14 @@ fn o_keeps_the_cursor_on_screen() {
 
 /// §5.9 (round 2 §4): a pick from the CDS list closes the list, and the run of
 /// blocks the pick measured has to be the one the screen then draws. `pbr` opens
-/// with the strip on; base 302 sits in block 5 and `c` lists the CDSs with the one
+/// with the strip on; base 302 sits in block 4 (zero-based 301, and 4·66 = 264 ≤
+/// 301 < 5·66 = 330) and `c` lists the CDSs with the one
 /// holding it highlighted. `enter` selects `tet` (CDS 0, `86..1276` in the file's
 /// numbering), closes the list and moves the cursor to tet's start codon, base 86
 /// as the file numbers it (M8-21); the block holding it is drawn whatever the
-/// list's own rows were while it was open.
+/// list's own rows were while it was open. The run that follows the cursor starts
+/// at block 2, where 6 + 1 + 4 + 1 + 4 = 16 rows cover blocks 2, 3 and 4 of the 18
+/// the strip leaves.
 #[test]
 fn picking_a_cds_keeps_the_cursor_on_screen() {
     let mut state: ViewState = ViewState::new(pbr(), W, H);
@@ -374,7 +381,7 @@ fn picking_a_cds_keeps_the_cursor_on_screen() {
     }
     assert_eq!(state.cursor(), 301, "base 302 as the record numbers it");
     let before: std::ops::Range<usize> = state.visible();
-    assert_eq!(before, 3..6, "and the run drawn reaches block 5");
+    assert_eq!(before, 2..5, "and the run drawn reaches block 4");
     press(&mut state, Key::Char('c'));
     assert!(state.list().is_some(), "the CDS list opens over the blocks");
     press(&mut state, Key::Enter);

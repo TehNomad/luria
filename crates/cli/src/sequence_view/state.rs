@@ -1054,8 +1054,9 @@ impl ViewState {
     /// `j` and `k`: the same offset from the start of the next or previous block,
     /// clamped to that block's last base; at the first or the last block the
     /// cursor stays (§4 rule 4). A short last block is what clamping is for:
-    /// pBR322's last block holds 41 bases, so the line from zero-based 4310
-    /// lands on 4360, its last base, and not past the end of the record.
+    /// pBR322's last block holds 5 bases (zero-based 4356..4361), so the line
+    /// from zero-based 4310 lands on 4360, its last base, and not past the end of
+    /// the record.
     fn step_line(&mut self, direction: i64) {
         if let Some(base) = self.line_target(direction) {
             self.cursor = base;

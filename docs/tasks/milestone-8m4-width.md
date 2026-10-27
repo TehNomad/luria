@@ -1,9 +1,27 @@
 # Contract 8m4 — cli: lines fill the width in steps of 3 (M8-28)
 
-Planner: Claude. Status: delegated to `w-8m4` 2026-10-27. Tier: **full**
-for the layout tables (they are verified fixtures); light for the view
-tests. Owner's answer: `docs/tasks/milestone-8m-polish.md` §1, M8-28; plan
-§5.1 is amended.
+Planner: Claude. Status: **Implemented 2026-10-27** by worker `w-8m4` in
+two rounds, reviewed and accepted. Tier: **full** for the layout tables
+(they are verified fixtures); light for the view tests. Owner's answer:
+`docs/tasks/milestone-8m-polish.md` §1, M8-28; plan §5.1 is amended.
+Findings from review:
+
+* The regenerated script's output matched every rule 2 value, and the
+  planner re-checked each rule 5 value by hand. That included the RATY hits
+  in `tests/fixtures/view/search-dna-hits.tsv`: 58 and 89 are drawn, and the
+  next hit, 251, is past block 1's last base, 131.
+* §3 left out `tests/layout_fixtures.rs`, whose row and case counts change
+  with the tables (645 → 616 blocks, 845 → 941 cells, 16 → 18 cases). The
+  worker changed only those counts and their comments, and the planner
+  recounted the tables. The README's Files table and `sequence_view.rs`'s
+  header also quoted the old numbers and were updated.
+* G2 and G3 failed as §6 says. G1 fails `layout_fixtures`
+  (`synthetic 78 cds:pj`: 60 against 72), but no rule 5 test: they run with
+  translation off, apart from `o_keeps_the_cursor_on_screen`, which gives the
+  same blocks at 60 and 66. The tables cover "`t` does not reflow", so the
+  planner accepted this.
+* Round 2 fixed two stale comments outside rule 5 (`step_line`'s last
+  block, and the strip test's block count).
 
 ## 1. What this contract builds
 

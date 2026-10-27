@@ -28,7 +28,7 @@ written out in `reference/`, and each is re-derivable with `--check` (D039).
 | `search-dna-hits.tsv` | every hit of every listed pattern: strand, zero-based start, length, whether it wraps the origin, and the bases it covers |
 | `search-protein-patterns.tsv` | every protein-search pattern the tables pin, per record and target (`frames` or a CDS id): as written, after folding, its length, its hit count, and what the row is there to pin |
 | `search-protein-hits.tsv` | every hit of every listed protein pattern: strand, frame, zero-based start and length of the bases its codons cover, whether that run wraps, first and last residue numbers (`stop` for the stop codon), the symbols matched, and the bases |
-| `layout-blocks.tsv` | every block of sixteen layout cases (record, width, mode): the line width that width allows, and each block's first and last base and base count |
+| `layout-blocks.tsv` | every block of eighteen layout cases (record, width, mode): the line width that width allows, and each block's first and last base and base count |
 | `layout-cells.tsv` | for chosen blocks, every item the layout places: line, role, kind, first column, columns covered, and text — columns only, no glyph or style |
 | `reference/make_frames_62.py` | the deterministic search that chose `frames-62.gb`, and the check that the tracked record still satisfies what it claims |
 | `reference/cds_map.py` | the five CDS-map tables above |
@@ -455,15 +455,14 @@ for its lines; a `column` counts from 0 at the left edge of that width.
   label (its first base's number, or a frame label) is right-aligned in columns
   `[0, d)`, column `d` is blank, bases start at `d + 1`, and the top strand's
   right number starts one blank column after the last base. The line width is
-  the largest multiple of 10, or of 30 in any translation mode, with
-  `2d + 2 + N <= width`: pBR322 (`d = 4`) gets 60 at width 78, 30 at width 40
-  and 90 at width 118.
+  the largest multiple of 3, in every mode (M8-28), with `2d + 2 + N <= width`:
+  pBR322 (`d = 4`) gets 66 at width 78, 30 at width 40 and 108 at width 118.
 * **A shortened line, not a shifted grid** (D055). With `tet` selected on
   30-base lines the line from 61 ends at 88 and the next starts at `tet`'s codon
-  at 89; on 60-base lines the line from 61 ends at 118. `frames-62.gb`'s two
-  origin-crossing CDSs both put their block edge at 58, not 60, because
-  59-61 is one codon of each; in six-frame mode the same record's edge stays at
-  60, since without a CDS no line is shortened.
+  at 89; on 66-base lines the line from 67 ends at 130. `frames-62.gb` on
+  30-base lines (width 36) puts both origin-crossing CDSs' edge at 58, not 60,
+  because 59-61 is one codon of each, and at width 78 that record is one line in
+  every mode.
 * **Residues over middle bases** (D055). `tet`'s `M` sits over base 87, the
   middle of 86-88. `pj` on synthetic gives `M` at columns 58 and 4 (codons 1 and
   3), and its lane is two runs on one line. `frames-62.gb`'s `fP` codon 3 is
@@ -497,7 +496,9 @@ not drawn (D053). The script asserts that blocks tile the record, that no line
 but the last is short without a CDS, that a short line is at most 2 bases short,
 that no block edge falls inside a codon of the selected CDS (the codon the
 origin splits excepted), and that no two items on a line overlap. The values
-above are asserted by hand in the script.
+above are asserted by hand in the script. The tables were regenerated for M8-28
+on 2026-10-27, and the planner checked the new widths, block edges and columns
+of contract 8m4 rule 2 by hand.
 
 Eight controls, each run once: a shifted grid fails at `frames62 cds:fM: a block
 starts inside the codon at [58, 59, 60]`; no shortening fails the same way for

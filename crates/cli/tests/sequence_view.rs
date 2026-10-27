@@ -1,7 +1,7 @@
 //! The sequence view's screen as a state and a drawing (contract 8k1 §5). Every
 //! record is a fixture read by `open_record`, every size 80 × 24 unless the test
 //! says otherwise, and every number below was read off the fixture or worked out
-//! from 8j's layout rule — the blocks are 60 bases wide at this width for pBR322
+//! from 8j's layout rule — the blocks are 66 bases wide at this width for pBR322
 //! (`tests/fixtures/view/README.md`, "Block layout"), which is what the cursor
 //! and block numbers in these tests count.
 //!
@@ -216,24 +216,31 @@ fn base_moves_wrap_only_when_circular() {
 fn line_moves_keep_the_offset() {
     let mut state: ViewState = ViewState::new(pbr(), 80, 24);
     let built = state.layout().expect("a layout at 80 wide");
-    assert_eq!(built.line_width, 60, "pBR322's blocks hold 60 bases here");
+    // 78 columns for the lines (80 less the frame's border): 78 - (2 * 4 + 2)
+    // = 68 free columns, and 68 / 3 = 22 whole steps of 3, so 66 bases.
+    assert_eq!(built.line_width, 66, "pBR322's blocks hold 66 bases here");
 
     walk(&mut state, Key::Char('l'), 5);
     assert_eq!(state.cursor(), 5);
     assert_eq!(state.handle(Key::Char('j')), Action::Continue);
-    assert_eq!(state.cursor(), 65, "the same offset in the next block");
+    assert_eq!(
+        state.cursor(),
+        71,
+        "the same offset in the next block: 66 + 5"
+    );
     assert_eq!(state.handle(Key::Char('k')), Action::Continue);
     assert_eq!(state.cursor(), 5, "and back");
     assert_eq!(state.handle(Key::Char('k')), Action::Continue);
     assert_eq!(state.cursor(), 5, "past the first block: stay");
 
-    // pBR322's last block holds 41 bases, so the line from the block before it
-    // ends at the last base of the record rather than past it.
+    // pBR322's last block holds 5 bases (4361 = 66 * 66 + 5), so the line from
+    // the block before it ends at the last base of the record rather than past
+    // it.
     walk(&mut state, Key::Char('l'), 4305);
     assert_eq!(state.cursor(), 4310);
     let blocks: &Vec<(u64, u64)> = &state.layout().expect("a layout").blocks;
-    assert_eq!(blocks.len(), 73, "4361 bases in blocks of 60");
-    assert_eq!(blocks[72], (4320, 4361), "the last block holds 41 bases");
+    assert_eq!(blocks.len(), 67, "4361 bases in blocks of 66");
+    assert_eq!(blocks[66], (4356, 4361), "the last block holds 5 bases");
     assert_eq!(state.handle(Key::Char('j')), Action::Continue);
     assert_eq!(state.cursor(), 4360, "clamped to that block's last base");
     assert_eq!(state.handle(Key::Char('j')), Action::Continue);
@@ -368,7 +375,7 @@ fn the_cursor_block_stays_visible() {
     // The last block: `End` puts the cursor in it, and it is drawn.
     assert_eq!(state.handle(Key::End), Action::Continue);
     let last: usize = state.layout().expect("a layout").blocks.len() - 1;
-    assert_eq!(last, 72, "4361 bases in blocks of 60, zero-based 0..=72");
+    assert_eq!(last, 66, "4361 bases in blocks of 66, zero-based 0..=66");
     assert!(
         state.visible().contains(&block_holding(&state, 4360)),
         "the last block is drawn"
@@ -384,7 +391,7 @@ fn the_cursor_block_stays_visible() {
     assert_eq!(state.handle(Key::PageDown), Action::Continue);
     assert_eq!(
         state.cursor(),
-        5 + 60 * u64::try_from(screen).unwrap(),
+        5 + 66 * u64::try_from(screen).unwrap(),
         "a page of blocks, same offset"
     );
     assert_eq!(state.visible().start, screen, "and its block on top");
@@ -395,10 +402,12 @@ fn the_cursor_block_stays_visible() {
     // A wider terminal lays the record out again: the cursor's block is still
     // drawn, at the new block size.
     state.resize(120, 40);
+    // 118 columns for the lines at width 120: 118 - (2 * 4 + 2) = 108 free
+    // columns, exactly 36 steps of 3.
     assert_eq!(
         state.layout().expect("a layout").line_width,
-        100,
-        "120 wide fits 100 bases"
+        108,
+        "120 wide fits 108 bases"
     );
     assert!(
         state
@@ -646,9 +655,9 @@ fn visible_counts_the_gaps() {
 /// §4 rule 6: when the cursor's block is below the drawn run, the top becomes the
 /// smallest block from which it is visible, and the run is then counted again from
 /// there. pBR322 with the lanes off, from the open: two `j` presses put the cursor
-/// at zero-based 120, which is block 2, and the top becomes 1 rather than 0 - from
-/// 1 the run is 6 + 1 + 6 = 13 rows, and from 0 it would be 21 - so blocks 1, 2
-/// and 3 are drawn, block 3 being 4 lines: 6 + 1 + 6 + 1 + 4 = 18.
+/// at zero-based 132 (66 * 2), which is block 2, and the top becomes 1 rather
+/// than 0 - from 1 the run is 6 + 1 + 6 = 13 rows, and from 0 it would be 21 - so
+/// blocks 1, 2 and 3 are drawn, block 3 being 4 lines: 6 + 1 + 6 + 1 + 4 = 18.
 #[test]
 fn the_scroll_moves_as_little_as_it_can() {
     let mut state: ViewState = ViewState::new(pbr(), 80, 24);
@@ -657,12 +666,12 @@ fn the_scroll_moves_as_little_as_it_can() {
     assert_eq!(state.handle(Key::Char('j')), Action::Continue);
     assert_eq!(
         state.cursor(),
-        60,
+        66,
         "the same offset in block 1, which is drawn"
     );
     assert_eq!(state.visible(), 0..2, "so nothing has scrolled yet");
     assert_eq!(state.handle(Key::Char('j')), Action::Continue);
-    assert_eq!(state.cursor(), 120, "block 2, below the run");
+    assert_eq!(state.cursor(), 132, "block 2, below the run");
     assert_eq!(
         state.visible(),
         1..4,

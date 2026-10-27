@@ -3,7 +3,7 @@
 //! section of `tests/fixtures/view/README.md`).
 //!
 //! `layout-blocks.tsv` pins how a record splits into blocks — one row per
-//! block, all 645 of them — and `layout-cells.tsv` pins one row per item: the
+//! block, all 616 of them — and `layout-cells.tsv` pins one row per item: the
 //! line it is on, the column it starts in, how many columns it covers, and what
 //! it is. Every row of both tables is checked here, not a sample: a row the
 //! renderer cannot place is a failure. The cells table itself samples blocks —
@@ -58,8 +58,8 @@ struct BlocksRow {
 }
 
 /// One data row of `layout-cells.tsv`: one item of one block. The cells table
-/// samples blocks rather than listing every one: it holds rows for 24 of the
-/// 645 blocks the blocks table lists, a case's first block and, when the case
+/// samples blocks rather than listing every one: it holds rows for 27 of the
+/// 616 blocks the blocks table lists, a case's first block and, when the case
 /// has more than one, the block holding its last bases. Every row it does hold
 /// is checked here.
 #[derive(Clone)]
@@ -633,17 +633,14 @@ fn cells_groups(rows: &[CellsRow]) -> Vec<CellsGroup> {
 #[test]
 fn every_case_splits_into_the_tabled_blocks() {
     let rows: Vec<BlocksRow> = blocks_rows();
-    // The tables' own row counts, from `tests/fixtures/view/README.md` (§
-    // "Block layout": 645 and 845 data rows). Reading them all is the contract,
-    // so the count is asserted rather than assumed.
-    assert_eq!(rows.len(), 645, "layout-blocks.tsv's data rows");
+    // The tables' own row counts, from the reference script's own counter, and
+    // the same numbers `tests/fixtures/view/README.md` records (§ "Block layout:
+    // Generated"). Reading them all is the contract, so the count is asserted
+    // rather than assumed.
+    assert_eq!(rows.len(), 616, "layout-blocks.tsv's data rows");
     let opened: Vec<(String, ViewRecord)> = records();
     let cases: Vec<BlocksCase> = blocks_cases(&rows);
-    assert_eq!(
-        cases.len(),
-        16,
-        "the tables hold 4 records x their widths x their modes"
-    );
+    assert_eq!(cases.len(), 18, "the tables hold 18 layout cases");
     for case in cases.iter() {
         check_blocks(case, &opened);
     }
@@ -652,7 +649,7 @@ fn every_case_splits_into_the_tabled_blocks() {
 #[test]
 fn every_tabled_item_is_where_the_table_says() {
     let rows: Vec<CellsRow> = cells_rows();
-    assert_eq!(rows.len(), 845, "layout-cells.tsv's data rows");
+    assert_eq!(rows.len(), 941, "layout-cells.tsv's data rows");
     let opened: Vec<(String, ViewRecord)> = records();
     let groups: Vec<CellsGroup> = cells_groups(&rows);
     for group in groups.iter() {

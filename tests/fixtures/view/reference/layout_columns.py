@@ -19,9 +19,9 @@ D055, as contract 8j states them:
 * **Gutter.** `d = max(2, digits of the record length)`. A line's label (the
   first base's number, or a frame label such as `+1`) is right-aligned in
   columns `[0, d)`; column `d` is blank; bases start at `g = d + 1`.
-* **Line width.** The largest multiple of 10 (no translation) or 30 (any
-  translation mode) with `2d + 2 + N <= width`. The top strand's right number,
-  the line's last base, starts one blank column after the last base.
+* **Line width.** The largest multiple of 3, in every mode (M8-28), with
+  `2d + 2 + N <= width`. The top strand's right number, the line's last base,
+  starts one blank column after the last base.
 * **Blocks.** Without a CDS selected, block `k` is bases `[kN, (k+1)N)`. With
   one, lines start at base 1, and a line that would end inside a codon of the
   selected CDS ends just before that codon (D055).
@@ -85,6 +85,11 @@ CASES = [
     ("frames62", 78, "cds:fP", "all"),
     ("frames62", 78, "cds:fM", "all"),
     ("frames62", 78, "six", "all"),
+    # M8-28: at width 78 the whole 62-base record fits on one line, so the
+    # origin-crossing shortened line (edge at 58) needs 30-base lines at width
+    # 36 to stay under test.
+    ("frames62", 36, "cds:fP", "all"),
+    ("frames62", 36, "cds:fM", "all"),
     ("framesamb", 78, "six", "all"),
     ("pbr322", 78, "off", [0, 4360]),
     ("pbr322", 78, "cds:tet", [85, 1275]),
@@ -258,7 +263,7 @@ def gutter(length: int) -> int:
 
 
 def line_width(length: int, width: int, mode: str) -> int:
-    step = 10 if mode == "off" else 30
+    step = 3  # M8-28: one step of 3 for every mode
     d = gutter(length)
     n = (width - 2 * d - 2) // step * step
     assert n >= step, f"width {width} leaves no line for {length} bases in {mode}"
@@ -446,13 +451,16 @@ def constructions(block_rows, cell_rows) -> None:
     tet30 = blocks_of("pbr322", 40, "cds:tet")
     assert (61, 88) in tet30 and (89, 118) in tet30, tet30[:5]
     assert tet30[:2] == [(1, 30), (31, 60)]
-    # frames-62: both origin CDSs put a block edge at 58, not 60 (codon 59-61).
-    assert blocks_of("frames62", 78, "cds:fP") == [(1, 58), (59, 62)]
-    assert blocks_of("frames62", 78, "cds:fM") == [(1, 58), (59, 62)]
-    assert blocks_of("frames62", 78, "six") == [(1, 60), (61, 62)]
+    # frames-62 on 30-base lines: both origin CDSs put a block edge at 58, not
+    # 60 (codon 59-61); on 72-base lines at width 78 the record is one line.
+    assert blocks_of("frames62", 36, "cds:fP") == [(1, 30), (31, 58), (59, 62)]
+    assert blocks_of("frames62", 36, "cds:fM") == [(1, 30), (31, 58), (59, 62)]
+    assert blocks_of("frames62", 78, "cds:fP") == [(1, 62)]
+    assert blocks_of("frames62", 78, "cds:fM") == [(1, 62)]
+    assert blocks_of("frames62", 78, "six") == [(1, 62)]
     assert blocks_of("synthetic", 78, "off") == [(1, 60)]
-    # pBR322 without translation: 60-base lines (68 columns are free at width 78).
-    assert blocks_of("pbr322", 78, "off")[:2] == [(1, 60), (61, 120)]
+    # pBR322 without translation: 66-base lines (68 columns free at width 78).
+    assert blocks_of("pbr322", 78, "off")[:2] == [(1, 66), (67, 132)]
 
     def cells(record, width, mode, block, role=None, kind=None):
         return [r for r in cell_rows
@@ -466,28 +474,27 @@ def constructions(block_rows, cell_rows) -> None:
     assert [(r[7], r[9]) for r in m] == [("31", "M")], m
     numbers = cells("pbr322", 40, "cds:tet", block, "numbers")
     assert [(r[7], r[9]) for r in numbers] == [("31", "1")], numbers
-    # pBR322, tet, width 78: lines of 60 from base 1; the line from 61 ends at
-    # 118 (tet's codon 119-121 would straddle 120), and from 119 every line is
-    # 60 again, so bases 1259-1318 are a block. Residue 392 (codon 1259-1261)
-    # is the leftmost, over 1260 at column 5 + 1 = 6, its number moved inward
-    # from 5 to 5; residue 395 (1268-1270) is over 1269 at column 15, "395"
-    # centred from 14. The stop codon (1274-1276) is `*` at column 21, with no
-    # number.
-    tet60 = blocks_of("pbr322", 78, "cds:tet")
-    assert tet60[1] == (61, 118) and (1259, 1318) in tet60, tet60[:3]
-    block = tet60.index((1259, 1318))
+    # pBR322, tet, width 78: lines of 66 from base 1; the line from 67 ends at
+    # 130 (tet's codon 131-133 would straddle 132), and from 131 every line is
+    # 66 again, so bases 1253-1318 are a block. Residue 390 (codon 1253-1255)
+    # is the leftmost, over 1254 at column 5 + 1 = 6, its number "390" centred
+    # from 5; residue 395 (1268-1270) is over 1269 at column 21, "395" centred
+    # from 20. The stop codon (1274-1276) is `*` at column 27, with no number.
+    tet66 = blocks_of("pbr322", 78, "cds:tet")
+    assert tet66[:3] == [(1, 66), (67, 130), (131, 196)] and (1253, 1318) in tet66, tet66[:3]
+    block = tet66.index((1253, 1318))
     numbers = cells("pbr322", 78, "cds:tet", block, "numbers")
-    assert [(r[7], r[9]) for r in numbers] == [("5", "392"), ("14", "395")], numbers
+    assert [(r[7], r[9]) for r in numbers] == [("5", "390"), ("20", "395")], numbers
     stop = [r for r in cells("pbr322", 78, "cds:tet", block, "residues") if r[9] == "*"]
-    assert [r[7] for r in stop] == ["21"], stop
-    # Lanes, longest first then file order: on the 61-118 line the tet gene and
+    assert [r[7] for r in stop] == ["27"], stop
+    # Lanes, longest first then file order: on the 67-130 line the tet gene and
     # the tet CDS (1191 bases each, gene first in the file) come before the two
     # 4-base misc_binding sites at 67-70 and 80-83.
     lanes = [(r[5], r[7], r[8], r[9])
              for r in cells("pbr322", 78, "cds:tet", 1, kind="feature")]
-    assert lanes == [("lane1", "30", "33", "tet (+)"), ("lane2", "30", "33", "tet (+)"),
-                     ("lane3", "11", "4", "misc_binding (+)"),
-                     ("lane4", "24", "4", "misc_binding (+)")], lanes
+    assert lanes == [("lane1", "24", "45", "tet (+)"), ("lane2", "24", "45", "tet (+)"),
+                     ("lane3", "5", "4", "misc_binding (+)"),
+                     ("lane4", "18", "4", "misc_binding (+)")], lanes
     # synthetic pj crosses the origin of a 60-base record: codon 1 (55-57)
     # puts M at column 3 + 55 = 58 and codon 3 (1-3) another M at column 4;
     # its lane is two runs on the one line.
@@ -495,8 +502,9 @@ def constructions(block_rows, cell_rows) -> None:
     assert [(r[7], r[9]) for r in pj] == [
         ("4", "M"), ("7", "A"), ("10", "W"), ("13", "*"), ("58", "M"), ("61", "K")], pj
     # frames-62's fP codon 3 is split by the origin (bases 62, 1, 2): its T sits
-    # over base 1, its middle, at column 3 of block 0; base 62 is on block 1.
-    fp = cells("frames62", 78, "cds:fP", 0, "residues", "residue")
+    # over base 1, its middle, at column 3 of block 0; base 62 is on the last
+    # block, and at width 36 that block is 2, not 1.
+    fp = cells("frames62", 36, "cds:fP", 0, "residues", "residue")
     assert ("3", "T") in [(r[7], r[9]) for r in fp], fp
     lane = [r for r in cells("synthetic", 78, "off", 0, kind="feature") if r[9] == "pj (+)"]
     assert [(r[7], r[8]) for r in lane] == [("3", "12"), ("57", "6")], lane

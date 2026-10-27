@@ -15,9 +15,9 @@
 //!   its first base's number, or a frame label — is right-aligned in columns
 //!   `[0, d)`, column `d` is blank, and bases start at `d + 1`. The minimum of
 //!   2 is pinned only here: every record in the tables has at least 10 bases.
-//! * **Line width.** The largest multiple of 10 (no translation) or of 30 (any
-//!   translation mode) with `2d + 2 + N <= width`. A width with no whole step
-//!   of room is refused `TooNarrow`.
+//! * **Line width.** The largest multiple of 3, in every mode (M8-28), with
+//!   `2d + 2 + N <= width`. A width with no whole step of room is refused
+//!   `TooNarrow`.
 //! * **A shortened line, not a shifted grid** (D055). Without a CDS selected,
 //!   block `k` is `[kN, (k+1)N)`. With one, lines still start at base 1, and a
 //!   line that would end inside a codon of the selected CDS ends just before
@@ -72,11 +72,12 @@ use ratatui::text::{Line, Span};
 /// bases long).
 const MIN_GUTTER: u16 = 2;
 
-/// The step a line width is a multiple of with no translation (§5.1).
-const PLAIN_STEP: u64 = 10;
+/// The step a line width is a multiple of with no translation (M8-28).
+const PLAIN_STEP: u64 = 3;
 
-/// The step in any translation mode, so a whole codon can stand on one line.
-const TRANSLATED_STEP: u64 = 30;
+/// The same step in every translation mode (M8-28), so toggling `t` does not
+/// reflow the lines and a whole codon still stands on one line.
+const TRANSLATED_STEP: u64 = 3;
 
 /// Plan §5.1: "up to four lanes per block, the rest as `+N more`".
 const LANE_LIMIT: usize = 4;
@@ -197,8 +198,8 @@ fn strand_is_plus(strand: &Strand) -> bool {
     *strand == Strand::Plus
 }
 
-/// The step the line width is a multiple of: 10 bases with no translation,
-/// 30 in any translation mode (§5.1).
+/// The step the line width is a multiple of: 3 bases in every mode (M8-28), so
+/// the same width holds the same line with and without a translation.
 fn column_step(mode: &LaneMode) -> u64 {
     match mode {
         LaneMode::Off => PLAIN_STEP,
@@ -819,7 +820,9 @@ mod tests {
 
         let laid: Layout = layout(&record, 40, &LaneMode::SixFrames).unwrap();
         assert_eq!(laid.gutter, 2);
-        assert_eq!(laid.line_width, 30);
+        // `40 - 2 * 2 - 2 = 34` free columns, and 34 / 3 = 11 whole steps of 3:
+        // 33 bases (M8-28).
+        assert_eq!(laid.line_width, 33);
         assert_eq!(laid.blocks, vec![(0, 5)]);
 
         let lines = block_lines(&record, &laid, &LaneMode::SixFrames, 0).unwrap();
@@ -868,19 +871,24 @@ mod tests {
     #[test]
     fn a_narrow_width_is_refused() {
         let record: ViewRecord = pbr322();
-        // `d = 4`, `step = 30`: 39 columns leave room for no whole step.
-        let narrow: Result<Layout, LayoutProblem> = layout(&record, 39, &LaneMode::ThreeFrames);
+        // `d = 4`, `step = 3`: 12 columns leave room for no whole step, and 13
+        // is the narrowest usable width (M8-28).
+        let narrow: Result<Layout, LayoutProblem> = layout(&record, 12, &LaneMode::ThreeFrames);
         assert_eq!(
             narrow,
             Err(LayoutProblem::TooNarrow {
-                width: 39,
-                needed: 40
+                width: 12,
+                needed: 13
             })
         );
 
-        let laid: Layout = layout(&record, 40, &LaneMode::ThreeFrames).unwrap();
+        let laid: Layout = layout(&record, 13, &LaneMode::ThreeFrames).unwrap();
         assert_eq!(laid.gutter, 4);
-        assert_eq!(laid.line_width, 30);
+        assert_eq!(laid.line_width, 3);
+        // 4361 bases in blocks of 3 make 1454 blocks, the last holding the 2
+        // bases 4361 = 1453 * 3 + 2 leaves over: never a whole step, never 0.
+        assert_eq!(laid.blocks.len(), 1454);
+        assert_eq!(laid.blocks[1453], (4359, 4361));
     }
 
     #[test]
