@@ -57,6 +57,9 @@ fn key_of(press: KeyEvent) -> Key {
         KeyCode::Enter => Key::Enter,
         KeyCode::Esc => Key::Esc,
         KeyCode::Backspace => Key::Backspace,
+        // 8l1's key, which the open search prompt uses to flip its mode; outside
+        // one it changes nothing, and that rule is `state::handle`'s.
+        KeyCode::Tab => Key::Tab,
         _ => Key::Other,
     }
 }

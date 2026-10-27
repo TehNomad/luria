@@ -1,9 +1,26 @@
 # Contract 8l1 — cli: the view's search prompt (§5.4)
 
-Planner: Claude. Status: delegated to `w-8l1` 2026-10-26; runs after 8k2 (D057 order).
-Tier: light (D051): tests assert behaviour, not wording; the hand test (8m)
-may change keys and sentences. Plan row: **8l1** in
-`docs/tasks/milestone-8-view.md` §7.
+Planner: Claude. Status: **Implemented 2026-10-27** by worker `w-8l1` in three
+rounds, reviewed and accepted. Tier: light (D051): tests assert behaviour,
+not wording; the hand test (8m) may change keys and sentences. Plan row:
+**8l1** in `docs/tasks/milestone-8-view.md` §7. Findings from review:
+
+* Round 1: tests 1–10 and G1–G8 behaved as §7 says; the worker added four
+  guards of its own (the cap sentence, `T` keeping hits, unrouted prompt
+  keys, `esc` clearing marks), all caught.
+* Two defects, fixed in round 2: a hit across the origin printed a span
+  past the record (`4359..4364`; now `4359..3`, `luria find`'s rule), and
+  the key line was 101 characters, so `q quit` was off an 80-column
+  screen (now 73). Round 2 added tests 11–13 and G9–G11, and the worker
+  added a check that the list, go-to and search key lines fit too.
+* Test 12's first expectation was the planner's error: it missed `RATY`'s
+  hit 52, which wraps onto bases 1–2 of block 0. The worker stopped
+  instead of changing it; round 3 set the ten cells the rules give.
+* Choices left open and accepted: `tab` flips back on a second press;
+  `/` always opens a fresh prompt; an empty `enter` changes nothing; `T`
+  clears hits only where the topology flips; hits survive moves, lanes,
+  lists and resizes. At 80 columns the cap sentence is cut short on the
+  status line (`200` and the total stay visible): a hand-test question.
 
 ## 1. What this contract builds
 
@@ -127,6 +144,9 @@ first at 3349; six-frame `MKSNNA` one hit at 85; `N` 4361 hits.
 | 8 | `keys_go_to_the_search_prompt` | `pbr`: `/`, `q`, `n` → each `Continue`, text `qn`, cursor 0; `CtrlC` → `Quit`. `/`, `resize(79, 24)`, `q` → `Quit` |
 | 9 | `t_searches_a_fasta_as_circular` | `w16`: `/ GAATTC` → `hits()` is `None`. `T`, `/ GAATTC` → `total() == 1`, cursor 13. `T` → `hits()` is `None` |
 | 10 | `n_without_hits_does_nothing` | `pbr`: `n` → `Continue`, cursor 0 |
+| 11 | `a_wrapping_hit_names_its_last_base` | round 2. `pbr`, `/ GAATTC`: the status row contains `4359..3`, not `4364` |
+| 12 | `every_shown_hit_is_marked` | rounds 2–3. `pbr`, `/ RATY` (hits at 58, 89 and 4359 across the origin): exactly 10 yellow cells, columns 6, 7, 64, 65 on block 0's bases row and 6, 7, 35–38 on block 1's |
+| 13 | `the_key_line_fits_eighty_columns` | round 2. Row 23 at 80 × 24 contains `q quit` and is at most 76 characters |
 
 Plus unit tests in `search.rs` for `auto_mode`: `""`, `"gaattc"`, `"RATY"`,
 `"MKSNNA"` → `Dna`; `"E"`, `"GAE"`, `"A1"`, `"*"` → `Aa`.
@@ -148,6 +168,9 @@ and the other three `sequence_view*` targets.
 | G6 | No cap: every hit is shown | 6 |
 | G7 | The search ignores `T` (always the record's sequence) | 9 |
 | G8 | Only the first run of a hit across the origin is marked | 4 |
+| G9 | The span as `start + 1..start + length`, round 2 | 11 |
+| G10 | Only the current hit is marked, round 2 | 12 |
+| G11 | The 101-character key line, round 2 | 13 |
 
 ## 8. Do not
 

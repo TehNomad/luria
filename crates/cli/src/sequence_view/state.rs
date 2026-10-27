@@ -32,6 +32,12 @@ use crate::sequence_view::list::refusal_code;
 use crate::sequence_view::list::Drawn;
 use crate::sequence_view::list::List;
 use crate::sequence_view::list::ListKind;
+use crate::sequence_view::search::search_record;
+use crate::sequence_view::search::Hit;
+use crate::sequence_view::search::Hits;
+use crate::sequence_view::search::Outcome;
+use crate::sequence_view::search::SearchMode;
+use crate::sequence_view::search::SearchPrompt;
 use luria_core::cds::Cds;
 use luria_core::cds_map::CdsMap;
 use luria_core::cds_map::CodonPlace;
@@ -52,8 +58,8 @@ use ratatui::text::Line;
 
 /// One key press, as `super::terminal` maps it (§4 rule 14, and 8k3 §4 rule 3).
 /// Any press this view has no key for is `Other` and changes nothing (§4 rule
-/// 10; D055 leaves `r` and `space` unbound, and `g`, `o` and `/` come in 8k2 and
-/// 8l1).
+/// 10; D055 leaves `r`, `space` and `o` unbound, `g` came in 8k2 and `/`, `n`,
+/// `N` and `tab` in 8l1).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Key {
     /// A printable key, by the character typed.
@@ -75,6 +81,9 @@ pub enum Key {
     /// `backspace`, which shortens an open list's filter (8k3 §4 rule 3) and
     /// elsewhere changes nothing.
     Backspace,
+    /// `tab`, which flips the search prompt's mode (8l1 §4 rule 2) and elsewhere
+    /// changes nothing.
+    Tab,
     /// `ctrl-c`, which quits from anywhere (§4 rule 10).
     CtrlC,
     /// Any other press.
@@ -201,6 +210,14 @@ pub struct ViewState {
     /// rule 2): while it is open every printable key is text, `enter` acts on the
     /// whole line through `super::goto`, and `esc` closes it and changes nothing.
     prompt: Option<String>,
+    /// The open search prompt, `None` while it is closed (8l1 §4 rules 1 and 2):
+    /// while it is open the keys go to it, `tab` flips its mode, `enter` searches
+    /// and `esc` closes it and leaves the hits as they were.
+    search: Option<SearchPrompt>,
+    /// The hits marked on the screen now, `None` when nothing is marked (8l1 §4
+    /// rules 3 to 6): a search replaces them, `T` clears them, and `n` and `N` move
+    /// which one is current.
+    hits: Option<Hits>,
     /// The selected CDS's map and residues, `None` with no selection.
     chosen: Option<Chosen>,
 }
@@ -229,6 +246,8 @@ impl ViewState {
             message: None,
             list: None,
             prompt: None,
+            search: None,
+            hits: None,
             chosen: None,
         };
         state.choose();
@@ -251,15 +270,16 @@ impl ViewState {
     /// nothing else does anything (§4 rule 10). While a list is open the keys go
     /// to it instead, and only `ctrl-c` leaves (8k3 §4 rule 3); while the go-to
     /// prompt is open the keys go to it, and again only `ctrl-c` leaves (8k2 §4
-    /// rule 2).
+    /// rule 2); and while the search prompt is open its keys are the prompt's, with
+    /// the same rule for `ctrl-c` and `q` (8l1 §4 rules 1 and 2).
     pub fn handle(&mut self, key: Key) -> Action {
-        // `ctrl-c` quits from anywhere, `q` everywhere but inside an open list or
-        // an open go-to prompt, where every printable key is text first (8k3 §4
-        // rule 3, 8k2 §4 rule 2) — except below `MIN_WIDTH` by `MIN_HEIGHT`, where
-        // the list and the prompt draw nothing and only `q` and `ctrl-c` do
-        // anything at all (8k1 §4 rule 10).
+        // `ctrl-c` quits from anywhere, `q` everywhere but inside an open list, an
+        // open go-to prompt or an open search prompt, where every printable key is
+        // text first (8k3 §4 rule 3, 8k2 §4 rule 2, 8l1 §4 rule 2) — except below
+        // `MIN_WIDTH` by `MIN_HEIGHT`, where the list and the prompts draw nothing
+        // and only `q` and `ctrl-c` do anything at all (8k1 §4 rule 10).
         let tiny: bool = !big_enough(self.width, self.height);
-        let typing: bool = self.list.is_some() || self.prompt.is_some();
+        let typing: bool = self.list.is_some() || self.prompt.is_some() || self.search.is_some();
         if key == Key::CtrlC || (key == Key::Char('q') && (!typing || tiny)) {
             return Action::Quit;
         }
@@ -275,6 +295,12 @@ impl ViewState {
         // that moves the cursor and closes it (8k2 §4 rule 2).
         if self.prompt.is_some() {
             self.prompt_key(key);
+            return Action::Continue;
+        }
+        // While the search prompt is open its keys go to it, and it is `enter`
+        // there that closes it and searches (8l1 §4 rule 2).
+        if self.search.is_some() {
+            self.search_key(key);
             return Action::Continue;
         }
         match key {
@@ -310,11 +336,26 @@ impl ViewState {
             }
             Key::Char('f') => self.open_list(ListKind::Features, ""),
             Key::Char('c') => self.open_list(ListKind::Cdss, ""),
-            // Every other key changes nothing (§4 rule 10), `enter`, `esc` and
-            // `backspace` included: outside a list they have no row to act on.
-            Key::Char(_) | Key::Other | Key::CtrlC | Key::Enter | Key::Esc | Key::Backspace => {
-                return Action::Continue
+            // `/` opens the search prompt with nothing typed (8l1 §4 rule 1); in a
+            // list or at the go-to prompt `/` is text, which those branches handle.
+            Key::Char('/') => {
+                self.search = Some(SearchPrompt::open());
+                return Action::Continue;
             }
+            // `n` and `N` walk the hits shown now (8l1 §4 rule 5); while the search
+            // prompt is open they are text, which the branch above handles.
+            Key::Char('n') => return self.step_hit(true),
+            Key::Char('N') => return self.step_hit(false),
+            // Every other key changes nothing (§4 rule 10), `enter`, `esc`,
+            // `backspace` and `tab` included: outside a list or a prompt they have
+            // no row and no mode to act on.
+            Key::Char(_)
+            | Key::Other
+            | Key::CtrlC
+            | Key::Enter
+            | Key::Esc
+            | Key::Backspace
+            | Key::Tab => return Action::Continue,
         }
         self.follow();
         Action::Continue
@@ -372,6 +413,20 @@ impl ViewState {
     /// `esc` closes it and changes nothing.
     pub fn prompt(&self) -> Option<&str> {
         self.prompt.as_deref()
+    }
+
+    /// The open search prompt, `None` when it is closed (8l1 §4): `/` opens one
+    /// with nothing typed, `enter` closes it and searches, and `esc` closes it and
+    /// leaves the hits as they were.
+    pub fn search(&self) -> Option<&SearchPrompt> {
+        self.search.as_ref()
+    }
+
+    /// The hits marked on the screen now, `None` when nothing is (8l1 §4 rules 3
+    /// and 4): what `super::screen` paints yellow, what the status line counts, and
+    /// what `n` and `N` walk through.
+    pub fn hits(&self) -> Option<&Hits> {
+        self.hits.as_ref()
     }
 
     pub fn record(&self) -> &ViewRecord {
@@ -484,6 +539,19 @@ impl ViewState {
                 _ => format!("go to {text}"),
             };
         }
+        if let Some(prompt) = self.search.as_ref() {
+            return match &self.message {
+                Some(words) => words.clone(),
+                // The mode badge and the text typed, as the prompt's badge has to be
+                // unmistakable (8l1 §4 rule 2, proposal §4). With nothing typed yet
+                // the line says what switches the mode rather than naming an empty
+                // pattern.
+                _ if prompt.text().is_empty() => {
+                    format!("search {}  tab switches", prompt.mode().badge())
+                }
+                _ => format!("search {} {}", prompt.mode().badge(), prompt.text()),
+            };
+        }
         let mut parts: Vec<String> = vec![format!("base {}", self.cursor + 1)];
         if let Some(codon) = self.cursor_codon() {
             let residue: String = match (codon.letter, codon.number) {
@@ -499,6 +567,27 @@ impl ViewState {
         match &self.message {
             Some(words) => parts.push(words.clone()),
             None => {
+                // While hits are marked, the line says which of the shown ones is
+                // current, what core names it by and where it lies — and when core
+                // found more than the view shows, how many there really are (8l1 §4
+                // rule 7, M8-12).
+                if let Some(hits) = self.hits.as_ref() {
+                    let hit: &Hit = hits.current_hit();
+                    parts.push(format!(
+                        "hit {} of {} {} {}",
+                        hits.current() + 1,
+                        hits.shown().len(),
+                        hit.label,
+                        hit.span(self.record.sequence.length())
+                    ));
+                    if hits.total() > hits.shown().len() {
+                        parts.push(format!(
+                            "showing the first {} of {} hits — refine your pattern",
+                            hits.shown().len(),
+                            hits.total()
+                        ));
+                    }
+                }
                 let names: Vec<String> = self.features_at();
                 if !names.is_empty() {
                     parts.push(names.join(" "));
@@ -523,15 +612,22 @@ impl ViewState {
                         .to_string()
                 }
                 ListKind::Cdss => {
-                    "type filter  backspace  up down PgUp PgDn Home End  enter select  esc close"
+                    "type  backspace  up down PgUp PgDn Home End  enter select  esc close"
                         .to_string()
                 }
             },
             None if self.prompt.is_some() => "type  backspace  enter go  esc close".to_string(),
-            None => {
-                "hjkl move  PgUp PgDn Home End  wb codon  t lanes  T circle  f list  c cds  q quit"
-                    .to_string()
+            // The search prompt's keys (8l1 §4 rule 9): `tab` is the one that
+            // switches the badge, and `enter` is what searches.
+            None if self.search.is_some() => {
+                "type  tab mode  backspace  enter search  esc close".to_string()
             }
+            // The row is the screen's width and no more, so at 80 columns the
+            // words are as short as they can be and the keys that name themselves
+            // — `hjkl`, `f`, `c`, `/`, `n N` — go without one; that leaves the room
+            // 8l2's `o` needs (8l1 §4 rule 9).
+            None => "hjkl  PgUp PgDn Home End  wb codon  t lanes  T circle  f c  / n N  q quit"
+                .to_string(),
         }
     }
 
@@ -905,6 +1001,10 @@ impl ViewState {
     fn flip(&mut self) {
         if self.record.topology == TopologySource::Assumed {
             self.circular = !self.circular;
+            // The hits were found on the topology that has just been switched off
+            // and say nothing about the other one (8l1 §4 rule 6). Where the file
+            // states its own topology nothing was switched, and the hits stay.
+            self.hits = None;
         } else {
             self.message = Some("the file states its own topology".to_string());
         }
@@ -1041,7 +1141,7 @@ impl ViewState {
             // `left` and `right` have no rule while a list is open (8k3 §4 rule 3
             // names the keys that move the highlight), so they change nothing — as
             // does any other press, `ctrl-c` having left in `handle`.
-            Key::Left | Key::Right | Key::Other | Key::CtrlC => {}
+            Key::Left | Key::Right | Key::Tab | Key::Other | Key::CtrlC => {}
         }
     }
 
@@ -1175,9 +1275,100 @@ impl ViewState {
             | Key::PageDown
             | Key::Home
             | Key::End
+            | Key::Tab
             | Key::Other
             | Key::CtrlC => {}
         }
+    }
+
+    /// A key pressed while the search prompt is open (8l1 §4 rule 2): every
+    /// printable key is text — `q`, `n` and `/` included, because a pattern is
+    /// typed with those letters — `backspace` shortens the text, `tab` flips the
+    /// mode, `esc` closes the prompt and leaves the hits as they were, and `enter`
+    /// closes it and searches. `ctrl-c` has already left in `handle`, and a press
+    /// with no name here does nothing.
+    fn search_key(&mut self, key: Key) {
+        match key {
+            Key::Char(ch) => {
+                if let Some(prompt) = self.search.as_mut() {
+                    prompt.type_char(ch);
+                }
+            }
+            Key::Backspace => {
+                if let Some(prompt) = self.search.as_mut() {
+                    prompt.backspace();
+                }
+            }
+            Key::Tab => {
+                if let Some(prompt) = self.search.as_mut() {
+                    prompt.press_tab();
+                }
+            }
+            Key::Enter => {
+                // `enter` closes the prompt whatever the text says, so a refusal
+                // leaves the screen showing the record and not a half-typed line —
+                // as it does at go-to (8k2 §4 rule 2).
+                let prompt: SearchPrompt = match self.search.take() {
+                    Some(prompt) => prompt,
+                    None => return,
+                };
+                self.run_search(prompt.mode(), prompt.text());
+            }
+            Key::Esc => self.search = None,
+            Key::Left
+            | Key::Right
+            | Key::Up
+            | Key::Down
+            | Key::PageUp
+            | Key::PageDown
+            | Key::Home
+            | Key::End
+            | Key::Other
+            | Key::CtrlC => {}
+        }
+    }
+
+    /// What `enter` at the search prompt does (8l1 §4 rule 3, plan §5.4): with an
+    /// empty pattern nothing at all changes — the hits and the cursor stay as they
+    /// are and no error is made — and otherwise the answer is core's. A refusal
+    /// carries core's own message; a refusal and finding nothing both clear what was
+    /// marked, and neither moves the cursor.
+    fn run_search(&mut self, mode: SearchMode, text: &str) {
+        if text.is_empty() {
+            return;
+        }
+        let cds: Option<&Cds> = self.selected.and_then(|index| usable(&self.record, index));
+        match search_record(&self.record, cds, self.circular, mode, text, self.cursor) {
+            Outcome::Refused(message) => {
+                self.hits = None;
+                self.message = Some(message);
+            }
+            Outcome::Empty => {
+                self.hits = None;
+                self.message = Some(format!("no hits for {text}"));
+            }
+            Outcome::Found(hits) => {
+                // The current hit is the one the cursor goes to, and the scroll
+                // follows it there (8l1 §4 rule 4).
+                let start: u64 = hits.current_hit().start;
+                self.cursor = start;
+                self.hits = Some(hits);
+                self.follow();
+            }
+        }
+    }
+
+    /// `n` and `N` with no prompt or list open (8l1 §4 rule 5): the current hit
+    /// moves to the next or previous one shown, wrapping inside what is shown, and
+    /// the cursor goes to its start with the scroll following. With nothing marked
+    /// there is nothing to walk to, and nothing moves.
+    fn step_hit(&mut self, forward: bool) -> Action {
+        if let Some(hits) = self.hits.as_mut() {
+            let start: u64 = hits.step(forward).start;
+            self.cursor = start;
+            self.follow();
+        }
+        Action::Continue
     }
 
     /// What one go-to line does, once `super::goto` has said which of its three

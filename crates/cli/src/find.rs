@@ -111,8 +111,10 @@ fn refusal(error: &DomainError) -> FindOutcome {
 }
 
 /// Whether `letter` can be a nucleotide, either case (§4.5). `MKSNNA` holds only
-/// IUPAC letters, so that pattern is DNA and not protein (test 7).
-fn nucleotide_letter(letter: char) -> bool {
+/// IUPAC letters, so that pattern is DNA and not protein (test 7). The view's
+/// search prompt reads the same rule (8l1 §4 rule 2), which is why this is
+/// `pub(crate)` and the mode decision is not written twice.
+pub(crate) fn nucleotide_letter(letter: char) -> bool {
     NUCLEOTIDE_LETTERS.contains(letter.to_ascii_uppercase())
 }
 

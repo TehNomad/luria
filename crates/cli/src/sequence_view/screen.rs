@@ -36,6 +36,7 @@ use crate::sequence_view::state::CursorCodon;
 use crate::sequence_view::state::ViewState;
 use crate::sequence_view::state::GAP;
 use ratatui::layout::Rect;
+use ratatui::style::Color;
 use ratatui::style::Modifier;
 use ratatui::text::Line;
 use ratatui::widgets::Block;
@@ -228,7 +229,8 @@ fn draw_list(frame: &mut Frame, state: &ViewState, body: Rect) {
 }
 
 /// The cursor's cell and the cells of its codon, on the row that carries a
-/// block's bases (§4 rule 12). A base `p` of block `[s, e)` stands at line column
+/// block's bases (§4 rule 12), and the cells of the hits the search marked (8l1 §4
+/// rule 8). A base `p` of block `[s, e)` stands at line column
 /// `gutter + 1 + (p - s)` — `super::layout` puts it there — and the only geometry
 /// done here is moving that line column to the screen by the frame's left border
 /// and the block's place in the body. Only the cells on screen are marked: a
@@ -238,7 +240,9 @@ fn draw_list(frame: &mut Frame, state: &ViewState, body: Rect) {
 /// The cursor is reversed on the base it stands on, never on its complement, and
 /// the whole codon is underlined rather than only the cursor's cell. A cursor
 /// with no selected CDS, and a CDS whose codon the cursor is not in, underline
-/// nothing.
+/// nothing. A hit's cells go yellow behind all of that: every base of every hit
+/// shown, both runs of a hit whose span crosses the origin, and the cursor's
+/// reversal and the codon's underline stay as 8k1 draws them over the yellow.
 fn mark_bases(
     frame: &mut Frame,
     row: u16,
@@ -255,12 +259,20 @@ fn mark_bases(
         Some(pair) => pair,
         None => return,
     };
+    // The hits are marked against the record's length, because a hit whose run
+    // passes the origin covers bases at both ends of the record (D052, 8l1 §4 rule
+    // 8); which of them this block holds is the loop's question.
+    let size: u64 = state.record().sequence.length();
     for position in start..end {
         let underlined: bool = marks
             .codon
             .as_ref()
             .is_some_and(|codon| codon.positions.contains(&position));
-        if !underlined && position != marks.cursor {
+        let marked: bool = match state.hits() {
+            Some(hits) => hits.shown().iter().any(|hit| hit.covers(position, size)),
+            None => false,
+        };
+        if !underlined && !marked && position != marks.cursor {
             continue;
         }
         let column: u16 =
@@ -269,6 +281,12 @@ fn mark_bases(
                 Ok(column) if column < body.right() => column,
                 _ => continue,
             };
+        if marked {
+            // The background goes under the modifiers, which is the other way round
+            // from what a cursor cell looks like: `REVERSED` swaps the cell's own
+            // colours, so a cursor on a hit reads yellow too (8l1 §4 rule 8).
+            frame.buffer_mut()[(column, row)].bg = Color::Yellow;
+        }
         if underlined {
             // The cell's own modifiers are kept: the underline goes on top of
             // whatever `layout` styled the base with, and the cursor's cell
