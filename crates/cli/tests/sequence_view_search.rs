@@ -586,7 +586,9 @@ fn a_wrapping_hit_names_its_last_base() {
 
 /// §7: every shown hit is marked, not only the current one. pBR322 `/RATY`: hits
 /// 1, 2 and 52 of search-dna-hits.tsv start at 58, 89 and 4359, 4 bases each, and
-/// the cursor at 58 draws blocks 0 and 1 — their bases rows are 6 and 13, and a
+/// the cursor at 58 draws blocks 0 and 1 — their bases rows are 8 and 15, two rows
+/// lower than 8k1 drew them because 8l2's overview strip takes the frame's first two
+/// inner rows (8l2 §4 rule 2), and a
 /// base sits at column `1 + 4 + 1 + (base - block start)`. The hit at 4359 wraps
 /// the origin, so its second run, bases 1 and 2, is marked on block 0 as much as
 /// its first run is (D052, 8l1 §4 rule 8); the hit at 58 straddles the two blocks.
@@ -613,12 +615,12 @@ fn every_shown_hit_is_marked() {
     assert_eq!(state.cursor(), 58, "and the cursor goes to the first");
     let mut cells: Vec<(usize, usize)> = [6usize, 7, 64, 65]
         .into_iter()
-        .map(|column| (6, column))
+        .map(|column| (8, column))
         .collect();
     cells.extend(
         [6usize, 7, 35, 36, 37, 38]
             .into_iter()
-            .map(|column| (13, column)),
+            .map(|column| (15, column)),
     );
     assert_eq!(
         yellow(&state),

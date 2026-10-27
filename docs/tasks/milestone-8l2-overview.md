@@ -1,9 +1,28 @@
 # Contract 8l2 — cli: the overview inset (§4.6, §5.1)
 
-Planner: Claude. Status: delegated to `w-8l2` 2026-10-27; runs after 8l1 (D057 order).
-Tier: light (D051): tests assert behaviour, not wording; the hand test (8m)
-may change glyphs and rules. Plan row: **8l2** in
-`docs/tasks/milestone-8-view.md` §7.
+Planner: Claude. Status: **Implemented 2026-10-27** by worker `w-8l2` in two
+rounds, reviewed and accepted. Tier: light (D051): tests assert behaviour,
+not wording; the hand test (8m) may change glyphs and rules. Plan row:
+**8l2** in `docs/tasks/milestone-8-view.md` §7. Findings from review:
+
+* Round 1: tests 1–7 and G1–G7 behaved as §7 says. The planner checked
+  the unit tests' strings by hand with D054, and a planner mutation
+  (bars drawn over instead of skipped) fails tests 5 and 7.
+* §5 rows 5 and 7 were the planner's error: "neither `─` nor a space"
+  cannot hold, because rule 4's label puts a space inside the run. The
+  worker reported it and pinned each whole run string instead.
+* Two defects, found by a planner probe and fixed in round 2. First, `o`
+  could leave the cursor off screen, because it did not call `follow`.
+  Second, picking a CDS under the strip did the same in 463 of 1,869
+  probed cases: `follow` ran while the list was open, and the blocks'
+  rows then left out the strip. The blocks' rows now count the strip
+  whenever it is on. Round 2 added tests 8–9 and G8–G9, and the planner
+  re-ran G2 against the new `block_rows` (test 2 still fails).
+* Choices left open and accepted: screen columns are the buffer's
+  0-based `x`; `overview()` keeps its value under a list, and a prompt
+  keeps the strip drawn; `o` sits before `q quit` on a 76-character key
+  line; a feature with an interval outside the record gets no bar; with
+  no room, `w` is 0.
 
 ## 1. What this contract builds
 

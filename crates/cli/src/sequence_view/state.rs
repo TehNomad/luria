@@ -58,8 +58,8 @@ use ratatui::text::Line;
 
 /// One key press, as `super::terminal` maps it (§4 rule 14, and 8k3 §4 rule 3).
 /// Any press this view has no key for is `Other` and changes nothing (§4 rule
-/// 10; D055 leaves `r`, `space` and `o` unbound, `g` came in 8k2 and `/`, `n`,
-/// `N` and `tab` in 8l1).
+/// 10; D055 leaves `r` and `space` unbound, `g` came in 8k2, `/`, `n`, `N` and
+/// `tab` in 8l1 and `o` in 8l2).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Key {
     /// A printable key, by the character typed.
@@ -113,6 +113,13 @@ pub(super) const GAP: u16 = 1;
 fn body_rows(height: u16) -> usize {
     usize::from(height).saturating_sub(4)
 }
+
+/// The rows the overview strip takes at the top of the frame's inner area (8l2 §4
+/// rule 2): the bars, and the marks under them. `super::screen` draws them there
+/// and `ViewState::block_rows` takes them off the rows a run of blocks has, so the
+/// rows the state measures are the rows the screen fills. While a list is open the
+/// strip is not drawn and the list keeps `body_rows`, exactly as 8k3 gives it.
+pub(super) const OVERVIEW_ROWS: u16 = 2;
 
 /// The width `layout` is given: the frame's border takes one column at each
 /// side (§4 rule 1).
@@ -218,6 +225,11 @@ pub struct ViewState {
     /// rules 3 to 6): a search replaces them, `T` clears them, and `n` and `N` move
     /// which one is current.
     hits: Option<Hits>,
+    /// Whether the overview strip is drawn (8l2 §4 rule 1): the two lines `o` hides
+    /// and shows, on at open when the layout has more than twice as many blocks as
+    /// the body rows hold without them. While a list is open they are not drawn,
+    /// but the flag is kept, so closing the list brings them back.
+    overview: bool,
     /// The selected CDS's map and residues, `None` with no selection.
     chosen: Option<Chosen>,
 }
@@ -248,10 +260,14 @@ impl ViewState {
             prompt: None,
             search: None,
             hits: None,
+            overview: false,
             chosen: None,
         };
         state.choose();
         state.relayout(false);
+        // 8l2 §4 rule 1: the strip opens drawn on a record too long for the body,
+        // measured against the rows a run of blocks has without it.
+        state.overview = state.opens_with_strip();
         state
     }
 
@@ -324,6 +340,17 @@ impl ViewState {
             }
             Key::Char('T') => {
                 self.flip();
+                return Action::Continue;
+            }
+            // `o` hides and shows the strip (8l2 §4 rule 1); inside a list or a
+            // prompt `o` is text, which the branches above handle. Showing it takes
+            // two rows from the blocks, so the scroll follows the cursor as 8k1 §4
+            // rule 6 has it: the cursor's block stays drawn, and the top moves as
+            // little as the rows allow. Hiding it only makes room, so `follow` has
+            // nothing to do.
+            Key::Char('o') => {
+                self.overview = !self.overview;
+                self.follow();
                 return Action::Continue;
             }
             // `f` and `c` open the two lists, with no filter typed (8k3 §4 rule
@@ -448,6 +475,13 @@ impl ViewState {
         self.circular
     }
 
+    /// Whether the overview strip is drawn: the two lines at the top of the frame's
+    /// inner area that `o` hides and shows (8l2 §4 rule 1). While a list is open
+    /// they are not drawn, but this is what `o` left them at.
+    pub fn overview(&self) -> bool {
+        self.overview
+    }
+
     /// The cursor's zero-based base (D006).
     pub fn cursor(&self) -> u64 {
         self.cursor
@@ -470,10 +504,21 @@ impl ViewState {
         if self.top >= blocks.len() {
             return 0..0;
         }
-        let room: usize = body_rows(self.height);
+        self.top..(self.top + self.run_from(self.top, self.block_rows()))
+    }
+
+    /// How many blocks from `top` fit in `room` rows, counted as §4 rule 1 does:
+    /// the first one of the run whatever it costs, and every one after it with the
+    /// gap before it counted. `visible` measures the drawn run this way, and
+    /// `opens_with_strip` counts what the body holds with the strip off.
+    fn run_from(&self, top: usize, room: usize) -> usize {
+        let blocks: &Vec<(u64, u64)> = match self.layout.as_ref() {
+            Some(built) => &built.blocks,
+            None => return 0,
+        };
         let mut rows: usize = 0;
         let mut count: usize = 0;
-        for block in self.top..blocks.len() {
+        for block in top..blocks.len() {
             // The gap between two blocks is counted before the block below it,
             // never after the last one drawn, and the first block of the run is
             // taken whatever it costs, so a block taller than the screen is
@@ -485,7 +530,29 @@ impl ViewState {
             rows += need;
             count += 1;
         }
-        self.top..(self.top + count)
+        count
+    }
+
+    /// The rows a run of blocks has: the body rows, less the overview's two whenever
+    /// `o` has the strip on (8l2 §4 rule 2). `super::screen` fills exactly this many
+    /// rows below the strip. A list is drawn instead of the blocks and takes all of
+    /// `body_rows`, as 8k3 gives it, but this stays measured with the strip: rows
+    /// change while a list is open — `enter` on a CDS and a `resize` both relayout
+    /// under it — and the run chosen then has to be the one the screen will
+    /// draw once the list is gone, so the cursor's block is never left off screen.
+    fn block_rows(&self) -> usize {
+        let strip: usize = usize::from(OVERVIEW_ROWS) * usize::from(self.overview);
+        body_rows(self.height).saturating_sub(strip)
+    }
+
+    /// Whether the strip opens drawn (8l2 §4 rule 1): more than twice as many
+    /// blocks as the body rows hold with the strip's two rows left out. Below
+    /// `MIN_WIDTH` by `MIN_HEIGHT` no layout is built, and there is nothing to say.
+    fn opens_with_strip(&self) -> bool {
+        match self.layout.as_ref() {
+            Some(built) => built.blocks.len() > 2 * self.run_from(0, body_rows(self.height)),
+            None => false,
+        }
     }
 
     /// The line a `T` or a refusal left in the status line, cleared by the next
@@ -624,9 +691,10 @@ impl ViewState {
             }
             // The row is the screen's width and no more, so at 80 columns the
             // words are as short as they can be and the keys that name themselves
-            // — `hjkl`, `f`, `c`, `/`, `n N` — go without one; that leaves the room
-            // 8l2's `o` needs (8l1 §4 rule 9).
-            None => "hjkl  PgUp PgDn Home End  wb codon  t lanes  T circle  f c  / n N  q quit"
+            // — `hjkl`, `f`, `c`, `/`, `n N`, `o` — go without one: `o` and the two
+            // spaces before it are exactly the room 8l1 left (8l1 §4 rule 9, 8l2 §4
+            // rule 6).
+            None => "hjkl  PgUp PgDn Home End  wb codon  t lanes  T circle  f c  / n N  o  q quit"
                 .to_string(),
         }
     }
@@ -1068,7 +1136,7 @@ impl ViewState {
         if block < self.visible().end {
             return;
         }
-        let room: usize = body_rows(self.height);
+        let room: usize = self.block_rows();
         let mut rows: usize = self.line_count(block);
         let mut top: usize = block;
         while top > 0 {

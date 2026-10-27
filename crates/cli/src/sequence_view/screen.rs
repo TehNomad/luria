@@ -24,17 +24,21 @@
 //! blocks, the status line, the keys, the cursor and its codon. While a list is
 //! open — 8k3's `f` and `c` — the same frame, the same status line and the same
 //! key line hold the list's rows instead of the blocks, and nothing is drawn of
-//! the record.
+//! the record. While the overview strip is drawn — 8l2's `o` — its two lines take
+//! the frame's first two inner rows and the blocks have what is left.
 
 use crate::review::view::frame_block;
 use crate::review::view::key_line;
 use crate::review::view::MIN_HEIGHT;
 use crate::review::view::MIN_WIDTH;
+use crate::sequence_view::layout::Layout;
 use crate::sequence_view::layout::LineRole;
 use crate::sequence_view::list::Drawn;
+use crate::sequence_view::overview::overview_lines;
 use crate::sequence_view::state::CursorCodon;
 use crate::sequence_view::state::ViewState;
 use crate::sequence_view::state::GAP;
+use crate::sequence_view::state::OVERVIEW_ROWS;
 use ratatui::layout::Rect;
 use ratatui::style::Color;
 use ratatui::style::Modifier;
@@ -60,15 +64,25 @@ pub fn draw(frame: &mut Frame, state: &ViewState) {
     let inner: Rect = block.inner(screen_area);
     frame.render_widget(block, screen_area);
 
-    // The blocks have the frame's inner rows less the one the status line takes,
-    // which is `height - 4` rows: what `ViewState::visible` measures a run of
-    // blocks against (§4 rule 1).
+    // The overview's two rows, when they are drawn, sit under the top border, and
+    // the blocks have the frame's inner rows less those two and the one the status
+    // line takes, which is `height - 6` rows: what `ViewState::visible` measures a
+    // run of blocks against (8l2 §4 rule 2). While a list is open the strip is not
+    // drawn and the list keeps the `height - 4` rows 8k3 gives it.
+    let rows: u16 = if state.overview() && state.list().is_none() {
+        OVERVIEW_ROWS
+    } else {
+        0
+    };
     let body: Rect = Rect {
         x: inner.x,
-        y: inner.y,
+        y: inner.y + rows,
         width: inner.width,
-        height: inner.height - 1,
+        height: inner.height - 1 - rows,
     };
+    if rows > 0 {
+        draw_overview(frame, state, inner);
+    }
     draw_body(frame, state, body);
 
     frame.render_widget(
@@ -95,6 +109,47 @@ fn too_small(frame: &mut Frame, area: Rect) -> bool {
         return true;
     }
     false
+}
+
+/// The strip's two lines, on the frame's first two inner rows (8l2 §4 rule 2), as
+/// `super::overview` writes them. Nothing is added to them here: the strip is
+/// display only, with no colour, no cursor cell and nothing that jumps (proposal
+/// §2.1). The bases it shades are the first base of the first block
+/// `ViewState::visible` chose through the last base of the last one, and the hits
+/// it dots are the starts of the hits shown now (8l1 §4 rules 3 and 4). Without a
+/// layout there is nothing to say, and the two rows stay blank.
+fn draw_overview(frame: &mut Frame, state: &ViewState, inner: Rect) {
+    let built: &Layout = match state.layout() {
+        Some(built) => built,
+        None => return,
+    };
+    let drawn: std::ops::Range<usize> = state.visible();
+    let shown: (u64, u64) = match (
+        built.blocks.get(drawn.start),
+        drawn
+            .end
+            .checked_sub(1)
+            .and_then(|last| built.blocks.get(last)),
+    ) {
+        // A block's range is half-open (D006), so the last base on screen is one
+        // before the last block's end.
+        (Some((first, _)), Some((_, last))) if *first < *last => (*first, *last - 1),
+        _ => return,
+    };
+    let hits: Vec<u64> = match state.hits() {
+        Some(hits) => hits.shown().iter().map(|hit| hit.start).collect(),
+        None => Vec::new(),
+    };
+    let (bars, marks): (String, String) =
+        overview_lines(state.record(), inner.width, shown, state.cursor(), &hits);
+    frame.render_widget(
+        Paragraph::new(bars),
+        Rect::new(inner.x, inner.y, inner.width, 1),
+    );
+    frame.render_widget(
+        Paragraph::new(marks),
+        Rect::new(inner.x, inner.y + 1, inner.width, 1),
+    );
 }
 
 /// What the drawing marks on a block's bases row: the cursor's base, and the
