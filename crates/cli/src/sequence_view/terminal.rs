@@ -30,12 +30,13 @@ use crossterm::event::KeyModifiers;
 use luria_core::view_record::ViewRecord;
 use ratatui::layout::Size;
 
-/// The key a `crossterm` press is, as the view sees it (contract §4 rule 14): the
+/// The key a `crossterm` press is, as the view sees it (contract §4 rule 14, and
+/// 8k3 §4 rule 3 for `enter`, `esc` and `backspace`): the
 /// same shape as `review::terminal::key_of`. `c` with the control modifier is
 /// `ctrl-c`, which quits from anywhere; a printable key is named by the character
 /// typed, so `T` and `t` are different keys; the named keys are the ones the
 /// plan's list gives; and every other press - a function key, a modifier on its
-/// own, `esc`, a dead key - is `Other` and changes nothing (§4 rule 10, D055's
+/// own, a dead key - is `Other` and changes nothing (§4 rule 10, D055's
 /// "a key with no rule").
 fn key_of(press: KeyEvent) -> Key {
     if press.code == KeyCode::Char('c') && press.modifiers == KeyModifiers::CONTROL {
@@ -51,6 +52,11 @@ fn key_of(press: KeyEvent) -> Key {
         KeyCode::PageDown => Key::PageDown,
         KeyCode::Home => Key::Home,
         KeyCode::End => Key::End,
+        // 8k3's three keys, which an open list uses; outside one they change
+        // nothing, and that rule is `state::handle`'s, not this one.
+        KeyCode::Enter => Key::Enter,
+        KeyCode::Esc => Key::Esc,
+        KeyCode::Backspace => Key::Backspace,
         _ => Key::Other,
     }
 }

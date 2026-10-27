@@ -21,13 +21,17 @@
 //! Below `MIN_WIDTH` by `MIN_HEIGHT` nothing is drawn but the notice on row 0
 //! (§4 rules 1 and 10). There is no second scroll bar, no rule between blocks,
 //! no gutter glyph, no `?` help and no help line: 8k1's screen is the title, the
-//! blocks, the status line, the keys, the cursor and its codon.
+//! blocks, the status line, the keys, the cursor and its codon. While a list is
+//! open — 8k3's `f` and `c` — the same frame, the same status line and the same
+//! key line hold the list's rows instead of the blocks, and nothing is drawn of
+//! the record.
 
 use crate::review::view::frame_block;
 use crate::review::view::key_line;
 use crate::review::view::MIN_HEIGHT;
 use crate::review::view::MIN_WIDTH;
 use crate::sequence_view::layout::LineRole;
+use crate::sequence_view::list::Drawn;
 use crate::sequence_view::state::CursorCodon;
 use crate::sequence_view::state::ViewState;
 use crate::sequence_view::state::GAP;
@@ -64,7 +68,7 @@ pub fn draw(frame: &mut Frame, state: &ViewState) {
         width: inner.width,
         height: inner.height - 1,
     };
-    draw_blocks(frame, state, body);
+    draw_body(frame, state, body);
 
     frame.render_widget(
         Paragraph::new(state.status()),
@@ -98,6 +102,17 @@ fn too_small(frame: &mut Frame, area: Rect) -> bool {
 struct Marks {
     cursor: u64,
     codon: Option<CursorCodon>,
+}
+
+/// What the body holds: the open list's rows, or the record's blocks (8k3 §4
+/// rule 7). A list is drawn in place of the blocks and not over them, so the
+/// cursor and its codon mark nothing while a list is open — the bases they mark
+/// are not on screen.
+fn draw_body(frame: &mut Frame, state: &ViewState, body: Rect) {
+    match state.list() {
+        Some(_list) => draw_list(frame, state, body),
+        None => draw_blocks(frame, state, body),
+    }
 }
 
 /// The run of blocks `ViewState::visible` chose, from its first block, each one
@@ -162,6 +177,53 @@ fn draw_blocks(frame: &mut Frame, state: &ViewState, body: Rect) {
         }
         used += need;
         drawn += 1;
+    }
+}
+
+/// The open list's rows, one per body row from the body's first row down (§4
+/// rule 7): the window `ViewState::list_rows` chose, which always holds the
+/// highlighted row. The highlighted row is REVERSED and a row `enter` would
+/// refuse is DIM, across the cells its text fills; a row can be both, and a row
+/// that is neither is drawn with the screen's default style. Nothing here works
+/// out what a row says or which rows are drawn: `list` gives the text and the
+/// two marks, and `state` gives the window.
+fn draw_list(frame: &mut Frame, state: &ViewState, body: Rect) {
+    let rows: Vec<Drawn> = state.list_rows();
+    for (row, drawn) in rows.iter().enumerate() {
+        let y: u16 = match u16::try_from(row) {
+            // The rows are counted against the body's height already; a row that
+            // would fall past it is not drawn, rather than drawn over the status
+            // line.
+            Ok(y) if body.y + y < body.bottom() => body.y + y,
+            _ => break,
+        };
+        frame.render_widget(
+            Paragraph::new(drawn.text.clone()),
+            Rect {
+                x: body.x,
+                y,
+                width: body.width,
+                height: 1,
+            },
+        );
+        if !drawn.dim && !drawn.highlighted {
+            continue;
+        }
+        let mut modifier: Modifier = Modifier::empty();
+        if drawn.dim {
+            modifier |= Modifier::DIM;
+        }
+        if drawn.highlighted {
+            modifier |= Modifier::REVERSED;
+        }
+        let width: usize = drawn.text.chars().count().min(usize::from(body.width));
+        for column in 0..width {
+            let x: u16 = match u16::try_from(usize::from(body.x) + column) {
+                Ok(x) if x < body.right() => x,
+                _ => break,
+            };
+            frame.buffer_mut()[(x, y)].modifier |= modifier;
+        }
     }
 }
 

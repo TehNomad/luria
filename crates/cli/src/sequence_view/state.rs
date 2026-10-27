@@ -25,6 +25,10 @@ use crate::sequence_view::layout::LaneMode;
 use crate::sequence_view::layout::Layout;
 use crate::sequence_view::layout::LayoutProblem;
 use crate::sequence_view::layout::LineRole;
+use crate::sequence_view::list::refusal_code;
+use crate::sequence_view::list::Drawn;
+use crate::sequence_view::list::List;
+use crate::sequence_view::list::ListKind;
 use luria_core::cds::Cds;
 use luria_core::cds_map::CdsMap;
 use luria_core::cds_map::CodonPlace;
@@ -40,9 +44,9 @@ use luria_core::view_record::TopologySource;
 use luria_core::view_record::ViewRecord;
 use ratatui::text::Line;
 
-/// One key press, as `super::terminal` maps it (§4 rule 14). Any press this
-/// view has no key for is `Other` and changes nothing (§4 rule 10; D055 leaves
-/// `r` and `space` unbound, and `g`, `o`, `f`, `c` and `/` come in 8k2, 8k3 and
+/// One key press, as `super::terminal` maps it (§4 rule 14, and 8k3 §4 rule 3).
+/// Any press this view has no key for is `Other` and changes nothing (§4 rule
+/// 10; D055 leaves `r` and `space` unbound, and `g`, `o` and `/` come in 8k2 and
 /// 8l1).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Key {
@@ -56,6 +60,15 @@ pub enum Key {
     PageDown,
     Home,
     End,
+    /// `enter`, which acts on the highlighted row of an open list (8k3 §4 rule
+    /// 3) and elsewhere changes nothing.
+    Enter,
+    /// `esc`, which closes an open list (8k3 §4 rule 3) and elsewhere changes
+    /// nothing.
+    Esc,
+    /// `backspace`, which shortens an open list's filter (8k3 §4 rule 3) and
+    /// elsewhere changes nothing.
+    Backspace,
     /// `ctrl-c`, which quits from anywhere (§4 rule 10).
     CtrlC,
     /// Any other press.
@@ -174,6 +187,10 @@ pub struct ViewState {
     /// The one line `T` or a refusal leaves in the status line, cleared by the
     /// next key (§4 rule 13).
     message: Option<String>,
+    /// The open feature list or CDS picker, `None` when neither is open (8k3 §4:
+    /// `f` and `c` open one and `esc` closes it; while one is open the keys go to
+    /// it and its rows take the body in place of the blocks).
+    list: Option<List>,
     /// The selected CDS's map and residues, `None` with no selection.
     chosen: Option<Chosen>,
 }
@@ -200,6 +217,7 @@ impl ViewState {
             top: 0,
             layout: None,
             message: None,
+            list: None,
             chosen: None,
         };
         state.choose();
@@ -219,13 +237,23 @@ impl ViewState {
     /// One key press: what it moves, and whether the session goes on (§4 rules
     /// 2 to 10). Whatever the key, the message a previous key left is cleared
     /// here; `q` and `ctrl-c` leave, and below `MIN_WIDTH` by `MIN_HEIGHT`
-    /// nothing else does anything (§4 rule 10).
+    /// nothing else does anything (§4 rule 10). While a list is open the keys go
+    /// to it instead, and only `ctrl-c` leaves (8k3 §4 rule 3).
     pub fn handle(&mut self, key: Key) -> Action {
-        if key == Key::CtrlC || key == Key::Char('q') {
+        // `ctrl-c` quits from anywhere, `q` everywhere but inside an open list,
+        // where every printable key is filter text first (8k3 §4 rule 3) — except
+        // below `MIN_WIDTH` by `MIN_HEIGHT`, where the list draws nothing and only
+        // `q` and `ctrl-c` do anything at all (8k1 §4 rule 10).
+        let tiny: bool = !big_enough(self.width, self.height);
+        if key == Key::CtrlC || (key == Key::Char('q') && (self.list.is_none() || tiny)) {
             return Action::Quit;
         }
         self.message = None;
-        if !big_enough(self.width, self.height) {
+        if tiny {
+            return Action::Continue;
+        }
+        if self.list.is_some() {
+            self.list_key(key);
             return Action::Continue;
         }
         match key {
@@ -251,8 +279,15 @@ impl ViewState {
                 self.flip();
                 return Action::Continue;
             }
-            // Every other key changes nothing (§4 rule 10).
-            Key::Char(_) | Key::Other | Key::CtrlC => return Action::Continue,
+            // `f` and `c` open the two lists, with no filter typed (8k3 §4 rule
+            // 1); the rows they show and the keys that go to them are 8k3's.
+            Key::Char('f') => self.open_list(ListKind::Features, ""),
+            Key::Char('c') => self.open_list(ListKind::Cdss, ""),
+            // Every other key changes nothing (§4 rule 10), `enter`, `esc` and
+            // `backspace` included: outside a list they have no row to act on.
+            Key::Char(_) | Key::Other | Key::CtrlC | Key::Enter | Key::Esc | Key::Backspace => {
+                return Action::Continue
+            }
         }
         self.follow();
         Action::Continue
@@ -284,6 +319,25 @@ impl ViewState {
         self.choose();
         self.relayout(true);
         true
+    }
+
+    /// Open a list over the record with this filter and the first row
+    /// highlighted: `f` the features, `c` the CDSs, and 8k2 calls this with the
+    /// go-to text (8k3 §4). Its rows are every item with an empty filter and the
+    /// ones the shared matcher answers with one (rule 2), and while it is open
+    /// its rows fill the body and its keys are the ones `handle` routes to it
+    /// (rules 3 and 7). Nothing happens below `MIN_WIDTH` by `MIN_HEIGHT`, where
+    /// the view draws nothing at all (§4 rule 10).
+    pub fn open_list(&mut self, kind: ListKind, filter: &str) {
+        if !big_enough(self.width, self.height) {
+            return;
+        }
+        self.list = Some(List::open(&self.record, kind, filter));
+    }
+
+    /// The open list, `None` when no list is (8k3 §4).
+    pub fn list(&self) -> Option<&List> {
+        self.list.as_ref()
     }
 
     pub fn record(&self) -> &ViewRecord {
@@ -373,8 +427,18 @@ impl ViewState {
     /// The status line's text (§4 rule 13): the 1-based base the cursor stands
     /// on, the codon and its residue when that base lies in one of the selected
     /// CDS's codons, and the names of the drawn features that hold it — or the
-    /// message, when one is set.
+    /// message, when one is set. While a list is open its filter is what the line
+    /// says, and a refusal replaces it (8k3 §4 rule 7).
     pub(super) fn status(&self) -> String {
+        if let Some(list) = self.list.as_ref() {
+            return match &self.message {
+                Some(words) => words.clone(),
+                // A filter typed is shown as typed; with none, the line says what
+                // is listed instead of leaving the line blank.
+                _ if list.filter().is_empty() => format!("{} rows", list.rows().len()),
+                _ => format!("filter {}", list.filter()),
+            };
+        }
         let mut parts: Vec<String> = vec![format!("base {}", self.cursor + 1)];
         if let Some(codon) = self.cursor_codon() {
             let residue: String = match (codon.letter, codon.number) {
@@ -401,9 +465,27 @@ impl ViewState {
 
     /// The key line's text, row `height - 1` (§4 rule 1): every key this
     /// contract binds and no other, so the line never offers a key that does
-    /// nothing (8h adds the keys it dispatches).
+    /// nothing (8h adds the keys it dispatches). While a list is open, the keys
+    /// are its own (8k3 §4 rule 7). The words are short because the line has the
+    /// screen's width and no more, and at `MIN_WIDTH` by `MIN_HEIGHT` that is 80
+    /// columns.
     pub(super) fn keys(&self) -> String {
-        "h j k l move  PgUp PgDn Home End  w b codon  t translation  T topology  q quit".to_string()
+        match self.list.as_ref() {
+            Some(list) => match list.kind() {
+                ListKind::Features => {
+                    "type filter  backspace  up down PgUp PgDn Home End  enter go  esc close"
+                        .to_string()
+                }
+                ListKind::Cdss => {
+                    "type filter  backspace  up down PgUp PgDn Home End  enter select  esc close"
+                        .to_string()
+                }
+            },
+            None => {
+                "hjkl move  PgUp PgDn Home End  wb codon  t lanes  T circle  f list  c cds  q quit"
+                    .to_string()
+            }
+        }
     }
 
     /// One block's lines as `layout` gives them, with the cursor and the codon's
@@ -413,6 +495,19 @@ impl ViewState {
         match self.layout.as_ref() {
             Some(built) => block_lines(&self.record, built, &self.mode, block).unwrap_or_default(),
             None => Vec::new(),
+        }
+    }
+
+    /// The rows of the open list that `super::screen` draws in the body: the
+    /// window holding the highlight, one entry per body row it fills, each with
+    /// its text and its two marks (8k3 §4 rules 6 and 7). Empty when no list is
+    /// open, when it has no rows, or below `MIN_WIDTH` by `MIN_HEIGHT`.
+    pub(super) fn list_rows(&self) -> Vec<Drawn> {
+        match self.list.as_ref() {
+            Some(list) if big_enough(self.width, self.height) => {
+                list.drawn(&self.record, body_rows(self.height))
+            }
+            _ => Vec::new(),
         }
     }
 
@@ -838,6 +933,163 @@ impl ViewState {
             top -= 1;
         }
         self.top = top;
+    }
+
+    /// A key pressed while a list is open (8k3 §4 rule 3): every printable key is
+    /// filter text, `q` and `h` to `l` included, because a filter is typed with
+    /// the letters the record's names use; `backspace` shortens it; `up` `down`
+    /// `pageup` `pagedown` `home` `end` move the highlight; `esc` closes the list
+    /// and changes nothing else; `enter` acts on the highlighted row. `ctrl-c`
+    /// has already left in `handle`, and a press with no name here does nothing.
+    fn list_key(&mut self, key: Key) {
+        match key {
+            Key::Char(ch) => {
+                if let Some(list) = self.list.as_mut() {
+                    list.type_char(&self.record, ch);
+                }
+            }
+            Key::Backspace => {
+                if let Some(list) = self.list.as_mut() {
+                    list.backspace(&self.record);
+                }
+            }
+            Key::Up => {
+                if let Some(list) = self.list.as_mut() {
+                    list.step_row(-1);
+                }
+            }
+            Key::Down => {
+                if let Some(list) = self.list.as_mut() {
+                    list.step_row(1);
+                }
+            }
+            // The page is the body the list draws in, the same number of rows
+            // `visible` measures a run of blocks against (§4 rule 1).
+            Key::PageUp => {
+                let page: usize = body_rows(self.height);
+                if let Some(list) = self.list.as_mut() {
+                    list.page_row(page, -1);
+                }
+            }
+            Key::PageDown => {
+                let page: usize = body_rows(self.height);
+                if let Some(list) = self.list.as_mut() {
+                    list.page_row(page, 1);
+                }
+            }
+            Key::Home => {
+                if let Some(list) = self.list.as_mut() {
+                    list.go_first();
+                }
+            }
+            Key::End => {
+                if let Some(list) = self.list.as_mut() {
+                    list.go_last();
+                }
+            }
+            Key::Enter => self.act_on_row(),
+            // `esc` closes: what was typed in the filter and what was highlighted
+            // leave with the list, and no cursor, selection or scroll moves.
+            Key::Esc => self.list = None,
+            // `left` and `right` have no rule while a list is open (8k3 §4 rule 3
+            // names the keys that move the highlight), so they change nothing — as
+            // does any other press, `ctrl-c` having left in `handle`.
+            Key::Left | Key::Right | Key::Other | Key::CtrlC => {}
+        }
+    }
+
+    /// `enter` on the highlighted row (8k3 §4 rules 4 and 5). With no highlight —
+    /// a filter that named nothing — there is no row to act on.
+    fn act_on_row(&mut self) {
+        let found: Option<(ListKind, usize)> = match self.list.as_ref() {
+            Some(list) => list.item().map(|item| (list.kind(), item)),
+            None => None,
+        };
+        match found {
+            Some((ListKind::Features, feature)) => self.enter_feature(feature),
+            Some((ListKind::Cdss, cds)) => self.enter_cds(cds),
+            None => {}
+        }
+    }
+
+    /// `enter` on a feature row (8k3 §4 rule 4). A feature the display parser
+    /// refuses keeps the cursor where it is, keeps the list open, and leaves the
+    /// refusal's code in the status line (plan §4.1, D053). A feature whose start
+    /// is not stated — a `<` on its first interval — cannot be jumped to either,
+    /// because there is no first base to stand on (plan §5.3). Otherwise the
+    /// cursor goes to the first base of the first interval in D036 order,
+    /// zero-based as everything inside the program is (D006, D036), the list
+    /// closes and the scroll follows (8k1 §4 rule 6). When the feature is a CDS's
+    /// feature, a usable CDS is selected with it (M8-11) and an unusable one is
+    /// not, with the code that refuses it shown beside the jump (D042, D052).
+    fn enter_feature(&mut self, index: usize) {
+        // The record is read here and nowhere else in this move: what it says is
+        // taken out before the cursor, the selection and the scroll change.
+        let (target, refusal): (Option<u64>, Option<String>) = match self.record.features.get(index)
+        {
+            Some(feature) => match &feature.shape {
+                FeatureShape::NotDrawn(error) => (None, Some(refusal_code(error))),
+                FeatureShape::Drawn(shape) if shape.open_before.is_some() => {
+                    (None, Some("the start is not stated".to_string()))
+                }
+                FeatureShape::Drawn(shape) => match shape.location.intervals().first() {
+                    Some((first, _last)) => (Some(*first), None),
+                    // A drawn shape with no interval has no base to stand on;
+                    // the line says so rather than inventing one.
+                    None => (None, Some("the start is not stated".to_string())),
+                },
+            },
+            None => return,
+        };
+        // A `GTG` start, a missing id: the feature is jumped to and its CDS is not
+        // selected, and the reason is the code core gave (D042, D052).
+        let cds: Option<usize> = self
+            .record
+            .cdss
+            .iter()
+            .position(|view| view.feature == index);
+        let code: Option<String> = match cds.and_then(|which| self.record.cdss.get(which)) {
+            Some(view) => match &view.status {
+                CdsStatus::Usable(_found) => None,
+                CdsStatus::Unusable(error) => Some(refusal_code(error)),
+            },
+            None => None,
+        };
+
+        let base: u64 = match target {
+            Some(base) => base,
+            None => {
+                self.message = refusal;
+                return;
+            }
+        };
+        self.cursor = base;
+        if let Some(which) = cds {
+            // Only a usable CDS is ever selected, and `select_cds` is the one rule
+            // that says which those are (D041, M8-11).
+            self.select_cds(Some(which));
+        }
+        self.message = code;
+        self.list = None;
+        self.follow();
+    }
+
+    /// `enter` on a CDS row (8k3 §4 rule 5): a usable CDS is selected and the list
+    /// closes, and the cursor does not move — the picker chooses what is
+    /// translated, not where the cursor stands. An unusable one selects nothing,
+    /// keeps the list open, and leaves its code in the status line (D042, D052).
+    fn enter_cds(&mut self, index: usize) {
+        let status: Option<&CdsStatus> = self.record.cdss.get(index).map(|view| &view.status);
+        match status {
+            Some(CdsStatus::Usable(_found)) => {}
+            Some(CdsStatus::Unusable(error)) => {
+                self.message = Some(refusal_code(error));
+                return;
+            }
+            None => return,
+        }
+        self.select_cds(Some(index));
+        self.list = None;
     }
 }
 

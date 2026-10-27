@@ -1,9 +1,26 @@
 # Contract 8k3 — cli: the feature list and the CDS picker (§5.2, M8-5)
 
-Planner: Claude. Status: delegated to `w-8k3` 2026-10-26; runs after 8h (D057 order).
-Tier: light (D051): tests assert behaviour, not wording; the hand test (8m)
-may change keys and sentences. Plan row: **8k3** in
-`docs/tasks/milestone-8-view.md` §7. Go-to (8k2) opens this list filtered.
+Planner: Claude. Status: **Implemented 2026-10-26** by worker `w-8k3` in two
+rounds, reviewed and accepted. Tier: light (D051): tests assert behaviour,
+not wording; the hand test (8m) may change keys and sentences. Plan row:
+**8k3** in `docs/tasks/milestone-8-view.md` §7. Go-to (8k2) opens this list
+filtered. Findings from review:
+
+* Round 1: tests 1–8 and G1–G7 behaved as §7 says; the worker added six
+  `list.rs` unit tests, one of which pins the CDS ids in `feature_names`.
+* One defect: with a list open, `q` stopped quitting under 8k1's size
+  notice (8k1 rule 10). Round 2 fixed it (test 12, G11).
+* The planner ran eight mutations; three survived, gaps in this table: the
+  highlight not resetting when the rows change, wrapping at the ends, and
+  the status line not showing the filter. Round 2 added tests 9–11 with
+  G8–G10; all are now caught.
+* Choices left open and accepted: an empty filter's status line says
+  `{n} rows`; the list window is stateless (it starts at 0 and ends at the
+  highlight once the highlight passes the first screen, so moving up from
+  the bottom scrolls at once); `Left`/`Right` do nothing in a list; a
+  feature whose CDS is unusable is not `DIM` in the feature list, because
+  `enter` still jumps to it; the open-start message is `the start is not
+  stated`. The key line was shortened to fit 80 columns.
 
 ## 1. What this contract builds
 
@@ -124,6 +141,10 @@ Values were derived by the planner from the files and those tables.
 | 6 | `the_list_is_drawn_in_the_body` | `pbr`, `c`: row 1 contains `tet` and `86..1276`; row 2 contains `ROP protein` and `no_id`; row 3 contains `bla` and `3293..4153`. The cell under the `t` of `tet` is `REVERSED`; the cell under the `R` of `ROP` is `DIM` and not `REVERSED`. No row shows a base letter run (the blocks are not drawn) |
 | 7 | `keys_go_to_the_open_list` | `pbr`, `f`: `j` → filter `j`, cursor 0; `q` → `Continue`, filter `jq`; `CtrlC` → `Quit` |
 | 8 | `the_highlight_stays_on_screen` | `pbr`, `f`, `End` → `at() == Some(49)`, and the `REVERSED` row on screen contains `4331..4334`. `Home`, `PageDown` → `at() == Some(20)`, the `REVERSED` row contains `1891..1892` |
+| 9 | `the_highlight_resets_when_the_rows_change` | round 2. `pbr`, `f`, `Down`, `Down` → `at() == Some(2)`; type `bla` → `Some(0)` |
+| 10 | `the_highlight_stops_at_the_ends` | round 2. `pbr`, `f`, `Up` → `Some(0)`; `End`, `Down` → `Some(49)` |
+| 11 | `the_status_line_shows_the_filter` | round 2. `pbr`, `f`, type `tet` → the status row contains `tet` |
+| 12 | `q_quits_under_the_size_notice` | round 2. `pbr`, `f`, `resize(79, 24)`, `q` → `Quit` |
 
 ## 6. Checks
 
@@ -141,6 +162,10 @@ and `--test sequence_view` (8k1's 15 still pass).
 | G5 | `q` quits while a list is open | 7 |
 | G6 | The list is drawn from row 0 of `rows` whatever the highlight | 8 |
 | G7 | Unusable rows not `DIM` | 6 |
+| G8 | The highlight kept when the rows change, round 2 | 9 |
+| G9 | The highlight wraps at the ends, round 2 | 10 |
+| G10 | The status line without the filter, round 2 | 11 |
+| G11 | `q` never quits while a list is open, round 2 | 12 |
 
 ## 8. Do not
 
