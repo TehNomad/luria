@@ -391,7 +391,7 @@ written.
 
 ### 5.3 Go-to
 
-`g` opens a prompt. A number goes to that base; `D404` or `404` goes to
+`g` opens a prompt. A number goes to that base (D057); `D404` goes to
 the codon of residue 404 in the selected CDS, and a residue letter that
 doesn't match the translation is refused with the actual residue
 (`residue 404 is V, not D`); any other text is a feature name, matched
@@ -666,8 +666,8 @@ shares, and **8i2** (cli) is `luria find` with its dispatch arm, the byte
 ceiling (`MAX_RECORD_BYTES` = 64 MiB) and the file reader the view will share.
 They run first. **8h** (opening a bare file: the terminal check, the `.json`
 refusal, "did you mean") runs just after 8k1, when there is a view to open.
-Contracts run one at a time, so the order is 8i1, 8i2, 8j, 8k1, 8h, 8k2, 8k3,
-8l1, 8l2. **8b3** (CDS import without per-CDS copies, owner 2026-10-26) was
+Contracts run one at a time, so the order is 8i1, 8i2, 8j, 8k1, 8h, 8k3, 8k2,
+8l1, 8l2 (D057 put the feature list before go-to). **8b3** (CDS import without per-CDS copies, owner 2026-10-26) was
 added after 8b2.
 
 8k as a single contract bundles five user-visible features — state,
