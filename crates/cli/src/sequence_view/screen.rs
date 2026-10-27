@@ -39,6 +39,7 @@ use crate::sequence_view::state::CursorCodon;
 use crate::sequence_view::state::ViewState;
 use crate::sequence_view::state::GAP;
 use crate::sequence_view::state::OVERVIEW_ROWS;
+use luria_core::search::HitStrand;
 use ratatui::layout::Rect;
 use ratatui::style::Color;
 use ratatui::style::Modifier;
@@ -160,6 +161,16 @@ struct Marks {
     codon: Option<CursorCodon>,
 }
 
+/// The rows one block holds its bases on, as screen rows: `top` the row of the
+/// bases themselves, and `bottom` the row of their complements — `None` when a
+/// block's lines hold no bottom strand (M8-24). Both are found by role in the
+/// block's lines, because `layout` decides the order of those lines, not the
+/// drawing.
+struct Rows {
+    top: u16,
+    bottom: Option<u16>,
+}
+
 /// What the body holds: the open list's rows, or the record's blocks (8k3 §4
 /// rule 7). A list is drawn in place of the blocks and not over them, so the
 /// cursor and its codon mark nothing while a list is open — the bases they mark
@@ -220,16 +231,32 @@ fn draw_blocks(frame: &mut Frame, state: &ViewState, body: Rect) {
                 height,
             },
         );
-        // The row the block's bases stand on, wherever in the block that row
-        // falls: `layout` decides the order of a block's lines, and the drawing
-        // follows it rather than assuming the bases come first.
-        if let Some(top) = lines
+        // The row the block's bases stand on, and the row their complements
+        // stand on, wherever in the block those rows fall: `layout` decides the
+        // order of a block's lines, and the drawing follows it rather than
+        // assuming the bases come first. A hit is marked on the row its own
+        // strand names (M8-24), so the bottom row is found the same way the top
+        // row is, by its role.
+        let top: Option<u16> = lines
             .iter()
             .position(|(role, _line)| *role == LineRole::Top)
-        {
-            if let Ok(top) = u16::try_from(top) {
-                mark_bases(frame, y + top, body, gutter, block, state, &marks);
-            }
+            .and_then(|at| u16::try_from(at).ok())
+            .map(|at| y + at);
+        let bottom: Option<u16> = lines
+            .iter()
+            .position(|(role, _line)| *role == LineRole::Bottom)
+            .and_then(|at| u16::try_from(at).ok())
+            .map(|at| y + at);
+        if let Some(top) = top {
+            mark_bases(
+                frame,
+                Rows { top, bottom },
+                body,
+                gutter,
+                block,
+                state,
+                &marks,
+            );
         }
         used += need;
         drawn += 1;
@@ -284,8 +311,9 @@ fn draw_list(frame: &mut Frame, state: &ViewState, body: Rect) {
 }
 
 /// The cursor's cell and the cells of its codon, on the row that carries a
-/// block's bases (§4 rule 12), and the cells of the hits the search marked (8l1 §4
-/// rule 8). A base `p` of block `[s, e)` stands at line column
+/// block's bases (§4 rule 12), the cells of the hits the search marked (8l1 §4
+/// rule 8, M8-24), and the same on the row of a block's complements. A base `p`
+/// of block `[s, e)` stands at line column
 /// `gutter + 1 + (p - s)` — `super::layout` puts it there — and the only geometry
 /// done here is moving that line column to the screen by the frame's left border
 /// and the block's place in the body. Only the cells on screen are marked: a
@@ -298,9 +326,14 @@ fn draw_list(frame: &mut Frame, state: &ViewState, body: Rect) {
 /// nothing. A hit's cells go yellow behind all of that: every base of every hit
 /// shown, both runs of a hit whose span crosses the origin, and the cursor's
 /// reversal and the codon's underline stay as 8k1 draws them over the yellow.
+///
+/// Which row a hit's yellow goes on is the hit's strand, and `rows` holds those
+/// rows: the top row for a `Plus` or `Both` hit, the bottom row for a `Minus` or
+/// `Both` one (M8-24). A hit of either strand goes nowhere on a block that has no
+/// bottom row; every block `layout` draws has one.
 fn mark_bases(
     frame: &mut Frame,
-    row: u16,
+    rows: Rows,
     body: Rect,
     gutter: u16,
     block: usize,
@@ -323,11 +356,25 @@ fn mark_bases(
             .codon
             .as_ref()
             .is_some_and(|codon| codon.positions.contains(&position));
-        let marked: bool = match state.hits() {
-            Some(hits) => hits.shown().iter().any(|hit| hit.covers(position, size)),
-            None => false,
+        let (top_mark, bottom_mark): (bool, bool) = match state.hits() {
+            // A covered base is marked on the row the hit was found on, and on
+            // both rows of a `Both` hit (M8-24).
+            Some(hits) => hits
+                .shown()
+                .iter()
+                .fold((false, false), |(top_row, bottom_row), hit| {
+                    if !hit.covers(position, size) {
+                        return (top_row, bottom_row);
+                    }
+                    match hit.strand {
+                        HitStrand::Plus => (true, bottom_row),
+                        HitStrand::Minus => (top_row, true),
+                        HitStrand::Both => (true, true),
+                    }
+                }),
+            None => (false, false),
         };
-        if !underlined && !marked && position != marks.cursor {
+        if !underlined && !top_mark && !bottom_mark && position != marks.cursor {
             continue;
         }
         let column: u16 =
@@ -336,20 +383,23 @@ fn mark_bases(
                 Ok(column) if column < body.right() => column,
                 _ => continue,
             };
-        if marked {
+        if top_mark {
             // The background goes under the modifiers, which is the other way round
             // from what a cursor cell looks like: `REVERSED` swaps the cell's own
             // colours, so a cursor on a hit reads yellow too (8l1 §4 rule 8).
-            frame.buffer_mut()[(column, row)].bg = Color::Yellow;
+            frame.buffer_mut()[(column, rows.top)].bg = Color::Yellow;
+        }
+        if let (true, Some(bottom)) = (bottom_mark, rows.bottom) {
+            frame.buffer_mut()[(column, bottom)].bg = Color::Yellow;
         }
         if underlined {
             // The cell's own modifiers are kept: the underline goes on top of
             // whatever `layout` styled the base with, and the cursor's cell
             // carries both marks (§4 rule 12).
-            frame.buffer_mut()[(column, row)].modifier |= Modifier::UNDERLINED;
+            frame.buffer_mut()[(column, rows.top)].modifier |= Modifier::UNDERLINED;
         }
         if position == marks.cursor {
-            frame.buffer_mut()[(column, row)].modifier |= Modifier::REVERSED;
+            frame.buffer_mut()[(column, rows.top)].modifier |= Modifier::REVERSED;
         }
     }
 }

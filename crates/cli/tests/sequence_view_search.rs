@@ -197,18 +197,6 @@ fn yellow(state: &ViewState) -> Vec<(usize, usize)> {
     found
 }
 
-/// The columns of the yellow cells, all of which have to sit on one row: the
-/// bases row of the block they belong to.
-fn yellow_columns(state: &ViewState) -> Vec<usize> {
-    let cells: Vec<(usize, usize)> = yellow(state);
-    let row: usize = cells.first().expect("at least one cell is marked").0;
-    assert!(
-        cells.iter().all(|(cell_row, _column)| *cell_row == row),
-        "the marks sit on the one row that carries the bases: {cells:?}"
-    );
-    cells.iter().map(|(_row, column)| *column).collect()
-}
-
 /// §5.1: `/` opens an empty DNA prompt; `esc` closes it and leaves nothing marked,
 /// and nothing opens below 80 × 24 or inside another prompt.
 #[test]
@@ -376,6 +364,14 @@ fn the_first_hit_at_or_after_the_cursor() {
 /// only what the screen draws gets cells. pBR322's EcoRI site sits at 4358, 6
 /// bases, wrapping (search-dna-hits.tsv); the block on top starts at 4320 with a
 /// gutter 4 wide, so its bases run from column `1 + 4 + 1 + (4358 - 4320)`.
+///
+/// The site is a palindrome — `GAATTC` reads the same along either strand — so
+/// search-dna-hits.tsv gives its one row the strand `both`, and the mark goes on
+/// the row of the bases and the row of the complements (M8-24). Those two rows
+/// sit next to each other, because every layout puts the bottom strand right
+/// after the top one (`layout.rs:628-629`), but their numbers are read off the
+/// cells rather than fixed: the scroll puts that block wherever the record's end
+/// lands.
 #[test]
 fn a_hit_across_the_origin_is_marked() {
     let mut state: ViewState = ViewState::new(pbr(), W, H);
@@ -383,22 +379,37 @@ fn a_hit_across_the_origin_is_marked() {
     search(&mut state, "GAATTC");
     assert_eq!(state.cursor(), 4358, "the one hit of one row");
     assert_eq!(hits(&state).shown()[0].length, 6);
-    let columns: Vec<usize> = yellow_columns(&state);
+    let cells: Vec<(usize, usize)> = yellow(&state);
+    // The lowest marked row of this block, and the row just under it: the two
+    // rows the site's columns sit on.
+    let first: usize = cells
+        .iter()
+        .map(|(row, _column)| *row)
+        .min()
+        .expect("some cell is marked");
+    let expected: Vec<(usize, usize)> = [first, first + 1]
+        .into_iter()
+        .flat_map(|row| [44usize, 45, 46].map(move |column| (row, column)))
+        .collect();
     assert_eq!(
-        columns,
-        vec![44, 45, 46],
-        "the three bases this block holds; the other three sit in block 0, which \
-         the scroll left off screen"
+        cells, expected,
+        "the three bases this block holds, on the row that carries the bases and \
+         the row of the complements below it; the other three sit in block 0, \
+         which the scroll left off screen"
     );
 
     // The same hit seen from the other end of the record: block 0 is drawn now and
     // carries the run the site wrapped on to (8l1 §4 rule 8, D052).
     state.handle(Key::Home);
-    let columns: Vec<usize> = yellow_columns(&state);
+    let cells: Vec<(usize, usize)> = yellow(&state);
+    let expected: Vec<(usize, usize)> = [8usize, 9]
+        .into_iter()
+        .flat_map(|row| [6usize, 7, 8].map(move |column| (row, column)))
+        .collect();
     assert_eq!(
-        columns,
-        vec![6, 7, 8],
-        "the wrapped run, at gutter 4 from block 0's first base"
+        cells, expected,
+        "the wrapped run, at gutter 4 from block 0's first base, on that block's \
+         top row 8 and its bottom row 9"
     );
 }
 
@@ -584,10 +595,15 @@ fn a_wrapping_hit_names_its_last_base() {
     );
 }
 
-/// §7: every shown hit is marked, not only the current one. pBR322 `/RATY`: hits
-/// 1, 2 and 52 of search-dna-hits.tsv start at 58, 89 and 4359, 4 bases each, and
-/// the cursor at 58 draws blocks 0 and 1 — their bases rows are 8 and 15, two rows
-/// lower than 8k1 drew them because 8l2's overview strip takes the frame's first two
+/// §7: every shown hit is marked, not only the current one, and on the row of
+/// each strand it was found on. pBR322 `/RATY`: hits 1, 2 and 52 of
+/// search-dna-hits.tsv start at 58, 89 and 4359, 4 bases each, and all 52 rows of
+/// that pattern are strand `both` — `R` and `A` and `T` and `Y` match the same
+/// bases from either side — so every run marks its columns twice, once on its
+/// block's top row and once on its bottom row (M8-24). The cursor at 58 draws
+/// blocks 0 and 1 — their bases rows are 8 and 15 for the top strand and 9 and 16
+/// for the bottom, two rows lower than 8k1 drew them because 8l2's overview strip
+/// takes the frame's first two
 /// inner rows (8l2 §4 rule 2), and a
 /// base sits at column `1 + 4 + 1 + (base - block start)`. The hit at 4359 wraps
 /// the origin, so its second run, bases 1 and 2, is marked on block 0 as much as
@@ -613,19 +629,21 @@ fn every_shown_hit_is_marked() {
         "and the last wraps the origin"
     );
     assert_eq!(state.cursor(), 58, "and the cursor goes to the first");
-    let mut cells: Vec<(usize, usize)> = [6usize, 7, 64, 65]
-        .into_iter()
-        .map(|column| (8, column))
-        .collect();
-    cells.extend(
-        [6usize, 7, 35, 36, 37, 38]
-            .into_iter()
-            .map(|column| (15, column)),
-    );
+    let mut cells: Vec<(usize, usize)> = Vec::new();
+    for row in [8usize, 9] {
+        cells.extend([6usize, 7, 64, 65].into_iter().map(|column| (row, column)));
+    }
+    for row in [15usize, 16] {
+        cells.extend(
+            [6usize, 7, 35, 36, 37, 38]
+                .into_iter()
+                .map(|column| (row, column)),
+        );
+    }
     assert_eq!(
         yellow(&state),
         cells,
-        "10 cells: 2 and 2 on block 0's row (the 58 hit's tail of it, and the 4359 hit's wrapped run), 2 and 4 on block 1's"
+        "20 cells: the 10 cells 8l1 marked, each of them again on the complements' row below it, because every RATY hit is `both` (M8-24)"
     );
 }
 

@@ -1,8 +1,20 @@
 # Contract 8m2 — cli: a hit is marked on its strand (M8-24)
 
-Planner: Claude. Status: delegated to `w-8m2` 2026-10-27. Tier: light
-(D051): tests assert behaviour, not wording. Owner's answer:
-`docs/tasks/milestone-8m-polish.md` §1, M8-24.
+Planner: Claude. Status: **Implemented 2026-10-27** by worker `w-8m2` in two
+rounds, reviewed and accepted. Tier: light (D051): tests assert behaviour,
+not wording. Owner's answer: `docs/tasks/milestone-8m-polish.md` §1, M8-24.
+Findings from review:
+
+* Round 1: tests 1–3 and G1–G4 behaved as §7 says. The worker stopped on
+  a conflict the planner's §8 missed: `a_hit_across_the_origin_is_marked`
+  searches `GAATTC`, a `both` hit, and its helper required every mark on
+  one row. In round 2 that test expects columns 44–46 on two adjacent rows
+  and 6–8 on rows 8–9, and the helper went, as nothing else used it.
+  Under G1 the rewritten test also fails, so the palindrome rule is guarded
+  twice.
+* Choices accepted: a private `Rows { top, bottom }` keeps `mark_bases`
+  under clippy's argument limit, and a block with no bottom row marks
+  nothing there (`layout` always draws one).
 
 ## 1. What this contract builds
 

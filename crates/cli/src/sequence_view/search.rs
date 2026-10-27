@@ -21,9 +21,11 @@ use luria_core::protein_search::find_protein;
 use luria_core::protein_search::ProteinHit;
 use luria_core::protein_search::ProteinTarget;
 use luria_core::search::find_dna;
+use luria_core::search::HitStrand;
 use luria_core::sequence::normalize;
 use luria_core::sequence::Sequence;
 use luria_core::sequence::SequenceTopology;
+use luria_core::strand::Strand;
 use luria_core::view_record::TopologySource;
 use luria_core::view_record::ViewRecord;
 
@@ -137,13 +139,17 @@ impl SearchPrompt {
 }
 
 /// One hit as the view keeps it: where its run of bases starts, how many bases it
-/// covers, and what the status line names it by — the strand symbol for DNA, the
-/// frame in six frames, the residue numbers in a CDS (§4 rule 4).
+/// covers, what the status line names it by — the strand symbol for DNA, the
+/// frame in six frames, the residue numbers in a CDS (§4 rule 4), and which
+/// strand the hit was found on, which says which row's bases go yellow (M8-24).
+/// A DNA hit keeps core's `HitStrand` as it is; a protein hit has no `Both`,
+/// because a pattern is read on the one strand its CDS or frame sits on.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Hit {
     pub start: u64,
     pub length: u64,
     pub label: String,
+    pub strand: HitStrand,
 }
 
 impl Hit {
@@ -278,6 +284,7 @@ pub(crate) fn search_record(
                     start: row.start,
                     length: row.length,
                     label: row.strand.symbol(),
+                    strand: row.strand,
                 })
                 .collect(),
             Err(error) => return Outcome::Refused(error.message()),
@@ -294,6 +301,7 @@ pub(crate) fn search_record(
                         start: row.start,
                         length: row.length,
                         label: protein_label(row),
+                        strand: protein_strand(&row.strand),
                     })
                     .collect(),
                 Err(error) => return Outcome::Refused(error.message()),
@@ -321,6 +329,16 @@ pub(crate) fn search_record(
     })
 }
 
+/// The strand a protein hit's bases are marked on (M8-24): the strand its target
+/// — the selected CDS, or the frame it was read in — lies on. `Strand` has no
+/// third state, so a protein hit is never `Both`.
+fn protein_strand(strand: &Strand) -> HitStrand {
+    match strand {
+        Strand::Plus => HitStrand::Plus,
+        Strand::Minus => HitStrand::Minus,
+    }
+}
+
 /// What a protein hit is named by (§4 rule 4): the frame it was read in — `+2` —
 /// in six-frame mode, and in a CDS the numbers of its first and last residue. The
 /// terminal stop codon has no residue number (D010, D054), so a CDS hit ending on
@@ -343,6 +361,7 @@ fn protein_label(hit: &ProteinHit) -> String {
 mod tests {
     use super::auto_mode;
     use super::Hit;
+    use super::HitStrand;
     use super::SearchMode;
 
     /// §4 rule 2 and plan §5.4: `Aa` only once a character that cannot be a
@@ -370,11 +389,13 @@ mod tests {
             start: 4358,
             length: 6,
             label: "both".to_string(),
+            strand: HitStrand::Both,
         };
         let inside: Hit = Hit {
             start: 58,
             length: 4,
             label: "both".to_string(),
+            strand: HitStrand::Both,
         };
         for base in [4358, 4359, 4360, 0, 1, 2] {
             assert!(wraps.covers(base, 4361), "{base} is covered");
