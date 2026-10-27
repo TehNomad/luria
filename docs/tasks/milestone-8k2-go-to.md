@@ -1,9 +1,20 @@
 # Contract 8k2 — cli: go-to (§5.3)
 
-Planner: Claude. Status: delegated to `w-8k2` 2026-10-26; runs after 8k3 (D057 order).
-Tier: light (D051): tests assert behaviour, not wording; the hand test (8m)
-may change keys and sentences. Plan row: **8k2** in
-`docs/tasks/milestone-8-view.md` §7.
+Planner: Claude. Status: **Implemented 2026-10-26** by worker `w-8k2` in one
+round, reviewed and accepted. Tier: light (D051): tests assert behaviour, not
+wording; the hand test (8m) may change keys and sentences. Plan row: **8k2**
+in `docs/tasks/milestone-8-view.md` §7. Findings from review:
+
+* Tests 1–10 and G1–G7 behaved as §7 says.
+* The planner ran ten mutations; nine were caught. The tenth (letting
+  residue `residues() + 1`, the stop codon, through the range check) is
+  equivalent: the letter lookup then finds no residue and gives the same
+  refusal.
+* Choices left open and accepted: a letter with no digits is a name;
+  digits too large for `u64` saturate for a residue number as for a base;
+  the prompt's status line is `go to {text}`; `g` inside the prompt is
+  text; `resize` leaves the prompt open; several matches pass the trimmed
+  text as the list's filter.
 
 ## 1. What this contract builds
 

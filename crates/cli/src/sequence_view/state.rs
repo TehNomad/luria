@@ -19,12 +19,15 @@
 
 use crate::review::view::MIN_HEIGHT;
 use crate::review::view::MIN_WIDTH;
+use crate::sequence_view::goto::parse_target;
+use crate::sequence_view::goto::Target;
 use crate::sequence_view::layout::block_lines;
 use crate::sequence_view::layout::layout;
 use crate::sequence_view::layout::LaneMode;
 use crate::sequence_view::layout::Layout;
 use crate::sequence_view::layout::LayoutProblem;
 use crate::sequence_view::layout::LineRole;
+use crate::sequence_view::list::feature_names;
 use crate::sequence_view::list::refusal_code;
 use crate::sequence_view::list::Drawn;
 use crate::sequence_view::list::List;
@@ -34,6 +37,9 @@ use luria_core::cds_map::CdsMap;
 use luria_core::cds_map::CodonPlace;
 use luria_core::display_location::DisplayLocation;
 use luria_core::name_match::cds_span;
+use luria_core::name_match::match_name;
+use luria_core::name_match::Matched;
+use luria_core::name_match::NamedItem;
 use luria_core::sequence::complement_letter;
 use luria_core::sequence::SequenceTopology;
 use luria_core::strand::Strand;
@@ -191,6 +197,10 @@ pub struct ViewState {
     /// `f` and `c` open one and `esc` closes it; while one is open the keys go to
     /// it and its rows take the body in place of the blocks).
     list: Option<List>,
+    /// The text typed at the `g` prompt, `None` while go-to is closed (8k2 §4
+    /// rule 2): while it is open every printable key is text, `enter` acts on the
+    /// whole line through `super::goto`, and `esc` closes it and changes nothing.
+    prompt: Option<String>,
     /// The selected CDS's map and residues, `None` with no selection.
     chosen: Option<Chosen>,
 }
@@ -218,6 +228,7 @@ impl ViewState {
             layout: None,
             message: None,
             list: None,
+            prompt: None,
             chosen: None,
         };
         state.choose();
@@ -238,14 +249,18 @@ impl ViewState {
     /// 2 to 10). Whatever the key, the message a previous key left is cleared
     /// here; `q` and `ctrl-c` leave, and below `MIN_WIDTH` by `MIN_HEIGHT`
     /// nothing else does anything (§4 rule 10). While a list is open the keys go
-    /// to it instead, and only `ctrl-c` leaves (8k3 §4 rule 3).
+    /// to it instead, and only `ctrl-c` leaves (8k3 §4 rule 3); while the go-to
+    /// prompt is open the keys go to it, and again only `ctrl-c` leaves (8k2 §4
+    /// rule 2).
     pub fn handle(&mut self, key: Key) -> Action {
-        // `ctrl-c` quits from anywhere, `q` everywhere but inside an open list,
-        // where every printable key is filter text first (8k3 §4 rule 3) — except
-        // below `MIN_WIDTH` by `MIN_HEIGHT`, where the list draws nothing and only
-        // `q` and `ctrl-c` do anything at all (8k1 §4 rule 10).
+        // `ctrl-c` quits from anywhere, `q` everywhere but inside an open list or
+        // an open go-to prompt, where every printable key is text first (8k3 §4
+        // rule 3, 8k2 §4 rule 2) — except below `MIN_WIDTH` by `MIN_HEIGHT`, where
+        // the list and the prompt draw nothing and only `q` and `ctrl-c` do
+        // anything at all (8k1 §4 rule 10).
         let tiny: bool = !big_enough(self.width, self.height);
-        if key == Key::CtrlC || (key == Key::Char('q') && (self.list.is_none() || tiny)) {
+        let typing: bool = self.list.is_some() || self.prompt.is_some();
+        if key == Key::CtrlC || (key == Key::Char('q') && (!typing || tiny)) {
             return Action::Quit;
         }
         self.message = None;
@@ -254,6 +269,12 @@ impl ViewState {
         }
         if self.list.is_some() {
             self.list_key(key);
+            return Action::Continue;
+        }
+        // While go-to is open its keys go to the prompt, and it is `enter` there
+        // that moves the cursor and closes it (8k2 §4 rule 2).
+        if self.prompt.is_some() {
+            self.prompt_key(key);
             return Action::Continue;
         }
         match key {
@@ -281,6 +302,12 @@ impl ViewState {
             }
             // `f` and `c` open the two lists, with no filter typed (8k3 §4 rule
             // 1); the rows they show and the keys that go to them are 8k3's.
+            // `g` opens go-to with nothing typed (8k2 §4 rule 2); while a list is
+            // open `g` is filter text instead, which the branch above handles.
+            Key::Char('g') => {
+                self.prompt = Some(String::new());
+                return Action::Continue;
+            }
             Key::Char('f') => self.open_list(ListKind::Features, ""),
             Key::Char('c') => self.open_list(ListKind::Cdss, ""),
             // Every other key changes nothing (§4 rule 10), `enter`, `esc` and
@@ -338,6 +365,13 @@ impl ViewState {
     /// The open list, `None` when no list is (8k3 §4).
     pub fn list(&self) -> Option<&List> {
         self.list.as_ref()
+    }
+
+    /// The text typed at the go-to prompt, `None` while it is closed (8k2 §4
+    /// rule 2): `g` opens it empty, `enter` acts on the line and closes it, and
+    /// `esc` closes it and changes nothing.
+    pub fn prompt(&self) -> Option<&str> {
+        self.prompt.as_deref()
     }
 
     pub fn record(&self) -> &ViewRecord {
@@ -428,7 +462,8 @@ impl ViewState {
     /// on, the codon and its residue when that base lies in one of the selected
     /// CDS's codons, and the names of the drawn features that hold it — or the
     /// message, when one is set. While a list is open its filter is what the line
-    /// says, and a refusal replaces it (8k3 §4 rule 7).
+    /// says, and a refusal replaces it (8k3 §4 rule 7); while go-to is open it
+    /// says what has been typed there (8k2 §4 rule 2).
     pub(super) fn status(&self) -> String {
         if let Some(list) = self.list.as_ref() {
             return match &self.message {
@@ -437,6 +472,16 @@ impl ViewState {
                 // is listed instead of leaving the line blank.
                 _ if list.filter().is_empty() => format!("{} rows", list.rows().len()),
                 _ => format!("filter {}", list.filter()),
+            };
+        }
+        if let Some(text) = self.prompt.as_ref() {
+            return match &self.message {
+                Some(words) => words.clone(),
+                // The text typed at go-to is shown as typed; with nothing typed
+                // yet the line says what the prompt is for instead of leaving it
+                // blank (8k2 §4 rule 2).
+                _ if text.is_empty() => "go to".to_string(),
+                _ => format!("go to {text}"),
             };
         }
         let mut parts: Vec<String> = vec![format!("base {}", self.cursor + 1)];
@@ -466,7 +511,8 @@ impl ViewState {
     /// The key line's text, row `height - 1` (§4 rule 1): every key this
     /// contract binds and no other, so the line never offers a key that does
     /// nothing (8h adds the keys it dispatches). While a list is open, the keys
-    /// are its own (8k3 §4 rule 7). The words are short because the line has the
+    /// are its own (8k3 §4 rule 7), and while go-to is open they are the
+    /// prompt's (8k2 §4 rule 2). The words are short because the line has the
     /// screen's width and no more, and at `MIN_WIDTH` by `MIN_HEIGHT` that is 80
     /// columns.
     pub(super) fn keys(&self) -> String {
@@ -481,6 +527,7 @@ impl ViewState {
                         .to_string()
                 }
             },
+            None if self.prompt.is_some() => "type  backspace  enter go  esc close".to_string(),
             None => {
                 "hjkl move  PgUp PgDn Home End  wb codon  t lanes  T circle  f list  c cds  q quit"
                     .to_string()
@@ -1090,6 +1137,136 @@ impl ViewState {
         }
         self.select_cds(Some(index));
         self.list = None;
+    }
+
+    /// The go-to prompt's keys (8k2 §4 rule 2): every printable key is text, `q`
+    /// included; `backspace` drops the last character typed; `esc` closes the
+    /// prompt and changes nothing else; `enter` closes it and acts on the whole
+    /// line through `go_to`. `ctrl-c` has already left in `handle`, and a press
+    /// with no name here does nothing.
+    fn prompt_key(&mut self, key: Key) {
+        match key {
+            Key::Char(ch) => {
+                if let Some(text) = self.prompt.as_mut() {
+                    text.push(ch);
+                }
+            }
+            Key::Backspace => {
+                if let Some(text) = self.prompt.as_mut() {
+                    // The line is cut by the last character's own width, so a
+                    // multi-byte character is dropped whole.
+                    if let Some(last) = text.chars().next_back() {
+                        text.truncate(text.len() - last.len_utf8());
+                    }
+                }
+            }
+            Key::Enter => {
+                // `enter` closes the prompt whatever the line says, so a refusal
+                // leaves the screen showing the record and not a half-typed line.
+                let text: String = self.prompt.take().unwrap_or_default();
+                self.go_to(&text);
+            }
+            Key::Esc => self.prompt = None,
+            Key::Left
+            | Key::Right
+            | Key::Up
+            | Key::Down
+            | Key::PageUp
+            | Key::PageDown
+            | Key::Home
+            | Key::End
+            | Key::Other
+            | Key::CtrlC => {}
+        }
+    }
+
+    /// What one go-to line does, once `super::goto` has said which of its three
+    /// shapes it has (8k2 §4 rules 3 to 5): a base moves the cursor, a residue
+    /// moves it to that residue's codon in the selected CDS, and a name goes to
+    /// the feature it names. A blank line changes nothing.
+    fn go_to(&mut self, text: &str) {
+        match parse_target(text) {
+            Target::Nothing => {}
+            Target::Base(number) => self.goto_base(number),
+            Target::Residue { letter, number } => self.goto_residue(letter, number),
+            Target::Name(name) => self.goto_name(&name),
+        }
+    }
+
+    /// A base as D057 reads a bare number: the cursor stands on the 1-based base
+    /// typed, the numbering the status line shows, whatever CDS is selected, and
+    /// the scroll follows (8k1 §4 rule 6). A number with no base under it — `0`,
+    /// one past the record's last base, or one too large for any record (D048)
+    /// — keeps the cursor where it is and says what the record has (8k2 §4 rule
+    /// 3).
+    fn goto_base(&mut self, number: u64) {
+        let length: u64 = self.record.sequence.length();
+        if number == 0 || number > length {
+            self.message = Some(format!("the record has bases 1 to {length}"));
+            return;
+        }
+        self.cursor = number - 1;
+        self.follow();
+    }
+
+    /// A residue of the selected CDS (8k2 §4 rule 4). With no CDS selected, and
+    /// with a number outside `1..=residues()` — residue `residues + 1` is the
+    /// terminal stop, which has a codon and no residue (D010) — nothing moves and
+    /// the status line says why. A letter that is not this residue's own is
+    /// refused with the residue actually there (D057), which catches a number
+    /// written for the wrong residue. Otherwise the cursor stands on the codon's
+    /// middle base, where D055 draws the residue, as `w` and `b` leave it (8k1 §4
+    /// rule 5), and the scroll follows.
+    fn goto_residue(&mut self, letter: char, number: u64) {
+        let chosen: &Chosen = match self.chosen.as_ref() {
+            Some(chosen) => chosen,
+            None => {
+                self.message = Some("no CDS is selected".to_string());
+                return;
+            }
+        };
+        let count: u64 = chosen.map.residues();
+        if number == 0 || number > count {
+            self.message = Some(format!("the selected CDS has residues 1 to {count}"));
+            return;
+        }
+        // The residues are held in reading order, so residue `number` is the
+        // `number - 1`th letter, and the range above keeps that index inside them
+        // (D010).
+        match chosen.letters.chars().nth(number as usize - 1) {
+            Some(found) if found != letter => {
+                self.message = Some(format!("residue {number} is {found}, not {letter}"));
+            }
+            Some(_found) => match chosen.map.residue_bases(number) {
+                Ok(bases) => {
+                    self.cursor = bases[1];
+                    self.follow();
+                }
+                Err(error) => self.message = Some(error.message()),
+            },
+            // The map's count and the translation have the same length, so this
+            // is reached only if they ever disagree; either way there is no
+            // residue here to go to.
+            None => self.message = Some(format!("the selected CDS has residues 1 to {count}")),
+        }
+    }
+
+    /// A feature name, matched by core's shared matcher over the names 8k3's
+    /// feature list uses (8k2 §4 rule 5, D056). One match is jumped to exactly as
+    /// `enter` on that row jumps to it — the same jump, the same CDS selection and
+    /// the same refusals of a feature that is not drawn or whose start is not
+    /// stated (plan §5.3). Several open the feature list filtered to the text
+    /// typed, and the cursor stays for the list's own keys to move. Nothing
+    /// matches: the cursor stays and the status line says so.
+    fn goto_name(&mut self, name: &str) {
+        let named: Vec<NamedItem> = feature_names(&self.record);
+        match match_name(&named, name) {
+            Matched::One(found) => self.enter_feature(found.item),
+            Matched::Several(_found) => self.open_list(ListKind::Features, name),
+            Matched::Nothing => {
+                self.message = Some(format!("no feature is named {name}"));
+            }
+        }
     }
 }
 
