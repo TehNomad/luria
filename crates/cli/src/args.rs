@@ -46,6 +46,11 @@ pub enum Command {
         cds: Option<String>,
         circular: bool,
     },
+    /// `luria FILE` (plan §5.6, 8h): a first word naming an existing path and
+    /// nothing else. The path is the word as the command line gave it.
+    View {
+        file: PathBuf,
+    },
 }
 
 /// The model `luria new`'s `In words` box sends its text to (7k7, M7-40): the
@@ -78,6 +83,7 @@ pub const USAGE: &str = "usage:
       --request FILE.json [--design PROFILE.json] [--allow-remote] [--export DIR]
   luria new [--design PROFILE.json] [--export DIR]
       [--backend openai-compatible --endpoint URL --model NAME [--allow-remote]]
+  luria FILE
   luria find FILE PATTERN [--aa] [--cds NAME] [--circular]
   luria version
   luria help
@@ -118,8 +124,13 @@ pub fn utf8_arguments(arguments: Vec<std::ffi::OsString>) -> Result<Vec<String>,
     Ok(words)
 }
 
-/// Parse the arguments after the program name.
-pub fn parse(arguments: &[String]) -> Result<Command, UsageError> {
+/// `parse` with a way to ask whether a word names an existing path (8h §4).
+/// `parse` is this with an answer of `false` for every word, so every
+/// subcommand line written today parses exactly as before.
+pub fn parse_with(
+    arguments: &[String],
+    is_path: &dyn Fn(&str) -> bool,
+) -> Result<Command, UsageError> {
     if arguments.is_empty() {
         return reject("no command given".to_string());
     }
@@ -150,7 +161,87 @@ pub fn parse(arguments: &[String]) -> Result<Command, UsageError> {
     if word == "find" {
         return parse_find(rest);
     }
-    reject(format!("unknown command '{}'", word))
+
+    // Rule 1 (8h §4): every subcommand word and spelling `parse` knows has
+    // already returned, so only an unknown first word reaches here.
+    if is_path(word) {
+        if !rest.is_empty() {
+            return reject(format!(
+                "'{}' opens the view and takes no further arguments; \
+                 'luria find FILE PATTERN' searches a file",
+                word
+            ));
+        }
+        if word.to_ascii_lowercase().ends_with(".json") {
+            return reject(format!(
+                "opening a design comes in milestone 9; use 'luria review {}'",
+                word
+            ));
+        }
+        return Ok(Command::View {
+            file: PathBuf::from(word),
+        });
+    }
+
+    let mut message: String = format!("unknown command '{}'", word);
+    if let Some(name) = suggestion(word) {
+        message = format!("{}; did you mean 'luria {}'?", message, name);
+    }
+    reject(message)
+}
+
+/// The subcommand names "did you mean" compares a near miss against, in the
+/// order ties resolve to (8h §4 rule 3): an earlier name wins.
+const COMMAND_WORDS: [&str; 6] = ["help", "version", "q5", "review", "new", "find"];
+
+/// The subcommand nearest `word`, for "did you mean" (8h §4 rule 3): the
+/// nearest name in `COMMAND_WORDS` by Levenshtein distance over the
+/// ASCII-lowercased word, but only when that distance is at most 2 and less
+/// than the word's own character count, so `ab` and `x` are refused rather
+/// than offered a command. Ties go to the earlier name.
+pub fn suggestion(word: &str) -> Option<&'static str> {
+    let lower: String = word.to_ascii_lowercase();
+    let count: usize = word.chars().count();
+    let mut nearest: Option<(&'static str, usize)> = None;
+
+    for name in COMMAND_WORDS {
+        let distance: usize = levenshtein(&lower, name);
+        if distance <= 2 && distance < count && nearest.is_none_or(|(_, best)| distance < best) {
+            nearest = Some((name, distance));
+        }
+    }
+
+    nearest.map(|(name, _)| name)
+}
+
+/// The Levenshtein distance between two words, over their characters, with
+/// insertion, deletion and one-character substitution each costing 1. The two
+/// words here are a typed command and a name of at most 7 characters, so this
+/// is the plain two-row dynamic programming table and nothing else.
+fn levenshtein(left: &str, right: &str) -> usize {
+    let right: Vec<char> = right.chars().collect();
+    let mut previous: Vec<usize> = (0..=right.len()).collect();
+    let mut current: Vec<usize> = vec![0; right.len() + 1];
+
+    for (row, left_char) in left.chars().enumerate() {
+        current[0] = row + 1;
+        for (column, right_char) in right.iter().enumerate() {
+            let substitution: usize =
+                previous[column] + if left_char == *right_char { 0 } else { 1 };
+            current[column + 1] = substitution
+                .min(current[column] + 1)
+                .min(previous[column + 1] + 1);
+        }
+        std::mem::swap(&mut previous, &mut current);
+    }
+
+    previous[right.len()]
+}
+
+/// Parse the arguments after the program name, with no word naming an
+/// existing path.
+pub fn parse(arguments: &[String]) -> Result<Command, UsageError> {
+    parse_with(arguments, &|_| false)
 }
 
 /// Read the words after `q5`: the subcommand, then that subcommand's
@@ -842,6 +933,21 @@ mod tests {
         }
     }
 
+    /// `parse_words` with a way to ask whether a word names an existing path
+    /// (8h §4): every word answers `exists`, or none of them does.
+    fn parse_words_with(
+        words: &[&str],
+        is_path: &dyn Fn(&str) -> bool,
+    ) -> Result<Command, UsageError> {
+        let arguments: Vec<String> = words.iter().map(|word| word.to_string()).collect();
+        parse_with(&arguments, is_path)
+    }
+
+    /// A path that exists for `parse_words_with`.
+    fn exists(_: &str) -> bool {
+        true
+    }
+
     #[test]
     fn help_and_version_have_their_spellings() {
         for words in [&["help"][..], &["--help"][..], &["-h"][..]] {
@@ -888,7 +994,10 @@ mod tests {
         let cases: [(&[&str], &str); 15] = [
             (&[], "no command given"),
             (&["frobnicate"], "unknown command 'frobnicate'"),
-            (&["Help"], "unknown command 'Help'"),
+            (
+                &["Help"],
+                "unknown command 'Help'; did you mean 'luria help'?",
+            ),
             (&["help", "q5"], "'help' takes no arguments"),
             (&["version", "x"], "'version' takes no arguments"),
             (&["q5"], "'q5' needs a subcommand: design or interpret"),
@@ -930,6 +1039,64 @@ mod tests {
         ];
         for (words, message) in cases {
             assert_eq!(usage(words), message, "{:?}", words);
+        }
+    }
+
+    #[test]
+    fn a_command_word_beats_a_file() {
+        // Rule 1 (8h §4): a word `parse` knows is that subcommand even when a
+        // file of the same name sits in the directory, so `find` reaches
+        // `parse_find` and gives its own error, and `help` is `help`.
+        assert_eq!(
+            parse_words_with(&["find"], &exists).map_err(|problem| problem.message),
+            Err("'find' needs a file and a pattern".to_string())
+        );
+        assert_eq!(parse_words_with(&["help"], &exists), Ok(Command::Help));
+    }
+
+    #[test]
+    fn a_path_opens_the_view() {
+        assert_eq!(
+            parse_words_with(&["pbr.gb"], &exists),
+            Ok(Command::View {
+                file: PathBuf::from("pbr.gb")
+            })
+        );
+        // Rule 2: the second word is refused, not left over.
+        assert_eq!(
+            parse_words_with(&["pbr.gb", "x"], &exists).map_err(|problem| problem.message),
+            Err("'pbr.gb' opens the view and takes no further arguments; \
+                 'luria find FILE PATTERN' searches a file"
+                .to_string())
+        );
+        // A word naming no path opens nothing: the rule 3 error, unchanged.
+        assert_eq!(usage(&["pbr.gb"]), "unknown command 'pbr.gb'");
+    }
+
+    #[test]
+    fn suggestion_by_distance() {
+        // Rule 3 (8h §4): the nearest name at distance at most 2 and less than
+        // the word's character count; ties go to the earlier name.
+        let near: [(&str, &str); 5] = [
+            ("fnd", "find"),
+            ("nwe", "new"),
+            ("q6", "q5"),
+            ("HELP", "help"),
+            // `rvw` is distance 3 from `review` and 2 from `new`, and 2 < 3.
+            ("rvw", "new"),
+        ];
+        for (word, name) in near {
+            assert_eq!(suggestion(word), Some(name), "{}", word);
+        }
+        // A tie: `nend` and `nnd` are each distance 2 from both `new` and
+        // `find`, and 2 is less than their character count, so the earlier
+        // name in `COMMAND_WORDS` wins - `new`, not `find`.
+        for (word, name) in [("nend", "new"), ("nnd", "new")] {
+            assert_eq!(suggestion(word), Some(name), "{}", word);
+        }
+        // Too far, or too short to be a near miss for anything: no name.
+        for word in ["ab", "x", "zzzfind"] {
+            assert_eq!(suggestion(word), None, "{}", word);
         }
     }
 

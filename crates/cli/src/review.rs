@@ -301,13 +301,32 @@ pub fn terminal_problem(
     stdin_is_terminal: bool,
     stdout_is_terminal: bool,
 ) -> Option<UsageError> {
+    terminal_problem_for(
+        command,
+        "'q5 design' writes the same result as JSON",
+        stdin_is_terminal,
+        stdout_is_terminal,
+    )
+}
+
+/// The same check with the other way of working named in the message (8h §4
+/// rule 4): `luria FILE` names the file it was given and points at
+/// `'luria find FILE PATTERN'`, which needs no terminal, where `review` and
+/// `new` name `'q5 design'`. `terminal_problem` is this with `q5 design` as
+/// the alternative, so its message is unchanged (D048 M8-13).
+pub fn terminal_problem_for(
+    command: &str,
+    instead: &str,
+    stdin_is_terminal: bool,
+    stdout_is_terminal: bool,
+) -> Option<UsageError> {
     if stdin_is_terminal && stdout_is_terminal {
         return None;
     }
     Some(UsageError {
         message: format!(
-            "'{}' needs a terminal on stdin and stdout; 'q5 design' writes the same result as JSON",
-            command
+            "'{}' needs a terminal on stdin and stdout; {}",
+            command, instead
         ),
     })
 }

@@ -1,8 +1,21 @@
 # Contract 8h — cli: opening a bare file (§5.6)
 
-Planner: Claude. Status: delegated to `w-8h` 2026-10-26; runs after 8k1 (D056 order).
-Tier: light (D051): tests assert behaviour; wording may change at the hand
-test. Plan row: **8h** in `docs/tasks/milestone-8-view.md` §7.
+Planner: Claude. Status: **Implemented 2026-10-26** by worker `w-8h` in two
+rounds, reviewed and accepted. Tier: light (D051): tests assert behaviour;
+wording may change at the hand test. Plan row: **8h** in
+`docs/tasks/milestone-8-view.md` §7. Findings from review:
+
+* Round 1: tests 1–9 and G1–G6 behaved as §7 says; no code defect found.
+* The planner ran five mutations; two survived, both gaps in this table:
+  ties going to the later name (no test word had a tie), and the view's
+  terminal message pointing at `q5 design` (test 1 checked only its first
+  half). Round 2 added `nend`/`nnd` → `new` to test 9 and the `luria find`
+  half to test 1, with G7 and G8; both are now caught.
+* The worker correctly refused the planner's literal "stderr has no
+  `q5 design`": `USAGE` names `q5 design`, so the check is on the message
+  line only.
+* Opening the view itself is untested here (the tests have no terminal);
+  it is the owner's hand test (8m).
 
 ## 1. What this contract builds
 
@@ -115,6 +128,8 @@ The values in tests 5 and 9 were derived by the planner by hand.
 | G4 | Extra words after a file ignored | 3, 8 |
 | G5 | The path check before the subcommand words | 6 |
 | G6 | `suggestion` without lowercasing | 9 (`HELP`; `Version` is still distance 1) |
+| G7 | Ties go to the later name, round 2 (`nend`, `nnd` → `new`) | 9 |
+| G8 | The view's message names `q5 design`, round 2 | 1 |
 
 ## 8. Do not
 
