@@ -354,10 +354,11 @@ fn o_keeps_the_cursor_on_screen() {
 
 /// §5.9 (round 2 §4): a pick from the CDS list closes the list, and the run of
 /// blocks the pick measured has to be the one the screen then draws. `pbr` opens
-/// with the strip on; base 303 sits in block 5 and `c` lists the CDSs with the one
+/// with the strip on; base 302 sits in block 5 and `c` lists the CDSs with the one
 /// holding it highlighted. `enter` selects `tet` (CDS 0, `86..1276` in the file's
-/// numbering) and closes the list without moving the cursor (8k3 §4 rule 5); block 5
-/// is drawn whatever the list's own rows were while it was open.
+/// numbering), closes the list and moves the cursor to tet's start codon, base 86
+/// as the file numbers it (M8-21); the block holding it is drawn whatever the
+/// list's own rows were while it was open.
 #[test]
 fn picking_a_cds_keeps_the_cursor_on_screen() {
     let mut state: ViewState = ViewState::new(pbr(), W, H);
@@ -371,7 +372,7 @@ fn picking_a_cds_keeps_the_cursor_on_screen() {
     ] {
         press(&mut state, key);
     }
-    assert_eq!(state.cursor(), 301, "base 303 as the record numbers it");
+    assert_eq!(state.cursor(), 301, "base 302 as the record numbers it");
     let before: std::ops::Range<usize> = state.visible();
     assert_eq!(before, 3..6, "and the run drawn reaches block 5");
     press(&mut state, Key::Char('c'));
@@ -381,12 +382,19 @@ fn picking_a_cds_keeps_the_cursor_on_screen() {
     assert!(state.list().is_none(), "and the list has closed");
     assert_eq!(
         state.cursor(),
-        301,
-        "the pick leaves the cursor where it was"
+        85,
+        "the pick moves the cursor to tet's start codon, base 86 as the file numbers it (M8-21)"
     );
+    let block: usize = state
+        .layout()
+        .expect("80 x 24 lays the record out")
+        .blocks
+        .iter()
+        .position(|(first, last)| *first <= 85 && 85 < *last)
+        .expect("some block holds base 85");
     let after: std::ops::Range<usize> = state.visible();
     assert!(
-        after.contains(&5) && after.end == 6,
-        "the run drawn reaches block 5 as it did before the list: {before:?} then {after:?}"
+        after.contains(&block),
+        "the run drawn holds the block the cursor moved to: {before:?} then {after:?}"
     );
 }

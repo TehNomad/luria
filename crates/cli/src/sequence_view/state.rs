@@ -213,6 +213,10 @@ pub struct ViewState {
     /// `f` and `c` open one and `esc` closes it; while one is open the keys go to
     /// it and its rows take the body in place of the blocks).
     list: Option<List>,
+    /// The residue go-to typed with no CDS selected, remembered until the CDS
+    /// picker it opened answers it (M8-22 rule 3): `enter` on a usable row takes it
+    /// and `esc` drops it.
+    pending: Option<(char, u64)>,
     /// The text typed at the `g` prompt, `None` while go-to is closed (8k2 §4
     /// rule 2): while it is open every printable key is text, `enter` acts on the
     /// whole line through `super::goto`, and `esc` closes it and changes nothing.
@@ -257,6 +261,7 @@ impl ViewState {
             layout: None,
             message: None,
             list: None,
+            pending: None,
             prompt: None,
             search: None,
             hits: None,
@@ -1204,8 +1209,13 @@ impl ViewState {
             }
             Key::Enter => self.act_on_row(),
             // `esc` closes: what was typed in the filter and what was highlighted
-            // leave with the list, and no cursor, selection or scroll moves.
-            Key::Esc => self.list = None,
+            // leave with the list, and no cursor, selection or scroll moves. A
+            // residue go-to left to be picked leaves too, so a later CDS pick
+            // follows M8-21 rather than M8-22 (M8-22 rule 3).
+            Key::Esc => {
+                self.list = None;
+                self.pending = None;
+            }
             // `left` and `right` have no rule while a list is open (8k3 §4 rule 3
             // names the keys that move the highlight), so they change nothing — as
             // does any other press, `ctrl-c` having left in `handle`.
@@ -1227,16 +1237,18 @@ impl ViewState {
         }
     }
 
-    /// `enter` on a feature row (8k3 §4 rule 4). A feature the display parser
-    /// refuses keeps the cursor where it is, keeps the list open, and leaves the
-    /// refusal's code in the status line (plan §4.1, D053). A feature whose start
-    /// is not stated — a `<` on its first interval — cannot be jumped to either,
-    /// because there is no first base to stand on (plan §5.3). Otherwise the
-    /// cursor goes to the first base of the first interval in D036 order,
-    /// zero-based as everything inside the program is (D006, D036), the list
-    /// closes and the scroll follows (8k1 §4 rule 6). When the feature is a CDS's
-    /// feature, a usable CDS is selected with it (M8-11) and an unusable one is
-    /// not, with the code that refuses it shown beside the jump (D042, D052).
+    /// `enter` on a feature row (8k3 §4 rule 4, M8-21). A feature the display
+    /// parser refuses keeps the cursor where it is, keeps the list open, and leaves
+    /// the refusal's code in the status line (plan §4.1, D053). A feature whose 5′
+    /// end is not stated — a `<` on a plus-strand one, a `>` on a minus-strand one
+    /// — cannot be jumped to either, because there is no first base to stand on
+    /// (plan §5.3). Otherwise the cursor goes to that 5′ end: the first base of the
+    /// first interval on the plus strand, the last base of the last one on the minus
+    /// strand, the intervals in D036 order, zero-based as everything inside the
+    /// program is (D006, D036). The list closes and the scroll follows (8k1 §4 rule
+    /// 6). When the feature is a CDS's feature, a usable CDS is selected with it
+    /// (M8-11) and an unusable one is not, with the code that refuses it shown
+    /// beside the jump (D042, D052).
     fn enter_feature(&mut self, index: usize) {
         // The record is read here and nowhere else in this move: what it says is
         // taken out before the cursor, the selection and the scroll change.
@@ -1244,11 +1256,11 @@ impl ViewState {
         {
             Some(feature) => match &feature.shape {
                 FeatureShape::NotDrawn(error) => (None, Some(refusal_code(error))),
-                FeatureShape::Drawn(shape) if shape.open_before.is_some() => {
+                FeatureShape::Drawn(shape) if five_prime_is_unstated(shape) => {
                     (None, Some("the start is not stated".to_string()))
                 }
-                FeatureShape::Drawn(shape) => match shape.location.intervals().first() {
-                    Some((first, _last)) => (Some(*first), None),
+                FeatureShape::Drawn(shape) => match five_prime_end(shape) {
+                    Some(first) => (Some(first), None),
                     // A drawn shape with no interval has no base to stand on;
                     // the line says so rather than inventing one.
                     None => (None, Some("the start is not stated".to_string())),
@@ -1289,10 +1301,14 @@ impl ViewState {
         self.follow();
     }
 
-    /// `enter` on a CDS row (8k3 §4 rule 5): a usable CDS is selected and the list
-    /// closes, and the cursor does not move — the picker chooses what is
-    /// translated, not where the cursor stands. An unusable one selects nothing,
-    /// keeps the list open, and leaves its code in the status line (D042, D052).
+    /// `enter` on a CDS row (8k3 §4 rule 5, M8-21): a usable CDS is selected, the
+    /// list closes, and the cursor goes to the first base of its residue 1's codon
+    /// — its start codon, in reading direction — after the list has closed, with the
+    /// scroll following (8m1 §4 rule 1). A residue go-to asked for with no CDS
+    /// selected is answered by that residue's codon middle base instead, and when
+    /// this CDS has no such residue the cursor goes to the start codon and the
+    /// status line says why (M8-22 rule 3). An unusable one selects nothing, keeps
+    /// the list open, and leaves its code in the status line (D042, D052).
     fn enter_cds(&mut self, index: usize) {
         let status: Option<&CdsStatus> = self.record.cdss.get(index).map(|view| &view.status);
         match status {
@@ -1303,8 +1319,39 @@ impl ViewState {
             }
             None => return,
         }
+        // The residue is answered here either way, and is not kept for a later pick
+        // whether or not this CDS has it (M8-22 rule 3).
+        let residue: Option<(char, u64)> = self.pending.take();
         self.select_cds(Some(index));
         self.list = None;
+        // M8-22 rule 3: the residue go-to asked for, as this CDS has it or refuses
+        // it; and M8-21: residue 1's first base, which a refused residue falls back
+        // on. `select_cds` accepted a usable CDS, so the map and its residue 1 are
+        // there; the refusals say otherwise if they ever are not.
+        let asked: Option<Result<u64, String>> =
+            residue.map(|(letter, number)| match self.chosen.as_ref() {
+                Some(chosen) => residue_middle(chosen, letter, number),
+                None => Err("no CDS is selected".to_string()),
+            });
+        let start: Result<u64, String> = match self.chosen.as_ref() {
+            Some(chosen) => match chosen.map.residue_bases(1) {
+                Ok(codon) => Ok(codon[0]),
+                Err(error) => Err(error.message()),
+            },
+            None => Err("no CDS is selected".to_string()),
+        };
+        let (target, refusal): (Option<u64>, Option<String>) = match (asked, start) {
+            (Some(Ok(base)), _start) => (Some(base), None),
+            (Some(Err(words)), Ok(base)) => (Some(base), Some(words)),
+            (Some(Err(words)), Err(_start)) => (None, Some(words)),
+            (None, Ok(base)) => (Some(base), None),
+            (None, Err(words)) => (None, Some(words)),
+        };
+        if let Some(base) = target {
+            self.cursor = base;
+        }
+        self.message = refusal;
+        self.follow();
     }
 
     /// The go-to prompt's keys (8k2 §4 rule 2): every printable key is text, `q`
@@ -1468,45 +1515,38 @@ impl ViewState {
         self.follow();
     }
 
-    /// A residue of the selected CDS (8k2 §4 rule 4). With no CDS selected, and
-    /// with a number outside `1..=residues()` — residue `residues + 1` is the
-    /// terminal stop, which has a codon and no residue (D010) — nothing moves and
-    /// the status line says why. A letter that is not this residue's own is
-    /// refused with the residue actually there (D057), which catches a number
-    /// written for the wrong residue. Otherwise the cursor stands on the codon's
-    /// middle base, where D055 draws the residue, as `w` and `b` leave it (8k1 §4
-    /// rule 5), and the scroll follows.
+    /// A residue of the selected CDS (8k2 §4 rule 4): the cursor stands on the
+    /// codon's middle base, where D055 draws the residue, as `w` and `b` leave it
+    /// (8k1 §4 rule 5), and the scroll follows. Its refusals — a number outside
+    /// `1..=residues()`, residue `residues + 1` being the terminal stop, which has a
+    /// codon and no residue (D010), and a letter that is not this residue's own
+    /// (D057)) — are what `residue_middle` answers. With no CDS selected, M8-22 rule
+    /// 3 takes over: the residue is remembered and the CDS picker is opened to
+    /// choose one; a record with no CDS at all opens nothing and says so (8m1 §4
+    /// rule 4).
     fn goto_residue(&mut self, letter: char, number: u64) {
         let chosen: &Chosen = match self.chosen.as_ref() {
             Some(chosen) => chosen,
+            // M8-22 rule 3 and 8m1 §4 rule 4: no CDS is selected, so the residue
+            // goes looking for one.
             None => {
-                self.message = Some("no CDS is selected".to_string());
+                if self.record.cdss.is_empty() {
+                    self.message = Some("this record has no CDS".to_string());
+                } else {
+                    // The picker opens with no filter, so every CDS the record has
+                    // can be picked, usable or not.
+                    self.pending = Some((letter, number));
+                    self.open_list(ListKind::Cdss, "");
+                }
                 return;
             }
         };
-        let count: u64 = chosen.map.residues();
-        if number == 0 || number > count {
-            self.message = Some(format!("the selected CDS has residues 1 to {count}"));
-            return;
-        }
-        // The residues are held in reading order, so residue `number` is the
-        // `number - 1`th letter, and the range above keeps that index inside them
-        // (D010).
-        match chosen.letters.chars().nth(number as usize - 1) {
-            Some(found) if found != letter => {
-                self.message = Some(format!("residue {number} is {found}, not {letter}"));
+        match residue_middle(chosen, letter, number) {
+            Ok(base) => {
+                self.cursor = base;
+                self.follow();
             }
-            Some(_found) => match chosen.map.residue_bases(number) {
-                Ok(bases) => {
-                    self.cursor = bases[1];
-                    self.follow();
-                }
-                Err(error) => self.message = Some(error.message()),
-            },
-            // The map's count and the translation have the same length, so this
-            // is reached only if they ever disagree; either way there is no
-            // residue here to go to.
-            None => self.message = Some(format!("the selected CDS has residues 1 to {count}")),
+            Err(words) => self.message = Some(words),
         }
     }
 
@@ -1567,6 +1607,60 @@ fn display_name(record: &ViewRecord, index: usize) -> String {
             None => String::new(),
         },
         None => String::new(),
+    }
+}
+
+/// A drawn feature's 5′ end, where `enter` on its row jumps the cursor (M8-21,
+/// D006, D036): the first base of the first interval on the plus strand, and the
+/// last base of the last one on the minus strand. The intervals are in D036 order,
+/// which is the same for either strand, and `None` for a shape with no interval.
+fn five_prime_end(shape: &DisplayLocation) -> Option<u64> {
+    match shape.location.strand() {
+        Strand::Plus => shape
+            .location
+            .intervals()
+            .first()
+            .map(|(first, _last)| *first),
+        Strand::Minus => shape
+            .location
+            .intervals()
+            .last()
+            .and_then(|(_first, last)| last.checked_sub(1)),
+    }
+}
+
+/// Whether a drawn feature's 5′ end is not stated (M8-21, D053): a `<` before the
+/// first interval on the plus strand, a `>` after the last one on the minus strand.
+/// The other marker marks the far end and says nothing about this one.
+fn five_prime_is_unstated(shape: &DisplayLocation) -> bool {
+    match shape.location.strand() {
+        Strand::Plus => shape.open_before.is_some(),
+        Strand::Minus => shape.open_after.is_some(),
+    }
+}
+
+/// The residue rule of a selected CDS (8k2 §4 rule 4, D010, D057): the codon's
+/// middle base, where D055 draws the residue, and otherwise the words the status
+/// line says — a number outside `1..=residues()`, or a letter that is not this
+/// residue's own.
+fn residue_middle(chosen: &Chosen, letter: char, number: u64) -> Result<u64, String> {
+    let count: u64 = chosen.map.residues();
+    if number == 0 || number > count {
+        return Err(format!("the selected CDS has residues 1 to {count}"));
+    }
+    // The residues are held in reading order, so residue `number` is the
+    // `number - 1`th letter, and the range above keeps that index inside them.
+    match chosen.letters.chars().nth(number as usize - 1) {
+        Some(found) if found != letter => Err(format!("residue {number} is {found}, not {letter}")),
+        Some(_found) => chosen
+            .map
+            .residue_bases(number)
+            .map(|codon| codon[1])
+            .map_err(|error| error.message()),
+        // The map's count and the translation have the same length, so this is
+        // reached only if they ever disagree; either way there is no residue here
+        // to go to.
+        None => Err(format!("the selected CDS has residues 1 to {count}")),
     }
 }
 

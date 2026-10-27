@@ -1,8 +1,20 @@
 # Contract 8m1 — cli: where the cursor lands after a pick (M8-21, M8-22)
 
-Planner: Claude. Status: delegated to `w-8m1` 2026-10-27. Tier: light
-(D051): tests assert behaviour, not wording. Owner's answers:
-`docs/tasks/milestone-8m-polish.md` §1, M8-21 and M8-22.
+Planner: Claude. Status: **Implemented 2026-10-27** by worker `w-8m1`,
+reviewed and accepted. Tier: light (D051): tests assert behaviour, not
+wording. Owner's answers: `docs/tasks/milestone-8m-polish.md` §1, M8-21 and
+M8-22. Findings from review:
+
+* The first worker tab was lost when the model server went down, so a
+  fresh tab ran the contract. Its first run stopped on a malformed tool
+  call with test 3's record one line wrong (32 bases). A second prompt
+  finished it. G1–G6 each failed the tests §7 names.
+* One expectation §8 did not list also changed, correctly:
+  `a_name_goes_to_its_feature` goes to `m1`, `complement(13..24)`, so
+  its cursor moves from 12 to 23 (M8-21 through `goto_name`). The planner
+  fixed a stale "base 303" message in the 8l2 test.
+* Choices accepted: "this record has no CDS"; an unusable row keeps the
+  pending residue; `esc` on any list drops it.
 
 ## 1. What this contract builds
 

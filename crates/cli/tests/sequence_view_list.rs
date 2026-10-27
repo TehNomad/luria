@@ -279,11 +279,15 @@ fn enter_jumps_to_a_feature() {
     walk(&mut state, Key::Down, 1);
     assert_eq!(state.list().expect("open").at(), Some(1));
     assert_eq!(state.handle(Key::Enter), Action::Continue);
-    assert_eq!(state.cursor(), 3292, "complement(3293..4153), zero-based");
+    assert_eq!(
+        state.cursor(),
+        4152,
+        "complement(3293..4153) goes to its five prime end, the last base it writes (M8-21)"
+    );
     assert_eq!(state.selected(), Some(2), "the bla CDS");
     assert_eq!(state.mode(), &LaneMode::Cds(2), "and its own lane");
     assert!(state.list().is_none(), "the list closed");
-    let block: usize = block_holding(&state, 3292);
+    let block: usize = block_holding(&state, 4152);
     assert!(
         state.visible().contains(&block),
         "the scroll followed the cursor to block {block}: {:?} visible",

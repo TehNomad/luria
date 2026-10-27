@@ -225,13 +225,24 @@ fn a_residue_needs_a_cds_and_a_number_in_range() {
         "pBR322 has two usable CDSs, so it opens with none"
     );
 
+    // M8-22 rule 3, 8m1 sec 4 rule 3: with no CDS selected a residue at go-to
+    // opens the CDS picker and moves nothing.
     go_to(&mut state, "M1");
     assert_eq!(
         state.cursor(),
         0,
-        "with no CDS selected a residue is nowhere"
+        "a residue that opens a picker moves nothing"
     );
-    assert!(state.message().is_some(), "and the status line says so");
+    let list = state.list().expect("the CDS picker is open");
+    assert_eq!(list.kind(), ListKind::Cdss, "the CDS list");
+    assert_eq!(list.filter(), "", "opened with nothing typed");
+    assert_eq!(list.rows(), [0, 1, 2], "every CDS the record has");
+    // `esc` closes the list and drops the residue the go-to line asked for, so no
+    // CDS is selected and nothing else moves (M8-22 rule 3).
+    assert_eq!(state.handle(Key::Esc), Action::Continue);
+    assert!(state.list().is_none(), "esc closes the list");
+    assert_eq!(state.selected(), None, "and selects nothing");
+    assert_eq!(state.cursor(), 0, "and moves no cursor");
 
     assert!(
         state.select_cds(Some(2)),
@@ -285,8 +296,8 @@ fn a_name_goes_to_its_feature() {
     go_to(&mut other, "m1");
     assert_eq!(
         other.cursor(),
-        12,
-        "complement(13..24) starts at zero-based 12"
+        23,
+        "complement(13..24) jumps to its last written base, zero-based 23 (M8-21)"
     );
     assert_eq!(
         other.selected(),
