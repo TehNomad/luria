@@ -1,9 +1,33 @@
 # Contract 8k1 — cli: the view's state, cursor and status line (§5.1, §5.2)
 
-Planner: Claude. Status: delegated to `w-8k1` 2026-10-26; runs after 8j (D056 order).
-Tier: light (D051): tests assert behaviour, not wording; the hand test (8m)
-may change keys and sentences. Plan row: **8k1** in
+Planner: Claude. Status: **Implemented 2026-10-26** by worker `w-8k1` in two
+rounds, reviewed and accepted. Tier: light (D051): tests assert behaviour, not
+wording; the hand test (8m) may change keys and sentences. Plan row: **8k1** in
 `docs/tasks/milestone-8-view.md` §7. 8h opens this view from `luria FILE`.
+Findings from review:
+
+* Round 1: tests 1–12 and G1–G7 behaved as §7 says.
+* A planner probe on `frames-62.gb` found one defect: the status span of a
+  codon across the origin was min..max (`1..62`), not D036 order (`62..2`).
+* The planner ran 17 mutations; four survived: `visible()` without the gaps,
+  `w`/`b` that never wrap, `follow` putting the cursor's block on top instead
+  of the least scroll, and no anchor after `t`. Round 2 fixed the span and
+  added tests 13–15 with G8–G11; the first three are now caught. The `t`
+  anchor is not observable with these fixtures: off, three and six frames
+  give the same blocks, and a `Cds` layout's moved edges stay within a block
+  of them, so the old top base is in the block of the same index.
+* Choices left open and accepted: `j`/`k` stay at either end even when
+  circular; `End` is the last base; the title names no CDS when the record
+  has no usable one; the small-screen notice is one unframed line. A block
+  taller than the body is not drawn at all (`draw_blocks` stops); the
+  tallest pBR322 block at 80 × 24 is 13 lines of 20, so no fixture reaches it.
+  A layout refusal on `select_cds` would leave no layout; it is unreachable
+  for a usable CDS (the only `Domain` source is `translate`).
+* The worker's report misdescribed some of its own code: `visible()` does
+  not slide back at the end; there is no "codon straddles a block boundary"
+  refusal; the key line does list `T`. Its "deviations" cited contract text
+  and prompt guards that do not exist. The planner fixed one test comment
+  (cursor 0 is the first base).
 
 ## 1. What this contract builds
 
@@ -151,6 +175,9 @@ unless given. Values below were derived by the planner from the files.
 | 10 | `a_fasta_title_says_assumed` | `w16`: title contains `linear (assumed)`; after `T`, `circular (set with T)` |
 | 11 | `a_small_screen_draws_only_a_notice` | `pbr` at 79 × 24: row 0 contains `79x24` and `80x24`; every other row is blank; `layout()` is `None`; `l` leaves the cursor at 0 |
 | 12 | `a_minus_strand_codon_is_read_on_its_strand` | `pbr`, `select_cds(Some(2))`, cursor 4151: status row contains `M1`, `ATG`, `4151` and `4153`; after `b`, `S2` and `AGT` |
+| 13 | `a_codon_across_the_origin_spans_it` | round 2. `frames-62.gb`, `select_cds(Some(0))` (`fP`), cursor 0: status contains `T3`, `ACA`, `62..2`; `b` → 59, `w` → 0. `select_cds(Some(1))` (`fM`): `C3`, `TGT`, `62..2`; `w` → 3, `b` → 0 |
+| 14 | `visible_counts_the_gaps` | round 2. `pbr`, `Off`: `visible() == 0..2` (blocks of 7, 6, 6 lines in 20 rows) |
+| 15 | `the_scroll_moves_as_little_as_it_can` | round 2. `pbr`, `Off`: `j`, `j` → cursor 120, `visible() == 1..4` |
 
 ## 6. Checks
 
@@ -168,6 +195,10 @@ unless given. Values below were derived by the planner from the files.
 | G5 | Open selects the first usable CDS when there are several | 1, 9 |
 | G6 | The status codon is the top-strand letters in reference order | 12 |
 | G7 | The top block never moves | 6 |
+| G8 | The codon span as min..max, round 2 | 13 |
+| G9 | `w`/`b` never wrap, round 2 | 13 |
+| G10 | `visible()` without the gaps, round 2 | 14, 15 |
+| G11 | `follow` puts the cursor's block on top, round 2 | 15 |
 
 ## 8. Do not
 
