@@ -1,8 +1,22 @@
 # Contract 8m5 — cli: residues coloured by Zappo group, `C` toggles (M8-29)
 
-Planner: Claude. Status: delegated to `w-8m5` 2026-10-27. Tier: light
-(D051): tests assert behaviour, and the hand test may change the colours
-again. Owner's answer: `docs/tasks/milestone-8m-polish.md` §1, M8-29.
+Planner: Claude. Status: **Implemented 2026-10-27** by worker `w-8m5` in
+three rounds, reviewed and accepted. Tier: light (D051): tests assert
+behaviour, and the hand test may change the colours again. Owner's answer:
+`docs/tasks/milestone-8m-polish.md` §1, M8-29. Findings from review:
+
+* Round 1 stopped before its report, after a context compaction. Its last
+  reasoning was in a scratch test, with values not in this contract. The
+  tests it had written did match §5. Round 2 deleted the scratch file,
+  finished the work, and ran G1–G5, each failing the test §7 names.
+* Two gaps in this contract, which the worker reported rather than worked
+  around. First, `layout_fixtures`' "no trailing space" check failed on the
+  coloured spaces of a line's last codon. In round 3 the check allows a
+  trailing cell only if it is a space with a background, and a mutation
+  that drops the background fails it. Second, `sequence_view_keys`'
+  `KEYS` list pins every `?` row, and it now holds `C`.
+* Choices accepted: the frame window is always widened, which has no effect
+  with colours off; `NO_COLOR=0` counts as set (no-color.org).
 
 ## 1. What this contract builds
 

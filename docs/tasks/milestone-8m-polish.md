@@ -1,7 +1,7 @@
 # Milestone 8m: the owner's hand test of the sequence view, as changes
 
-Status: **In progress, 2026-10-27**: 8m1 to 8m4 implemented (8m4 from the
-owner's second look, M8-28); the owner then asked for M8-29, contract 8m5.
+Status: **Implemented 2026-10-27**: 8m1 to 8m5 (8m4 and 8m5 after the
+owner's second look: M8-28 and M8-29).
 Planner: Claude.
 
 The owner tried `luria FILE` in a terminal after 8l2 and reported that all

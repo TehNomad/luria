@@ -239,6 +239,11 @@ pub struct ViewState {
     /// block leaves out every lane line and the `+N more` line. The flag is kept
     /// while a list or a prompt is open, so the lines come back with the blocks.
     lanes: bool,
+    /// Whether the residue lines draw the Zappo backgrounds (8m5 §4 rule 4): `C`
+    /// turns them off and on, they are on at open unless `NO_COLOR` says
+    /// otherwise (8m5 §4 rule 5), and while a list or a prompt is open `C` is
+    /// text and the flag is kept.
+    colours: bool,
     /// Whether the key list is open (8m3 §4 rule 2): `?` opens it, its rows take
     /// the body in place of the blocks, and any key closes it and does nothing
     /// else.
@@ -276,6 +281,7 @@ impl ViewState {
             hits: None,
             overview: false,
             lanes: true,
+            colours: true,
             help: false,
             chosen: None,
         };
@@ -392,7 +398,12 @@ impl ViewState {
             // rule 1); inside a list or a prompt it is text, as every printable key
             // is there. The scroll following the cursor is the `follow` every
             // cursor-moving key falls through to.
+            // `C` colours the residues by Zappo group and uncolours them again
+            // (8m5 §4 rule 4); inside a list or a prompt it is text, as `F`
+            // above. Colours change no line and no row, so the scroll has
+            // nothing to follow.
             Key::Char('F') => self.lanes = !self.lanes,
+            Key::Char('C') => self.colours = !self.colours,
             Key::Char('f') => self.open_list(ListKind::Features, ""),
             Key::Char('c') => self.open_list(ListKind::Cdss, ""),
             // `/` opens the search prompt with nothing typed (8l1 §4 rule 1); in a
@@ -521,6 +532,20 @@ impl ViewState {
     /// rule 1), drawn at open and hidden while `F` says otherwise.
     pub fn lanes_shown(&self) -> bool {
         self.lanes
+    }
+
+    /// Whether the residue lines are coloured by Zappo group (8m5 §4 rule 4):
+    /// the backgrounds `C` turns off and on, on at open unless `NO_COLOR` says
+    /// otherwise, and what `block_lines` draws them for.
+    pub fn colours(&self) -> bool {
+        self.colours
+    }
+
+    /// Whether the residues are coloured, as the session's environment left it
+    /// (8m5 §4 rule 5): `super::terminal` opens the view with this off when
+    /// `NO_COLOR` says so.
+    pub fn set_colours(&mut self, on: bool) {
+        self.colours = on;
     }
 
     /// Whether the key list is open (8m3 §4 rule 2): `?` opens it and any key
@@ -791,6 +816,7 @@ impl ViewState {
             "w b  move the cursor to the next codon and the codon before it",
             "t  cycle what the lanes show: the CDS, three frames, six frames, off",
             "F  hide the feature lanes and show them again",
+            "C  colour the residues by type (Zappo) and back",
         ];
         if self.record.topology == TopologySource::Assumed {
             rows.push("T  switch the topology the view assumed for this record");
@@ -985,7 +1011,8 @@ impl ViewState {
     /// `layout` refuses has none, for both (8k1 §4 rule 7).
     fn drawn_lines(&self, block: usize) -> Vec<(LineRole, Line<'static>)> {
         let laid: Vec<(LineRole, Line<'static>)> = match self.layout.as_ref() {
-            Some(built) => block_lines(&self.record, built, &self.mode, block).unwrap_or_default(),
+            Some(built) => block_lines(&self.record, built, &self.mode, block, self.colours)
+                .unwrap_or_default(),
             None => Vec::new(),
         };
         if self.lanes {

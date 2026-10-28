@@ -45,13 +45,14 @@ const BODY_WITHOUT: std::ops::Range<usize> = 1..21;
 /// The keys of the open view, in the order the key list has them (8m3 §4 rule 2),
 /// as each row's own text. `T` is not one of them here because pBR322 states its
 /// own topology.
-const KEYS: [&str; 14] = [
+const KEYS: [&str; 15] = [
     "hjkl",
     "PgUp PgDn",
     "Home End",
     "w b",
     "t",
     "F",
+    "C",
     "f",
     "c",
     "g",

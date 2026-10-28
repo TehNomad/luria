@@ -39,16 +39,20 @@
 //!   `CdsMap` reports as place 2 of its codon, and for a frame it is the
 //!   position `frame_residues` puts in `middle`, which is also the position
 //!   the frame's own window test uses. A CDS's terminal stop codon is `*`; a
-//!   frame's unreadable codon is `?`.
+//!   frame's unreadable codon is `?`. With `colours` on (M8-29, contract 8m5)
+//!   a codon whose letter stands in one of Zappo's seven groups has that
+//!   group's background behind all three of its bases, and the letter is black
+//!   over its own base; the codon's other two bases are spaces with that
+//!   background, and a codon two lines split is coloured on each of them for
+//!   the bases the one holds.
 //! * **Numbers** (D055, D010). The selected CDS only. Every residue numbered
 //!   a multiple of 5, in reading order, then the line's leftmost numbered
 //!   residue; each centred on its residue, moved inward to stay over the
 //!   line's bases, and dropped when it would touch a number already placed.
 //!   The terminal stop codon has no number.
 //!
-//! What this module does not draw, and 8k1 does: the cursor, underline,
-//! colours other than a `*` (rule 5 below), the title bar, the status line and
-//! the overview inset.
+//! What this module does not draw, and 8k1 does: the cursor, underline, the
+//! title bar, the status line and the overview inset.
 
 use luria_core::cds::Cds;
 use luria_core::cds_map::CdsMap;
@@ -394,12 +398,40 @@ fn lane_text(name: &str, strand: &Strand, length: u64) -> String {
 
 /// The style of one residue letter: a stop is bold red, the way
 /// `review::view::letter_style` draws a protein's `*` (contract 8j rule 5).
-/// Everything else is left alone — colour is 8k1's.
+/// Everything else is left alone, and 8m5's colour rule adds a background and a
+/// black letter on top of what is here.
 fn residue_style(symbol: char) -> Style {
     if symbol == '*' {
         Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)
     } else {
         Style::default()
+    }
+}
+
+/// The background one of the twenty letters draws by Zappo's seven
+/// physicochemical groups (M8-29, contract 8m5 §4 rule 1), as xterm 256-colour
+/// indexes: Zappo's own values or within 25 of them on every channel, so no
+/// true-colour detection is needed. A symbol outside the twenty — the stop's
+/// `*`, a frame's unreadable codon's `?`, an `X` from a codon the record cannot
+/// read — has no group and no colour, so the cell keeps the look `block_lines`
+/// gives it today.
+fn zappo(symbol: char) -> Option<Color> {
+    match symbol {
+        // aliphatic and hydrophobic.
+        'I' | 'L' | 'V' | 'A' | 'M' => Some(Color::Indexed(217)),
+        // aromatic.
+        'F' | 'W' | 'Y' => Some(Color::Indexed(220)),
+        // positive.
+        'K' | 'R' | 'H' => Some(Color::Indexed(63)),
+        // negative.
+        'D' | 'E' => Some(Color::Indexed(196)),
+        // hydrophilic.
+        'S' | 'T' | 'N' | 'Q' => Some(Color::Indexed(46)),
+        // conformationally special.
+        'P' | 'G' => Some(Color::Indexed(201)),
+        // cysteine.
+        'C' => Some(Color::Indexed(226)),
+        _ => None,
     }
 }
 
@@ -479,14 +511,11 @@ fn cds_residues(map: &CdsMap, letters: &[char], g: u64, start: u64, end: u64) ->
             // Not in the CDS, or not the base its residue sits over.
             _ => continue,
         };
-        let symbol: char = match place.residue {
-            Some(number) => match letters.get(number as usize - 1) {
-                Some(letter) => *letter,
-                None => continue,
-            },
-            // A codon with no residue is the terminal stop codon (D010), and
-            // it is drawn: `*` with no number.
-            None if map.terminal_stop() => '*',
+        let symbol: char = match codon_letter(map, &place, letters) {
+            Some(symbol) => symbol,
+            // Nothing to draw here: the codon has no residue, and this is not
+            // the CDS's terminal stop codon, or the translation holds no letter
+            // for the residue number it gives.
             None => continue,
         };
         on.push(Residue {
@@ -500,6 +529,94 @@ fn cds_residues(map: &CdsMap, letters: &[char], g: u64, start: u64, end: u64) ->
     // own first residue, not from the left edge of the line.
     on.sort_by_key(|residue| residue.codon);
     on
+}
+
+/// The letter one codon of the selected CDS draws: the letter of the residue
+/// the map gives, or `*` for the terminal stop codon (D010), and `None` for a
+/// codon the CDS has no residue for and for a residue number the translation
+/// does not hold. The same answer `cds_residues` and `cds_cells` take.
+fn codon_letter(map: &CdsMap, place: &CodonPlace, letters: &[char]) -> Option<char> {
+    match place.residue {
+        Some(number) => Some(*letters.get(number as usize - 1)?),
+        // A codon with no residue is the terminal stop codon (D010), and it is
+        // drawn: `*` with no number.
+        None if map.terminal_stop() => Some('*'),
+        None => None,
+    }
+}
+
+/// The cells of the selected CDS's residue line: one letter per residue of
+/// `on`, over its codon's middle base, and with `colours` on the other two bases
+/// of every codon whose letter has a Zappo group, drawn as spaces with that
+/// group's background behind them and the letter itself black over it (contract
+/// 8m5 §4 rule 2). The terminal stop's `*` and any symbol `zappo` has no group
+/// for keep `residue_style`'s look with no background; with colours off the line
+/// is what it was before, one letter cell per residue and nothing else.
+///
+/// A codon split between two lines, by a line's edge or the origin, is coloured
+/// on each of them for the bases that one holds, and its letter stands only on
+/// the one that holds its middle base.
+fn cds_cells(
+    map: &CdsMap,
+    on: &[Residue],
+    letters: &[char],
+    g: u64,
+    start: u64,
+    end: u64,
+    colours: bool,
+) -> Vec<Cell> {
+    let mut cells: Vec<Cell> = Vec::new();
+    for residue in on {
+        let style: Style = match group_of(colours, residue.symbol) {
+            Some(bg) => residue_style(residue.symbol).fg(Color::Black).bg(bg),
+            None => residue_style(residue.symbol),
+        };
+        cells.push(Cell {
+            column: residue.column,
+            text: residue.symbol.to_string(),
+            style,
+        });
+    }
+    if !colours {
+        return cells;
+    }
+    for position in start..end {
+        let place: CodonPlace = match map.base_residue(position) {
+            Some(place) => place,
+            // A base outside the CDS, or one of the leftover bases of a CDS
+            // whose length is not a multiple of three, belongs to no codon and
+            // carries nothing (D050).
+            None => continue,
+        };
+        if place.place == 2 {
+            // The letter over the middle base: the residues did that one.
+            continue;
+        }
+        // The codon's first and third base, on whichever line holds them: a
+        // coloured space, and nothing at all where the group has no colour.
+        let symbol: char = match codon_letter(map, &place, letters) {
+            Some(symbol) => symbol,
+            None => continue,
+        };
+        if let Some(bg) = zappo(symbol) {
+            cells.push(Cell {
+                column: g + position - start,
+                text: " ".to_string(),
+                style: Style::default().bg(bg),
+            });
+        }
+    }
+    cells
+}
+
+/// The Zappo background one symbol draws, or nothing when `colours` says the
+/// residues are drawn uncoloured (contract 8m5 §4 rule 3).
+fn group_of(colours: bool, symbol: char) -> Option<Color> {
+    if colours {
+        zappo(symbol)
+    } else {
+        None
+    }
 }
 
 /// The residue-number cells of one line (D055, D010). Every residue numbered
@@ -555,6 +672,17 @@ fn number_cells(on: &[Residue], g: u64, bases_end: u64) -> Vec<Cell> {
 
 /// One frame's line: its label in the gutter and the residues of that frame
 /// whose middle base stands in the block, at the column of that base.
+///
+/// When the `colours` flag is on, the window given to
+/// `frame_residues` widens by one base on each side,
+/// clamped to the record's length, so that a codon standing just
+/// outside the block still colours the bases this line holds at its edge
+/// (contract 8m5 §4 rule 2). Frames never run across the origin (D052), so a
+/// codon is the three bases `middle - 1 ..= middle + 1`, whatever its strand.
+// The record, the strand, the frame, the gutter widths and the block's range
+// are the layout's own; `colours` is 8m5's flag. The group of arguments is the
+// one `cds_cells` and the lane lines take, so no struct is added for it here.
+#[allow(clippy::too_many_arguments)]
 fn frame_cells(
     record: &ViewRecord,
     strand: &Strand,
@@ -563,17 +691,52 @@ fn frame_cells(
     d: u64,
     start: u64,
     end: u64,
+    colours: bool,
 ) -> Result<Vec<Cell>, LayoutProblem> {
-    let residues = frame_residues(&record.sequence, strand.clone(), frame, start, end)
+    let length: u64 = record.sequence.length();
+    let (first, last): (u64, u64) = (start.saturating_sub(1), (end + 1).min(length));
+    let residues = frame_residues(&record.sequence, strand.clone(), frame, first, last)
         .map_err(LayoutProblem::Domain)?;
     let sign: char = if strand_is_plus(strand) { '+' } else { '-' };
     let mut cells: Vec<Cell> = vec![label_cell(&format!("{sign}{}", frame.index()), d)];
     for residue in residues {
-        cells.push(Cell {
-            column: g + residue.middle - start,
-            text: residue.symbol.to_string(),
-            style: residue_style(residue.symbol),
-        });
+        // The letters are exactly the ones before the widening: only a middle
+        // base this line holds draws one.
+        let draws: bool = residue.middle >= start && residue.middle < end;
+        let colour: Option<Color> = group_of(colours, residue.symbol);
+        if !draws && colour.is_none() {
+            // A codon the widening brought in, and nothing to put on this line
+            // for it.
+            continue;
+        }
+        let middle: u64 = residue.middle;
+        for base in middle.saturating_sub(1)..=middle.saturating_add(1) {
+            if base < start || base >= end {
+                // A base of the codon the next line holds: that line colours it.
+                continue;
+            }
+            let column: u64 = g + base - start;
+            if base == middle {
+                if !draws {
+                    continue;
+                }
+                let style: Style = match colour {
+                    Some(bg) => residue_style(residue.symbol).fg(Color::Black).bg(bg),
+                    None => residue_style(residue.symbol),
+                };
+                cells.push(Cell {
+                    column,
+                    text: residue.symbol.to_string(),
+                    style,
+                });
+            } else if let Some(bg) = colour {
+                cells.push(Cell {
+                    column,
+                    text: " ".to_string(),
+                    style: Style::default().bg(bg),
+                });
+            }
+        }
     }
     Ok(cells)
 }
@@ -581,15 +744,19 @@ fn frame_cells(
 /// The lines of one block, in the order they draw (D055, plan §5.1).
 ///
 /// Every line's text starts at column 0 and never runs past its last item: the
-/// gaps between items are spaces, and there are no trailing ones.
+/// gaps between items are spaces, and there are no trailing ones, except the
+/// coloured spaces of a codon's outer bases (M8-29).
 ///
 /// `block` names an entry of `layout.blocks`; the caller holds the layout it
 /// got `block` from, so an index outside it is a bug in the caller and panics.
+/// `colours` is whether the residue lines draw the Zappo backgrounds (M8-29,
+/// contract 8m5 §4 rule 3).
 pub fn block_lines(
     record: &ViewRecord,
     layout: &Layout,
     mode: &LaneMode,
     block: usize,
+    colours: bool,
 ) -> Result<Vec<(LineRole, Line<'static>)>, LayoutProblem> {
     let (start, end): (u64, u64) = layout.blocks[block];
     let d: u64 = u64::from(layout.gutter);
@@ -637,18 +804,7 @@ pub fn block_lines(
             let map: CdsMap = CdsMap::new(cds, &translation);
             let letters: Vec<char> = translation.residues_text().chars().collect();
             let on: Vec<Residue> = cds_residues(&map, &letters, g, start, end);
-            let residues: Vec<Cell> = {
-                let mut by_column: Vec<&Residue> = on.iter().collect();
-                by_column.sort_by_key(|residue| residue.column);
-                by_column
-                    .into_iter()
-                    .map(|residue| Cell {
-                        column: residue.column,
-                        text: residue.symbol.to_string(),
-                        style: residue_style(residue.symbol),
-                    })
-                    .collect()
-            };
+            let residues: Vec<Cell> = cds_cells(&map, &on, &letters, g, start, end, colours);
             let numbers: Vec<Cell> = number_cells(&on, g, g + (end - start));
             // A plus-strand CDS reads above the top strand, a minus-strand one
             // below the bottom (plan §5.1); its numbers line goes with it.
@@ -672,7 +828,8 @@ pub fn block_lines(
                 ReadingFrame::Second,
                 ReadingFrame::First,
             ] {
-                let cells: Vec<Cell> = frame_cells(record, &Strand::Plus, frame, g, d, start, end)?;
+                let cells: Vec<Cell> =
+                    frame_cells(record, &Strand::Plus, frame, g, d, start, end, colours)?;
                 lines.push((LineRole::Frame(Strand::Plus, frame), cells));
             }
             lines.push((LineRole::Top, top));
@@ -684,7 +841,7 @@ pub fn block_lines(
                     ReadingFrame::Third,
                 ] {
                     let cells: Vec<Cell> =
-                        frame_cells(record, &Strand::Minus, frame, g, d, start, end)?;
+                        frame_cells(record, &Strand::Minus, frame, g, d, start, end, colours)?;
                     lines.push((LineRole::Frame(Strand::Minus, frame), cells));
                 }
             }
@@ -825,7 +982,7 @@ mod tests {
         assert_eq!(laid.line_width, 33);
         assert_eq!(laid.blocks, vec![(0, 5)]);
 
-        let lines = block_lines(&record, &laid, &LaneMode::SixFrames, 0).unwrap();
+        let lines = block_lines(&record, &laid, &LaneMode::SixFrames, 0, false).unwrap();
         let roles: Vec<LineRole> = lines.iter().map(|(role, _)| role.clone()).collect();
         assert_eq!(
             roles,
@@ -901,7 +1058,7 @@ mod tests {
         let laid: Layout = layout(&record, 40, &LaneMode::Cds(0)).unwrap();
         assert_eq!(laid.blocks[2], (60, 88));
 
-        let lines = block_lines(&record, &laid, &LaneMode::Cds(0), 2).unwrap();
+        let lines = block_lines(&record, &laid, &LaneMode::Cds(0), 2, false).unwrap();
         let rows: Vec<Vec<String>> = drawn_cells(&lines, 40);
         let lane1: usize = line_of(&lines, &LineRole::Lane(1));
         assert_eq!(span(&rows[lane1], 30, 32), "tet");
@@ -921,7 +1078,7 @@ mod tests {
         );
         let laid: Layout = layout(&record, 78, &LaneMode::Off).unwrap();
         assert_eq!(
-            block_lines(&record, &laid, &LaneMode::Cds(1), 0),
+            block_lines(&record, &laid, &LaneMode::Cds(1), 0, false),
             Err(LayoutProblem::NotUsable(1))
         );
     }
@@ -936,7 +1093,7 @@ mod tests {
         let record: ViewRecord = synthetic();
         assert_eq!(record.cdss[2].id.as_deref(), Some("pj"));
         let laid: Layout = layout(&record, 78, &LaneMode::Cds(2)).unwrap();
-        let lines = block_lines(&record, &laid, &LaneMode::Cds(2), 0).unwrap();
+        let lines = block_lines(&record, &laid, &LaneMode::Cds(2), 0, false).unwrap();
         let (_, styles) = drawn(&lines, 78);
         let residues: usize = lines
             .iter()
@@ -971,6 +1128,54 @@ mod tests {
             vec![13],
             "the `*` at column 13 is the residues line's only bold red cell"
         );
+    }
+
+    /// §5's U1: the twenty letters, each with the colour the Zappo group of §4
+    /// rule 1's table draws for it, and no colour at all for a symbol outside
+    /// the twenty — the stop's `*`, an unreadable codon's `?`, a letter the
+    /// record cannot read a codon for.
+    #[test]
+    fn every_letter_of_the_seven_groups_has_its_colour() {
+        let table: [(char, u8); 20] = [
+            ('I', 217),
+            ('L', 217),
+            ('V', 217),
+            ('A', 217),
+            ('M', 217),
+            ('F', 220),
+            ('W', 220),
+            ('Y', 220),
+            ('K', 63),
+            ('R', 63),
+            ('H', 63),
+            ('D', 196),
+            ('E', 196),
+            ('S', 46),
+            ('T', 46),
+            ('N', 46),
+            ('Q', 46),
+            ('P', 201),
+            ('G', 201),
+            ('C', 226),
+        ];
+        for (letter, index) in table {
+            assert_eq!(
+                zappo(letter),
+                Some(Color::Indexed(index)),
+                "`{letter}` is the group colour {index}"
+            );
+        }
+        let mut once: Vec<char> = table.iter().map(|(letter, _)| *letter).collect();
+        once.sort();
+        once.dedup();
+        assert_eq!(
+            once.len(),
+            20,
+            "the table holds all twenty letters, each once: {once:?}"
+        );
+        for symbol in ['*', '?', 'X', 'B', 'Z', 'J'] {
+            assert_eq!(zappo(symbol), None, "no colour for `{symbol}`");
+        }
     }
 
     /// The cells `number_cells` places, as the column they start in and the

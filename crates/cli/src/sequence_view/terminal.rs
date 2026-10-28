@@ -4,8 +4,10 @@
 //! asks to leave, and restores the terminal whatever happens - on quit, on an
 //! error, and on a panic, because `ratatui::try_init` installs ratatui's panic
 //! hook that does that (the rule `review::terminal` follows, unchanged here).
-//! There is no unit test, as `review/terminal.rs` has none: the state and the
-//! drawing are tested in `state`, `screen` and `tests/sequence_view.rs`.
+//! The session itself has no test, as `review/terminal.rs` has none: the
+//! state and the drawing are tested in `state`, `screen` and
+//! `tests/sequence_view.rs`. What the test here covers is the environment's
+//! colour rule, the only part of this file that answers without a terminal.
 //!
 //! A view is a running program and not a prompt, because `read` blocks:
 //! `luria FILE` needs a terminal and refuses one it does not have (D048 M8-13).
@@ -29,6 +31,14 @@ use crossterm::event::KeyEventKind;
 use crossterm::event::KeyModifiers;
 use luria_core::view_record::ViewRecord;
 use ratatui::layout::Size;
+use std::ffi::OsStr;
+
+/// Whether the view must open without the residue colours (contract 8m5 §4 rule
+/// 5, no-color.org): `NO_COLOR` present and not empty, whatever it is set to,
+/// means no colours, and an unset or empty value is the same as not asking.
+pub fn no_color(value: Option<&OsStr>) -> bool {
+    value.is_some_and(|text: &OsStr| !text.is_empty())
+}
 
 /// The key a `crossterm` press is, as the view sees it (contract §4 rule 14, and
 /// 8k3 §4 rule 3 for `enter`, `esc` and `backspace`): the
@@ -95,6 +105,9 @@ pub fn run(record: ViewRecord) -> std::io::Result<()> {
         }
     };
     let mut state: ViewState = ViewState::new(record, size.width, size.height);
+    // The residues are coloured on open unless the environment says not to
+    // (8m5 §4 rule 5), which is decided before the first draw: no key asks.
+    state.set_colours(!no_color(std::env::var_os("NO_COLOR").as_deref()));
 
     let mut looped: std::io::Result<()> = Ok(());
     loop {
@@ -129,5 +142,31 @@ pub fn run(record: ViewRecord) -> std::io::Result<()> {
     match looped {
         Err(problem) => Err(problem),
         Ok(()) => restored,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::no_color;
+    use std::ffi::OsStr;
+
+    /// §5's U2: the three answers the environment gives, as no-color.org has
+    /// them. Unset and empty both leave the residues coloured; anything else,
+    /// even `0`, asks that nothing be coloured.
+    #[test]
+    fn no_color_is_true_only_for_a_present_and_not_empty_value() {
+        assert!(!no_color(None), "nothing set asks for the colours");
+        assert!(
+            !no_color(Some(OsStr::new(""))),
+            "an empty value asks for the colours"
+        );
+        assert!(
+            no_color(Some(OsStr::new("1"))),
+            "`NO_COLOR=1` asks for none"
+        );
+        assert!(
+            no_color(Some(OsStr::new("0"))),
+            "`NO_COLOR=0` is set and not empty, so it asks for none too"
+        );
     }
 }

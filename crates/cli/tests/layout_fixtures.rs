@@ -392,7 +392,7 @@ fn check_cells(group: &CellsGroup, opened: &[(String, ViewRecord)]) {
         group.block,
         laid.blocks.len()
     );
-    let lines = block_lines(record, &laid, &mode, group.block).unwrap_or_else(|problem| {
+    let lines = block_lines(record, &laid, &mode, group.block, true).unwrap_or_else(|problem| {
         panic!(
             "{} {} {} block {}: {problem:?}",
             group.record, group.width, group.mode, group.block
@@ -502,9 +502,13 @@ fn check_cells(group: &CellsGroup, opened: &[(String, ViewRecord)]) {
 
     // Rule 2's other half: a line's text never runs past its last item, so no
     // line carries a trailing space. The drawn buffer cannot show that (it pads
-    // every cell with a space), so it is checked on the `Line`s themselves: a
-    // line is exactly as wide as the last item the table lists for it, and a
-    // line the table lists no item for carries no text at all.
+    // every cell with a space), so it is checked on the `Line`s themselves: the
+    // text is exactly as wide as the last item the table lists for the line,
+    // and anything past that column is one of the coloured spaces a codon's
+    // outer bases carry (M8-29, contract 8m5 §4 rule 2): a single space in a
+    // span whose style sets a background. A bare trailing space, with no
+    // background, is still a trailing space and fails. A line the table lists
+    // no item for carries no text at all.
     for (line, (_, text)) in lines.iter().enumerate() {
         let end: u64 = group
             .rows
@@ -513,22 +517,34 @@ fn check_cells(group: &CellsGroup, opened: &[(String, ViewRecord)]) {
             .map(|row| row.column + row.cells)
             .max()
             .unwrap_or(0);
-        let shown: String = text
-            .spans
-            .iter()
-            .map(|span| span.content.as_ref())
-            .collect();
-        assert_eq!(
-            shown.chars().count() as u64,
-            end,
-            "{} {} {} block {} line {}: the line's text is {} columns, to its last item's {}",
+        let mut columns: u64 = 0;
+        for span in text.spans.iter() {
+            for letter in span.content.as_ref().chars() {
+                if columns >= end {
+                    assert!(
+                        letter == ' ' && span.style.bg.is_some(),
+                        "{} {} {} block {} line {}: {:?} at column {} is past the last item's {} columns: a line may only end in a coloured codon base's single space",
+                        group.record,
+                        group.width,
+                        group.mode,
+                        group.block,
+                        line,
+                        letter,
+                        columns,
+                        end
+                    );
+                }
+                columns += 1;
+            }
+        }
+        assert!(
+            columns >= end,
+            "{} {} {} block {} line {}: the line's text is {columns} columns, short of its last item's {end}",
             group.record,
             group.width,
             group.mode,
             group.block,
-            line,
-            shown.chars().count(),
-            end
+            line
         );
     }
 }
