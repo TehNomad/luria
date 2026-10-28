@@ -30,12 +30,14 @@ written out in `reference/`, and each is re-derivable with `--check` (D039).
 | `search-protein-hits.tsv` | every hit of every listed protein pattern: strand, frame, zero-based start and length of the bases its codons cover, whether that run wraps, first and last residue numbers (`stop` for the stop codon), the symbols matched, and the bases |
 | `layout-blocks.tsv` | every block of eighteen layout cases (record, width, mode): the line width that width allows, and each block's first and last base and base count |
 | `layout-cells.tsv` | for chosen blocks, every item the layout places: line, role, kind, first column, columns covered, and text — columns only, no glyph or style |
+| `orfs.tsv` | the open reading frames of `pbr322`, `synthetic`, `synthetic_linear` (`../genbank/`) and `frames62`, read circular and linear as the view can ask for either, both strands, with the minimum number of residues that keeps them: 9 cases, 45 rows |
 | `reference/make_frames_62.py` | the deterministic search that chose `frames-62.gb`, and the check that the tracked record still satisfies what it claims |
 | `reference/cds_map.py` | the five CDS-map tables above |
 | `reference/frame_tables.py` | the two frame tables above, and the check that every ACGT codon of every frame equals Biopython's translation of the same linear slice |
 | `reference/search_dna.py` | the three search tables above, and the cross-checks described in the DNA-search section |
 | `reference/search_protein.py` | the two protein-search tables above, and the cross-checks described in the protein-search section |
 | `reference/layout_columns.py` | the two layout tables above, and the cross-checks described in the block-layout section |
+| `reference/orfs.py` | the ORF table above: Biopython's translation of each reading, the runs between a start codon and a stop codon, and the check that every row's own location spells those runs back from the record's bases |
 
 No fixture here pins a decision that was still open when it was written.
 `M8-2` — six frames do not run across the origin, D052 — is settled, and the
@@ -530,6 +532,87 @@ pins that with a unit test.
 
 What these tables do not pin: glyphs, styles, the cursor, the status line, the
 title bar, the overview inset (8l2), and the gutter's minimum of 2.
+
+## ORFs (8m17): what an open reading frame is, and where D036 and D010 bite
+
+`orfs.tsv` holds the open reading frames of four records read two ways each
+(circular and linear), on both strands, with the minimum number of residues that
+keeps them. M8-40 reads it as `crates/core/tests/orf_fixtures.rs`; the minimum
+and the lanes the view draws around them belong to `M8-17`/`M8-19`, not to a
+fixture. The columns are `record`, `topology`, `min_residues`, `strand`,
+`location`, `residues`: the record's name as the tables name it, the topology the
+case asks for (`circular` or `linear`, which is the view's `--circle`/`--linear`
+flag and nothing else: `pbr322` is read both ways because the view can flip what
+the file itself says, while `synthetic_linear` is read circular even though its
+file says `linear` and `synthetic_linear`'s rows are drawn from the same
+sequence), the minimum that keeps every row of the case, `+`/`-`, the location as
+a shared-parser location (`join` for a wrapping ORF, `complement` for a
+minus-strand one, no spaces, 1-based inclusive), and the residues the ORF
+translates.
+
+| line | what it fixes |
+| --- | --- |
+| header | the six columns, and `residues` as the column that names the minimum |
+| 45 rows | the nine cases, all of them |
+
+### How the rows were found (`reference/orfs.py`)
+
+- Both readings come from Biopython: the reverse complement from
+  `Seq.reverse_complement()`, and every codon's residue from the standard
+  (table 1) genetic code through `Seq.translate()`. A codon of exactly three
+  unmodified letters names a residue; anything else names none. Only `ATG`
+  begins a protein run, and only `TAA`, `TAG` and `TGA` end one.
+- A circular record's reading is repeated three times and translated in its
+  three frames; a linear record's reading is translated once. A codon whose
+  three letters run past the end of a circular record is still a codon — it
+  reaches round to the record's first letters — and the repeated text is what
+  makes a wrapping codon and an origin-crossing ORF look like an ordinary run.
+  The middle copy of the coordinate line is what counts each of the record's own
+  codon starts exactly once.
+- A protein run is an ORF when it starts at the first `M` after the previous stop
+  and ends at the stop that follows it: `M[^*]*\*` over a frame's translation.
+  The ORF's start is therefore the *first* start codon after the previous stop,
+  not the nearest one to the stop, and there is exactly one ORF per stop codon.
+  That is how Biopython and NEAT read ORFs, and it is what makes `pbr322`'s
+  longest minus-strand ORF cross the origin.
+- The span reaches from the first base of the start codon through the stop codon,
+  and the residues are the codons between: the span is three times the codons and
+  the residues one fewer (D010: the terminal stop codon is present in the span and
+  absent from the residue count). A row is kept when `residues >= min_residues`.
+- Two further rules say which rows belong to the record rather than to the
+  repeated text: a circular record's ORF spans at most the whole record, and it
+  is recorded from the copy of the coordinate line that is the record's own line.
+- Every row is then checked against the record's bases by reading its own
+  location back: the first codon must be exactly a start codon, the last exactly
+  a stop, no residue between the two may be a start or a stop, and the residues
+  must be exactly the translation of the location. A row that fails any of that
+  is not the row the rules describe.
+
+The rules above are D010 and D036 as they apply to an ORF table: an ambiguous
+codon — one of `NNN`, `GGN`, `CTN`, `NRN`, `ANT`, which Biopython translates to a
+single letter the standard code does not use — names no residue and is **neither**
+a start **nor** a stop, so `NTG` does not begin an ORF and `NAA`, `NAG`, `NGA` do
+not end one; the ORF runs through it and keeps its letters inside the span. And an
+origin-crossing ORF of a circular record is spelled as exactly two intervals,
+first the one ending at the record's end, then the one starting at the base after
+the origin (D036) — the same spelling as the CDS tables' origin-crossing joins, so
+`frames62`'s wrapping ORFs read `join(56..62,1..11)` and
+`complement(join(53..62,1..8))`.
+
+### The hand values the script checked its rows against
+
+| value | why |
+| --- | --- |
+| `pbr322` minus 3293..4153 = 286 residues | hand counted from the record: a 387-base span, no base between the start at 3293 and the stop at 4152..4154 changes the frame, and the span is not origin-crossing |
+| `pbr322` plus 86..1276 = 396 residues | hand counted: the span is 1276-86+1 = 1191 bases, and 1191/3 - 1 = 396 |
+| `synthetic` 55..60 + 1..12 = 5 residues | the six residues `MTSLCS` of the CDS the record annotates, plus its stop codon `TAA` at 1..3: the join crosses the origin of the 60 bp record, and its span is 18 bases = 6 codons (D036) |
+| `synthetic_linear` 284..393 + 1..34 = 47 residues | the span is 110 + 34 = 144 bases: 284..393 through the end of the record, then the origin to 34, and the residues are 48 codons - 1 |
+| `synthetic` plus 1..12 = 3 residues | the shortest ORF the linear reading keeps: 12 bases, 4 codons, and `residues >= 2` |
+| `frames62` 56..62 + 1..11 = 5 residues | `MSAYGPF` = 7 residues from a start 6 bases before the origin, with 23 bases inside the span and the stop at 9..11 (D036) |
+| `frames62` minus `complement(join(53..62,1..8))` = 5 residues | the same shape on the minus strand, 18 bases inside the span; its codons read `TCC TAT GCA ATT GAA CAT GTA`, where `GTA`'s last base is the record's first |
+
+`pbr322` keeps 9 rows at 75, 8 at 80 and 8 at 74, so the minimum is inclusive and
+the table is written at 75, NEAT Finder's default (D051).
 
 ## Regenerating
 

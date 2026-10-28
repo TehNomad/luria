@@ -1,6 +1,23 @@
 # Contract 8m17 — core: the ORF finder, with a reference table (M8-40)
 
-Planner: Claude. Status: written 2026-10-28, to run after 8m16. Tier: full
+Planner: Claude. Status: **Implemented 2026-10-28** by worker `w-8m17` in
+one round, reviewed and accepted. Findings from review:
+
+* The planner's own prototype (Biopython translation and the same regex,
+  written before the contract) gives the same rows, in the same order, for
+  all nine cases of §6 (45 rows). `orfs.py` uses §6's method, not a port of
+  the scan.
+* The scan keeps one queue of starts per frame phase over the reading (three
+  copies on a circular record), drops the starts out of the `L` window at
+  each stop and clears the queue: linear in `L`. It builds a `String` per
+  codon and a `Vec<char>` per strand, so a 64 MiB record will be slow and
+  large in memory, but not quadratic.
+* Beyond §3: the worker also added a `view/` row and an "ORFs (8m17)"
+  section to `tests/fixtures/README.md`, and flagged it. The text is
+  accurate and kept.
+* G1–G5 each failed the test §10 names (G1 also fails T1 and T2; G3 also T5).
+
+Tier: full
 (D051): new biology, so a table from an independent Python reference pins it.
 Owner's answer: `docs/tasks/milestone-8m-polish.md` §1, M8-40. The lanes
 that draw ORFs are 8m18; this contract adds no drawing.

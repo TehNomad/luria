@@ -14,6 +14,7 @@
 | [`tm/`](./tm/) | Published nearest-neighbour parameters for the Tm calculation (D030). Drives `crates/core/tests/tm_tables.rs`; `tm_crosscheck.rs` holds reference Tm values. |
 | [`primer-quality/`](./primer-quality/) | Sourced thresholds for the non-blocking primer-quality warnings. Drives `crates/core/tests/primer_quality_thresholds.rs`. |
 | [`codon-usage/`](./codon-usage/) | The Kazusa Codon Usage Database page for *Escherichia coli* W3110 (species 316407) as captured, parsed to `counts.tsv` by `reference/parse_kazusa.py`. Checked against `crates/core/src/codon_usage.rs` by `crates/core/tests/codon_usage_fixture.rs`. |
+| [`view/`](./view/) | The screens of Milestone 8: what every frame of a record covers (`frame-tables.tsv`), how a CDS numbers its codons and bases (`cds-map-*.tsv`), what a search may match and what a hit covers (`search-*.tsv`), where every base and residue goes on the page (`layout-*.tsv`), and which runs of codons are open reading frames (`orfs.tsv`, contract 8m17, written by `reference/orfs.py` and read by `crates/core/tests/orf_fixtures.rs`). Its record `frames-62.gb` is hand-built for the shape only a hand-built record can have. |
 
 ## Rerunning fixture verification
 
@@ -34,12 +35,32 @@ python -I tests/fixtures/verify.py
 `PASS` or `FAIL` and the name of each, exiting 1 if any fails: the three Tm
 verifiers (`verify_imm.py`, `verify_matched.py`, `crosscheck.py`), the five
 q5-primer generators, the codon-usage parser, the FASTA digest check, the three
-GenBank checks, and the review context check.
+GenBank checks, the review checks, the request and shorthand check, and the view
+references that write its tables (`make_frames_62.py` aside from the record it
+chose, `cds_map.py`, `frame_tables.py`, `search_dna.py`, `search_protein.py`,
+`layout_columns.py`, `orfs.py`).
 
 These Python checks are **not** part of the required cargo checks (D039, D026):
 the Rust tests never call Python, and `cargo test --workspace` does not run
 these scripts. They are run separately, when a fixture or one of its sources
 changes.
+
+## ORFs (8m17): the view's open-reading-frame table
+
+`view/orfs.tsv` fixes which runs of codons are open reading frames, for four
+records read circular and linear on both strands, with the minimum number of
+residues that keeps them. `view/reference/orfs.py` writes it from Biopython's
+translation of each reading: a row is a run that starts at the first `M` after
+the previous stop and ends at the stop that follows, so the start is the first
+start codon after the previous stop rather than the nearest one to the stop, and
+there is exactly one row per stop codon. `view/README.md` holds the full rules
+and the hand values the script checked its rows against; the three that matter
+here are D010 (an ambiguous codon names no residue and is neither a start nor a
+stop, and the terminal stop codon is inside the span but out of the residue
+count) and D036 (an origin-crossing ORF of a circular record is exactly two
+intervals, the one ending at the record's end first). The minimum is NEAT
+Finder's default, 75, and is inclusive: `pbr322` keeps 9 rows at 75, 8 at 80 and
+8 at 74. The table is read by `crates/core/tests/orf_fixtures.rs` (M8-40).
 
 ---
 
