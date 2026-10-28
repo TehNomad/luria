@@ -28,6 +28,8 @@
 
 use luria_cli::sequence_view::layout::block_lines;
 use luria_cli::sequence_view::layout::layout;
+use luria_cli::sequence_view::layout::Drawing;
+use luria_cli::sequence_view::layout::FeatureLevel;
 use luria_cli::sequence_view::layout::LaneMode;
 use luria_cli::sequence_view::layout::Layout;
 use luria_cli::sequence_view::layout::LineRole;
@@ -392,7 +394,17 @@ fn check_cells(group: &CellsGroup, opened: &[(String, ViewRecord)]) {
         group.block,
         laid.blocks.len()
     );
-    let lines = block_lines(record, &laid, &mode, group.block, true).unwrap_or_else(|problem| {
+    let lines = block_lines(
+        record,
+        &laid,
+        &mode,
+        group.block,
+        &Drawing {
+            colours: true,
+            features: FeatureLevel::All,
+        },
+    )
+    .unwrap_or_else(|problem| {
         panic!(
             "{} {} {} block {}: {problem:?}",
             group.record, group.width, group.mode, group.block

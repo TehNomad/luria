@@ -100,6 +100,29 @@ pub enum LaneMode {
     SixFrames,
 }
 
+/// Which of the record's features get a lane line (M8-30, contract 8m6
+/// §4 rule 2): `F` cycles the three levels, and the level says what the sort,
+/// `LANE_LIMIT` and the `+N more` line apply to.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FeatureLevel {
+    /// Every drawn feature, as today (D053).
+    All,
+    /// Only the features whose key is `CDS`.
+    Cdss,
+    /// No feature gets a lane: no lane line and no `+N more` line.
+    None,
+}
+
+/// How the lines are drawn, as the view's keys set it (M8-30, contract 8m6
+/// §4 rule 1): `colours` is 8m5's `C` and `features` is 8m6's `F`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Drawing {
+    /// Whether the residue lines draw the Zappo backgrounds (M8-29).
+    pub colours: bool,
+    /// Which features get lanes (M8-30).
+    pub features: FeatureLevel,
+}
+
 /// What one line of a block is, in the order `block_lines` returns them.
 /// `Strand` has no `Eq` (`strand.rs:6`), so this compares by `PartialEq`.
 #[derive(Clone, Debug, PartialEq)]
@@ -312,11 +335,22 @@ pub fn layout(record: &ViewRecord, width: u16, mode: &LaneMode) -> Result<Layout
 /// every `Drawn` feature that is not a `source` and has a base in the block,
 /// longest drawn length first, then file order (D053, D055; the plan §5.1
 /// "longest first"). `source` has no lane: it describes the whole record, and
-/// a bar over every base says nothing.
-fn lanes(record: &ViewRecord, start: u64, end: u64) -> Vec<Lane> {
+/// a bar over every base says nothing. `level` says which of them are kept
+/// before the sort, so `LANE_LIMIT` and the `+N more` line count what the level
+/// leaves (M8-30, §4 rule 2).
+fn lanes(record: &ViewRecord, start: u64, end: u64, level: FeatureLevel) -> Vec<Lane> {
+    // Under `None` no feature is kept, and with nothing kept there is nothing
+    // for the `+N more` line to count either (§4 rule 2).
+    if level == FeatureLevel::None {
+        return Vec::new();
+    }
     let mut out: Vec<Lane> = Vec::new();
     for feature in record.features.iter() {
         if feature.key == "source" {
+            continue;
+        }
+        // CDSs only: the features whose key is `CDS`, named or not (§4 rule 2).
+        if level == FeatureLevel::Cdss && feature.key != "CDS" {
             continue;
         }
         let shape: &DisplayLocation = match &feature.shape {
@@ -749,14 +783,15 @@ fn frame_cells(
 ///
 /// `block` names an entry of `layout.blocks`; the caller holds the layout it
 /// got `block` from, so an index outside it is a bug in the caller and panics.
-/// `colours` is whether the residue lines draw the Zappo backgrounds (M8-29,
-/// contract 8m5 §4 rule 3).
+/// `drawing` is how the lines are drawn: `drawing.colours` whether the residue
+/// lines draw the Zappo backgrounds (M8-29, contract 8m5 §4 rule 3), and
+/// `drawing.features` which features get lanes (M8-30, contract 8m6 §4 rule 2).
 pub fn block_lines(
     record: &ViewRecord,
     layout: &Layout,
     mode: &LaneMode,
     block: usize,
-    colours: bool,
+    drawing: &Drawing,
 ) -> Result<Vec<(LineRole, Line<'static>)>, LayoutProblem> {
     let (start, end): (u64, u64) = layout.blocks[block];
     let d: u64 = u64::from(layout.gutter);
@@ -764,7 +799,7 @@ pub fn block_lines(
 
     let mut lines: Vec<(LineRole, Vec<Cell>)> = Vec::new();
 
-    let lanes: Vec<Lane> = lanes(record, start, end);
+    let lanes: Vec<Lane> = lanes(record, start, end, drawing.features);
     for (number, lane) in lanes.iter().take(LANE_LIMIT).enumerate() {
         let cells: Vec<Cell> = lane
             .runs
@@ -777,6 +812,8 @@ pub fn block_lines(
             .collect();
         lines.push((LineRole::Lane(number as u8 + 1), cells));
     }
+    // What is counted here is what the level left, so under `None` the line is
+    // not drawn at all (§4 rule 2).
     if lanes.len() > LANE_LIMIT {
         let text: String = format!("+{} more", lanes.len() - LANE_LIMIT);
         lines.push((
@@ -804,7 +841,8 @@ pub fn block_lines(
             let map: CdsMap = CdsMap::new(cds, &translation);
             let letters: Vec<char> = translation.residues_text().chars().collect();
             let on: Vec<Residue> = cds_residues(&map, &letters, g, start, end);
-            let residues: Vec<Cell> = cds_cells(&map, &on, &letters, g, start, end, colours);
+            let residues: Vec<Cell> =
+                cds_cells(&map, &on, &letters, g, start, end, drawing.colours);
             let numbers: Vec<Cell> = number_cells(&on, g, g + (end - start));
             // A plus-strand CDS reads above the top strand, a minus-strand one
             // below the bottom (plan §5.1); its numbers line goes with it.
@@ -828,8 +866,16 @@ pub fn block_lines(
                 ReadingFrame::Second,
                 ReadingFrame::First,
             ] {
-                let cells: Vec<Cell> =
-                    frame_cells(record, &Strand::Plus, frame, g, d, start, end, colours)?;
+                let cells: Vec<Cell> = frame_cells(
+                    record,
+                    &Strand::Plus,
+                    frame,
+                    g,
+                    d,
+                    start,
+                    end,
+                    drawing.colours,
+                )?;
                 lines.push((LineRole::Frame(Strand::Plus, frame), cells));
             }
             lines.push((LineRole::Top, top));
@@ -840,8 +886,16 @@ pub fn block_lines(
                     ReadingFrame::Second,
                     ReadingFrame::Third,
                 ] {
-                    let cells: Vec<Cell> =
-                        frame_cells(record, &Strand::Minus, frame, g, d, start, end, colours)?;
+                    let cells: Vec<Cell> = frame_cells(
+                        record,
+                        &Strand::Minus,
+                        frame,
+                        g,
+                        d,
+                        start,
+                        end,
+                        drawing.colours,
+                    )?;
                     lines.push((LineRole::Frame(Strand::Minus, frame), cells));
                 }
             }
@@ -982,7 +1036,17 @@ mod tests {
         assert_eq!(laid.line_width, 33);
         assert_eq!(laid.blocks, vec![(0, 5)]);
 
-        let lines = block_lines(&record, &laid, &LaneMode::SixFrames, 0, false).unwrap();
+        let lines = block_lines(
+            &record,
+            &laid,
+            &LaneMode::SixFrames,
+            0,
+            &Drawing {
+                colours: false,
+                features: FeatureLevel::All,
+            },
+        )
+        .unwrap();
         let roles: Vec<LineRole> = lines.iter().map(|(role, _)| role.clone()).collect();
         assert_eq!(
             roles,
@@ -1058,7 +1122,17 @@ mod tests {
         let laid: Layout = layout(&record, 40, &LaneMode::Cds(0)).unwrap();
         assert_eq!(laid.blocks[2], (60, 88));
 
-        let lines = block_lines(&record, &laid, &LaneMode::Cds(0), 2, false).unwrap();
+        let lines = block_lines(
+            &record,
+            &laid,
+            &LaneMode::Cds(0),
+            2,
+            &Drawing {
+                colours: false,
+                features: FeatureLevel::All,
+            },
+        )
+        .unwrap();
         let rows: Vec<Vec<String>> = drawn_cells(&lines, 40);
         let lane1: usize = line_of(&lines, &LineRole::Lane(1));
         assert_eq!(span(&rows[lane1], 30, 32), "tet");
@@ -1078,7 +1152,16 @@ mod tests {
         );
         let laid: Layout = layout(&record, 78, &LaneMode::Off).unwrap();
         assert_eq!(
-            block_lines(&record, &laid, &LaneMode::Cds(1), 0, false),
+            block_lines(
+                &record,
+                &laid,
+                &LaneMode::Cds(1),
+                0,
+                &Drawing {
+                    colours: false,
+                    features: FeatureLevel::All,
+                },
+            ),
             Err(LayoutProblem::NotUsable(1))
         );
     }
@@ -1093,7 +1176,17 @@ mod tests {
         let record: ViewRecord = synthetic();
         assert_eq!(record.cdss[2].id.as_deref(), Some("pj"));
         let laid: Layout = layout(&record, 78, &LaneMode::Cds(2)).unwrap();
-        let lines = block_lines(&record, &laid, &LaneMode::Cds(2), 0, false).unwrap();
+        let lines = block_lines(
+            &record,
+            &laid,
+            &LaneMode::Cds(2),
+            0,
+            &Drawing {
+                colours: false,
+                features: FeatureLevel::All,
+            },
+        )
+        .unwrap();
         let (_, styles) = drawn(&lines, 78);
         let residues: usize = lines
             .iter()

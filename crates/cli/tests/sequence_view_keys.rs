@@ -1,5 +1,6 @@
-//! `F` hides and shows the feature lanes, and `?` lists every key the open view
-//! has (contract 8m3 §5, M8-23, M8-25, M8-26).
+//! `F` cycles the feature lanes through their levels — all, CDSs only, none
+//! (8m6 §4 rule 5) — and `?` lists every key the open view has (contract 8m3 §5,
+//! M8-23, M8-25, M8-26).
 //!
 //! `pbr` is `tests/fixtures/genbank/raw/J01749.1.gb`, whose `CIRCULUS` line states
 //! a circular topology, and `w16` is the FASTA `>w` / `TTCAAAAAAAAAAGAA`, whose
@@ -15,6 +16,7 @@
 //! 3-7. That the lane is drawn, and where it is drawn, is read from the fixture's
 //! own feature table, not from what the screen draws.
 
+use luria_cli::sequence_view::layout::FeatureLevel;
 use luria_cli::sequence_view::screen::draw;
 use luria_cli::sequence_view::state::Action;
 use luria_cli::sequence_view::state::Key;
@@ -133,11 +135,18 @@ fn tet_drawn(state: &ViewState, given: std::ops::Range<usize>) -> bool {
         .any(|row| row.contains("tet"))
 }
 
-/// `F` hides the feature lanes' lines and shows them again (M8-23, §5 test 1),
-/// and while they are hidden the blocks have the rows they took.
+/// `F` cycles the feature lanes through their three levels (M8-30, 8m6 §4 rule
+/// 5: all, CDSs only, none), and the rows the levels leave are the rows the
+/// blocks have. `tet` is a `gene` and a `CDS` at 86..1276, so its lane is drawn
+/// at the first two levels and not at the last.
 #[test]
-fn f_hides_and_shows_the_feature_lanes() {
+fn f_cycles_the_feature_levels() {
     let mut state: ViewState = ViewState::new(pbr(), W, H);
+    assert_eq!(
+        state.features(),
+        FeatureLevel::All,
+        "the levels open at all the features"
+    );
     assert!(state.lanes_shown(), "the lanes are drawn at open");
     assert!(
         state.overview(),
@@ -150,10 +159,27 @@ fn f_hides_and_shows_the_feature_lanes() {
     let drawn: usize = state.visible().len();
 
     press(&mut state, Key::Char('F'));
-    assert!(!state.lanes_shown(), "F hides the lanes");
+    assert_eq!(
+        state.features(),
+        FeatureLevel::Cdss,
+        "the first `F` moves the levels to the CDSs only"
+    );
+    assert!(state.lanes_shown(), "the CDSs still have their lanes");
+    assert!(
+        tet_drawn(&state, BODY_WITH_STRIP),
+        "the `tet` lane, a `CDS` at 86..1276, is still drawn"
+    );
+
+    press(&mut state, Key::Char('F'));
+    assert_eq!(
+        state.features(),
+        FeatureLevel::None,
+        "the second `F` moves the levels to no features"
+    );
+    assert!(!state.lanes_shown(), "no features means no lanes");
     assert!(
         !tet_drawn(&state, BODY_WITH_STRIP),
-        "no lane line is drawn while `F` has the lanes hidden"
+        "no lane line is drawn while the levels are at none"
     );
     let hidden: usize = state.visible().len();
     assert!(
@@ -163,7 +189,12 @@ fn f_hides_and_shows_the_feature_lanes() {
     );
 
     press(&mut state, Key::Char('F'));
-    assert!(state.lanes_shown(), "F shows the lanes again");
+    assert_eq!(
+        state.features(),
+        FeatureLevel::All,
+        "the third `F` comes back round to all the features"
+    );
+    assert!(state.lanes_shown(), "the lanes are drawn again");
     assert!(
         tet_drawn(&state, BODY_WITH_STRIP),
         "the `tet` lane is drawn again"

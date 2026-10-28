@@ -23,6 +23,8 @@ use crate::sequence_view::goto::parse_target;
 use crate::sequence_view::goto::Target;
 use crate::sequence_view::layout::block_lines;
 use crate::sequence_view::layout::layout;
+use crate::sequence_view::layout::Drawing;
+use crate::sequence_view::layout::FeatureLevel;
 use crate::sequence_view::layout::LaneMode;
 use crate::sequence_view::layout::Layout;
 use crate::sequence_view::layout::LayoutProblem;
@@ -150,6 +152,17 @@ fn problem_words(problem: &LayoutProblem) -> String {
     }
 }
 
+/// The words a feature level names itself with in the status line, as `F` puts
+/// them there (8m6 §4 rule 3): `features: all`, `features: CDSs only`,
+/// `features: none`.
+fn feature_words(level: FeatureLevel) -> &'static str {
+    match level {
+        FeatureLevel::All => "all",
+        FeatureLevel::Cdss => "CDSs only",
+        FeatureLevel::None => "none",
+    }
+}
+
 /// One codon of the selected CDS, as the underline and the status line need
 /// them (§4 rules 12 and 13). `super::screen` reads these; they are not part of
 /// the state's public surface.
@@ -234,11 +247,12 @@ pub struct ViewState {
     /// the body rows hold without them. While a list is open they are not drawn,
     /// but the flag is kept, so closing the list brings them back.
     overview: bool,
-    /// Whether the feature lanes' lines are drawn (8m3 §4 rule 1): `F` hides them
-    /// and shows them again, they are drawn at open, and while they are hidden a
-    /// block leaves out every lane line and the `+N more` line. The flag is kept
-    /// while a list or a prompt is open, so the lines come back with the blocks.
-    lanes: bool,
+    /// The level the feature lanes are drawn at (8m3 §4 rule 1, 8m6 §4 rule 3):
+    /// what `F` steps through the three levels, `All` at open, and what
+    /// `block_lines` draws the lanes for. Under `None` a block leaves out every
+    /// lane line and the `+N more` line. The level is kept while a list or a
+    /// prompt is open, so the lines come back with the blocks.
+    features: FeatureLevel,
     /// Whether the residue lines draw the Zappo backgrounds (8m5 §4 rule 4): `C`
     /// turns them off and on, they are on at open unless `NO_COLOR` says
     /// otherwise (8m5 §4 rule 5), and while a list or a prompt is open `C` is
@@ -280,7 +294,7 @@ impl ViewState {
             search: None,
             hits: None,
             overview: false,
-            lanes: true,
+            features: FeatureLevel::All,
             colours: true,
             help: false,
             chosen: None,
@@ -394,15 +408,17 @@ impl ViewState {
                 self.prompt = Some(String::new());
                 return Action::Continue;
             }
-            // `F` hides the feature lanes' lines and shows them again (8m3 §4
-            // rule 1); inside a list or a prompt it is text, as every printable key
-            // is there. The scroll following the cursor is the `follow` every
+            // `F` steps the feature lanes through their three levels — all,
+            // CDSs only, none (8m6 §4 rule 3) — and names the level reached in
+            // the status line; inside a list or a prompt it is text, as every
+            // printable key is there. The levels change how many lines a block
+            // has, so the scroll follows the cursor as the `follow` every
             // cursor-moving key falls through to.
             // `C` colours the residues by Zappo group and uncolours them again
             // (8m5 §4 rule 4); inside a list or a prompt it is text, as `F`
             // above. Colours change no line and no row, so the scroll has
             // nothing to follow.
-            Key::Char('F') => self.lanes = !self.lanes,
+            Key::Char('F') => self.step_features(),
             Key::Char('C') => self.colours = !self.colours,
             Key::Char('f') => self.open_list(ListKind::Features, ""),
             Key::Char('c') => self.open_list(ListKind::Cdss, ""),
@@ -528,10 +544,16 @@ impl ViewState {
         self.overview
     }
 
+    /// The level the feature lanes are drawn at, as `F` left it (8m6 §4 rule 3):
+    /// `All` when the view opens.
+    pub fn features(&self) -> FeatureLevel {
+        self.features
+    }
+
     /// Whether the feature lanes are drawn: the lines `F` hides and shows (8m3 §4
-    /// rule 1), drawn at open and hidden while `F` says otherwise.
+    /// rule 1), true at every level but `None` (8m6 §4 rule 3).
     pub fn lanes_shown(&self) -> bool {
-        self.lanes
+        self.features != FeatureLevel::None
     }
 
     /// Whether the residue lines are coloured by Zappo group (8m5 §4 rule 4):
@@ -779,8 +801,8 @@ impl ViewState {
 
     /// One block's lines as `layout` gives them, with the cursor and the codon's
     /// underline left for `super::screen` to add (§4 rule 12). A block whose
-    /// lines `layout` refuses draws nothing. While `F` has the lanes hidden the
-    /// lane lines are not here (8m3 §4 rule 1).
+    /// lines `layout` refuses draws nothing. While the level is `None` no lane
+    /// line and no `+N more` line is here (8m6 §4 rule 2).
     pub(super) fn lines(&self, block: usize) -> Vec<(LineRole, Line<'static>)> {
         self.drawn_lines(block)
     }
@@ -801,8 +823,9 @@ impl ViewState {
     /// The key list's rows, one per key the open screen has and in the order the
     /// list shows them (8m3 §4 rule 2): the key's own text, two spaces, then what
     /// the key does — each row written from the arm of `handle` that key reaches,
-    /// so `t` is `cycle`, `F` flips `lanes`, `T` is `flip`. `T` has a row only
-    /// where the topology was assumed, which is the only case in which it changes
+    /// so the `t` row starts `cycle`, the `F` row starts `cycle` as well, the
+    /// `T` row `switch`. `T` has a row only where the topology was assumed, which
+    /// is the only case in which it changes
     /// anything (M8-25). Empty unless the list is open: the body has 20 rows at
     /// `MIN_WIDTH` by `MIN_HEIGHT`, more than the 15 the longest list needs.
     pub(super) fn help_rows(&self) -> Vec<String> {
@@ -815,7 +838,7 @@ impl ViewState {
             "Home End  move the cursor to the record's first base and last base",
             "w b  move the cursor to the next codon and the codon before it",
             "t  cycle what the lanes show: the CDS, three frames, six frames, off",
-            "F  hide the feature lanes and show them again",
+            "F  cycle the feature lanes: all, CDSs only, none",
             "C  colour the residues by type (Zappo) and back",
         ];
         if self.record.topology == TopologySource::Assumed {
@@ -1004,23 +1027,27 @@ impl ViewState {
     }
 
     /// The one place a block's lines come from, for the drawing and for the rows
-    /// counted (8m3 §4 rule 1): `layout`'s lines for the current mode, with every
-    /// feature lane line and the `+N more` line left out while `F` has the lanes
-    /// hidden. `lines` draws what is here and `line_count` counts it, so the rows
-    /// `visible` and `follow` measure are the rows drawn. A block whose lines
-    /// `layout` refuses has none, for both (8k1 §4 rule 7).
+    /// counted (8m3 §4 rule 1, 8m6 §4 rule 3): `layout`'s lines for the current
+    /// mode, drawn with the state's own colours and feature level. `block_lines`
+    /// is what leaves out the lane lines and the `+N more` line, so `lines` draws
+    /// what is here and `line_count` counts it, and the rows `visible` and
+    /// `follow` measure are the rows drawn. A block whose lines `layout` refuses
+    /// has none, for both (8k1 §4 rule 7).
     fn drawn_lines(&self, block: usize) -> Vec<(LineRole, Line<'static>)> {
-        let laid: Vec<(LineRole, Line<'static>)> = match self.layout.as_ref() {
-            Some(built) => block_lines(&self.record, built, &self.mode, block, self.colours)
-                .unwrap_or_default(),
+        match self.layout.as_ref() {
+            Some(built) => block_lines(
+                &self.record,
+                built,
+                &self.mode,
+                block,
+                &Drawing {
+                    colours: self.colours,
+                    features: self.features,
+                },
+            )
+            .unwrap_or_default(),
             None => Vec::new(),
-        };
-        if self.lanes {
-            return laid;
         }
-        laid.into_iter()
-            .filter(|(role, _line)| !matches!(role, LineRole::Lane(_) | LineRole::More))
-            .collect()
     }
 
     /// The index of the block holding the zero-based base `base`. The blocks
@@ -1188,6 +1215,18 @@ impl ViewState {
         }
         self.set_top(anchor);
         self.follow();
+    }
+
+    /// `F`: the three feature levels in order — all, CDSs only, none, then all
+    /// again (8m6 §4 rule 3) — and the status line names the level reached. The
+    /// cursor stays.
+    fn step_features(&mut self) {
+        self.features = match self.features {
+            FeatureLevel::All => FeatureLevel::Cdss,
+            FeatureLevel::Cdss => FeatureLevel::None,
+            FeatureLevel::None => FeatureLevel::All,
+        };
+        self.message = Some(format!("features: {}", feature_words(self.features)));
     }
 
     /// `T` (D049 M8-3, §4 rule 8): a FASTA record's assumed topology flips for
