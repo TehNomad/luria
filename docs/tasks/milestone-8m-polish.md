@@ -2,7 +2,7 @@
 
 Status: **In progress, 2026-10-27**: 8m1 to 8m5 implemented (8m4 and 8m5
 after the owner's second look: M8-28 and M8-29). After the colours the
-owner asked for M8-30 to M8-34, contracts 8m6 to 8m11. Planner: Claude.
+owner asked for M8-30 to M8-34, contracts 8m6 to 8m12. Planner: Claude.
 
 The owner tried `luria FILE` in a terminal after 8l2 and reported that all
 the features work. They asked for the changes below. The planner's questions
@@ -27,7 +27,7 @@ glyphs and wording can change again without a decision entry.
 | M8-31 | Lane colours | (owner, 2026-10-27, from the planner's list) **Each lane is coloured by its feature key**, or by the colour the file gives the feature where it has one (ApE's `/ApEinfo_fwdcolor` and `/ApEinfo_revcolor`; the contract names the exact qualifiers). The strip's bars use the same colours. **The selected CDS's lane is marked** (bold). Contract 8m7. |
 | M8-32 | Cursor codon | (owner, 2026-10-27, from the planner's list) **The cursor's codon is highlighted on the residue line, and the status line says what is under the cursor**: residue and number, codon bases, and the features covering the base. Contract 8m8. |
 | M8-33 | Ruler and dimming | (owner, 2026-10-27, from the planner's list) **A ruler line with a tick every 10 bases and a number every 30**, next to the top strand. **The bottom strand, the gutter numbers and the frame labels are dimmed.** The ruler changes the blocks' lines, so it is a full-tier contract with the layout tables (8m10). The dimming is drawing only (8m9). |
-| M8-34 | The rest of the list | (owner, 2026-10-27, from the planner's list) **A GC-content sparkline** as a third strip line; **ambiguous bases** (anything but `ACGT`) in their own colour; **an arrowhead at a lane's 3′ end** in place of the arrow after the name; **a title badge** with the length and topology; **a dim rule in the blank row between blocks** (no row count changes). `NO_COLOR` turns off every colour, not only M8-29's. Contracts 8m9 (badge, rule, ambiguous bases, `NO_COLOR`) and 8m11 (arrowheads, sparkline). |
+| M8-34 | The rest of the list | (owner, 2026-10-27, from the planner's list) **A GC-content sparkline** as a third strip line; **ambiguous bases** (anything but `ACGT`) in their own colour; **an arrowhead at a lane's 3′ end** in place of the arrow after the name; **a title badge** with the length and topology; **a dim rule in the blank row between blocks** (no row count changes). `NO_COLOR` turns off every colour, not only M8-29's. Contracts 8m9 (badge, rule, ambiguous bases, `NO_COLOR`), 8m11 (arrowheads) and 8m12 (sparkline). |
 
 Seen at the hand test, with no change asked: the cap sentence is cut short
 on the status line at 80 columns; the list window scrolls as soon as the
@@ -48,4 +48,5 @@ not drawn; pBR322 takes about a second to open.
 9. `8m9`, drawing only: dimming (M8-33), the title badge, the rule between
    blocks, ambiguous bases, and `NO_COLOR` for every colour (M8-34).
 10. `8m10`, the ruler, with the layout tables (M8-33).
-11. `8m11`, arrowheads, with the layout tables, and the GC sparkline (M8-34).
+11. `8m11`, arrowheads, with the layout tables (M8-34).
+12. `8m12`, the GC sparkline in the strip (M8-34).
