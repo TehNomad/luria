@@ -1,9 +1,9 @@
 # Milestone 8m: the owner's hand test of the sequence view, as changes
 
-Status: **Implemented 2026-10-28**: 8m1 to 8m12 implemented (8m4 and 8m5
+Status: **In progress, 2026-10-28**: 8m1 to 8m12 implemented (8m4 and 8m5
 after the owner's second look: M8-28 and M8-29). After the colours the
-owner asked for M8-30 to M8-34, contracts 8m6 to 8m12. The owner's hand
-look at 8m5 to 8m12 is still to come. Planner: Claude.
+owner asked for M8-30 to M8-34, contracts 8m6 to 8m12. At the hand look
+at 8m5 to 8m12 the owner asked for M8-35 to M8-40, contracts 8m13 to 8m18. Planner: Claude.
 
 The owner tried `luria FILE` in a terminal after 8l2 and reported that all
 the features work. They asked for the changes below. The planner's questions
@@ -29,6 +29,12 @@ glyphs and wording can change again without a decision entry.
 | M8-32 | Cursor codon | (owner, 2026-10-27, from the planner's list) **The cursor's codon is highlighted on the residue line, and the status line says what is under the cursor**: residue and number, codon bases, and the features covering the base. Contract 8m8. |
 | M8-33 | Ruler and dimming | (owner, 2026-10-27, from the planner's list) **A ruler line with a tick every 10 bases and a number every 30**, next to the top strand. **The bottom strand, the gutter numbers and the frame labels are dimmed.** The ruler changes the blocks' lines, so it is a full-tier contract with the layout tables (8m10). The dimming is drawing only (8m9). |
 | M8-34 | The rest of the list | (owner, 2026-10-27, from the planner's list) **A GC-content sparkline** as a third strip line; **ambiguous bases** (anything but `ACGT`) in their own colour; **an arrowhead at a lane's 3′ end** in place of the arrow after the name; **a title badge** with the length and topology; **a dim rule in the blank row between blocks** (no row count changes). `NO_COLOR` turns off every colour, not only M8-29's. Contracts 8m9 (badge, rule, ambiguous bases, `NO_COLOR`), 8m11 (arrowheads) and 8m12 (sparkline). |
+| M8-35 | Where go-to and `w`/`b` land | (owner, 2026-10-28, hand look at 8m5–8m12) **`g M1` puts the cursor on the first base of the residue's codon**, in reading direction: `CdsMap::residue_bases(n)[0]`, the highest base of the codon on the minus strand. **`w` and `b` land on codons' first bases too.** The residue letter stays over the middle base (D055). Changes D057's go-to landing and 8k1's `w`/`b`. Contract 8m13. |
+| M8-36 | Minus-strand CDS | (owner, 2026-10-28) **With a minus-strand CDS selected, the bottom strand is drawn bright and the top strand dim, and the cursor's codon is highlighted on the bottom strand.** With no CDS, a plus CDS or the frames, nothing changes. Changes 8m9's dimming and 8m8's codon highlight. Contract 8m14. |
+| M8-37 | Leaving a search | (owner, 2026-10-28; planner's key) **`esc` clears the search hits** when no list or prompt is open. At a prompt `esc` still closes it. Contract 8m15. |
+| M8-38 | Half pages | (owner, 2026-10-28; planner's keys) **`ctrl-d` and `ctrl-u` scroll half a page down and up**, as in Vim. `J` and `K` stay free for milestone 9's editor. Contract 8m15. |
+| M8-39 | Features list | (owner, 2026-10-28) **Each row of the `f` list is coloured as its feature's lane is** (M8-31), **and the filter matches the feature's key as well as its name.** Contract 8m16. |
+| M8-40 | ORF lanes | (owner, 2026-10-28) **Open reading frames are drawn as lanes**: ATG to the first in-frame stop, at least 75 codons with the stop counted or not as the contract states, the longest ORF per stop only, on both strands and across the origin on a circular record. **`O` shows and hides them, off at open.** They go below the feature lanes in their own colour, labelled by length (`ORF 286 aa`). `t`'s frame translations are unchanged. Contracts 8m17 (the finder in core, full tier) and 8m18 (the lanes). |
 
 Seen at the hand test, with no change asked: the cap sentence is cut short
 on the status line at 80 columns; the list window scrolls as soon as the
@@ -51,3 +57,9 @@ not drawn; pBR322 takes about a second to open.
 10. `8m10`, the ruler, with the layout tables (M8-33).
 11. `8m11`, arrowheads, with the layout tables (M8-34).
 12. `8m12`, the GC sparkline in the strip (M8-34).
+13. `8m13`, go-to and `w`/`b` on a codon's first base (M8-35).
+14. `8m14`, a minus-strand CDS's strand drawn bright (M8-36).
+15. `8m15`, `esc` clears hits; `ctrl-d`/`ctrl-u` half pages (M8-37, M8-38).
+16. `8m16`, the features list: colours and the key in the filter (M8-39).
+17. `8m17`, the ORF finder in core, with a reference fixture (M8-40).
+18. `8m18`, the ORF lanes and `O` (M8-40).
