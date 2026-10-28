@@ -462,18 +462,27 @@ fn q_and_ctrl_c_quit() {
 }
 
 /// §4 rules 1, 11 and 12: the title in the frame's top border, the cursor's cell
-/// reversed on the top strand's row, its codon underlined, and the status line
-/// under the blocks.
+/// reversed on the top strand's row, its codon underlined there and reversed and
+/// bold on the residue line (M8-32), and the status line under the blocks.
 #[test]
 fn the_screen_shows_cursor_codon_and_status() {
     let mut state: ViewState = ViewState::new(lin(), 80, 24);
     walk(&mut state, Key::Char('l'), 43);
     assert_eq!(state.cursor(), 43, "the cursor walked there by keys");
 
-    // One reversed cell, and it is the cursor's base: the gutter is 3 columns for
-    // a 393 bp record, so base 43 of the first block stands at screen column
-    // 1 (the border) + 3 + 1 + 43.
-    let cursor_cells: Vec<(usize, usize)> = marked(&state, 80, 24, Modifier::REVERSED);
+    // The reversed cells are the cursor's own base and the three cells of its
+    // codon on the residue line (8k1 §4 rule 12, M8-32 §4 rule 2): only the
+    // cursor's is not bold. The gutter is 3 columns for a 393 bp record, so base
+    // 43 of the first block stands at screen column 1 (the border) + 3 + 1 + 43.
+    let reversed: Vec<(usize, usize)> = marked(&state, 80, 24, Modifier::REVERSED);
+    let residue_cells: Vec<(usize, usize)> =
+        marked(&state, 80, 24, Modifier::REVERSED | Modifier::BOLD);
+    // Exactly one cell is reversed and not bold, and it is the cursor's base.
+    let cursor_cells: Vec<(usize, usize)> = reversed
+        .iter()
+        .filter(|cell| !residue_cells.contains(cell))
+        .copied()
+        .collect();
     assert_eq!(
         cursor_cells.len(),
         1,
@@ -485,6 +494,35 @@ fn the_screen_shows_cursor_codon_and_status() {
         symbol(&state, 80, 24, row, column),
         "T",
         "the base the cursor stands on"
+    );
+
+    // The three that are reversed and bold are the cursor's codon on the residue
+    // line, one row other than the cursor's. `lin()`'s CDS is `43..345` with
+    // `codon_start=1`, so its first base is zero-based 42 and the codon holding
+    // the cursor at 43 is bases 42, 43 and 44, at screen columns
+    // 1 (the border) + 3 + 1 + 42 = 47, 48 and 49.
+    assert_eq!(
+        residue_cells.len(),
+        3,
+        "exactly the codon's three cells are reversed and bold: {residue_cells:?}"
+    );
+    let lines: Vec<usize> = residue_cells.iter().map(|(line, _column)| *line).collect();
+    assert!(
+        lines.windows(2).all(|pair| pair[0] == pair[1]),
+        "the three cells stand on one row of the block, the residue line: {lines:?}"
+    );
+    assert_ne!(
+        lines[0], row,
+        "and that row is not the one the cursor's base stands on"
+    );
+    let columns: Vec<usize> = residue_cells
+        .iter()
+        .map(|(_line, column)| *column)
+        .collect();
+    assert_eq!(
+        columns,
+        vec![47, 48, 49],
+        "the codon's own columns, by the rule the cursor's cell uses"
     );
 
     // Its codon is the whole codon: three underlined cells on the same row.

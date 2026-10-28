@@ -170,13 +170,15 @@ struct Marks {
 }
 
 /// The rows one block holds its bases on, as screen rows: `top` the row of the
-/// bases themselves, and `bottom` the row of their complements — `None` when a
-/// block's lines hold no bottom strand (M8-24). Both are found by role in the
-/// block's lines, because `layout` decides the order of those lines, not the
-/// drawing.
+/// bases themselves, `bottom` the row of their complements — `None` when a
+/// block's lines hold no bottom strand (M8-24) — and `residues` the row of the
+/// selected CDS's residue letters, `None` when the block has none (M8-32). All
+/// three are found by role in the block's lines, because `layout` decides the
+/// order of those lines, not the drawing.
 struct Rows {
     top: u16,
     bottom: Option<u16>,
+    residues: Option<u16>,
 }
 
 /// What the body holds: the open list's rows, 8m3's key list, or the record's
@@ -256,10 +258,22 @@ fn draw_blocks(frame: &mut Frame, state: &ViewState, body: Rect) {
             .position(|(role, _line)| *role == LineRole::Bottom)
             .and_then(|at| u16::try_from(at).ok())
             .map(|at| y + at);
+        // The selected CDS's residue line, the only one a block has, sits
+        // wherever `layout` puts it (M8-32): a block with no residue line — any
+        // mode but `Cds` — has nothing to mark there.
+        let residues: Option<u16> = lines
+            .iter()
+            .position(|(role, _line)| *role == LineRole::Residues)
+            .and_then(|at| u16::try_from(at).ok())
+            .map(|at| y + at);
         if let Some(top) = top {
             mark_bases(
                 frame,
-                Rows { top, bottom },
+                Rows {
+                    top,
+                    bottom,
+                    residues,
+                },
                 body,
                 gutter,
                 block,
@@ -344,7 +358,9 @@ fn draw_help(frame: &mut Frame, state: &ViewState, body: Rect) {
 
 /// The cursor's cell and the cells of its codon, on the row that carries a
 /// block's bases (§4 rule 12), the cells of the hits the search marked (8l1 §4
-/// rule 8, M8-24), and the same on the row of a block's complements. A base `p`
+/// rule 8, M8-24), the same on the row of a block's complements, and the codon's
+/// three cells on the selected CDS's residue row, reversed and bold (M8-32 §4
+/// rule 2). A base `p`
 /// of block `[s, e)` stands at line column
 /// `gutter + 1 + (p - s)` — `super::layout` puts it there — and the only geometry
 /// done here is moving that line column to the screen by the frame's left border
@@ -432,6 +448,15 @@ fn mark_bases(
         }
         if position == marks.cursor {
             frame.buffer_mut()[(column, rows.top)].modifier |= Modifier::REVERSED;
+        }
+        if let (Some(residues), true) = (rows.residues, underlined) {
+            // The codon's three cells on the residue line are reversed and bold
+            // as well, one cell per position and never the span between the
+            // lowest and the highest, so a codon the origin splits marks its two
+            // pieces and nothing between them (M8-32 §4 rule 2). The cell's own
+            // letter and colours stay under the mark, and the mark is there with
+            // the colours on and off alike (M8-32 §4 rule 3).
+            frame.buffer_mut()[(column, residues)].modifier |= Modifier::REVERSED | Modifier::BOLD;
         }
     }
 }

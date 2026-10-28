@@ -1,7 +1,18 @@
 # Contract 8m8 — cli: the cursor's codon highlighted on the residue line (M8-32)
 
-Planner: Claude. Status: delegated to `w-8m8` 2026-10-27. Tier: light
-(D051). Owner's answer: `docs/tasks/milestone-8m-polish.md` §1, M8-32.
+Planner: Claude. Status: **Implemented 2026-10-28** by worker `w-8m8` in
+two rounds, reviewed and accepted. Tier: light (D051). Owner's answer:
+`docs/tasks/milestone-8m-polish.md` §1, M8-32. Findings from review:
+
+* G1–G4 each failed the test §7 names. For G2, widening the span alone
+  also needed the loop's skip widened; the worker noted this.
+* A gap in this contract: 8k1's `the_screen_shows_cursor_codon_and_status`
+  asserted that exactly one cell on screen is reversed. Round 2 changed it
+  to one cell reversed and not bold (the cursor), plus three reversed and
+  bold. The planner checked those three columns by hand: `synlin`'s CDS
+  `43..345` puts the cursor's codon at bases 42–44, columns 47–49.
+* Not tested: a minus-strand CDS's residue line, which is found by the
+  same role lookup.
 
 ## 1. What this contract builds
 
