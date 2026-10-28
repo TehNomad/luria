@@ -78,8 +78,9 @@ pub enum Key {
     /// `enter`, which acts on the highlighted row of an open list (8k3 §4 rule
     /// 3) and elsewhere changes nothing.
     Enter,
-    /// `esc`, which closes an open list (8k3 §4 rule 3) and elsewhere changes
-    /// nothing.
+    /// `esc`, which closes an open list (8k3 §4 rule 3) or an open prompt, and
+    /// with no list, prompt or key list open clears the hits the screen marks
+    /// (8m15 §4 rule 4, M8-37).
     Esc,
     /// `backspace`, which shortens an open list's filter (8k3 §4 rule 3) and
     /// elsewhere changes nothing.
@@ -89,6 +90,12 @@ pub enum Key {
     Tab,
     /// `ctrl-c`, which quits from anywhere (§4 rule 10).
     CtrlC,
+    /// `ctrl-d`, which moves the cursor half a screen down (8m15 §4 rules 1
+    /// and 2, M8-38) and half a page down in an open list.
+    CtrlD,
+    /// `ctrl-u`, which moves the cursor half a screen up (8m15 §4 rules 1 and
+    /// 2, M8-38) and half a page up in an open list.
+    CtrlU,
     /// Any other press.
     Other,
 }
@@ -386,6 +393,10 @@ impl ViewState {
             Key::Char('b') => self.step_codon(-1),
             Key::PageDown => self.page(1),
             Key::PageUp => self.page(-1),
+            // `ctrl-d` and `ctrl-u`: half a screen of blocks, as in Vim
+            // (8m15 §4 rules 1 and 2, M8-38).
+            Key::CtrlD => self.half_page(1),
+            Key::CtrlU => self.half_page(-1),
             Key::Home => self.cursor = 0,
             Key::End => {
                 if let Some(last) = self.record.sequence.length().checked_sub(1) {
@@ -446,16 +457,22 @@ impl ViewState {
             // `?` opens the key list (8m3 §4 rule 2); in a list or at a prompt the
             // branches above make it text instead.
             Key::Char('?') => self.help = true,
-            // Every other key changes nothing (§4 rule 10), `enter`, `esc`,
-            // `backspace` and `tab` included: outside a list or a prompt they have
-            // no row and no mode to act on.
-            Key::Char(_)
-            | Key::Other
-            | Key::CtrlC
-            | Key::Enter
-            | Key::Esc
-            | Key::Backspace
-            | Key::Tab => return Action::Continue,
+            // `esc` with no list, prompt or key list open clears the hits the
+            // screen marks: the marks go, `n` and `N` have nothing to step, and
+            // the cursor, the selection, the lanes and the scroll stay as they
+            // are, with nothing said in the status line (8m15 §4 rule 4, M8-37).
+            // With no hits it changes nothing. At a prompt or in a list the
+            // branches above close them instead, leaving the hits.
+            Key::Esc => {
+                self.hits = None;
+                return Action::Continue;
+            }
+            // Every other key changes nothing (§4 rule 10), `enter`,
+            // `backspace` and `tab` included: outside a list or a prompt they
+            // have no row and no mode to act on.
+            Key::Char(_) | Key::Other | Key::CtrlC | Key::Enter | Key::Backspace | Key::Tab => {
+                return Action::Continue
+            }
         }
         self.follow();
         Action::Continue
@@ -867,7 +884,7 @@ impl ViewState {
     /// `T` row `switch`. `T` has a row only where the topology was assumed, which
     /// is the only case in which it changes
     /// anything (M8-25). Empty unless the list is open: the body has 20 rows at
-    /// `MIN_WIDTH` by `MIN_HEIGHT`, more than the 15 the longest list needs.
+    /// `MIN_WIDTH` by `MIN_HEIGHT`, more than the 17 the longest list needs.
     pub(super) fn help_rows(&self) -> Vec<String> {
         if !self.help {
             return Vec::new();
@@ -875,6 +892,7 @@ impl ViewState {
         let mut rows: Vec<&str> = vec![
             "hjkl  move the cursor one base left or right, one line up or down",
             "PgUp PgDn  move the cursor a screen up or down",
+            "ctrl-d ctrl-u  move the cursor half a screen down or up",
             "Home End  move the cursor to the record's first base and last base",
             "w b  move the cursor to the next codon and the codon before it",
             "t  cycle what the lanes show: the CDS, three frames, six frames, off",
@@ -890,6 +908,7 @@ impl ViewState {
             "g  go to a base, a residue or a name",
             "/  search the record for bases or a protein",
             "n N  step through the hits the screen marks",
+            "esc  clear the hits the screen marks",
             "o  hide the overview strip and show it again",
             "?  this list of every key the screen has",
             "q  quit",
@@ -1203,6 +1222,45 @@ impl ViewState {
         self.top = target;
     }
 
+    /// `ctrl-d` and `ctrl-u`: the same line move by half a screen of blocks,
+    /// and the top block moves by the same distance (§4 rule 2, M8-38). The
+    /// half is `max(1, ⌊visible().len() / 2⌋)`, taken from the blocks drawn
+    /// before anything moves, so the key always moves and never off the screen.
+    /// Clamped at the first and the last block like `page`, with no wrap even
+    /// on a circular record; the cursor keeps its offset in the line and is
+    /// clamped to the target block's last base, and the scroll then follows the
+    /// cursor as §4 rule 6 has it.
+    fn half_page(&mut self, direction: i64) {
+        let half: usize = (self.visible().len() / 2).max(1);
+        let built: &Layout = match self.layout.as_ref() {
+            Some(built) => built,
+            None => return,
+        };
+        let last: usize = match built.blocks.len().checked_sub(1) {
+            Some(last) => last,
+            None => return,
+        };
+        let block: usize = match self.block_of(self.cursor) {
+            Some(found) => found,
+            None => return,
+        };
+        let (start, _end): (u64, u64) = built.blocks[block];
+        let target: usize = if direction > 0 {
+            (block + half).min(last)
+        } else {
+            block.saturating_sub(half)
+        };
+        let (first, last_base): (u64, u64) = built.blocks[target];
+        let cursor: u64 = first + (self.cursor - start).min(last_base - first - 1);
+        self.cursor = cursor;
+        self.top = if direction > 0 {
+            (self.top + half).min(last)
+        } else {
+            self.top.saturating_sub(half)
+        };
+        self.follow();
+    }
+
     /// `w` and `b`: the nearest base 1 to 3 bases away that is a codon's first
     /// base in reading direction of the selected CDS, wrapping when the view
     /// moves on a circular record; the cursor stays when there is no such base
@@ -1400,6 +1458,21 @@ impl ViewState {
                     list.page_row(page, 1);
                 }
             }
+            // `ctrl-d` and `ctrl-u` move the highlight half that page, and never
+            // nil rows: the page is at least one row, so the key always moves it
+            // (§4 rule 3, M8-38).
+            Key::CtrlD => {
+                let half: usize = body_rows(self.height) / 2;
+                if let Some(list) = self.list.as_mut() {
+                    list.page_row(half.max(1), 1);
+                }
+            }
+            Key::CtrlU => {
+                let half: usize = body_rows(self.height) / 2;
+                if let Some(list) = self.list.as_mut() {
+                    list.page_row(half.max(1), -1);
+                }
+            }
             Key::Home => {
                 if let Some(list) = self.list.as_mut() {
                     list.go_first();
@@ -1585,7 +1658,11 @@ impl ViewState {
                 self.go_to(&text);
             }
             Key::Esc => self.prompt = None,
-            Key::Left
+            // `ctrl-d` and `ctrl-u` are not text and move nothing here: at a
+            // prompt the cursor and the line typed stay as they are (§4 rule 1).
+            Key::CtrlD
+            | Key::CtrlU
+            | Key::Left
             | Key::Right
             | Key::Up
             | Key::Down
@@ -1633,7 +1710,11 @@ impl ViewState {
                 self.run_search(prompt.mode(), prompt.text());
             }
             Key::Esc => self.search = None,
-            Key::Left
+            // `ctrl-d` and `ctrl-u` are not text and move nothing here: at the
+            // prompt the cursor and the pattern typed stay as they are (§4 rule 1).
+            Key::CtrlD
+            | Key::CtrlU
+            | Key::Left
             | Key::Right
             | Key::Up
             | Key::Down

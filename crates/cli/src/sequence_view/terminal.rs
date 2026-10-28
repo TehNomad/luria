@@ -52,6 +52,15 @@ fn key_of(press: KeyEvent) -> Key {
     if press.code == KeyCode::Char('c') && press.modifiers == KeyModifiers::CONTROL {
         return Key::CtrlC;
     }
+    // 8m15's two keys, which name themselves only with exactly the control
+    // modifier: `d` and `u` on their own are text, and a press with another
+    // modifier is `Other` (§4 rule 1).
+    if press.code == KeyCode::Char('d') && press.modifiers == KeyModifiers::CONTROL {
+        return Key::CtrlD;
+    }
+    if press.code == KeyCode::Char('u') && press.modifiers == KeyModifiers::CONTROL {
+        return Key::CtrlU;
+    }
     match press.code {
         KeyCode::Char(letter) => Key::Char(letter),
         KeyCode::Left => Key::Left,

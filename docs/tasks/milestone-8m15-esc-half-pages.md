@@ -1,6 +1,17 @@
 # Contract 8m15 — cli: `esc` clears the hits; `ctrl-d`/`ctrl-u` half pages (M8-37, M8-38)
 
-Planner: Claude. Status: written 2026-10-28, to run after 8m14. Tier:
+Planner: Claude. Status: **Implemented 2026-10-28** by worker `w-8m15` in
+one round, reviewed and accepted. Findings from review:
+
+* `half_page` follows `page`'s pattern, and also moves the top by `half`
+  before `follow`. In a list, `ctrl-d`/`ctrl-u` page by `body_rows / 2`.
+  At both prompts the two keys do nothing.
+* With the key list open, `esc` closes it (8m3) and leaves the hits.
+* `KEYS` in `sequence_view_keys.rs` changed as §3 item 2 allows (17 keys).
+* G1–G4 each failed test 1 or 4, as §8 names. The `key_of` mapping has no
+  test of its own, as with `ctrl-c`.
+
+Tier:
 light (D051): keys only. Owner's answers: `docs/tasks/milestone-8m-polish.md`
 §1, M8-37 and M8-38.
 
