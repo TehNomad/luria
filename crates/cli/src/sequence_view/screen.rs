@@ -316,9 +316,11 @@ fn draw_blocks(frame: &mut Frame, state: &ViewState, body: Rect) {
 /// rule 7): the window `ViewState::list_rows` chose, which always holds the
 /// highlighted row. The highlighted row is REVERSED and a row `enter` would
 /// refuse is DIM, across the cells its text fills; a row can be both, and a row
-/// that is neither is drawn with the screen's default style. Nothing here works
-/// out what a row says or which rows are drawn: `list` gives the text and the
-/// two marks, and `state` gives the window.
+/// that is neither is drawn with the screen's default style. A feature row's text
+/// cells are also given the row's colour as `list` gives it, and only when the
+/// view's colours are on (8m16 §4 rules 1 and 2). Nothing here works out what a
+/// row says, what colour it has or which rows are drawn: `list` gives the text,
+/// the two marks and the colour, and `state` gives the window.
 fn draw_list(frame: &mut Frame, state: &ViewState, body: Rect) {
     let rows: Vec<Drawn> = state.list_rows();
     for (row, drawn) in rows.iter().enumerate() {
@@ -338,7 +340,7 @@ fn draw_list(frame: &mut Frame, state: &ViewState, body: Rect) {
                 height: 1,
             },
         );
-        if !drawn.dim && !drawn.highlighted {
+        if !drawn.dim && !drawn.highlighted && drawn.colour.is_none() {
             continue;
         }
         let mut modifier: Modifier = Modifier::empty();
@@ -348,12 +350,19 @@ fn draw_list(frame: &mut Frame, state: &ViewState, body: Rect) {
         if drawn.highlighted {
             modifier |= Modifier::REVERSED;
         }
+        // 8m16 §4 rule 2: the colour is the row's foreground, and the view's
+        // colours say whether it is drawn at all. DIM and REVERSED go on as they
+        // did before, whatever the colour does.
+        let colour: Option<Color> = if state.colours() { drawn.colour } else { None };
         let width: usize = drawn.text.chars().count().min(usize::from(body.width));
         for column in 0..width {
             let x: u16 = match u16::try_from(usize::from(body.x) + column) {
                 Ok(x) if x < body.right() => x,
                 _ => break,
             };
+            if let Some(colour) = colour {
+                frame.buffer_mut()[(x, y)].fg = colour;
+            }
             frame.buffer_mut()[(x, y)].modifier |= modifier;
         }
     }

@@ -1,6 +1,19 @@
 # Contract 8m16 — cli: the feature list coloured, and filtered by key too (M8-39)
 
-Planner: Claude. Status: written 2026-10-28, to run after 8m15. Tier:
+Planner: Claude. Status: **Implemented 2026-10-28** by worker `w-8m16` in
+one round, reviewed and accepted. Findings from review:
+
+* The key entries come from `key_names`, used only by `rows_for`, so go-to
+  still matches names only (G2 proves it). The colour is drawn only while
+  the colours are on.
+* Test 3 also asserts `bind` (15 `misc_binding` rows) and `tet` (features 9,
+  10, 12–16). The planner rechecked both, and `CDS` → 10, 26, 38, against
+  the file with Biopython.
+* Untested: a not-drawn feature's colour and the ApE branch; pBR322 has
+  neither.
+* G1–G4 each failed the test §8 names.
+
+Tier:
 light (D051): list drawing and filtering. Owner's answer:
 `docs/tasks/milestone-8m-polish.md` §1, M8-39.
 

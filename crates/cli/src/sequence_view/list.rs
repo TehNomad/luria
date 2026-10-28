@@ -1,6 +1,7 @@
 //! The feature list and the CDS picker: what `f` and `c` open, which rows they
-//! hold, what a typed filter does to them, and what one row reads as (contract
-//! 8k3 §4; plan §5.2, proposal §3, D052, D053, D056).
+//! hold, what a typed filter does to them, what one row reads as and what it is
+//! coloured as (contract 8k3 §4; 8m16 §4; plan §5.2, proposal §3, D052, D053,
+//! D056).
 //!
 //! A list is rows and a highlight, and nothing else. The record, the cursor, the
 //! selection and the message stay with `super::state`, which routes the keys
@@ -10,6 +11,10 @@
 //!
 //! The filter is core's shared matcher, `match_name` (D056), so the screen,
 //! `luria find --cds` and go-to cannot disagree about what a typed value names.
+//! The feature list asks it of a feature's key as well as its names (8m16 §4
+//! rule 3), while `feature_names` alone — what go-to answers — keeps names only.
+//! A feature row also carries the colour `layout` gives its feature (8m16 §4
+//! rule 1), which `super::screen` draws when the view's colours are on.
 //! An item that `enter` refuses stays in the list: unusable CDSs are shown with
 //! the reason they cannot be selected and are never selected (D052), and a
 //! feature that is not drawn says which refusal keeps it off the screen (D053).
@@ -17,6 +22,8 @@
 //! it decides no biology.
 
 use crate::result::rule_code;
+use crate::sequence_view::layout::feature_colour;
+use crate::sequence_view::layout::key_colour;
 use luria_core::display_location::DisplayLocation;
 use luria_core::error::DomainError;
 use luria_core::name_match::cds_names;
@@ -30,6 +37,7 @@ use luria_core::view_record::FeatureShape;
 use luria_core::view_record::ViewCds;
 use luria_core::view_record::ViewFeature;
 use luria_core::view_record::ViewRecord;
+use ratatui::style::Color;
 
 /// Which of the view's two lists is open (§4): `f` lists every entry of
 /// `record.features`, `c` every entry of `record.cdss`. The rows of both are
@@ -75,6 +83,29 @@ pub fn feature_names(record: &ViewRecord) -> Vec<NamedItem> {
     named
 }
 
+/// The key as a name of its own feature (contract 8m16 §4 rule 3): one entry per
+/// feature, its `name` the feature's key. `rows_for` adds these to
+/// `feature_names` for the feature list alone, so that `f` answers `CDS` and
+/// `bind` as well as the names, while `feature_names` — and with it go-to —
+/// stays names only (8m16 §1).
+///
+/// The source is `DisplayName`, which `rows_for` reads nothing of: the matcher
+/// answers items, so a feature named by both its name and its key is still one
+/// row, in file order (D056's rule 4).
+fn key_names(record: &ViewRecord) -> Vec<NamedItem> {
+    record
+        .features
+        .iter()
+        .enumerate()
+        .map(|(item, feature)| NamedItem {
+            item,
+            source: NameSource::DisplayName,
+            name: feature.key.clone(),
+            whole_only: false,
+        })
+        .collect()
+}
+
 /// The rows a filter answers (rule 2): every item for an empty filter, and
 /// otherwise the items `match_name` answers — `One` or `Several`, each item once
 /// and in file order, `Nothing` for none. A filter that folds to nothing (a
@@ -89,7 +120,13 @@ fn rows_for(record: &ViewRecord, kind: ListKind, filter: &str) -> Vec<usize> {
         return (0..items).collect();
     }
     let named: Vec<NamedItem> = match kind {
-        ListKind::Features => feature_names(record),
+        ListKind::Features => {
+            // 8m16 §4 rule 3: the feature list is filtered by the names and by
+            // the key; the picker is filtered by the CDS ids alone.
+            let mut names: Vec<NamedItem> = feature_names(record);
+            names.extend(key_names(record));
+            names
+        }
         ListKind::Cdss => cds_names(record),
     };
     match match_name(&named, filter) {
@@ -207,16 +244,34 @@ fn refused(record: &ViewRecord, kind: ListKind, index: usize) -> bool {
     }
 }
 
+/// The colour one feature row is drawn in (contract 8m16 §4 rule 1): the lane
+/// colour 8m7 gives, taken on the strand the feature's drawn location was
+/// written on (D009), and its key's colour for a feature the display parser
+/// refuses — which has no location to be written on. `None` for an index naming
+/// no feature, as every other row helper returns nothing for one.
+fn feature_row_colour(record: &ViewRecord, index: usize) -> Option<Color> {
+    let feature: &ViewFeature = record.features.get(index)?;
+    match &feature.shape {
+        FeatureShape::Drawn(drawn) => feature_colour(feature, &drawn.location.strand()),
+        FeatureShape::NotDrawn(_error) => key_colour(&feature.key),
+    }
+}
+
 /// One list row as the screen draws it (§4 rule 7): the text rule 6 gives,
-/// whether it is DIM because `enter` refuses it, and whether it carries the
-/// highlight.
+/// whether it is DIM because `enter` refuses it, whether it carries the
+/// highlight, and the colour contract 8m16 §4 rule 1 gives it.
 pub(super) struct Drawn {
     pub(super) text: String,
     pub(super) dim: bool,
     pub(super) highlighted: bool,
+    /// The row's foreground colour, or `None` when it has none — which is what a
+    /// feature with no colour of its own has, and what every CDS picker row has
+    /// (8m16 §4 rule 1). `screen` applies it only with the colours on.
+    pub(super) colour: Option<Color>,
 }
 
-/// A row as drawn: its text and its two marks (§4 rules 6 and 7).
+/// A row as drawn: its text, its two marks and its colour (§4 rules 6 and 7,
+/// 8m16 §4 rule 1).
 fn drawn(record: &ViewRecord, kind: ListKind, index: usize, highlighted: bool) -> Drawn {
     Drawn {
         text: match kind {
@@ -225,6 +280,10 @@ fn drawn(record: &ViewRecord, kind: ListKind, index: usize, highlighted: bool) -
         },
         dim: refused(record, kind, index),
         highlighted,
+        colour: match kind {
+            ListKind::Features => feature_row_colour(record, index),
+            ListKind::Cdss => None,
+        },
     }
 }
 
