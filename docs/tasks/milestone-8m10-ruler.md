@@ -1,6 +1,27 @@
 # Contract 8m10 — cli: a ruler line over the top strand (M8-33)
 
-Planner: Claude. Status: delegated to `w-8m10` 2026-10-28. Tier: full
+Planner: Claude. Status: **Implemented 2026-10-28** by worker `w-8m10` in
+three rounds, reviewed and accepted. Findings from review:
+
+* The planner reran the reference script: `--check` is OK, with 616 blocks
+  (unchanged) and 1087 cells (from 941). The script's `constructions`
+  assert §5's values by name. G1–G4 each failed the test §8 names, and G2
+  also failed the reference's `constructions`.
+* 11 existing tests failed, all from the ruler's row, as §9 expected.
+  Round 2 changed six of them (levels, search, strands) only in their
+  expected rows or role lists: +1 row for each ruler above. The five that
+  test what fits (scroll, the frame codon split across blocks, three
+  overview tests) kept their expected values and got a taller local
+  height. `picking_a_cds_keeps_the_cursor_on_screen` got `H + 1`, an exact
+  fit, where the planner asked for one row per block. Accepted.
+  `sequence_view_colours.rs` gained `drawn_at` so that one test can draw at
+  its own height.
+* Round 2 restored the frames in the reference docstring's line order, and
+  round 3 corrected the order in the fixtures README.
+* Process: in round 1 the worker added a draft to this contract and then
+  removed it, leaving no diff. It was told not to edit contracts.
+
+Tier: full
 (D051): the ruler changes every block's lines, so it goes through the layout
 tables and their reference. Owner's answer: `docs/tasks/milestone-8m-polish.md`
 §1, M8-33: "a ruler line with a tick every 10 bases and a number every 30,

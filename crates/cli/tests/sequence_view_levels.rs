@@ -230,6 +230,7 @@ fn cdss_only_keeps_the_cds_lanes() {
             LineRole::Lane(4),
             LineRole::Residues,
             LineRole::Numbers,
+            LineRole::Ruler,
             LineRole::Top,
             LineRole::Bottom,
         ],
@@ -245,6 +246,7 @@ fn cdss_only_keeps_the_cds_lanes() {
             LineRole::Lane(1),
             LineRole::Residues,
             LineRole::Numbers,
+            LineRole::Ruler,
             LineRole::Top,
             LineRole::Bottom,
         ],
@@ -271,6 +273,7 @@ fn cdss_only_keeps_the_cds_lanes() {
         vec![
             LineRole::Residues,
             LineRole::Numbers,
+            LineRole::Ruler,
             LineRole::Top,
             LineRole::Bottom,
         ],
@@ -301,6 +304,7 @@ fn a_cds_is_never_left_in_more() {
             LineRole::Lane(3),
             LineRole::Lane(4),
             LineRole::More,
+            LineRole::Ruler,
             LineRole::Top,
             LineRole::Bottom,
         ],
@@ -330,7 +334,12 @@ fn a_cds_is_never_left_in_more() {
     let cds = lines_at(&record, &laid, &LaneMode::Off, 0, FeatureLevel::Cdss);
     assert_eq!(
         roles(&cds),
-        vec![LineRole::Lane(1), LineRole::Top, LineRole::Bottom],
+        vec![
+            LineRole::Lane(1),
+            LineRole::Ruler,
+            LineRole::Top,
+            LineRole::Bottom
+        ],
         "one `CDS` is one lane, and no `+N more` line is drawn"
     );
     let rows: Vec<Vec<String>> = drawn(&cds, 78);
@@ -345,7 +354,7 @@ fn a_cds_is_never_left_in_more() {
     let none = lines_at(&record, &laid, &LaneMode::Off, 0, FeatureLevel::None);
     assert_eq!(
         roles(&none),
-        vec![LineRole::Top, LineRole::Bottom],
+        vec![LineRole::Ruler, LineRole::Top, LineRole::Bottom],
         "no lane line, and no `+N more` line beside it"
     );
 }

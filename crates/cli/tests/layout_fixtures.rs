@@ -7,7 +7,7 @@
 //! line it is on, the column it starts in, how many columns it covers, and what
 //! it is. Every row of both tables is checked here, not a sample: a row the
 //! renderer cannot place is a failure. The cells table itself samples blocks —
-//! it holds items for 24 of the blocks, a case's first block and, when the case
+//! it holds items for 28 of the blocks, a case's first block and, when the case
 //! has more than one, the block holding its last bases — and the blocks table
 //! carries the rest. Nothing in either table is read back from Rust: the tables
 //! and `tests/fixtures/view/reference/layout_columns.py` predate this module by
@@ -60,7 +60,7 @@ struct BlocksRow {
 }
 
 /// One data row of `layout-cells.tsv`: one item of one block. The cells table
-/// samples blocks rather than listing every one: it holds rows for 27 of the
+/// samples blocks rather than listing every one: it holds rows for 28 of the
 /// 616 blocks the blocks table lists, a case's first block and, when the case
 /// has more than one, the block holding its last bases. Every row it does hold
 /// is checked here.
@@ -222,6 +222,7 @@ fn role_for(text: &str) -> LineRole {
         "more" => LineRole::More,
         "residues" => LineRole::Residues,
         "numbers" => LineRole::Numbers,
+        "ruler" => LineRole::Ruler,
         "top" => LineRole::Top,
         "bottom" => LineRole::Bottom,
         _ => {
@@ -677,7 +678,7 @@ fn every_case_splits_into_the_tabled_blocks() {
 #[test]
 fn every_tabled_item_is_where_the_table_says() {
     let rows: Vec<CellsRow> = cells_rows();
-    assert_eq!(rows.len(), 941, "layout-cells.tsv's data rows");
+    assert_eq!(rows.len(), 1087, "layout-cells.tsv's data rows");
     let opened: Vec<(String, ViewRecord)> = records();
     let groups: Vec<CellsGroup> = cells_groups(&rows);
     for group in groups.iter() {

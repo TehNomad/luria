@@ -160,12 +160,15 @@ fn the_strip_opens_on_a_long_record() {
 }
 
 /// §5.2: `o` flips the strip, and while it is drawn the blocks have two rows less.
-/// pBR322 with `t` on its three frames puts 10 lines in block 0 and 9 in block 1:
-/// 10 alone fits the 18 rows the strip leaves, and 10 + the gap + 9 fits only the
-/// 20 rows the body has without it (8l2 §4 rule 2).
+/// pBR322 with `t` on its three frames puts 11 lines in block 0 and 10 in block 1,
+/// the ruler line 8m10 adds to each of them: 11 alone fits the 20 rows the strip
+/// leaves at this height, and 11 + the gap + 10 fits only the 22 rows the body has
+/// without it (8l2 §4 rule 2), 2 rows more than the 18 and 20 of 8l2's 24 rows,
+/// one ruler line for each of the two blocks counted.
 #[test]
 fn o_flips_it_and_it_takes_two_rows() {
-    let mut state: ViewState = ViewState::new(pbr(), W, H);
+    let height: u16 = H + 2;
+    let mut state: ViewState = ViewState::new(pbr(), W, height);
     press(&mut state, Key::Char('t'));
     assert!(state.overview(), "`t` does not hide the strip");
     assert_eq!(
@@ -324,13 +327,16 @@ fn a_feature_across_the_origin_has_two_runs() {
 /// §5.8 (round 2 §4): showing the strip takes two rows from the blocks, so the
 /// scroll follows the cursor as 8k1 §4 rule 6 has it — the cursor's block stays
 /// drawn and the top moves as little as the rows allow. `pbr` with `t` on and the
-/// strip hidden holds block 0 (10 lines) and block 1 (9) in the 20 rows the body
-/// has without it; base 67 as the record numbers it, the first base of block 1 on
-/// the 66-base line, is drawn. With the strip back the same two blocks need 20 rows
-/// again, 2 more than the 18 left, so the top moves to block 1 and no further.
+/// strip hidden holds block 0 (11 lines, its ruler line included) and block 1 (10)
+/// in the 22 rows the body has without it; base 67 as the record numbers it, the
+/// first base of block 1 on the 66-base line, is drawn. With the strip back the
+/// same two blocks need 22 rows again, 2 more than the 20 left at this height, so
+/// the top moves to block 1 and no further — the 24 rows of 8l2 plus a ruler line
+/// for each of the two blocks counted.
 #[test]
 fn o_keeps_the_cursor_on_screen() {
-    let mut state: ViewState = ViewState::new(pbr(), W, H);
+    let height: u16 = H + 2;
+    let mut state: ViewState = ViewState::new(pbr(), W, height);
     press(&mut state, Key::Char('t'));
     press(&mut state, Key::Char('o'));
     assert!(!state.overview(), "o hides the strip that opens drawn");
@@ -345,7 +351,7 @@ fn o_keeps_the_cursor_on_screen() {
     assert_eq!(
         state.visible(),
         0..2,
-        "both blocks fit the 20 rows the body holds without the strip"
+        "both blocks fit the 22 rows the body holds without the strip"
     );
     press(&mut state, Key::Char('o'));
     assert!(state.overview(), "o draws it again");
@@ -364,12 +370,14 @@ fn o_keeps_the_cursor_on_screen() {
 /// numbering), closes the list and moves the cursor to tet's start codon, base 86
 /// as the file numbers it (M8-21); the block holding it is drawn whatever the
 /// list's own rows were while it was open. The run that follows the cursor starts
-/// at block 2, where 6 + 1 + 4 + 1 + 4 = 16 rows cover blocks 2, 3 and 4 of the 18
-/// the strip leaves.
+/// at block 2, where 7 + 1 + 5 + 1 + 5 = 19 rows cover blocks 2, 3 and 4 of the
+/// 19 the strip leaves at this height, one ruler line for each of the three blocks
+/// counted, 3 rows more than the 16 of 8l2's 18.
 #[test]
 fn picking_a_cds_keeps_the_cursor_on_screen() {
-    let mut state: ViewState = ViewState::new(pbr(), W, H);
-    assert!(state.overview(), "4361 bp on 18 body rows needs a strip");
+    let height: u16 = H + 1;
+    let mut state: ViewState = ViewState::new(pbr(), W, height);
+    assert!(state.overview(), "4361 bp on 19 body rows needs a strip");
     for key in [
         Key::Char('g'),
         Key::Char('3'),

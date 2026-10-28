@@ -2,9 +2,11 @@
 //! (contract 8m2 §5, M8-24, changing 8l1 §4 rule 8).
 //!
 //! `pbr` is `tests/fixtures/genbank/raw/J01749.1.gb` at 80 x 24, which opens with
-//! the overview strip on so that block 0's top-strand row is screen row 8 and its
-//! bottom-strand row is row 9, and a base `p` of block 0 sits at column `6 + p`
-//! as `tests/sequence_view_search.rs::every_shown_hit_is_marked` reads them.
+//! the overview strip on so that block 0's top-strand row is screen row 9 and its
+//! bottom-strand row is row 10 — the ruler line 8m10 puts over the top strand
+//! takes a row between them and the strip — and a base `p` of block 0 sits at
+//! column `6 + p` as `tests/sequence_view_search.rs::every_shown_hit_is_marked`
+//! reads them.
 //!
 //! The pattern the first two tests search is the run of eight bases at 10:
 //! zero-based bases `[10, 18)` of the fixture read `TGACAGCT` on the top strand,
@@ -165,7 +167,7 @@ fn a_minus_hit_is_marked_on_the_bottom_strand() {
     assert_eq!(state.cursor(), 10, "and the cursor is the run's first base");
     assert_eq!(
         yellow(&state),
-        cells_of(9),
+        cells_of(10),
         "the eight bases on block 0's bottom-strand row, and nowhere else"
     );
 }
@@ -191,7 +193,7 @@ fn a_plus_hit_is_marked_on_the_top_strand() {
     assert_eq!(state.cursor(), 10, "and the cursor is the run's first base");
     assert_eq!(
         yellow(&state),
-        cells_of(8),
+        cells_of(9),
         "the eight bases on block 0's top-strand row, and nowhere else"
     );
 }

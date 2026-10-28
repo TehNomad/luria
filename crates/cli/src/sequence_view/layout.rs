@@ -26,8 +26,8 @@
 //!   side of the edge answer whether an edge falls inside a codon, and the
 //!   base before them answers which of its bases the line must stop short of.
 //! * **Lines, top to bottom.** Up to four lanes, then `more`; a plus-strand
-//!   CDS's residues then its numbers; `+3 +2 +1`; top; bottom; a minus-strand
-//!   CDS's numbers then its residues; `-1 -2 -3`.
+//!   CDS's residues then its numbers; the ruler line; `+3 +2 +1`; top; bottom; a
+//!   minus-strand CDS's numbers then its residues; `-1 -2 -3`.
 //! * **Lanes** (D053). Every drawn feature except `source` that has a base in
 //!   the block, longest drawn length first then file order, at most four; the
 //!   rest are counted on the `more` line. A lane covers the columns of that
@@ -56,6 +56,13 @@
 //!   residue; each centred on its residue, moved inward to stay over the
 //!   line's bases, and dropped when it would touch a number already placed.
 //!   The terminal stop codon has no number.
+//! * **Ruler** (M8-33, contract 8m10). The line above the top strand, in every
+//!   mode. Every base whose 1-based number is a multiple of 10 gets a `╷` at
+//!   its own column, and every multiple of 30 gets that number right-aligned so
+//!   its last digit stands at that column — or the tick when the number would
+//!   start left of the line's first base. The line carries no label, so nothing
+//!   stands in the gutter, and its text is dim with no colour, the colours on
+//!   and off alike (the secondary text of M8-33).
 //!
 //! What this module does not draw, and 8k1 does: the cursor, underline, the
 //! title bar, the status line and the overview inset.
@@ -92,6 +99,9 @@ const TRANSLATED_STEP: u64 = 3;
 
 /// Plan §5.1: "up to four lanes per block, the rest as `+N more`".
 const LANE_LIMIT: usize = 4;
+
+/// The glyph the ruler line marks every tenth base with (M8-33).
+const TICK: char = '╷';
 
 /// The translation the view shows over a block. `Cds`'s payload is an index
 /// into `ViewRecord::cdss`, which is file order (D053) — not a residue number.
@@ -144,6 +154,9 @@ pub enum LineRole {
     Numbers,
     /// One reading frame's residue letters, with its label in the gutter.
     Frame(Strand, ReadingFrame),
+    /// The ruler: a tick over every tenth base of the block, and every thirtieth
+    /// base's number (M8-33). It stands directly above `Top` in every mode.
+    Ruler,
     /// The strand's own bases, with the line's two base numbers.
     Top,
     /// The bottom strand: the complement of the same bases.
@@ -844,6 +857,56 @@ fn number_cells(on: &[Residue], g: u64, bases_end: u64) -> Vec<Cell> {
         .collect()
 }
 
+/// The ruler line of a block (M8-33, contract 8m10 rule 2): the tick every
+/// tenth base of the block stands under, and every thirtieth base carries its
+/// own number.
+///
+/// The base at zero-based `position` of the block `[start, end)` is counted from
+/// 1 as `count = position + 1`, and stands at column `g + position - start`. A
+/// `count` that is a multiple of 10 gets a tick in that column; a multiple of
+/// 30 gets its number instead, written right-aligned so that its last digit
+/// stands in that column. A number whose first digit would stand left of `g`
+/// has no room for its digits, and the tick goes into the base's column there.
+/// Nothing else on the line holds anything — not the gutter, which holds no
+/// label — and the whole line is dim and uncoloured, the colours on and off
+/// alike (M8-33's secondary text).
+fn ruler_cells(g: u64, start: u64, end: u64) -> Vec<Cell> {
+    let dim: Style = Style::default().add_modifier(Modifier::DIM);
+    let mut cells: Vec<Cell> = Vec::new();
+    for position in start..end {
+        let count: u64 = position + 1;
+        if !count.is_multiple_of(30) && !count.is_multiple_of(10) {
+            continue;
+        }
+        let column: u64 = g + position - start;
+        if count.is_multiple_of(30) {
+            let text: String = count.to_string();
+            let width: u64 = text.chars().count() as u64;
+            // The number ends on its own base, so its first digit stands at
+            // `column - (width - 1)`, and that must not be left of `g`, where
+            // the line's bases start. A number holds at most 8 digits (D056's
+            // 64 MiB) and the ticks are 10 columns apart, so a number never
+            // covers the tick two bases before it — `validate_cells` of the
+            // column tables checks it, and `layout-cells.tsv` holds it.
+            let first: u64 = column.saturating_sub(width - 1);
+            if first >= g {
+                cells.push(Cell {
+                    column: first,
+                    text,
+                    style: dim,
+                });
+                continue;
+            }
+        }
+        cells.push(Cell {
+            column,
+            text: TICK.to_string(),
+            style: dim,
+        });
+    }
+    cells
+}
+
 /// One frame's line: its label in the gutter and the residues of that frame
 /// whose middle base stands in the block, at the column of that base.
 ///
@@ -985,9 +1048,13 @@ pub fn block_lines(
     }
 
     let (top, bottom) = strand_cells(record, d, g, start, end, drawing.colours)?;
+    // The ruler line stands directly above the top strand in every mode, and the
+    // lines below it move down by one row with it (M8-33).
+    let ruler: Vec<Cell> = ruler_cells(g, start, end);
 
     match mode {
         LaneMode::Off => {
+            lines.push((LineRole::Ruler, ruler));
             lines.push((LineRole::Top, top));
             lines.push((LineRole::Bottom, bottom));
         }
@@ -1007,9 +1074,11 @@ pub fn block_lines(
             if cds.strand().is_plus() {
                 lines.push((LineRole::Residues, residues));
                 lines.push((LineRole::Numbers, numbers));
+                lines.push((LineRole::Ruler, ruler));
                 lines.push((LineRole::Top, top));
                 lines.push((LineRole::Bottom, bottom));
             } else {
+                lines.push((LineRole::Ruler, ruler));
                 lines.push((LineRole::Top, top));
                 lines.push((LineRole::Bottom, bottom));
                 lines.push((LineRole::Numbers, numbers));
@@ -1036,6 +1105,7 @@ pub fn block_lines(
                 )?;
                 lines.push((LineRole::Frame(Strand::Plus, frame), cells));
             }
+            lines.push((LineRole::Ruler, ruler));
             lines.push((LineRole::Top, top));
             lines.push((LineRole::Bottom, bottom));
             if *mode == LaneMode::SixFrames {
@@ -1170,6 +1240,7 @@ mod tests {
                 let sign: char = if strand_is_plus(strand) { '+' } else { '-' };
                 format!("{sign}{}", frame.index())
             }
+            LineRole::Ruler => "ruler".to_string(),
             LineRole::Top => "top".to_string(),
             LineRole::Bottom => "bottom".to_string(),
         }
@@ -1212,6 +1283,7 @@ mod tests {
                 LineRole::Frame(Strand::Plus, ReadingFrame::Third),
                 LineRole::Frame(Strand::Plus, ReadingFrame::Second),
                 LineRole::Frame(Strand::Plus, ReadingFrame::First),
+                LineRole::Ruler,
                 LineRole::Top,
                 LineRole::Bottom,
                 LineRole::Frame(Strand::Minus, ReadingFrame::First),
@@ -1233,18 +1305,27 @@ mod tests {
         // The line's left number is right-aligned in columns `[0, 2)` and its
         // right number one blank column past the last base, 5 being a multiple
         // of 5 and the line's last base.
-        assert_eq!(span(&rows[3], 1, 1), "1");
-        assert_eq!(span(&rows[3], 3, 7), "ATGAA");
-        assert_eq!(span(&rows[3], 9, 9), "5");
-        assert_eq!(span(&rows[4], 3, 7), "TACTT");
+        assert_eq!(span(&rows[4], 1, 1), "1");
+        assert_eq!(span(&rows[4], 3, 7), "ATGAA");
+        assert_eq!(span(&rows[4], 9, 9), "5");
+        assert_eq!(span(&rows[5], 3, 7), "TACTT");
         // The reverse frames read down from the last base, and each residue
         // still sits over the middle base of its codon in record coordinates.
-        assert_eq!(span(&rows[5], 0, 1), "-1");
-        assert_eq!(span(&rows[5], 6, 6), "F");
-        assert_eq!(span(&rows[6], 0, 1), "-2");
-        assert_eq!(span(&rows[6], 5, 5), "S");
-        assert_eq!(span(&rows[7], 0, 1), "-3");
-        assert_eq!(span(&rows[7], 4, 4), "H");
+        assert_eq!(span(&rows[6], 0, 1), "-1");
+        assert_eq!(span(&rows[6], 6, 6), "F");
+        assert_eq!(span(&rows[7], 0, 1), "-2");
+        assert_eq!(span(&rows[7], 5, 5), "S");
+        assert_eq!(span(&rows[8], 0, 1), "-3");
+        assert_eq!(span(&rows[8], 4, 4), "H");
+        // The ruler line is drawn and holds nothing: a 5 bp record has no tenth
+        // base to mark and no thirtieth to number, so the line is blank. The
+        // tables record the same for a ruler that holds nothing, no rows at all,
+        // and `layout_fixtures` still counts the line it gives no rows for.
+        assert!(
+            rows[3][0..10].iter().all(|symbol| symbol == " "),
+            "the ruler line over a 5 bp record holds nothing: {:?}",
+            rows[3][0..10].concat()
+        );
     }
 
     #[test]

@@ -694,11 +694,15 @@ fn visible_counts_the_gaps() {
 /// smallest block from which it is visible, and the run is then counted again from
 /// there. pBR322 with the lanes off, from the open: two `j` presses put the cursor
 /// at zero-based 132 (66 * 2), which is block 2, and the top becomes 1 rather
-/// than 0 - from 1 the run is 6 + 1 + 6 = 13 rows, and from 0 it would be 21 - so
-/// blocks 1, 2 and 3 are drawn, block 3 being 4 lines: 6 + 1 + 6 + 1 + 4 = 18.
+/// than 0 - from 1 the run is 7 + 1 + 7 = 15 rows, and from 0 it would be 23 - so
+/// blocks 1, 2 and 3 are drawn, block 3 being 5 lines: 7 + 1 + 7 + 1 + 5 = 21.
+/// Those sums need the 21 rows the body holds with the strip on, three more than
+/// 8m10's ruler line takes off: one row for each of the three blocks counted,
+/// hence the height below.
 #[test]
 fn the_scroll_moves_as_little_as_it_can() {
-    let mut state: ViewState = ViewState::new(pbr(), 80, 24);
+    let height: u16 = 24 + 3;
+    let mut state: ViewState = ViewState::new(pbr(), 80, height);
     assert_eq!(state.visible(), 0..2, "the run at the open");
 
     assert_eq!(state.handle(Key::Char('j')), Action::Continue);

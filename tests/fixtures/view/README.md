@@ -469,16 +469,32 @@ for its lines; a `column` counts from 0 at the left edge of that width.
   split by the origin (bases 62, 1, 2): its `T` is over base 1 in block 0.
   `framesamb`'s unreadable `TAR` codon is `?` over base 14 in frame +1.
 * **Lines, top to bottom.** Up to four lanes, then `more`; a plus-strand CDS's
-  residues then numbers; `+3 +2 +1`; top; bottom; a minus-strand CDS's numbers
-  then residues; `-1 -2 -3`. Lanes are every drawn feature except `source`,
-  longest first then file order: on `tet`'s first line the `tet` gene and CDS
-  come before the two 4-base `misc_binding` sites. Synthetic, with 22 drawn
-  features over base 1, shows four lanes and a `more` line.
+  residues then numbers; `+3 +2 +1`; the ruler line; top; bottom; a minus-strand
+  CDS's numbers then residues; `-1 -2 -3`. Lanes are every drawn feature except
+  `source`, longest first then file order: on `tet`'s first line the `tet` gene
+  and CDS come before the two 4-base `misc_binding` sites. Synthetic, with 22
+  drawn features over base 1, shows four lanes and a `more` line.
 * **Numbers** (D055). Multiples of 5 first, then the line's leftmost numbered
   residue, each centred on its residue, moved inward to stay over the line's
   bases, and dropped if it would touch a number already placed. On pBR322's
   1259-1318 line, `392` (leftmost) starts at column 5 and `395` at 14; the stop
   codon's `*` at column 21 has no number.
+* **The ruler line** (M8-33). One line per block, standing directly above the
+  top strand in every mode; the lines below it move down by one row. For the
+  base at zero-based `p` of the block `[s, e)`, its 1-based number `n = p + 1`
+  stands at column `g + p - s`: every `n` that is a multiple of 10 has a tick
+  there, and every multiple of 30 has that number right-aligned so that its
+  last digit stands at that column — or the tick when the number would start
+  left of `g`, since the number's first digit must stand over the line's bases.
+  The line has no label, so nothing stands in the gutter. pBR322's block 0 at
+  width 78 (`d = 4`, `g = 5`, bases 1-66) ticks at 14, 24, 44 and 54, with `30`
+  at 33-34 and `60` at 63-64; `frames-62.gb` at width 78 (`d = 2`, `g = 3`, the
+  whole 62 bases on one line) ticks at 12, 22, 42 and 52, with `30` at 31-32 and
+  `60` at 61-62. On `tet`'s 30-base lines at width 40, `90` covers 5-6 of the
+  89-118 line and the ticks fall at 16 and 26; on the 119-148 line, base 120
+  stands at column 6 and its `120` would start at column 4, left of `g = 5`, so
+  that line holds only the ticks at 6, 16 and 26. The 119-148 block is tabled
+  for that, and nothing else.
 
 Rules a choice of the planner's, settled with the owner only through D055's
 mockups and recorded in contract 8j: `source` features have no lane; lane order
@@ -498,7 +514,10 @@ that no block edge falls inside a codon of the selected CDS (the codon the
 origin splits excepted), and that no two items on a line overlap. The values
 above are asserted by hand in the script. The tables were regenerated for M8-28
 on 2026-10-27, and the planner checked the new widths, block edges and columns
-of contract 8m4 rule 2 by hand.
+of contract 8m4 rule 2 by hand. Contract 8m10's ruler line regenerated them on
+2026-10-28: the blocks table is unchanged (its md5 is the same as before), the
+cells table now holds 1087 rows over the 28 blocks it samples instead of 941
+over 27, and the ruler's columns and values are asserted by name in the script.
 
 Eight controls, each run once: a shifted grid fails at `frames62 cds:fM: a block
 starts inside the codon at [58, 59, 60]`; no shortening fails the same way for

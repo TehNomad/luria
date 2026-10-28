@@ -27,9 +27,9 @@ D055, as contract 8j states them:
   selected CDS ends just before that codon (D055).
 * **Lines, top to bottom.** Up to four feature lanes, then a `more` line if
   more features overlap; for a plus-strand CDS its residues then their numbers;
-  for three or six frames `+3`, `+2`, `+1`; the top strand; the bottom strand;
-  for a minus-strand CDS its numbers then its residues; for six frames `-1`,
-  `-2`, `-3`.
+  for three or six frames `+3`, `+2`, `+1`; the ruler line; the top strand; the
+  bottom strand; for a minus-strand CDS its numbers then its residues; for six
+  frames `-1`, `-2`, `-3`.
 * **Feature lanes.** Every drawn feature except `source` that has a base in
   the block, longest drawn length first, then file order; at most four; the
   rest counted on the `more` line. A lane covers the columns of the feature's
@@ -41,6 +41,14 @@ D055, as contract 8j states them:
   each centred on its residue (`start = column - (len - 1) // 2`), moved
   inward to stay over the line's bases, and dropped if it would overlap or
   touch a number already placed. The stop codon has no number (D010).
+* **The ruler line** (M8-33). One line per block, directly above the top
+  strand, and every line below it moves down by one row. For the base at
+  zero-based `p` of the block, its 1-based number `n = p + 1` stands at column
+  `g + p - s`: every base with `n % 10 == 0` gets a tick, and every base with
+  `n % 30 == 0` gets that number written right-aligned so its last digit
+  stands on that column. A number that would start left of `g` is not drawn,
+  and the tick goes in its column instead. The line has no label, so nothing
+  sits in the gutter.
 
 Independent of luria: the codon table is checked against Biopython's table 11;
 a CDS's codons come from Biopython's reading of its location, its residues
@@ -94,7 +102,8 @@ CASES = [
     ("pbr322", 78, "off", [0, 4360]),
     ("pbr322", 78, "cds:tet", [85, 1275]),
     ("pbr322", 78, "cds:bla", [3292, 4152]),
-    ("pbr322", 40, "cds:tet", [60, 88]),
+    # The 119-148 block is where a ruler number has no room (M8-33).
+    ("pbr322", 40, "cds:tet", [60, 88, 118]),
     ("pbr322", 40, "cds:bla", [3292, 4152]),
     ("pbr322", 78, "three", [0]),
     ("pbr322", 118, "six", [4300]),
@@ -118,6 +127,9 @@ COMPLEMENT = {
     "R": "Y", "Y": "R", "S": "S", "W": "W", "K": "M", "M": "K",
     "B": "V", "V": "B", "D": "H", "H": "D", "N": "N",
 }
+
+# The ruler's tick (M8-33): what the view draws at every tenth base.
+TICK = "\u2577"
 
 
 def check_codon_table() -> None:
@@ -305,6 +317,26 @@ def place_numbers(residues: list[tuple[int, Codon]], g: int, n: int) -> list[tup
     return sorted(kept)
 
 
+def ruler_cells(g: int, s: int, e: int) -> list[tuple]:
+    """The ruler line of one block (M8-33): a tick at every base whose 1-based
+    number is a multiple of 10, and that number at every multiple of 30,
+    right-aligned so its last digit stands on the base's own column. A number
+    that would start left of `g` is not drawn and the tick goes in the base's
+    column instead; the line has no label, so the gutter stays blank."""
+    out = []
+    for p in range(s, e):
+        n = p + 1
+        col = g + p - s
+        if n % 30 == 0:
+            text = str(n)
+            first = col - len(text) + 1
+            out.append(("ruler_number", first, len(text), text) if first >= g
+                       else ("tick", col, 1, TICK))
+        elif n % 10 == 0:
+            out.append(("tick", col, 1, TICK))
+    return out
+
+
 def lay_out(name, text, feats, mode, cds, n, block) -> list[tuple]:
     """Cells of one block: (line, role, kind, column, cells, value)."""
     s, e = block
@@ -341,25 +373,28 @@ def lay_out(name, text, feats, mode, cds, n, block) -> list[tuple]:
            ("right_number", g + (e - s) + 1, len(str(e)), str(e))]
     bottom = [("complement", g, e - s, "".join(COMPLEMENT[b] for b in text[s:e]))]
 
+    # The ruler line stands directly above the top strand in every mode, and the
+    # lines below the top strand move down one row with it (M8-33).
+    ruler = ruler_cells(g, s, e)
     if mode.startswith("cds:"):
         strand, codons = cds
         cells, on = residue_line("", codons, False)
         if strand == "+":
-            lines += [("residues", cells), ("numbers", number_line(on)), ("top", top),
-                      ("bottom", bottom)]
+            lines += [("residues", cells), ("numbers", number_line(on)), ("ruler", ruler),
+                      ("top", top), ("bottom", bottom)]
         else:
-            lines += [("top", top), ("bottom", bottom), ("numbers", number_line(on)),
-                      ("residues", cells)]
+            lines += [("ruler", ruler), ("top", top), ("bottom", bottom),
+                      ("numbers", number_line(on)), ("residues", cells)]
     elif mode in ("three", "six"):
         frames = cds
         for label in ("+3", "+2", "+1"):
             lines.append((label, residue_line(label, frames[label], True)[0]))
-        lines += [("top", top), ("bottom", bottom)]
+        lines += [("ruler", ruler), ("top", top), ("bottom", bottom)]
         if mode == "six":
             for label in ("-1", "-2", "-3"):
                 lines.append((label, residue_line(label, frames[label], True)[0]))
     else:
-        lines += [("top", top), ("bottom", bottom)]
+        lines += [("ruler", ruler), ("top", top), ("bottom", bottom)]
 
     out = []
     for line, (role, cells) in enumerate(lines):
@@ -521,6 +556,61 @@ def constructions(block_rows, cell_rows) -> None:
     # framesamb six frames: the unreadable TAR codon is `?` over base 14.
     plus1 = cells("framesamb", 78, "six", 0, "+1", "residue")
     assert ("16", "?") in [(r[7], r[9]) for r in plus1], plus1
+
+    # The ruler line (M8-33): a tick at every tenth base of the block, and that
+    # base's own number at every thirtieth, right-aligned so its last digit
+    # stands on that base's column. pBR322 at width 78 has `d = 4` and `g = 5`,
+    # and block 0 is bases 1-66, so base 10 stands at column 5 + 9 = 14, base 30
+    # at 34 with its `30` covering 33-34, and base 60 at 64 with `60` at 63-64.
+    def ruler(record, width, mode, block):
+        return [(int(r[7]), r[9]) for r in cells(record, width, mode, block, "ruler")]
+
+    off0 = ruler("pbr322", 78, "off", 0)
+    assert off0 == [(14, TICK), (24, TICK), (33, "30"), (44, TICK), (54, TICK),
+                     (63, "60")], off0
+    # frames-62 at width 78: `d = 2`, `g = 3`, and the whole 62 bases on one line,
+    # so base 10 stands at column 3 + 9 = 12, `30` at 31-32 and `60` at 61-62.
+    six0 = ruler("frames62", 78, "six", 0)
+    assert six0 == [(12, TICK), (22, TICK), (31, "30"), (42, TICK), (52, TICK),
+                     (61, "60")], six0
+    # tet on the 30-base lines of width 40: the block from 89 is the fourth, so it
+    # begins at zero-based 88; base 90 stands at column 5 + 1 = 6, its `90` at
+    # 5-6, and bases 100 and 110 are the ticks at 16 and 26.
+    block = tet30.index((89, 118))
+    assert block == 3, tet30[:5]
+    tet89 = ruler("pbr322", 40, "cds:tet", block)
+    assert tet89 == [(5, "90"), (16, TICK), (26, TICK)], tet89
+    # The 119-148 block, which contract 8m10 rule 5 tables for this: base 120
+    # stands at column 5 + 1 = 6, where `120` would start at column 4, left of
+    # `g = 5`. The number is not drawn, and the tick goes in the base's column.
+    block = tet30.index((119, 148))
+    assert block == 4, tet30[:5]
+    tet119 = ruler("pbr322", 40, "cds:tet", block)
+    assert tet119 == [(6, TICK), (16, TICK), (26, TICK)], tet119
+
+    # The ruler is one line, directly above the top strand, in every mode: the
+    # lanes and the `more` line stay above it, a plus CDS's numbers below them,
+    # and a minus CDS's numbers and residues stay below the bottom strand.
+    def line_roles(record, width, mode, block):
+        seen = []
+        for r in cells(record, width, mode, block):
+            if r[5] not in seen:
+                seen.append(r[5])
+        return seen
+
+    off_roles = line_roles("pbr322", 78, "off", 0)
+    assert off_roles == ["lane1", "lane2", "lane3", "lane4", "more", "ruler", "top",
+                        "bottom"], off_roles
+    tet61_roles = line_roles("pbr322", 40, "cds:tet", tet30.index((61, 88)))
+    assert tet61_roles == ["lane1", "lane2", "lane3", "lane4", "residues", "numbers",
+                           "ruler", "top", "bottom"], tet61_roles
+    six_roles = line_roles("frames62", 78, "six", 0)
+    assert six_roles == ["lane1", "lane2", "+3", "+2", "+1", "ruler", "top", "bottom",
+                         "-1", "-2", "-3"], six_roles
+    # a minus-strand CDS: the ruler is still the line above the top strand, and
+    # its numbers and residues lines stay below the bottom strand.
+    m1_roles = line_roles("synthetic", 78, "cds:m1", 0)
+    assert m1_roles[-5:] == ["ruler", "top", "bottom", "numbers", "residues"], m1_roles
 
 
 def summary() -> str:

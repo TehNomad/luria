@@ -88,7 +88,13 @@ fn press(state: &mut ViewState, keys: &[Key]) {
 /// The cells of the drawn screen, row by row — the `sequence_view_strands.rs`
 /// reading of the test backend.
 fn drawn(state: &ViewState) -> Vec<Vec<Cell>> {
-    let mut terminal = Terminal::new(TestBackend::new(W, H)).unwrap();
+    drawn_at(state, W, H)
+}
+
+/// The same reading at a screen of the given size, which `a_frame_codon_split_by_
+/// a_block_edge` needs because 8m10's ruler line takes a row in every block.
+fn drawn_at(state: &ViewState, width: u16, height: u16) -> Vec<Vec<Cell>> {
+    let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
     terminal.draw(|frame| draw(frame, state)).unwrap();
     let buffer = terminal.backend().buffer();
     let width: usize = usize::from(buffer.area.width);
@@ -325,15 +331,21 @@ fn c_turns_the_colours_off_and_on() {
 
 /// Rule 2's frame half: a frame codon standing at the end of one line and the
 /// start of the next is coloured on both lines, and the letter stands only on
-/// the line that holds its middle base. `pbr` at 80 × 24 with three frames
-/// showing and the overview strip hidden: frame 3 reads from base 2, so its
-/// codon at bases 65 to 67 (`AAC`, `N`) has base 65 at the end of the first line
-/// and bases 66 and 67 at the start of the second.
+/// the line that holds its middle base. `pbr` at 80 × 26, 2 rows above the 24 the
+/// other tests draw at for the ruler line each of this test's two blocks takes,
+/// with three frames showing and the overview strip hidden: frame 3 reads from
+/// base 2, so its codon at bases 65 to 67 (`AAC`, `N`) has base 65 at the end of
+/// the first line and bases 66 and 67 at the start of the second.
 #[test]
 fn a_frame_codon_split_by_a_block_edge() {
-    let mut state: ViewState = ViewState::new(pbr(), W, H);
+    // The ruler line 8m10 adds a row to each of the two blocks this test counts:
+    // block 0's 10 lines and block 1's 9 become 11 and 10, and 11 + the gap + 10
+    // = 22 rows fit only the 22 the body holds without the strip at this height,
+    // 2 rows more than the 20 it had at 8l2's.
+    let height: u16 = H + 2;
+    let mut state: ViewState = ViewState::new(pbr(), W, height);
     type_into(&mut state, "to");
-    let cells: Vec<Vec<Cell>> = drawn(&state);
+    let cells: Vec<Vec<Cell>> = drawn_at(&state, W, height);
     let rows: Vec<usize> = labelled(&cells, "+3");
     assert_eq!(
         rows.len(),
