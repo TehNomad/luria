@@ -1,6 +1,22 @@
 # Contract 8m12 — cli: a GC-content sparkline as the strip's third line (M8-34)
 
-Planner: Claude. Status: delegated to `w-8m12` 2026-10-28. Tier: light
+Planner: Claude. Status: **Implemented 2026-10-28** by worker `w-8m12` in
+two rounds, reviewed and accepted. Findings from review:
+
+* §5's two lines match the test constants character for character, and
+  G1–G4 each failed the test §8 names (G2 also failed test 3).
+* §3 item 3's changes, all checked: `sequence_view_strands.rs` and
+  `sequence_view_search.rs` moved expected rows by +1 (9/10 → 10/11, 17/18 →
+  18/19); the fit tests `the_scroll_moves_as_little_as_it_can` (24 + 3 →
+  24 + 4) and `picking_a_cds_keeps_the_cursor_on_screen` (H + 1 → H + 2) kept
+  every expected value.
+* Line 1 and the GC line share a new private `strip_columns`, so their `w`
+  cannot drift. The state keeps the line and exposes `ViewState::gc_line()`;
+  `new` and `resize` compute it, and drawing only reads it.
+* Round 2 fixed two doc comments in `state.rs`: a duplicated first line on
+  `opens_with_strip`, and an overlong line on `block_rows`.
+
+Tier: light
 (D051): the strip is display only, and the glyphs and scale can change at
 the hand test. Owner's answer: `docs/tasks/milestone-8m-polish.md` §1,
 M8-34: "a GC-content sparkline as a third strip line".

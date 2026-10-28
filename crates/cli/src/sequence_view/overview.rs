@@ -1,19 +1,25 @@
-//! The overview strip's two lines (contract 8l2 §4; the plan §4.6 and proposal
-//! §2.1 of `docs/tasks/milestone-8-view.md`; D054): the whole record scaled to the
-//! width with the longest features as bars, and under it the part on screen, the
-//! cursor and the search hits.
+//! The overview strip's three lines (contract 8l2 §4, contract 8m12 §4; the plan
+//! §4.6 and proposal §2.1 of `docs/tasks/milestone-8-view.md`; D054): the whole
+//! record scaled to the width with the longest features as bars, under it the part
+//! on screen, the cursor and the search hits, and under them the GC content of
+//! every column as a block height.
 //!
 //! Every column comes from core: `overview_columns` says what the columns are and
 //! `overview_column` says which column a base is drawn in (D054's floor formula).
 //! A feature crossing the origin is two intervals (D036), so each interval is
 //! mapped on its own and the bar comes out at both ends of the strip.
 //!
-//! Line 1 is `1 `, the strip's `w` cells and ` {length}`; line 2 has the same
-//! columns, so a cell of one line sits over the same cell of the other. `w` is
-//! what the frame's inner width has left once `1 ` and ` {length}` have taken
+//! Line 1 is `1 `, the strip's `w` cells and ` {length}`; lines 2 and 3 have the
+//! same columns, so a cell of one line sits over the same cell of the other. `w`
+//! is what the frame's inner width has left once `1 ` and ` {length}` have taken
 //! theirs, and never more columns than the record has bases (D054): pBR322's 4361
 //! bases on 78 inner columns get 71 columns of 61 and 60 bases, and a 62 bp record
 //! gets 62 columns of one base each and a strip that much shorter.
+//!
+//! Line 3 holds nothing but the `w` cells: `gc_line` is called with no head and no
+//! tail, and `super::screen` puts the two blank cells and ` GC` around it. Since a
+//! whole record is counted for it, the line is built once per width and kept, not
+//! drawn from the bases every frame (8m12 §4 rule 5, D056).
 //!
 //! Bars go longest first — bases covered, ties in file order — which is the order
 //! `layout::lanes` gives its lanes, and a feature any of whose columns another bar
@@ -58,6 +64,10 @@ const CURSOR: char = '▲';
 /// the file wrote it and never inferred (D009).
 const PLUS: char = '▸';
 const MINUS: char = '◂';
+
+/// The eight block heights of the GC line, indexed by the column's GC fraction on
+/// the absolute scale: 0 % is `▁` and 100 % is `█` (8m12 §4 rule 2).
+const HEIGHTS: [char; 8] = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
 
 /// One feature a bar could be drawn for: its name as the `f` list shows it, the
 /// strand it was written on, and the intervals it covers in the order the record
@@ -133,9 +143,7 @@ fn strip(
     let label: String = length.to_string();
     // `1 ` takes two columns and ` {length}` one more than its digits; the strip
     // has the rest, and never more columns than bases (D054).
-    let left: u64 =
-        u64::from(inner_width).saturating_sub(HEAD.chars().count() as u64 + 1 + label.len() as u64);
-    let columns: u64 = length.min(left);
+    let columns: u64 = strip_columns(record, inner_width);
     // Core decides the columns themselves; the count is what they fill, and both
     // lines are built cell by cell over it.
     let cells: usize = overview_columns(length, columns).len();
@@ -145,6 +153,66 @@ fn strip(
         text: bars.text(&label),
         marks: mark_line(length, columns, cells, shown, cursor, hits, &label),
     }
+}
+
+/// The columns the strip has for an inner width: `w`, the same count line 1 draws
+/// and `gc_line` counts bases over. `1 ` takes two columns and ` {length}` one
+/// more than its digits, and the strip never has more columns than the record has
+/// bases (D054).
+fn strip_columns(record: &ViewRecord, inner_width: u16) -> u64 {
+    let length: u64 = record.sequence.length();
+    let label: usize = length.to_string().len();
+    let left: u64 =
+        u64::from(inner_width).saturating_sub(HEAD.chars().count() as u64 + 1 + label as u64);
+    length.min(left)
+}
+
+/// The strip's third line (8m12 §4 rule 1): the strip's `w` cells for an inner
+/// width, the same `w` and the same column ranges as line 1, and nothing else — no
+/// head and no tail. `inner_width` is the frame's inner width line 1 is built for.
+///
+/// The whole record is counted for the line, so the state keeps it and does not
+/// count 64 MiB of bases every frame (8m12 §4 rule 5, D056).
+pub fn gc_line(record: &ViewRecord, inner_width: u16) -> String {
+    let length: u64 = record.sequence.length();
+    let columns: u64 = strip_columns(record, inner_width);
+    overview_columns(length, columns)
+        .iter()
+        .map(|(first, last)| gc_glyph(record, *first, *last))
+        .collect()
+}
+
+/// The height of one column, over the bases `first..last` (8m12 §4 rule 2): `G`,
+/// `C` and `S` count as GC and `A`, `T` and `W` as AT, in either case, and every
+/// other letter — `N`, `R`, `Y`, `K`, `M`, `B`, `D`, `H`, `V` — is in neither
+/// count. A column with no counted base is a space, and the scale is absolute, so
+/// 0 % is `▁` and 100 % is `█` whatever the record's own range.
+fn gc_glyph(record: &ViewRecord, first: u64, last: u64) -> char {
+    let mut gc: u64 = 0;
+    let mut at: u64 = 0;
+    for base in first..last {
+        let letter: char = match record.sequence.letter_at(base) {
+            Ok(letter) => letter,
+            // A column's range comes from `overview_columns` and so lies inside
+            // the record (D054): no base asked for here is out of bounds.
+            Err(_problem) => continue,
+        };
+        // The letters come in the case the file wrote them, and either case of a
+        // letter counts the same (8m12 §4 rule 2).
+        match letter.to_ascii_uppercase() {
+            'G' | 'C' | 'S' => gc += 1,
+            'A' | 'T' | 'W' => at += 1,
+            _ => {}
+        }
+    }
+    let counted: u64 = gc + at;
+    if counted == 0 {
+        return ' ';
+    }
+    // `⌊8·GC / (GC + AT)⌋`: the quotient is at most 8, and 100 % is the only case
+    // that reaches it, where the line has no eighth height (8m12 §4 rule 2).
+    let step: usize = (8 * gc / counted).min(7) as usize;
+    HEIGHTS[step]
 }
 
 /// The features a bar could be drawn for, in the order they are drawn: every

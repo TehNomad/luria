@@ -25,8 +25,9 @@
 //! open — 8k3's `f` and `c` — the same frame, the same status line and the same
 //! key line hold the list's rows instead of the blocks, and nothing is drawn of
 //! the record; 8m3's key list, which `?` opens, takes the body the same way (§4
-//! rule 2). While the overview strip is drawn — 8l2's `o` — its two lines take
-//! the frame's first two inner rows and the blocks have what is left.
+//! rule 2). While the overview strip is drawn — 8l2's `o`, 8m12's third line —
+//! its three lines take the frame's first three inner rows and the blocks have
+//! what is left.
 
 use crate::review::view::frame_block;
 use crate::review::view::key_line;
@@ -70,11 +71,12 @@ pub fn draw(frame: &mut Frame, state: &ViewState) {
     let inner: Rect = block.inner(screen_area);
     frame.render_widget(block, screen_area);
 
-    // The overview's two rows, when they are drawn, sit under the top border, and
-    // the blocks have the frame's inner rows less those two and the one the status
-    // line takes, which is `height - 6` rows: what `ViewState::visible` measures a
-    // run of blocks against (8l2 §4 rule 2). While a list is open the strip is not
-    // drawn and the list keeps the `height - 4` rows 8k3 gives it.
+    // The overview's three rows, when they are drawn, sit under the top border,
+    // and the blocks have the frame's inner rows less those three and the one the
+    // status line takes, which is `height - 7` rows: what `ViewState::visible`
+    // measures a run of blocks against (8l2 §4 rule 2, 8m12 §4 rule 4). While a
+    // list is open the strip is not drawn and the list keeps the `height - 4` rows
+    // 8k3 gives it.
     let rows: u16 = if state.overview() && state.list().is_none() && !state.help() {
         OVERVIEW_ROWS
     } else {
@@ -117,14 +119,16 @@ fn too_small(frame: &mut Frame, area: Rect) -> bool {
     false
 }
 
-/// The strip's two lines, on the frame's first two inner rows (8l2 §4 rule 2), as
-/// `super::overview` writes them. Nothing is added to them here: the strip is
-/// display only, with no cursor cell and nothing that jumps (proposal §2.1); its
-/// bars carry the same colours the lanes do (M8-31 §4 rule 5), and its marks line
-/// carries nothing. The bases it shades are the first base of the first block
-/// `ViewState::visible` chose through the last base of the last one, and the hits
-/// it dots are the starts of the hits shown now (8l1 §4 rules 3 and 4). Without a
-/// layout there is nothing to say, and the two rows stay blank.
+/// The strip's three lines, on the frame's first three inner rows (8l2 §4 rule 2,
+/// 8m12 §4 rules 3 and 4), as `super::overview` writes them. Nothing is added to
+/// them here: the strip is display only, with no cursor cell and nothing that jumps
+/// (proposal §2.1); its bars carry the same colours the lanes do (M8-31 §4 rule 5),
+/// its marks line carries nothing, and its GC line is uncoloured (8m12 §4 rule 3).
+/// The bases it shades are the first base of the first block `ViewState::visible`
+/// chose through the last base of the last one, and the hits it dots are the starts
+/// of the hits shown now (8l1 §4 rules 3 and 4). The third line is the one the
+/// state keeps, so no bases are counted while drawing (8m12 §4 rule 5). Without a
+/// layout there is nothing to say, and the rows stay blank.
 fn draw_overview(frame: &mut Frame, state: &ViewState, inner: Rect) {
     let built: &Layout = match state.layout() {
         Some(built) => built,
@@ -162,6 +166,15 @@ fn draw_overview(frame: &mut Frame, state: &ViewState, inner: Rect) {
     frame.render_widget(
         Paragraph::new(marks),
         Rect::new(inner.x, inner.y + 1, inner.width, 1),
+    );
+    // The third line, made of the cells around the kept GC line: two blank cells
+    // under `1 `, the line's own cells under the strip's, and ` GC` where the
+    // length would be, all clipped to the frame's inner width (8m12 §4 rule 3).
+    let gc: String = format!("  {} GC", state.gc_line());
+    let clipped: String = gc.chars().take(usize::from(inner.width)).collect();
+    frame.render_widget(
+        Paragraph::new(clipped),
+        Rect::new(inner.x, inner.y + 2, inner.width, 1),
     );
 }
 

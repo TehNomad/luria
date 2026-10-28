@@ -34,6 +34,7 @@ use crate::sequence_view::list::refusal_code;
 use crate::sequence_view::list::Drawn;
 use crate::sequence_view::list::List;
 use crate::sequence_view::list::ListKind;
+use crate::sequence_view::overview::gc_line;
 use crate::sequence_view::search::search_record;
 use crate::sequence_view::search::Hit;
 use crate::sequence_view::search::Hits;
@@ -117,11 +118,12 @@ fn body_rows(height: u16) -> usize {
 }
 
 /// The rows the overview strip takes at the top of the frame's inner area (8l2 §4
-/// rule 2): the bars, and the marks under them. `super::screen` draws them there
-/// and `ViewState::block_rows` takes them off the rows a run of blocks has, so the
-/// rows the state measures are the rows the screen fills. While a list is open the
-/// strip is not drawn and the list keeps `body_rows`, exactly as 8k3 gives it.
-pub(super) const OVERVIEW_ROWS: u16 = 2;
+/// rule 2, 8m12 §4 rule 4): the bars, the marks under them, and the GC line under
+/// both. `super::screen` draws them there and `ViewState::block_rows` takes them
+/// off the rows a run of blocks has, so the rows the state measures are the rows
+/// the screen fills. While a list is open the strip is not drawn and the list
+/// keeps `body_rows`, exactly as 8k3 gives it.
+pub(super) const OVERVIEW_ROWS: u16 = 3;
 
 /// The width `layout` is given: the frame's border takes one column at each
 /// side (§4 rule 1).
@@ -242,11 +244,15 @@ pub struct ViewState {
     /// rules 3 to 6): a search replaces them, `T` clears them, and `n` and `N` move
     /// which one is current.
     hits: Option<Hits>,
-    /// Whether the overview strip is drawn (8l2 §4 rule 1): the two lines `o` hides
+    /// Whether the overview strip is drawn (8l2 §4 rule 1): the three lines `o` hides
     /// and shows, on at open when the layout has more than twice as many blocks as
     /// the body rows hold without them. While a list is open they are not drawn,
     /// but the flag is kept, so closing the list brings them back.
     overview: bool,
+    /// The strip's third line, kept from the record and the width so that drawing
+    /// never counts bases again (8m12 §4 rule 5): `super::overview::gc_line`'s `w`
+    /// cells for this frame's inner width, recomputed whenever the width is.
+    gc: String,
     /// The level the feature lanes are drawn at (8m3 §4 rule 1, 8m6 §4 rule 3):
     /// what `F` steps through the three levels, `All` at open, and what
     /// `block_lines` draws the lanes for. Under `None` a block leaves out every
@@ -277,6 +283,9 @@ impl ViewState {
             Some(index) => LaneMode::Cds(index),
             None => LaneMode::Off,
         };
+        // The strip's GC line is counted from the record once here, and again on
+        // every new width, and kept for the frames between (8m12 §4 rule 5).
+        let gc: String = gc_line(&record, inner_width(width));
         let mut state: ViewState = ViewState {
             circular: record.sequence.topology() == SequenceTopology::Circular,
             selected,
@@ -294,6 +303,7 @@ impl ViewState {
             search: None,
             hits: None,
             overview: false,
+            gc,
             features: FeatureLevel::All,
             colours: true,
             help: false,
@@ -313,6 +323,7 @@ impl ViewState {
     pub fn resize(&mut self, width: u16, height: u16) {
         self.width = width;
         self.height = height;
+        self.gc = gc_line(&self.record, inner_width(width));
         self.relayout(true);
     }
 
@@ -391,7 +402,7 @@ impl ViewState {
             }
             // `o` hides and shows the strip (8l2 §4 rule 1); inside a list or a
             // prompt `o` is text, which the branches above handle. Showing it takes
-            // two rows from the blocks, so the scroll follows the cursor as 8k1 §4
+            // three rows from the blocks, so the scroll follows the cursor as 8k1 §4
             // rule 6 has it: the cursor's block stays drawn, and the top moves as
             // little as the rows allow. Hiding it only makes room, so `follow` has
             // nothing to do.
@@ -537,11 +548,18 @@ impl ViewState {
         self.circular
     }
 
-    /// Whether the overview strip is drawn: the two lines at the top of the frame's
-    /// inner area that `o` hides and shows (8l2 §4 rule 1). While a list is open
-    /// they are not drawn, but this is what `o` left them at.
+    /// Whether the overview strip is drawn: the three lines at the top of the
+    /// frame's inner area that `o` hides and shows (8l2 §4 rule 1, 8m12 §4 rule 4).
+    /// While a list is open they are not drawn, but this is what `o` left them at.
     pub fn overview(&self) -> bool {
         self.overview
+    }
+
+    /// The strip's third line as the width leaves it: the GC height of every strip
+    /// column, held so that drawing never counts bases again (8m12 §4 rule 5).
+    /// `super::screen` puts the frame's two cells around it.
+    pub fn gc_line(&self) -> &str {
+        &self.gc
     }
 
     /// The level the feature lanes are drawn at, as `F` left it (8m6 §4 rule 3):
@@ -627,20 +645,21 @@ impl ViewState {
         count
     }
 
-    /// The rows a run of blocks has: the body rows, less the overview's two whenever
-    /// `o` has the strip on (8l2 §4 rule 2). `super::screen` fills exactly this many
-    /// rows below the strip. A list is drawn instead of the blocks and takes all of
-    /// `body_rows`, as 8k3 gives it, but this stays measured with the strip: rows
-    /// change while a list is open — `enter` on a CDS and a `resize` both relayout
-    /// under it — and the run chosen then has to be the one the screen will
-    /// draw once the list is gone, so the cursor's block is never left off screen.
+    /// The rows a run of blocks has: the body rows, less the overview's three
+    /// whenever `o` has the strip on (8l2 §4 rule 2, 8m12 §4 rule 4).
+    /// `super::screen` fills exactly this many rows below the strip. A list is
+    /// drawn instead of the blocks and takes all of `body_rows`, as 8k3 gives it,
+    /// but this stays measured with the strip: rows change while a list is open —
+    /// `enter` on a CDS and a `resize` both relayout under it — and the run chosen
+    /// then has to be the one the screen will draw once the list is gone, so the
+    /// cursor's block is never left off screen.
     fn block_rows(&self) -> usize {
         let strip: usize = usize::from(OVERVIEW_ROWS) * usize::from(self.overview);
         body_rows(self.height).saturating_sub(strip)
     }
 
     /// Whether the strip opens drawn (8l2 §4 rule 1): more than twice as many
-    /// blocks as the body rows hold with the strip's two rows left out. Below
+    /// blocks as the body rows hold with the strip's three rows left out. Below
     /// `MIN_WIDTH` by `MIN_HEIGHT` no layout is built, and there is nothing to say.
     fn opens_with_strip(&self) -> bool {
         match self.layout.as_ref() {

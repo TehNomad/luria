@@ -372,10 +372,12 @@ fn o_keeps_the_cursor_on_screen() {
 /// list's own rows were while it was open. The run that follows the cursor starts
 /// at block 2, where 7 + 1 + 5 + 1 + 5 = 19 rows cover blocks 2, 3 and 4 of the
 /// 19 the strip leaves at this height, one ruler line for each of the three blocks
-/// counted, 3 rows more than the 16 of 8l2's 18.
+/// counted, three rows more than the 16 that fit without them. The height below is
+/// one row more of terminal height than 8l2 gave this test, because 8m12 takes a
+/// row for the strip's third line.
 #[test]
 fn picking_a_cds_keeps_the_cursor_on_screen() {
-    let height: u16 = H + 1;
+    let height: u16 = H + 2;
     let mut state: ViewState = ViewState::new(pbr(), W, height);
     assert!(state.overview(), "4361 bp on 19 body rows needs a strip");
     for key in [
