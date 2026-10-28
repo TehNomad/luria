@@ -25,7 +25,9 @@
 //!   from there. Every codon fact comes from `CdsMap`: the two bases either
 //!   side of the edge answer whether an edge falls inside a codon, and the
 //!   base before them answers which of its bases the line must stop short of.
-//! * **Lines, top to bottom.** Up to four lanes, then `more`; a plus-strand
+//! * **Lines, top to bottom.** Up to four lanes, then `more`; up to four ORF
+//!   lines, then `+N more ORFs` (M8-40, contract 8m18 §4 rule 3, when `O` shows the
+//!   open reading frames and nothing else when it hides them); a plus-strand
 //!   CDS's residues then its numbers; the ruler line; `+3 +2 +1`; top; bottom; a
 //!   minus-strand CDS's numbers then its residues; `-1 -2 -3`.
 //! * **Lanes** (D053). Every drawn feature except `source` that has a base in
@@ -75,6 +77,7 @@ use luria_core::display_location::DisplayLocation;
 use luria_core::error::DomainError;
 use luria_core::frames::frame_residues;
 use luria_core::frames::ReadingFrame;
+use luria_core::orf::Orf;
 use luria_core::sequence::complement_letter;
 use luria_core::strand::Strand;
 use luria_core::translation::translate;
@@ -132,13 +135,17 @@ pub enum FeatureLevel {
 }
 
 /// How the lines are drawn, as the view's keys set it (M8-30, contract 8m6
-/// §4 rule 1): `colours` is 8m5's `C` and `features` is 8m6's `F`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Drawing {
+/// §4 rule 1): `colours` is 8m5's `C`, `features` is 8m6's `F` and `orfs` is 8m18's
+/// `O`. `Orf` has no `Eq` (`orf.rs:62`), so this compares by `PartialEq`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Drawing<'a> {
     /// Whether the residue lines draw the Zappo backgrounds (M8-29).
     pub colours: bool,
     /// Which features get lanes (M8-30).
     pub features: FeatureLevel,
+    /// The open reading frames drawn as lines (M8-40, contract 8m18 §4 rule 1):
+    /// the ones `find_orfs` keeps, empty when `O` has them hidden.
+    pub orfs: &'a [Orf],
 }
 
 /// What one line of a block is, in the order `block_lines` returns them.
@@ -149,6 +156,12 @@ pub enum LineRole {
     Lane(u8),
     /// The `+N more` line, when more features overlap the block than lanes.
     More,
+    /// One open reading frame's line, numbered from 1 in line order (M8-40,
+    /// contract 8m18 §4 rule 3).
+    Orf(usize),
+    /// The `+N more ORFs` line, when more ORFs overlap the block than lanes
+    /// (M8-40, contract 8m18 §4 rule 2).
+    MoreOrfs,
     /// The selected CDS's residue letters.
     Residues,
     /// The selected CDS's residue numbers (D055: that CDS only).
@@ -449,6 +462,85 @@ fn merged(intervals: Vec<(u64, u64)>) -> Vec<(u64, u64)> {
         }
     }
     runs
+}
+
+/// The colour every ORF cell draws with the colours on: xterm-256 colour 151
+/// (M8-40, contract 8m18 §4 rule 5).
+const ORF_COLOUR: Color = Color::Indexed(151);
+
+/// One open reading frame that has a line in this block (M8-40, contract 8m18
+/// §4 rule 2).
+struct OrfLine {
+    /// As the reading runs, never inferred (D009): the head's glyph.
+    strand: Strand,
+    /// The ORF's whole drawn length in bases, the line order's first key.
+    length: u64,
+    /// The first base of its first interval, zero-based: the order's second key
+    /// (contract 8m18 §4 rule 2).
+    first: u64,
+    /// The bases it covers inside the block, as half-open runs of consecutive
+    /// bases in record coordinates, clipped to the block as a feature's runs
+    /// are. An origin-crossing ORF has two runs in one block on a short record.
+    runs: Vec<(u64, u64)>,
+    /// The ORF's 3' end, one base in record coordinates (contract 8m18 §4 rule
+    /// 4, following 8m11 rule 1): the base the arrowhead stands on.
+    three_prime: u64,
+    /// The ORF's residues, as `find_orfs` counts them: the label's number.
+    residues: u64,
+}
+
+/// The ORF's 3' end, one base in record coordinates, taken from the intervals
+/// in D036 order as `lanes` takes a feature's (contract 8m18 §4 rule 4, 8m11
+/// rule 1): the last base of the last interval on the plus strand, the first
+/// base of the first interval on the minus. The list is never empty: `find_orfs`
+/// gives every ORF one interval or, across the origin, two (D036).
+fn orf_three_prime(orf: &Orf) -> u64 {
+    if strand_is_plus(&orf.strand) {
+        orf.intervals[orf.intervals.len() - 1].1 - 1
+    } else {
+        orf.intervals[0].0
+    }
+}
+
+/// The ORFs of `orfs` that have a base in the block `[start, end)`, in the order
+/// their lines draw (contract 8m18 §4 rule 2): longest whole span first, then
+/// each one's first interval's first base, then plus before minus. A block where
+/// nothing is given leaves no line, and `orfs` is empty when `O` hides the lanes.
+fn orf_lanes(orfs: &[Orf], start: u64, end: u64) -> Vec<OrfLine> {
+    let mut out: Vec<OrfLine> = Vec::new();
+    for orf in orfs {
+        let runs: Vec<(u64, u64)> = merged(orf.intervals.clone())
+            .into_iter()
+            .filter_map(|(first, last)| {
+                let first: u64 = first.max(start);
+                let last: u64 = last.min(end);
+                if first < last {
+                    Some((first, last))
+                } else {
+                    None
+                }
+            })
+            .collect();
+        if runs.is_empty() {
+            continue;
+        }
+        out.push(OrfLine {
+            strand: orf.strand.clone(),
+            length: orf.intervals.iter().map(|(first, last)| last - first).sum(),
+            first: orf.intervals[0].0,
+            runs,
+            three_prime: orf_three_prime(orf),
+            residues: orf.residues,
+        });
+    }
+    out.sort_by(|left, right| {
+        right
+            .length
+            .cmp(&left.length)
+            .then(left.first.cmp(&right.first))
+            .then(strand_is_plus(&right.strand).cmp(&strand_is_plus(&left.strand)))
+    });
+    out
 }
 
 /// The text of one lane run: its name and the bar, cut to `length` columns, with
@@ -853,6 +945,17 @@ fn lane_style(feature: &ViewFeature, strand: &Strand, selected: bool, colours: b
     style
 }
 
+/// The style one ORF cell draws (M8-40, contract 8m18 §4 rule 5): its own
+/// colour with the colours on, no colour with them off, never bold. Every ORF
+/// cell uses it, whatever strand the reading is on.
+fn orf_style(colours: bool) -> Style {
+    if colours {
+        Style::default().fg(ORF_COLOUR)
+    } else {
+        Style::default()
+    }
+}
+
 /// The residue-number cells of one line (D055, D010). Every residue numbered
 /// a multiple of 5 goes first, in reading order, then the line's leftmost
 /// numbered residue; each is centred on its residue, moved inward to stay over
@@ -1037,7 +1140,9 @@ fn frame_cells(
 /// got `block` from, so an index outside it is a bug in the caller and panics.
 /// `drawing` is how the lines are drawn: `drawing.colours` whether the residue
 /// lines draw the Zappo backgrounds (M8-29, contract 8m5 §4 rule 3), and
-/// `drawing.features` which features get lanes (M8-30, contract 8m6 §4 rule 2).
+/// `drawing.features` which features get lanes (M8-30, contract 8m6 §4 rule 2),
+/// and `drawing.orfs` which open reading frames get lines (M8-40, contract 8m18
+/// §4 rule 1).
 pub fn block_lines(
     record: &ViewRecord,
     layout: &Layout,
@@ -1095,6 +1200,43 @@ pub fn block_lines(
             vec![Cell {
                 column: g,
                 text: text.clone(),
+                style: Style::default(),
+            }],
+        ));
+    }
+
+    // The ORF lines (M8-40, contract 8m18 §4 rule 3): after the feature lanes and
+    // their `+N more` line, before every other line, in every mode. `drawing.orfs`
+    // is empty with `O` off, so a block then has no ORF line at all.
+    let ors: Vec<OrfLine> = orf_lanes(drawing.orfs, start, end);
+    let orf_cells: Style = orf_style(drawing.colours);
+    for (number, orf) in ors.iter().take(LANE_LIMIT).enumerate() {
+        let name: String = format!("ORF {} aa", orf.residues);
+        let cells: Vec<Cell> = orf
+            .runs
+            .iter()
+            .map(|(first, last)| {
+                // The head stands on the run that holds the 3' base, as a lane's
+                // does, and `orf_lanes` has clipped the run to the block.
+                let head: bool = *first <= orf.three_prime && orf.three_prime < *last;
+                Cell {
+                    column: g + first - start,
+                    text: lane_text(&name, &orf.strand, last - first, head),
+                    style: orf_cells,
+                }
+            })
+            .collect();
+        lines.push((LineRole::Orf(number + 1), cells));
+    }
+    // The leftover ORFs are counted on one more line, as the feature line does
+    // (contract 8m18 §4 rule 2).
+    if ors.len() > LANE_LIMIT {
+        let text: String = format!("+{} more ORFs", ors.len() - LANE_LIMIT);
+        lines.push((
+            LineRole::MoreOrfs,
+            vec![Cell {
+                column: g,
+                text,
                 style: Style::default(),
             }],
         ));
@@ -1297,6 +1439,8 @@ mod tests {
         match role {
             LineRole::Lane(number) => format!("lane{number}"),
             LineRole::More => "more".to_string(),
+            LineRole::Orf(number) => format!("orf{number}"),
+            LineRole::MoreOrfs => "more_orfs".to_string(),
             LineRole::Residues => "residues".to_string(),
             LineRole::Numbers => "numbers".to_string(),
             LineRole::Frame(strand, frame) => {
@@ -1336,6 +1480,7 @@ mod tests {
             &Drawing {
                 colours: false,
                 features: FeatureLevel::All,
+                orfs: &[],
             },
         )
         .unwrap();
@@ -1435,6 +1580,7 @@ mod tests {
             &Drawing {
                 colours: false,
                 features: FeatureLevel::All,
+                orfs: &[],
             },
         )
         .unwrap();
@@ -1465,6 +1611,7 @@ mod tests {
                 &Drawing {
                     colours: false,
                     features: FeatureLevel::All,
+                    orfs: &[],
                 },
             ),
             Err(LayoutProblem::NotUsable(1))
@@ -1489,6 +1636,7 @@ mod tests {
             &Drawing {
                 colours: true,
                 features: FeatureLevel::All,
+                orfs: &[],
             },
         )
         .unwrap();
@@ -1538,6 +1686,7 @@ mod tests {
             &Drawing {
                 colours: false,
                 features: FeatureLevel::All,
+                orfs: &[],
             },
         )
         .unwrap();

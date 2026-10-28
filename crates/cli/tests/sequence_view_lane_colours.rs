@@ -112,6 +112,7 @@ fn lines_at(
         &Drawing {
             colours,
             features: FeatureLevel::All,
+            orfs: &[],
         },
     )
     .unwrap_or_else(|problem| panic!("block {block} at {mode:?}: {problem:?}"))

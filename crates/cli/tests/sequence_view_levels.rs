@@ -134,6 +134,7 @@ fn lines_at(
         &Drawing {
             colours: false,
             features,
+            orfs: &[],
         },
     )
     .unwrap_or_else(|problem| panic!("block {block} at {features:?}: {problem:?}"))

@@ -46,9 +46,10 @@ const BODY_WITHOUT: std::ops::Range<usize> = 1..21;
 
 /// The keys of the open view, in the order the key list has them (8m3 §4 rule 2),
 /// as each row's own text. `T` is not one of them here because pBR322 states its
-/// own topology, and `ctrl-d`, `ctrl-u` and `esc` are the two half-screen keys and
-/// the key that clears the hits (8m15 §3 item 2, M8-38, M8-37).
-const KEYS: [&str; 17] = [
+/// own topology, and `ctrl-d`, `ctrl-u` and `esc` are the two half-screen keys,
+/// the key that clears the hits and the key that shows the open reading frames
+/// (8m15 §3 item 2, M8-38, M8-37, M8-40).
+const KEYS: [&str; 18] = [
     "hjkl",
     "PgUp PgDn",
     "ctrl-d ctrl-u",
@@ -64,6 +65,7 @@ const KEYS: [&str; 17] = [
     "n N",
     "esc",
     "o",
+    "O",
     "?",
     "q",
 ];

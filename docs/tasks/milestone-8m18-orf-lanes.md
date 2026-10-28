@@ -1,6 +1,20 @@
 # Contract 8m18 — cli: ORF lanes, shown and hidden with `O` (M8-40)
 
-Planner: Claude. Status: written 2026-10-28, to run after 8m17. Tier:
+Planner: Claude. Status: **Implemented 2026-10-28** by worker `w-8m18` in
+two rounds, reviewed and accepted. Findings from review:
+
+* `O` computes the ORFs on its first press and keeps them; `T` drops them
+  and recomputes at once if the lanes are shown. Feature lanes and ORF
+  lines share the column rule `g + first - start`.
+* Tests 1–4 assert the full texts of §5's runs; the planner rechecked the
+  cell counts (block 9: 66, 38, 48, 66 cells, heads on 641 and 622).
+* `sequence_view_minus_bright.rs` has no `Drawing` literal, so §3 item 2
+  touched five test files. `sequence_view_keys.rs`' comment grew to name
+  the key, as §3 item 3 allows.
+* Round 2 replaced a garbled doc comment on `ORF_COLOUR`.
+* G1–G5 each failed the test §8 names (G3 failed tests 1–4).
+
+Tier:
 light (D051): the ORFs themselves are pinned by 8m17's table; this contract
 only draws them, and the look can change at the hand test. Owner's answer:
 `docs/tasks/milestone-8m-polish.md` §1, M8-40.

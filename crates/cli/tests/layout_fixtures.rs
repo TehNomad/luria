@@ -416,6 +416,7 @@ fn check_cells(group: &CellsGroup, opened: &[(String, ViewRecord)]) {
         &Drawing {
             colours: true,
             features: FeatureLevel::All,
+            orfs: &[],
         },
     )
     .unwrap_or_else(|problem| {

@@ -49,6 +49,9 @@ use luria_core::name_match::cds_span;
 use luria_core::name_match::match_name;
 use luria_core::name_match::Matched;
 use luria_core::name_match::NamedItem;
+use luria_core::orf::find_orfs;
+use luria_core::orf::Orf;
+use luria_core::orf::ORF_MIN_RESIDUES;
 use luria_core::sequence::complement_letter;
 use luria_core::sequence::SequenceTopology;
 use luria_core::strand::Strand;
@@ -172,6 +175,17 @@ fn feature_words(level: FeatureLevel) -> &'static str {
     }
 }
 
+/// What `O` says in the status line, and what `T` says while the lines are drawn
+/// (M8-40, contract 8m18 §4 rule 6): `ORFs shown: 9` with the number `find_orfs`
+/// kept for the topology the view reads, and `ORFs hidden` with the lines hidden.
+fn orfs_words(shown: bool, count: usize) -> String {
+    if shown {
+        format!("ORFs shown: {count}")
+    } else {
+        "ORFs hidden".to_string()
+    }
+}
+
 /// One codon of the selected CDS, as the underline and the status line need
 /// them (§4 rules 12 and 13). `super::screen` reads these; they are not part of
 /// the state's public surface.
@@ -266,6 +280,16 @@ pub struct ViewState {
     /// lane line and the `+N more` line. The level is kept while a list or a
     /// prompt is open, so the lines come back with the blocks.
     features: FeatureLevel,
+    /// Whether the ORF lines are drawn (M8-40, contract 8m18 §4 rule 6): the
+    /// lanes `O` hides and shows, hidden at open, and what `drawn_lines` hands
+    /// `block_lines` as `orfs`.
+    orf_lanes: bool,
+    /// The ORFs the shown lines draw (contract 8m18 §4 rule 6): `find_orfs` once,
+    /// on the first `O` for the topology then shown, kept across every toggle and
+    /// dropped by `T` when it flips the topology. `None` says they have not been
+    /// computed for the topology the view reads, which holds at open and while
+    /// `O` hides them, since §9 asks that nothing is computed before the first `O`.
+    orfs: Option<Vec<Orf>>,
     /// Whether the residue lines draw the Zappo backgrounds (8m5 §4 rule 4): `C`
     /// turns them off and on, they are on at open unless `NO_COLOR` says
     /// otherwise (8m5 §4 rule 5), and while a list or a prompt is open `C` is
@@ -312,6 +336,8 @@ impl ViewState {
             overview: false,
             gc,
             features: FeatureLevel::All,
+            orf_lanes: false,
+            orfs: None,
             colours: true,
             help: false,
             chosen: None,
@@ -441,6 +467,11 @@ impl ViewState {
             // above. Colours change no line and no row, so the scroll has
             // nothing to follow.
             Key::Char('F') => self.step_features(),
+            // `O` hides the open reading frames and shows them again (M8-40,
+            // contract 8m18 §4 rule 6); inside a list or a prompt it is text, as
+            // `F` and `C` above. The lines change a block's rows, so the scroll
+            // follows the cursor as `F` does.
+            Key::Char('O') => self.toggle_orf_lanes(),
             Key::Char('C') => self.colours = !self.colours,
             Key::Char('f') => self.open_list(ListKind::Features, ""),
             Key::Char('c') => self.open_list(ListKind::Cdss, ""),
@@ -610,6 +641,19 @@ impl ViewState {
     /// rule 1), true at every level but `None` (8m6 §4 rule 3).
     pub fn lanes_shown(&self) -> bool {
         self.features != FeatureLevel::None
+    }
+
+    /// Whether the ORF lines are drawn, as `O` left them (M8-40, contract 8m18 §4
+    /// rule 6): false at open, when the view has shown no `O`.
+    pub fn orf_lanes(&self) -> bool {
+        self.orf_lanes
+    }
+
+    /// The ORFs the drawn lines hold, `None` while the record has not been scanned
+    /// for them (M8-40, contract 8m18 §4 rule 6): `None` at open, and `Some` from
+    /// the first `O` until `T` drops them for the new topology.
+    pub fn orfs(&self) -> Option<&[Orf]> {
+        self.orfs.as_deref()
     }
 
     /// Whether the residue lines are coloured by Zappo group (8m5 §4 rule 4):
@@ -884,7 +928,7 @@ impl ViewState {
     /// `T` row `switch`. `T` has a row only where the topology was assumed, which
     /// is the only case in which it changes
     /// anything (M8-25). Empty unless the list is open: the body has 20 rows at
-    /// `MIN_WIDTH` by `MIN_HEIGHT`, more than the 17 the longest list needs.
+    /// `MIN_WIDTH` by `MIN_HEIGHT`, more than the 18 the longest list needs.
     pub(super) fn help_rows(&self) -> Vec<String> {
         if !self.help {
             return Vec::new();
@@ -910,6 +954,7 @@ impl ViewState {
             "n N  step through the hits the screen marks",
             "esc  clear the hits the screen marks",
             "o  hide the overview strip and show it again",
+            "O  show the open reading frames and hide them",
             "?  this list of every key the screen has",
             "q  quit",
         ]);
@@ -1104,6 +1149,11 @@ impl ViewState {
                 &Drawing {
                     colours: self.colours,
                     features: self.features,
+                    orfs: if self.orf_lanes {
+                        self.orfs.as_deref().unwrap_or(&[])
+                    } else {
+                        &[]
+                    },
                 },
             )
             .unwrap_or_default(),
@@ -1329,6 +1379,36 @@ impl ViewState {
         self.message = Some(format!("features: {}", feature_words(self.features)));
     }
 
+    /// `O` (M8-40, contract 8m18 §4 rule 6): show the ORF lines and hide them
+    /// again, with the status line naming which the key did. The first `O` that
+    /// shows them asks the record for its ORFs and keeps them, and every toggle
+    /// after that draws what is kept, so one scan serves any number of presses.
+    fn toggle_orf_lanes(&mut self) {
+        self.orf_lanes = !self.orf_lanes;
+        if self.orf_lanes {
+            self.compute_orfs();
+        }
+        self.message = Some(orfs_words(
+            self.orf_lanes,
+            self.orfs.as_ref().map_or(0, |orfs| orfs.len()),
+        ));
+    }
+
+    /// The ORFs for the topology the view reads, scanned once and kept (contract
+    /// 8m18 §4 rule 6): `find_orfs` at `ORF_MIN_RESIDUES`, on the record's own
+    /// text and the topology `T` has set. This is the only point at which the
+    /// sequence is scanned — nothing runs here when the lines are hidden, when
+    /// they are opened, or while a block is drawn.
+    fn compute_orfs(&mut self) {
+        if self.orfs.is_none() {
+            self.orfs = Some(find_orfs(
+                &self.record.sequence,
+                self.circular,
+                ORF_MIN_RESIDUES,
+            ));
+        }
+    }
+
     /// `T` (D049 M8-3, §4 rule 8): a FASTA record's assumed topology flips for
     /// the session, and the cursor keys wrap from then on; a record whose file
     /// states its own topology never changes, and the status line says why.
@@ -1339,6 +1419,18 @@ impl ViewState {
             // and say nothing about the other one (8l1 §4 rule 6). Where the file
             // states its own topology nothing was switched, and the hits stay.
             self.hits = None;
+            // The ORFs were kept from the topology that has just been switched
+            // off, and are wrong for the other one (contract 8m18 §4 rule 6). They
+            // go here, and the next `O` that shows them scans the record again —
+            // at once if the lines are drawn now, later if `O` shows them.
+            self.orfs = None;
+            if self.orf_lanes {
+                self.compute_orfs();
+                self.message = Some(orfs_words(
+                    true,
+                    self.orfs.as_ref().map_or(0, |orfs| orfs.len()),
+                ));
+            }
         } else {
             self.message = Some("the file states its own topology".to_string());
         }
