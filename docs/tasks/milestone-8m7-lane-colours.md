@@ -1,8 +1,20 @@
 # Contract 8m7 — lanes coloured by key or by the file, the selected CDS bold (M8-31)
 
-Planner: Claude. Status: delegated to `w-8m7` 2026-10-27. Tier: light
-(D051): the palette can change at the hand test. Owner's answer:
-`docs/tasks/milestone-8m-polish.md` §1, M8-31.
+Planner: Claude. Status: **Implemented 2026-10-27** by worker `w-8m7` in
+two rounds, reviewed and accepted. Tier: light (D051): the palette can
+change at the hand test. Owner's answer: `docs/tasks/milestone-8m-polish.md`
+§1, M8-31. Findings from review:
+
+* G1–G5 each failed the test §7 names. G5's tie case,
+  `cube_index([115, 155, 195]) == 67`, stays in U1.
+* Two gaps in this contract. §3 left out `state.rs`, which rule 6 needs.
+  §8 also forbade the one change rule 6 forces: 8m5's
+  `the_key_list_names_c` pins the `C` row's text. Round 2 updated that one
+  expected string.
+* Choices accepted: the first ApE qualifier of each kind decides, even when
+  its value is refused; `overview_drawn` returns the styled line, and
+  `overview_lines` is kept and delegates to it; the key colours stay
+  literal indexes, and only file colours go through the cube.
 
 ## 1. What this contract builds
 
@@ -28,6 +40,7 @@ Planner: Claude. Status: delegated to `w-8m7` 2026-10-27. Tier: light
 1. `crates/core/src/view_record.rs`, and its `mod tests`.
 2. `crates/cli/src/sequence_view/layout.rs`, `overview.rs`, `screen.rs`.
 3. `crates/cli/tests/sequence_view_lane_colours.rs`: new.
+4. `crates/cli/src/sequence_view/state.rs`: only `C`'s `?` row (rule 6).
 
 ## 4. Rules
 

@@ -18,15 +18,22 @@
 //! Bars go longest first — bases covered, ties in file order — which is the order
 //! `layout::lanes` gives its lanes, and a feature any of whose columns another bar
 //! already holds is skipped: what does not fit stays in the `f` list (the plan
-//! §4.6). `source` has no bar, as it has no lane (D053). Nothing on either line is
-//! coloured, and nothing on it moves: the strip is display only.
+//! §4.6). `source` has no bar, as it has no lane (D053). The bars are coloured by
+//! the same rule the lanes are (M8-31, contract 8m7 §4 rule 5), and nothing else
+//! on either line is coloured; nothing on them moves, and the strip is display
+//! only.
 
 use luria_core::display_location::DisplayLocation;
 use luria_core::overview::overview_column;
 use luria_core::overview::overview_columns;
 use luria_core::strand::Strand;
 use luria_core::view_record::FeatureShape;
+use luria_core::view_record::ViewFeature;
 use luria_core::view_record::ViewRecord;
+use ratatui::style::Style;
+use ratatui::text::{Line, Span};
+
+use crate::sequence_view::layout::feature_colour;
 
 /// What names the strip's first line: the record read from its first base (D006),
 /// the same `1 ` the plan's §2.1 example shows. Its two characters are taken off
@@ -79,6 +86,49 @@ pub fn overview_lines(
     cursor: u64,
     hits: &[u64],
 ) -> (String, String) {
+    let built: Strip = strip(record, inner_width, shown, cursor, hits, false);
+    (built.text, built.marks)
+}
+
+/// The strip's two lines as the screen draws them (8m7 §4 rule 5): the bar line
+/// as spans that carry each feature's colour, and the marks line as text, which
+/// carries nothing — 8m7 colours nothing on line 2. `colours` is the view's `C`:
+/// with it off, no cell of the bar line is coloured.
+pub fn overview_drawn(
+    record: &ViewRecord,
+    inner_width: u16,
+    shown: (u64, u64),
+    cursor: u64,
+    hits: &[u64],
+    colours: bool,
+) -> (Line<'static>, String) {
+    let built: Strip = strip(record, inner_width, shown, cursor, hits, colours);
+    (built.line, built.marks)
+}
+
+/// The strip's two lines, built from the bar line's cells once: its text, its
+/// styled spans and the marks line's text. `colours` is the view's `C` (8m7 §4
+/// rule 5).
+struct Strip {
+    /// Line 1 as spans: the same text as `text`, with each feature's run
+    /// carrying its colour.
+    line: Line<'static>,
+    /// Line 1 as text, which is what `overview_lines` returns.
+    text: String,
+    /// Line 2, unchanged by 8m7.
+    marks: String,
+}
+
+/// The strip's cells, counted out once and read by every part of it: the bar
+/// line's cells, the two ways of reading line 1 and the marks line below it.
+fn strip(
+    record: &ViewRecord,
+    inner_width: u16,
+    shown: (u64, u64),
+    cursor: u64,
+    hits: &[u64],
+    colours: bool,
+) -> Strip {
     let length: u64 = record.sequence.length();
     let label: String = length.to_string();
     // `1 ` takes two columns and ` {length}` one more than its digits; the strip
@@ -89,10 +139,12 @@ pub fn overview_lines(
     // Core decides the columns themselves; the count is what they fill, and both
     // lines are built cell by cell over it.
     let cells: usize = overview_columns(length, columns).len();
-    (
-        bar_line(record, length, columns, cells, &label),
-        mark_line(length, columns, cells, shown, cursor, hits, &label),
-    )
+    let bars: BarCells = bar_cells(record, length, columns, cells, colours);
+    Strip {
+        line: Line::from(bars.spans(&label)),
+        text: bars.text(&label),
+        marks: mark_line(length, columns, cells, shown, cursor, hits, &label),
+    }
 }
 
 /// The features a bar could be drawn for, in the order they are drawn: every
@@ -128,12 +180,64 @@ fn bars(record: &ViewRecord) -> Vec<Bar> {
     out
 }
 
-/// The bar line: `1 `, one cell per overview column, ` {length}`. Every bar takes
-/// the columns of each of its intervals — two runs for one across the origin — and
-/// a feature any of whose columns another bar already holds is skipped whole
-/// (8l2 §4 rule 4).
-fn bar_line(record: &ViewRecord, length: u64, columns: u64, cells: usize, label: &str) -> String {
+/// The bar line's cells: one glyph and one style per overview column. The bars
+/// are placed once, and the text and the colours are read from the same cells,
+/// so the two cannot disagree (8m7 §4 rule 5).
+struct BarCells {
+    glyphs: Vec<char>,
+    /// The style the cell draws, `Style::default()` for the `─` cells: no cell
+    /// that is not a feature's run carries one (8m7 §4 rule 5).
+    styles: Vec<Style>,
+}
+
+impl BarCells {
+    /// The whole line as text: `1 `, one cell per overview column, ` {length}`.
+    fn text(&self, label: &str) -> String {
+        format!("{HEAD}{} {label}", self.glyphs.iter().collect::<String>())
+    }
+
+    /// The whole line as spans: the same text, every run of cells that draw the
+    /// same style in one span.
+    fn spans(&self, label: &str) -> Vec<Span<'static>> {
+        let mut spans: Vec<Span<'static>> = vec![Span::from(HEAD)];
+        let mut at: usize = 0;
+        while at < self.glyphs.len() {
+            let style: Style = self.styles[at];
+            let mut run: String = String::new();
+            while at < self.glyphs.len() && self.styles[at] == style {
+                run.push(self.glyphs[at]);
+                at += 1;
+            }
+            spans.push(Span::styled(run, style));
+        }
+        spans.push(Span::from(format!(" {label}")));
+        spans
+    }
+}
+
+/// The style one feature's bar draws (8m7 §4 rule 5): its colour when the view's
+/// colours are on, as `layout` colours a lane, and no colour when they are off.
+fn bar_style(feature: &ViewFeature, strand: &Strand, colours: bool) -> Style {
+    match (colours, feature_colour(feature, strand)) {
+        (true, Some(colour)) => Style::default().fg(colour),
+        _ => Style::default(),
+    }
+}
+
+/// The bar line's cells: `BAR` everywhere, and over each bar the columns of each
+/// of its intervals — two runs for one across the origin — and a feature any of
+/// whose columns another bar already holds is skipped whole (8l2 §4 rule 4). The
+/// colours come from the feature's own rule, read once with the placement
+/// (8m7 §4 rule 5).
+fn bar_cells(
+    record: &ViewRecord,
+    length: u64,
+    columns: u64,
+    cells: usize,
+    colours: bool,
+) -> BarCells {
     let mut line: Vec<char> = vec![BAR; cells];
+    let mut styles: Vec<Style> = vec![Style::default(); cells];
     let mut taken: Vec<bool> = vec![false; cells];
     for bar in bars(record) {
         // A feature with an interval that falls outside the record is not drawn at
@@ -153,16 +257,23 @@ fn bar_line(record: &ViewRecord, length: u64, columns: u64, cells: usize, label:
         {
             continue;
         }
+        // The feature this bar stands for: `bars` takes every bar from one of
+        // `record.features` and keeps its `index`, so the index is one of them.
+        let style: Style = bar_style(&record.features[bar.index], &bar.strand, colours);
         for (first, last) in runs {
             for (cell, glyph) in
                 (first..=last).zip(run_text(&bar.name, &bar.strand, last - first + 1))
             {
                 line[cell] = glyph;
             }
+            styles[first..=last].fill(style);
             taken[first..=last].fill(true);
         }
     }
-    format!("{HEAD}{} {label}", line.iter().collect::<String>())
+    BarCells {
+        glyphs: line,
+        styles,
+    }
 }
 
 /// The marks line over the same columns: `▀` for every base on screen, `·` at the

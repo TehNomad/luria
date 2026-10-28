@@ -34,6 +34,12 @@
 //!   feature's bases in the block, as one run per stretch of consecutive bases,
 //!   and its text is its name, an arrow for its strand, and the bar filled
 //!   with `═`, cut to the run.
+//! * **Lane colours** (M8-31, contract 8m7 §4 rules 3 and 4). With `colours`
+//!   on, every cell of a lane is its feature's colour: the colour the file
+//!   gives it on the strand it was written on, or its key's colour when the
+//!   file gives it none, and nothing when neither does. The selected CDS's own
+//!   lane is bold, whether the colours are on or off, and the `more` line is
+//!   never coloured.
 //! * **Residues** (D055, D052). Every residue sits over its codon's **middle**
 //!   base, on whichever line holds that base: for a CDS that is the base
 //!   `CdsMap` reports as place 2 of its codon, and for a frame it is the
@@ -66,6 +72,7 @@ use luria_core::strand::Strand;
 use luria_core::translation::translate;
 use luria_core::view_record::CdsStatus;
 use luria_core::view_record::FeatureShape;
+use luria_core::view_record::ViewFeature;
 use luria_core::view_record::ViewRecord;
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
@@ -653,6 +660,93 @@ fn group_of(colours: bool, symbol: char) -> Option<Color> {
     }
 }
 
+/// The six levels of the xterm 6 × 6 × 6 cube (contract 8m7 §4 rule 3), in the
+/// order their indexes run: the level `0` holds, the one `95` holds, and so on.
+const CUBE_LEVELS: [u8; 6] = [0, 95, 135, 175, 215, 255];
+
+/// Which cube level a channel falls in: the nearest of the six levels, a tie
+/// going to the lower of the two. The levels are looked at from the lowest up,
+/// and only a nearer level wins, so the first of two that are the same distance
+/// away from the channel is the one kept.
+fn cube_level(channel: u8) -> u8 {
+    let mut nearest: usize = 0;
+    let mut distance: u32 = u32::MAX;
+    for (index, level) in CUBE_LEVELS.iter().enumerate() {
+        let between: u32 = u32::from(*level).abs_diff(u32::from(channel));
+        if between < distance {
+            nearest = index;
+            distance = between;
+        }
+    }
+    nearest as u8
+}
+
+/// The xterm 256-colour index of the cube colour nearest `rgb` (contract 8m7
+/// §4 rule 3): each channel at its nearest cube level, and the index is
+/// `16 + 36·r + 6·g + b`, which is how that cube is numbered.
+pub fn cube_index(rgb: [u8; 3]) -> u8 {
+    16 + 36 * cube_level(rgb[0]) + 6 * cube_level(rgb[1]) + cube_level(rgb[2])
+}
+
+/// The colour one feature key draws (contract 8m7 §4 rule 2), as xterm 256
+/// indexes. A key outside the table has no colour of its own, and is drawn in
+/// the terminal's own.
+pub fn key_colour(key: &str) -> Option<Color> {
+    let index: u8 = match key {
+        // what is translated, and the parts of a transcript;
+        "CDS" => 214,
+        "gene" => 179,
+        "mRNA" | "exon" | "intron" | "5'UTR" | "3'UTR" => 141,
+        // what controls a transcript, and where reading starts;
+        "promoter" | "regulatory" | "terminator" | "RBS" | "enhancer" | "polyA_signal" => 77,
+        // a piece of the record that copies itself;
+        "rep_origin" => 75,
+        // what a protein or a primer sticks to;
+        "primer_bind" | "misc_binding" | "protein_bind" => 168,
+        // a run of bases repeated, and the pieces that move about;
+        "repeat_region" | "mobile_element" | "LTR" => 109,
+        // the parts of a translated record;
+        "sig_peptide" | "mat_peptide" | "transit_peptide" => 180,
+        _ => return None,
+    };
+    Some(Color::Indexed(index))
+}
+
+/// The colour one feature draws (contract 8m7 §4 rule 3): the colour the file
+/// gives it on the strand it was written on, its colour being the nearest cube
+/// colour, and failing that the colour its key draws.
+/// `strand` is the strand as the location wrote it, never inferred (D009).
+pub fn feature_colour(feature: &ViewFeature, strand: &Strand) -> Option<Color> {
+    let given: Option<[u8; 3]> = match strand {
+        Strand::Minus => feature.ape_colours.reverse,
+        Strand::Plus => feature.ape_colours.forward,
+    };
+    match given {
+        Some(rgb) => Some(Color::Indexed(cube_index(rgb))),
+        None => key_colour(&feature.key),
+    }
+}
+
+/// The style one lane line draws (contract 8m7 §4 rule 4): its feature's colour
+/// when the view's colours are on, nothing when they are off or the feature has
+/// no colour; and bold when the feature is the selected CDS's own, which is
+/// bold with the colours on and off alike.
+fn lane_style(feature: &ViewFeature, strand: &Strand, selected: bool, colours: bool) -> Style {
+    let mut style: Style = Style::default();
+    let colour: Option<Color> = if colours {
+        feature_colour(feature, strand)
+    } else {
+        None
+    };
+    if let Some(colour) = colour {
+        style = style.fg(colour);
+    }
+    if selected {
+        style.add_modifier |= Modifier::BOLD;
+    }
+    style
+}
+
 /// The residue-number cells of one line (D055, D010). Every residue numbered
 /// a multiple of 5 goes first, in reading order, then the line's leftmost
 /// numbered residue; each is centred on its residue, moved inward to stay over
@@ -800,14 +894,30 @@ pub fn block_lines(
     let mut lines: Vec<(LineRole, Vec<Cell>)> = Vec::new();
 
     let lanes: Vec<Lane> = lanes(record, start, end, drawing.features);
+    // The feature whose lane marks the selection (contract 8m7 §4 rule 4): the
+    // CDS mode's own `cdss` entry's feature, and no feature when the mode
+    // selects nothing. The lane is bold whether the colours are on or off.
+    let selected: Option<usize> = match mode {
+        LaneMode::Cds(index) => record.cdss.get(*index).map(|cds| cds.feature),
+        LaneMode::Off | LaneMode::ThreeFrames | LaneMode::SixFrames => None,
+    };
     for (number, lane) in lanes.iter().take(LANE_LIMIT).enumerate() {
+        // The lane's own feature: `lanes` built this lane from one of
+        // `record.features`, keeping its `index`, so the index is one of them.
+        let feature: &ViewFeature = &record.features[lane.index];
+        let style: Style = lane_style(
+            feature,
+            &lane.strand,
+            selected == Some(lane.index),
+            drawing.colours,
+        );
         let cells: Vec<Cell> = lane
             .runs
             .iter()
             .map(|(first, last)| Cell {
                 column: g + first - start,
                 text: lane_text(&lane.name, &lane.strand, last - first),
-                style: Style::default(),
+                style,
             })
             .collect();
         lines.push((LineRole::Lane(number as u8 + 1), cells));
@@ -1268,6 +1378,95 @@ mod tests {
         );
         for symbol in ['*', '?', 'X', 'B', 'Z', 'J'] {
             assert_eq!(zappo(symbol), None, "no colour for `{symbol}`");
+        }
+    }
+
+    // §5's U1 (contract 8m7 §4 rules 2 and 3). Every index here is worked out
+    // from §4 rule 3's own formula, not from what the code answers: the levels
+    // are 0, 95, 135, 175, 215 and 255, and the index is `16 + 36·r + 6·g + b`.
+    //
+    //   * `[255,0,0]`: r = 5, g = 0, b = 0 → 16 + 180 = 196.
+    //   * `[0,255,0]`: g = 5 → 16 + 30 = 46.
+    //   * `[0x84,0xb0,0xdc]` is [132,176,220]: 132 is nearest 135 (3 away, not
+    //     37 from 95), 176 is nearest 175, 220 nearest 215, so r = 2, g = 3,
+    //     b = 4 → 16 + 72 + 18 + 4 = 110.
+    //   * `[0,0,0]` is the cube's first colour, 16; `[255,255,255]` is its
+    //     last, 16 + 180 + 30 + 5 = 231.
+    //     135 and 175, 175 and 215), and a tie goes to the lower level, so
+    //     `[115,155,195]` keeps 95, 135 and 175 — r = 1, g = 2, b = 3 — and the
+    //     index is 16 + 36 + 12 + 3 = 67; and `[235,115,0]` keeps 215, 95 and
+    //     0, which is 16 + 144 + 6 + 0 = 166.
+    #[test]
+    fn the_nearest_cube_colour_and_the_key_colours() {
+        assert_eq!(cube_index([255, 0, 0]), 196, "pure red is the cube's red");
+        assert_eq!(
+            cube_index([0, 255, 0]),
+            46,
+            "pure green is the cube's green"
+        );
+        assert_eq!(
+            cube_index([0x84, 0xb0, 0xdc]),
+            110,
+            "132, 176 and 220 each go to their nearest level"
+        );
+        assert_eq!(cube_index([0, 0, 0]), 16, "black is the cube's first");
+        assert_eq!(cube_index([255, 255, 255]), 231, "white is the cube's last");
+        assert_eq!(
+            cube_index([115, 155, 195]),
+            67,
+            "a tie between two levels goes to the lower of them"
+        );
+        assert_eq!(
+            cube_index([235, 115, 0]),
+            166,
+            "235 ties down to 215 as the others do"
+        );
+
+        // §4 rule 2's table, every key of it, and nothing outside it.
+        for (key, index) in [
+            ("CDS", 214),
+            ("gene", 179),
+            ("mRNA", 141),
+            ("exon", 141),
+            ("intron", 141),
+            ("5'UTR", 141),
+            ("3'UTR", 141),
+            ("promoter", 77),
+            ("regulatory", 77),
+            ("terminator", 77),
+            ("RBS", 77),
+            ("enhancer", 77),
+            ("polyA_signal", 77),
+            ("rep_origin", 75),
+            ("primer_bind", 168),
+            ("misc_binding", 168),
+            ("protein_bind", 168),
+            ("repeat_region", 109),
+            ("mobile_element", 109),
+            ("LTR", 109),
+            ("sig_peptide", 180),
+            ("mat_peptide", 180),
+            ("transit_peptide", 180),
+        ] {
+            assert_eq!(
+                key_colour(key),
+                Some(Color::Indexed(index)),
+                "`{key}` draws colour {index}"
+            );
+        }
+        for key in [
+            "old_sequence",
+            "source",
+            "misc_feature",
+            "primersite",
+            "CDS ",
+            "genex",
+        ] {
+            assert_eq!(
+                key_colour(key),
+                None,
+                "`{key}` has no colour of its own, the terminal's own"
+            );
         }
     }
 

@@ -839,7 +839,7 @@ impl ViewState {
             "w b  move the cursor to the next codon and the codon before it",
             "t  cycle what the lanes show: the CDS, three frames, six frames, off",
             "F  cycle the feature lanes: all, CDSs only, none",
-            "C  colour the residues by type (Zappo) and back",
+            "C  colour the residues and the features, and back",
         ];
         if self.record.topology == TopologySource::Assumed {
             rows.push("T  switch the topology the view assumed for this record");

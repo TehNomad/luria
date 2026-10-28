@@ -113,6 +113,17 @@ pub enum FeatureShape {
     NotDrawn(DomainError),
 }
 
+/// The colours the file gives a feature of its own (M8-31, contract 8m7 §4
+/// rule 1). ApE writes them on the feature as `/ApEinfo_fwdcolor` and
+/// `/ApEinfo_revcolor`; anything else the view colours by key.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct ApeColours {
+    /// The colour of the first `/ApEinfo_fwdcolor` that states one.
+    pub forward: Option<[u8; 3]>,
+    /// The colour of the first `/ApEinfo_revcolor` that states one.
+    pub reverse: Option<[u8; 3]>,
+}
+
 /// One entry of the feature table, as the feature list shows it.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ViewFeature {
@@ -124,6 +135,9 @@ pub struct ViewFeature {
     pub name: String,
     pub line: u64,
     pub shape: FeatureShape,
+    /// The colours the feature's own lines give it, `default()` when they give
+    /// it none (M8-31, contract 8m7 §4 rule 1).
+    pub ape_colours: ApeColours,
 }
 
 /// A CDS as `import_cds` answered: usable, or unusable with the refusal that
@@ -175,6 +189,12 @@ const ID_QUALIFIERS: [(&str, NameSource); 3] = [
     ("locus_tag", NameSource::LocusTag),
     ("protein_id", NameSource::ProteinId),
 ];
+
+/// The two qualifiers that give a feature the colour the view draws it in
+/// (M8-31, contract 8m7 §4 rule 1): the colour of its forward strand and of its
+/// reverse one. ApE writes them, and nothing here looks for any other name.
+const APE_FORWARD: &str = "ApEinfo_fwdcolor";
+const APE_REVERSE: &str = "ApEinfo_revcolor";
 
 /// True for a blank line: empty, or made only of spaces, tabs and `\r`. The
 /// same line both readers call blank (`genbank.rs` rule 2, `fasta.rs` rule 3),
@@ -232,6 +252,59 @@ fn display_name(feature: &GenBankFeature) -> String {
     feature.key()
 }
 
+/// One hex digit's value, and nothing else: `None` for a character that is not
+/// a hex digit, so a value made of anything else states no colour.
+fn hex_digit(byte: u8) -> Option<u8> {
+    match byte {
+        b'0'..=b'9' => Some(byte - b'0'),
+        b'a'..=b'f' => Some(byte - b'a' + 10),
+        b'A'..=b'F' => Some(byte - b'A' + 10),
+        _ => None,
+    }
+}
+
+/// One colour value (contract 8m7 §4 rule 1): `#` and six hex digits, either
+/// case, and nothing else. A colour name such as `pink`, a bare qualifier, and
+/// a value too short (`#ff00a`) or too long (`#ff00000`) all state no colour
+/// and give `None`; nothing is guessed at (D005).
+fn ape_rgb(value: &str) -> Option<[u8; 3]> {
+    let digits: &str = value.strip_prefix('#')?;
+    let bytes: &[u8] = digits.as_bytes();
+    if bytes.len() != 6 {
+        return None;
+    }
+    let mut channels: [u8; 3] = [0, 0, 0];
+    for (place, pair) in bytes.chunks(2).enumerate() {
+        let red: u8 = hex_digit(pair[0])?;
+        let green: u8 = hex_digit(pair[1])?;
+        channels[place] = red * 16 + green;
+    }
+    Some(channels)
+}
+
+/// Rule 1: the colours a feature's own qualifiers give it. Each of the two comes
+/// from the *first* qualifier of its kind, and that one decides: a second
+/// `/ApEinfo_fwdcolor` is not read, just as the display parser takes the first
+/// `/gene`. What it states is read only when the value is `#` and six hex
+/// digits; a bare qualifier, a colour name such as `pink`, and any other shape
+/// give `None`, as an empty value does in `display_name`.
+fn ape_colours(feature: &GenBankFeature) -> ApeColours {
+    let mut forward: Option<[u8; 3]> = None;
+    let mut reverse: Option<[u8; 3]> = None;
+    let mut seen_forward: bool = false;
+    let mut seen_reverse: bool = false;
+    for qualifier in feature.qualifiers() {
+        if qualifier.name() == APE_FORWARD && !seen_forward {
+            seen_forward = true;
+            forward = qualifier.value().as_deref().and_then(ape_rgb);
+        } else if qualifier.name() == APE_REVERSE && !seen_reverse {
+            seen_reverse = true;
+            reverse = qualifier.value().as_deref().and_then(ape_rgb);
+        }
+    }
+    ApeColours { forward, reverse }
+}
+
 /// Step 5 (D049, D053): the shape, from the display parser — never from
 /// `parse_genbank_location`, whose refusals are what the science tier accepts
 /// (D009, D036). A feature the display parser refuses keeps the refusal that
@@ -263,6 +336,7 @@ fn view_features(
             name: display_name(feature),
             line: feature.line(),
             shape: shape_of(feature, length, topology.clone()),
+            ape_colours: ape_colours(feature),
         });
     }
     views
@@ -460,6 +534,54 @@ ORIGIN
 //
 "#;
 
+    /// §5's `ape` record: 30 bp, linear, three `misc_feature`s named by their
+    /// `/gene`, the first two carrying both ApE colour qualifiers and the third
+    /// a colour name. It is written here rather than as a fixture, as
+    /// `NAME_RECORD` is, because the colours are this contract's rule.
+    const APE_RECORD: &str = r##"LOCUS       ape                       30 bp    DNA     linear   SYN 27-OCT-2026
+FEATURES             Location/Qualifiers
+     misc_feature    1..10
+                     /gene="a"
+                     /ApEinfo_fwdcolor="#ff0000"
+                     /ApEinfo_revcolor="#00ff00"
+     misc_feature complement(11..20)
+                     /gene="b"
+                     /ApEinfo_fwdcolor="#ff0000"
+                     /ApEinfo_revcolor="#00ff00"
+     misc_feature    21..30
+                     /gene="c"
+                     /ApEinfo_fwdcolor="pink"
+ORIGIN
+        1 atggcttggt aacccccccc cccccccccc
+//
+"##;
+
+    /// The shapes §4 rule 1 takes and refuses, written as a record so the check
+    /// reads the way the view does: its first feature has both colours in mixed
+    /// case, its second has a five-digit value and a bare qualifier, its third
+    /// a value with no `#` and one with seven digits, and its fourth a colour
+    /// name beside a colour that is only uppercase, with a second forward colour
+    /// that the first one refuses over — the first qualifier of a kind decides.
+    const COLOUR_SHAPE_RECORD: &str = r##"LOCUS       shp                       12 bp    DNA     linear   SYN 27-OCT-2026
+FEATURES             Location/Qualifiers
+     misc_feature    1..3
+                     /ApEinfo_fwdcolor="#FF00Aa"
+                     /ApEinfo_revcolor="#123456"
+     misc_feature    4..6
+                     /ApEinfo_fwdcolor="#ff00a"
+                     /ApEinfo_revcolor
+     misc_feature    7..9
+                     /ApEinfo_fwdcolor="ff0000"
+                     /ApEinfo_revcolor="#ff00a00"
+     misc_feature    10..12
+                     /ApEinfo_fwdcolor="pink"
+                     /ApEinfo_fwdcolor="#ff0000"
+                     /ApEinfo_revcolor="#ffffff"
+ORIGIN
+        1 atggcttggt aa
+//
+"##;
+
     /// A fixture record, read as it sits on disk. A test's working directory
     /// is the package root, which is the path the integration tests use.
     fn read_input(file: &str) -> String {
@@ -607,5 +729,74 @@ ORIGIN
         // `/product`; a feature none of the four names is called by its key; a
         // bare `/label` states no value, so the `/gene` under it names it.
         assert_eq!(names(&found), vec!["lab", "tag", "misc_feature", "g"]);
+    }
+
+    // Contract 8m7 §4 rule 1 (M8-31): the colours a file gives its own features
+    // come from `/ApEinfo_fwdcolor` and `/ApEinfo_revcolor`, and from a value
+    // that is `#` and six hex digits and nothing else — either case. §5's C1.
+    //
+    // Every expectation here is written out from the qualifier text by hand:
+    // `#ff0000` is red 255 and nothing else, `#00ff00` green 255, `#FF00Aa` is
+    // 255, 0, 170 (`Aa` is 10·16 + 10 = 170) and `#123456` is 18, 52, 86. A
+    // colour name, a bare qualifier, five digits and seven digits state no
+    // colour and give `None`.
+    #[test]
+    fn the_file_colours_come_from_the_apeinfo_qualifiers() {
+        let found: ViewRecord = open_record(name("ape"), APE_RECORD.to_string())
+            .unwrap_or_else(|error| panic!("ape: refused {}", error.code()));
+        assert_eq!(names(&found), vec!["a", "b", "c"], "the three features");
+        // `a` and `b` carry the same two qualifiers, and `c` has a colour name,
+        // which states nothing: the record's answer is the default of no
+        // colours at all.
+        let redgreen: ApeColours = ApeColours {
+            forward: Some([255, 0, 0]),
+            reverse: Some([0, 255, 0]),
+        };
+        assert_eq!(found.features[0].ape_colours, redgreen, "feature `a`");
+        assert_eq!(found.features[1].ape_colours, redgreen, "feature `b`");
+        assert_eq!(
+            found.features[2].ape_colours,
+            ApeColours::default(),
+            "`pink` states no colour in either field"
+        );
+
+        let shapes: ViewRecord = open_record(name("shp"), COLOUR_SHAPE_RECORD.to_string())
+            .unwrap_or_else(|error| panic!("shp: refused {}", error.code()));
+        // Mixed case is read, and read as the same colour: `#FF00Aa` is
+        // [255, 0, 170] and `#123456` is [18, 52, 86].
+        assert_eq!(
+            shapes.features[0].ape_colours,
+            ApeColours {
+                forward: Some([255, 0, 170]),
+                reverse: Some([18, 52, 86]),
+            },
+            "hex digits of either case are read"
+        );
+        // A five-digit value, and a bare qualifier that states no value at all,
+        // give no colour to either field.
+        assert_eq!(
+            shapes.features[1].ape_colours,
+            ApeColours::default(),
+            "`#ff00a` and a bare qualifier state no colour"
+        );
+        // Six digits without a `#`, and seven digits with one, are both refused:
+        // the value is not part of one.
+        assert_eq!(
+            shapes.features[2].ape_colours,
+            ApeColours::default(),
+            "the `#` is part of the value and six digits is its length"
+        );
+        // A colour name on one qualifier does not stop the other from carrying
+        // its own colour, and uppercase hex is read. The second
+        // `/ApEinfo_fwdcolor` — a colour the first one refuses — is not read:
+        // the first qualifier of a kind is the one that decides.
+        assert_eq!(
+            shapes.features[3].ape_colours,
+            ApeColours {
+                forward: None,
+                reverse: Some([255, 255, 255]),
+            },
+            "one refused value leaves the other field its colour, and a second qualifier of the same kind is not read"
+        );
     }
 }

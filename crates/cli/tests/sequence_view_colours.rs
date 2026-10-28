@@ -375,7 +375,7 @@ fn the_key_list_names_c() {
     assert!(!rows.is_empty(), "some row of the list names the key");
     let text: String = row_text(&cells[rows[0]]);
     assert_eq!(
-        text, "C  colour the residues by type (Zappo) and back",
+        text, "C  colour the residues and the features, and back",
         "the row names the key and what it does"
     );
 }

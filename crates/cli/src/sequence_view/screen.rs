@@ -35,7 +35,7 @@ use crate::review::view::MIN_WIDTH;
 use crate::sequence_view::layout::Layout;
 use crate::sequence_view::layout::LineRole;
 use crate::sequence_view::list::Drawn;
-use crate::sequence_view::overview::overview_lines;
+use crate::sequence_view::overview::overview_drawn;
 use crate::sequence_view::state::CursorCodon;
 use crate::sequence_view::state::ViewState;
 use crate::sequence_view::state::GAP;
@@ -115,8 +115,9 @@ fn too_small(frame: &mut Frame, area: Rect) -> bool {
 
 /// The strip's two lines, on the frame's first two inner rows (8l2 §4 rule 2), as
 /// `super::overview` writes them. Nothing is added to them here: the strip is
-/// display only, with no colour, no cursor cell and nothing that jumps (proposal
-/// §2.1). The bases it shades are the first base of the first block
+/// display only, with no cursor cell and nothing that jumps (proposal §2.1); its
+/// bars carry the same colours the lanes do (M8-31 §4 rule 5), and its marks line
+/// carries nothing. The bases it shades are the first base of the first block
 /// `ViewState::visible` chose through the last base of the last one, and the hits
 /// it dots are the starts of the hits shown now (8l1 §4 rules 3 and 4). Without a
 /// layout there is nothing to say, and the two rows stay blank.
@@ -142,8 +143,14 @@ fn draw_overview(frame: &mut Frame, state: &ViewState, inner: Rect) {
         Some(hits) => hits.shown().iter().map(|hit| hit.start).collect(),
         None => Vec::new(),
     };
-    let (bars, marks): (String, String) =
-        overview_lines(state.record(), inner.width, shown, state.cursor(), &hits);
+    let (bars, marks): (Line<'static>, String) = overview_drawn(
+        state.record(),
+        inner.width,
+        shown,
+        state.cursor(),
+        &hits,
+        state.colours(),
+    );
     frame.render_widget(
         Paragraph::new(bars),
         Rect::new(inner.x, inner.y, inner.width, 1),
