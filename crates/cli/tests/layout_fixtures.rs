@@ -13,16 +13,17 @@
 //! and `tests/fixtures/view/reference/layout_columns.py` predate this module by
 //! two milestones.
 //!
-//! The cells table pins no glyphs, so a `feature` row records its item as
-//! `"tet (+)"` while the line shows the name, an arrow and the bar cut to the
-//! run (contract 8j rule 3): `check_cells` builds that text from the name and
+//! The cells table pins no glyphs, so a `feature` or `feature_end` row records
+//! its item as `"tet (+)"` while the line shows the name and the bar cut to the
+//! run, with the head at the end that run holds when the row is `feature_end`
+//! (contract 8m11 rule 2): `check_cells` builds that text from the name and the
 //! strand marker the row holds, and compares it with what was drawn.
 //!
 //! The two tables between them pin every rule of §5.1 except four, which
 //! `sequence_view::layout`'s own tests hold: the gutter's minimum of 2 (no
 //! record in either table is shorter than 10 bases), an unusable CDS as a
 //! selection (the tables name only usable ones), the `*` style (the tables hold
-//! columns and text, not style), and the lane's glyphs — the arrow and the
+//! columns and text, not style), and the lane's glyphs — the head's glyph and the
 //! `═` fill — which the cells table records as a name and a strand marker
 //! instead.
 
@@ -354,11 +355,12 @@ fn check_blocks(case: &BlocksCase, opened: &[(String, ViewRecord)]) {
     );
 }
 
-/// The text the view must draw for one `feature` item: the table records the
-/// item as its display name and its strand, `"tet (+)"`, which is not what the
-/// line shows (the tables pin no glyphs). The line shows the name, an arrow for
-/// that strand and the bar, cut to the run's columns (contract 8j rule 3).
-fn run_text(value: &str, cells: u64) -> String {
+/// The text the view must draw for one `feature` or `feature_end` item: the
+/// table records the item as its display name and its strand, `"tet (+)"`, which
+/// is not what the line shows (the tables pin no glyphs). The line shows the name
+/// and the bar, cut to the run's columns, and when the row is `feature_end` the
+/// head stands at the end that run holds (contract 8m11 rule 2).
+fn run_text(value: &str, cells: u64, head: bool) -> String {
     let (name, marker) = match value.strip_suffix(')') {
         Some(rest) => match rest.rsplit_once(" (") {
             Some((name, marker @ ("+" | "-"))) => (name, marker),
@@ -366,12 +368,23 @@ fn run_text(value: &str, cells: u64) -> String {
         },
         None => panic!("the cells table records a feature item as {{name}} (+) or (-): {value:?}"),
     };
-    let arrow: char = if marker == "+" { '▸' } else { '◂' };
-    let mut text: String = format!("{name} {arrow} ");
+    let minus: bool = marker == "-";
+    let mut text: String = String::new();
+    if minus && head {
+        text.push_str("◂ ");
+    }
+    text.push_str(name);
+    text.push(' ');
     while text.chars().count() < cells as usize {
         text.push('═');
     }
-    text.chars().take(cells as usize).collect()
+    let mut letters: Vec<char> = text.chars().take(cells as usize).collect();
+    if !minus && head {
+        if let Some(last) = letters.last_mut() {
+            *last = '▸';
+        }
+    }
+    letters.into_iter().collect()
 }
 
 /// Check the rows of one block against `block_lines` drawn on a test backend:
@@ -462,11 +475,12 @@ fn check_cells(group: &CellsGroup, opened: &[(String, ViewRecord)]) {
             width
         );
         let shown: String = rows[row.line][first..last].concat();
-        // A `feature` row's `value` names the item and its strand; the line
-        // shows rule 3's bar text for that name and strand, cut to the run.
-        // Every other kind's `value` is the text the line shows.
-        let expected: String = if row.kind == "feature" {
-            run_text(&row.value, row.cells)
+        // A `feature` or `feature_end` row's `value` names the item and its
+        // strand; the line shows rule 2's bar text for that name and strand, cut
+        // to the run, with the head when the row says the run holds it. Every
+        // other kind's `value` is the text the line shows.
+        let expected: String = if row.kind == "feature" || row.kind == "feature_end" {
+            run_text(&row.value, row.cells, row.kind == "feature_end")
         } else {
             row.value.clone()
         };

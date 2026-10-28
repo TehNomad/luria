@@ -262,8 +262,8 @@ fn cdss_only_keeps_the_cds_lanes() {
     assert_eq!(span(&rows[lane], 23, 23), " ", "column 23 is blank");
     assert_eq!(
         span(&rows[lane], 24, 28),
-        "tet ▸",
-        "the lane's text at column 24 is its name and its strand arrow"
+        "tet ═",
+        "the lane's text at column 24 opens its bar, the head standing at column 67"
     );
 
     // None: no lane line at all, and no `+N more` line to count what is not there.
@@ -315,7 +315,7 @@ fn a_cds_is_never_left_in_more() {
         // Each run covers its 20 bases from base 1 at column 3.
         let text: String = span(lane, 3, 22);
         assert!(
-            text.starts_with(&format!("{name} ▸")),
+            text.starts_with(&format!("{name} ")),
             "the lane of {name} spells its name from column 3: {text:?}"
         );
         assert!(
@@ -346,8 +346,8 @@ fn a_cds_is_never_left_in_more() {
     // `c1` covers bases 1 to 9, so its run is nine columns wide from column 3.
     assert_eq!(
         span(&rows[0], 3, 11),
-        "c1 ▸ ════",
-        "the CDS's lane spells its name and fills its nine bases"
+        "c1 ═════▸",
+        "the CDS's lane spells its name and puts its head at the run's last column"
     );
 
     // None: the block's two strands, and nothing else.

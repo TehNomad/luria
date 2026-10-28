@@ -1,9 +1,9 @@
 record	width	mode	block	line	role	kind	column	cells	value
-synthetic	78	off	0	0	lane1	feature	3	12	pj (+)
+synthetic	78	off	0	0	lane1	feature_end	3	12	pj (+)
 synthetic	78	off	0	0	lane1	feature	57	6	pj (+)
-synthetic	78	off	0	1	lane2	feature	3	13	len13 (+)
-synthetic	78	off	0	2	lane3	feature	3	12	p1 (+)
-synthetic	78	off	0	3	lane4	feature	15	12	ignored-gene (-)
+synthetic	78	off	0	1	lane2	feature_end	3	13	len13 (+)
+synthetic	78	off	0	2	lane3	feature_end	3	12	p1 (+)
+synthetic	78	off	0	3	lane4	feature_end	15	12	ignored-gene (-)
 synthetic	78	off	0	4	more	more	3	8	+18 more
 synthetic	78	off	0	5	ruler	tick	12	1	╷
 synthetic	78	off	0	5	ruler	tick	22	1	╷
@@ -15,11 +15,11 @@ synthetic	78	off	0	6	top	left_number	1	1	1
 synthetic	78	off	0	6	top	bases	3	60	ATGGCTTGGTAACTACTGCTGCATGTGGCTTGGTAAATGTAAGCTTAAGGGCCCATGAAA
 synthetic	78	off	0	6	top	right_number	64	2	60
 synthetic	78	off	0	7	bottom	complement	3	60	TACCGAACCATTGATGACGACGTACACCGAACCATTTACATTCGAATTCCCGGGTACTTT
-synthetic	78	cds:pj	0	0	lane1	feature	3	12	pj (+)
+synthetic	78	cds:pj	0	0	lane1	feature_end	3	12	pj (+)
 synthetic	78	cds:pj	0	0	lane1	feature	57	6	pj (+)
-synthetic	78	cds:pj	0	1	lane2	feature	3	13	len13 (+)
-synthetic	78	cds:pj	0	2	lane3	feature	3	12	p1 (+)
-synthetic	78	cds:pj	0	3	lane4	feature	15	12	ignored-gene (-)
+synthetic	78	cds:pj	0	1	lane2	feature_end	3	13	len13 (+)
+synthetic	78	cds:pj	0	2	lane3	feature_end	3	12	p1 (+)
+synthetic	78	cds:pj	0	3	lane4	feature_end	15	12	ignored-gene (-)
 synthetic	78	cds:pj	0	4	more	more	3	8	+18 more
 synthetic	78	cds:pj	0	5	residues	residue	4	1	M
 synthetic	78	cds:pj	0	5	residues	residue	7	1	A
@@ -39,11 +39,11 @@ synthetic	78	cds:pj	0	8	top	left_number	1	1	1
 synthetic	78	cds:pj	0	8	top	bases	3	60	ATGGCTTGGTAACTACTGCTGCATGTGGCTTGGTAAATGTAAGCTTAAGGGCCCATGAAA
 synthetic	78	cds:pj	0	8	top	right_number	64	2	60
 synthetic	78	cds:pj	0	9	bottom	complement	3	60	TACCGAACCATTGATGACGACGTACACCGAACCATTTACATTCGAATTCCCGGGTACTTT
-synthetic	78	cds:m1	0	0	lane1	feature	3	12	pj (+)
+synthetic	78	cds:m1	0	0	lane1	feature_end	3	12	pj (+)
 synthetic	78	cds:m1	0	0	lane1	feature	57	6	pj (+)
-synthetic	78	cds:m1	0	1	lane2	feature	3	13	len13 (+)
-synthetic	78	cds:m1	0	2	lane3	feature	3	12	p1 (+)
-synthetic	78	cds:m1	0	3	lane4	feature	15	12	ignored-gene (-)
+synthetic	78	cds:m1	0	1	lane2	feature_end	3	13	len13 (+)
+synthetic	78	cds:m1	0	2	lane3	feature_end	3	12	p1 (+)
+synthetic	78	cds:m1	0	3	lane4	feature_end	15	12	ignored-gene (-)
 synthetic	78	cds:m1	0	4	more	more	3	8	+18 more
 synthetic	78	cds:m1	0	5	ruler	tick	12	1	╷
 synthetic	78	cds:m1	0	5	ruler	tick	22	1	╷
@@ -60,11 +60,11 @@ synthetic	78	cds:m1	0	9	residues	residue	16	1	*
 synthetic	78	cds:m1	0	9	residues	residue	19	1	Q
 synthetic	78	cds:m1	0	9	residues	residue	22	1	Q
 synthetic	78	cds:m1	0	9	residues	residue	25	1	M
-synthetic	78	six	0	0	lane1	feature	3	12	pj (+)
+synthetic	78	six	0	0	lane1	feature_end	3	12	pj (+)
 synthetic	78	six	0	0	lane1	feature	57	6	pj (+)
-synthetic	78	six	0	1	lane2	feature	3	13	len13 (+)
-synthetic	78	six	0	2	lane3	feature	3	12	p1 (+)
-synthetic	78	six	0	3	lane4	feature	15	12	ignored-gene (-)
+synthetic	78	six	0	1	lane2	feature_end	3	13	len13 (+)
+synthetic	78	six	0	2	lane3	feature_end	3	12	p1 (+)
+synthetic	78	six	0	3	lane4	feature_end	15	12	ignored-gene (-)
 synthetic	78	six	0	4	more	more	3	8	+18 more
 synthetic	78	six	0	5	+3	label	0	2	+3
 synthetic	78	six	0	5	+3	residue	6	1	G
@@ -198,10 +198,10 @@ synthetic	78	six	0	13	-3	residue	50	1	L
 synthetic	78	six	0	13	-3	residue	53	1	A
 synthetic	78	six	0	13	-3	residue	56	1	W
 synthetic	78	six	0	13	-3	residue	59	1	S
-frames62	78	off	0	0	lane1	feature	3	11	fP (+)
+frames62	78	off	0	0	lane1	feature_end	3	11	fP (+)
 frames62	78	off	0	0	lane1	feature	58	7	fP (+)
 frames62	78	off	0	1	lane2	feature	3	8	fM (-)
-frames62	78	off	0	1	lane2	feature	55	10	fM (-)
+frames62	78	off	0	1	lane2	feature_end	55	10	fM (-)
 frames62	78	off	0	2	ruler	tick	12	1	╷
 frames62	78	off	0	2	ruler	tick	22	1	╷
 frames62	78	off	0	2	ruler	ruler_number	31	2	30
@@ -212,10 +212,10 @@ frames62	78	off	0	3	top	left_number	1	1	1
 frames62	78	off	0	3	top	bases	3	62	CAGACCATTAAAAGGTCCTTTGGGGGAATACGCCGAGCAGGTAATCATTAATTTAATGCGCA
 frames62	78	off	0	3	top	right_number	66	2	62
 frames62	78	off	0	4	bottom	complement	3	62	GTCTGGTAATTTTCCAGGAAACCCCCTTATGCGGCTCGTCCATTAGTAATTAAATTACGCGT
-frames62	78	cds:fP	0	0	lane1	feature	3	11	fP (+)
+frames62	78	cds:fP	0	0	lane1	feature_end	3	11	fP (+)
 frames62	78	cds:fP	0	0	lane1	feature	58	7	fP (+)
 frames62	78	cds:fP	0	1	lane2	feature	3	8	fM (-)
-frames62	78	cds:fP	0	1	lane2	feature	55	10	fM (-)
+frames62	78	cds:fP	0	1	lane2	feature_end	55	10	fM (-)
 frames62	78	cds:fP	0	2	residues	residue	3	1	T
 frames62	78	cds:fP	0	2	residues	residue	6	1	D
 frames62	78	cds:fP	0	2	residues	residue	9	1	H
@@ -234,10 +234,10 @@ frames62	78	cds:fP	0	5	top	left_number	1	1	1
 frames62	78	cds:fP	0	5	top	bases	3	62	CAGACCATTAAAAGGTCCTTTGGGGGAATACGCCGAGCAGGTAATCATTAATTTAATGCGCA
 frames62	78	cds:fP	0	5	top	right_number	66	2	62
 frames62	78	cds:fP	0	6	bottom	complement	3	62	GTCTGGTAATTTTCCAGGAAACCCCCTTATGCGGCTCGTCCATTAGTAATTAAATTACGCGT
-frames62	78	cds:fM	0	0	lane1	feature	3	11	fP (+)
+frames62	78	cds:fM	0	0	lane1	feature_end	3	11	fP (+)
 frames62	78	cds:fM	0	0	lane1	feature	58	7	fP (+)
 frames62	78	cds:fM	0	1	lane2	feature	3	8	fM (-)
-frames62	78	cds:fM	0	1	lane2	feature	55	10	fM (-)
+frames62	78	cds:fM	0	1	lane2	feature_end	55	10	fM (-)
 frames62	78	cds:fM	0	2	ruler	tick	12	1	╷
 frames62	78	cds:fM	0	2	ruler	tick	22	1	╷
 frames62	78	cds:fM	0	2	ruler	ruler_number	31	2	30
@@ -256,10 +256,10 @@ frames62	78	cds:fM	0	6	residues	residue	9	1	M
 frames62	78	cds:fM	0	6	residues	residue	56	1	*
 frames62	78	cds:fM	0	6	residues	residue	59	1	H
 frames62	78	cds:fM	0	6	residues	residue	62	1	A
-frames62	78	six	0	0	lane1	feature	3	11	fP (+)
+frames62	78	six	0	0	lane1	feature_end	3	11	fP (+)
 frames62	78	six	0	0	lane1	feature	58	7	fP (+)
 frames62	78	six	0	1	lane2	feature	3	8	fM (-)
-frames62	78	six	0	1	lane2	feature	55	10	fM (-)
+frames62	78	six	0	1	lane2	feature_end	55	10	fM (-)
 frames62	78	six	0	2	+3	label	0	2	+3
 frames62	78	six	0	2	+3	residue	6	1	D
 frames62	78	six	0	2	+3	residue	9	1	H
@@ -396,7 +396,7 @@ frames62	78	six	0	10	-3	residue	52	1	L
 frames62	78	six	0	10	-3	residue	55	1	K
 frames62	78	six	0	10	-3	residue	58	1	I
 frames62	78	six	0	10	-3	residue	61	1	R
-frames62	36	cds:fP	0	0	lane1	feature	3	11	fP (+)
+frames62	36	cds:fP	0	0	lane1	feature_end	3	11	fP (+)
 frames62	36	cds:fP	0	1	lane2	feature	3	8	fM (-)
 frames62	36	cds:fP	0	2	residues	residue	3	1	T
 frames62	36	cds:fP	0	2	residues	residue	6	1	D
@@ -412,7 +412,7 @@ frames62	36	cds:fP	0	5	top	bases	3	30	CAGACCATTAAAAGGTCCTTTGGGGGAATA
 frames62	36	cds:fP	0	5	top	right_number	34	2	30
 frames62	36	cds:fP	0	6	bottom	complement	3	30	GTCTGGTAATTTTCCAGGAAACCCCCTTAT
 frames62	36	cds:fP	1	0	lane1	feature	28	3	fP (+)
-frames62	36	cds:fP	1	1	lane2	feature	25	6	fM (-)
+frames62	36	cds:fP	1	1	lane2	feature_end	25	6	fM (-)
 frames62	36	cds:fP	1	2	residues	residue	29	1	M
 frames62	36	cds:fP	1	3	numbers	residue_number	29	1	1
 frames62	36	cds:fP	1	4	ruler	tick	12	1	╷
@@ -430,7 +430,7 @@ frames62	36	cds:fP	2	5	top	left_number	0	2	59
 frames62	36	cds:fP	2	5	top	bases	3	4	CGCA
 frames62	36	cds:fP	2	5	top	right_number	8	2	62
 frames62	36	cds:fP	2	6	bottom	complement	3	4	GCGT
-frames62	36	cds:fM	0	0	lane1	feature	3	11	fP (+)
+frames62	36	cds:fM	0	0	lane1	feature_end	3	11	fP (+)
 frames62	36	cds:fM	0	1	lane2	feature	3	8	fM (-)
 frames62	36	cds:fM	0	2	ruler	tick	12	1	╷
 frames62	36	cds:fM	0	2	ruler	tick	22	1	╷
@@ -444,7 +444,7 @@ frames62	36	cds:fM	0	6	residues	residue	3	1	C
 frames62	36	cds:fM	0	6	residues	residue	6	1	V
 frames62	36	cds:fM	0	6	residues	residue	9	1	M
 frames62	36	cds:fM	1	0	lane1	feature	28	3	fP (+)
-frames62	36	cds:fM	1	1	lane2	feature	25	6	fM (-)
+frames62	36	cds:fM	1	1	lane2	feature_end	25	6	fM (-)
 frames62	36	cds:fM	1	2	ruler	tick	12	1	╷
 frames62	36	cds:fM	1	2	ruler	tick	22	1	╷
 frames62	36	cds:fM	1	3	top	left_number	0	2	31
@@ -538,10 +538,10 @@ framesamb	78	six	0	8	-3	residue	23	1	?
 framesamb	78	six	0	8	-3	residue	26	1	?
 framesamb	78	six	0	8	-3	residue	29	1	?
 framesamb	78	six	0	8	-3	residue	32	1	T
-pbr322	78	off	0	0	lane1	feature	31	7	regulatory (-)
-pbr322	78	off	0	1	lane2	feature	47	7	regulatory (+)
-pbr322	78	off	0	2	lane3	feature	28	4	misc_binding (+)
-pbr322	78	off	0	3	lane4	feature	43	4	misc_binding (+)
+pbr322	78	off	0	0	lane1	feature_end	31	7	regulatory (-)
+pbr322	78	off	0	1	lane2	feature_end	47	7	regulatory (+)
+pbr322	78	off	0	2	lane3	feature_end	28	4	misc_binding (+)
+pbr322	78	off	0	3	lane4	feature_end	43	4	misc_binding (+)
 pbr322	78	off	0	4	more	more	5	7	+1 more
 pbr322	78	off	0	5	ruler	tick	14	1	╷
 pbr322	78	off	0	5	ruler	tick	24	1	╷
@@ -553,7 +553,7 @@ pbr322	78	off	0	6	top	left_number	3	1	1
 pbr322	78	off	0	6	top	bases	5	66	TTCTCATGTTTGACAGCTTATCATCGATAAGCTTTAATGCGGTAGTTTATCACAGTTAAATTGCTA
 pbr322	78	off	0	6	top	right_number	72	2	66
 pbr322	78	off	0	7	bottom	complement	5	66	AAGAGTACAAACTGTCGAATAGTAGCTATTCGAAATTACGCCATCAAATAGTGTCAATTTAACGAT
-pbr322	78	off	66	0	lane1	feature	5	5	mobile_element (+)
+pbr322	78	off	66	0	lane1	feature_end	5	5	mobile_element (+)
 pbr322	78	off	66	1	ruler	tick	8	1	╷
 pbr322	78	off	66	2	top	left_number	0	4	4357
 pbr322	78	off	66	2	top	bases	5	5	AAGAA
@@ -561,8 +561,8 @@ pbr322	78	off	66	2	top	right_number	11	4	4361
 pbr322	78	off	66	3	bottom	complement	5	5	TTCTT
 pbr322	78	cds:tet	1	0	lane1	feature	24	45	tet (+)
 pbr322	78	cds:tet	1	1	lane2	feature	24	45	tet (+)
-pbr322	78	cds:tet	1	2	lane3	feature	5	4	misc_binding (+)
-pbr322	78	cds:tet	1	3	lane4	feature	18	4	misc_binding (+)
+pbr322	78	cds:tet	1	2	lane3	feature_end	5	4	misc_binding (+)
+pbr322	78	cds:tet	1	3	lane4	feature_end	18	4	misc_binding (+)
 pbr322	78	cds:tet	1	4	residues	residue	25	1	M
 pbr322	78	cds:tet	1	4	residues	residue	28	1	K
 pbr322	78	cds:tet	1	4	residues	residue	31	1	S
@@ -593,8 +593,8 @@ pbr322	78	cds:tet	1	7	top	left_number	2	2	67
 pbr322	78	cds:tet	1	7	top	bases	5	64	ACGCAGTCAGGCACCGTGTATGAAATCTAACAATGCGCTCATCGTCATCCTCGGCACCGTCACC
 pbr322	78	cds:tet	1	7	top	right_number	70	3	130
 pbr322	78	cds:tet	1	8	bottom	complement	5	64	TGCGTCAGTCCGTGGCACATACTTTAGATTGTTACGCGAGTAGCAGTAGGAGCCGTGGCAGTGG
-pbr322	78	cds:tet	19	0	lane1	feature	5	24	tet (+)
-pbr322	78	cds:tet	19	1	lane2	feature	5	24	tet (+)
+pbr322	78	cds:tet	19	0	lane1	feature_end	5	24	tet (+)
+pbr322	78	cds:tet	19	1	lane2	feature_end	5	24	tet (+)
 pbr322	78	cds:tet	19	2	residues	residue	6	1	W
 pbr322	78	cds:tet	19	2	residues	residue	9	1	S
 pbr322	78	cds:tet	19	2	residues	residue	12	1	R
@@ -616,9 +616,9 @@ pbr322	78	cds:tet	19	5	top	bases	5	66	TGGAGCCGGGCCACCTCGACCTGAATGGAAGCCGGCGGCACC
 pbr322	78	cds:tet	19	5	top	right_number	72	4	1318
 pbr322	78	cds:tet	19	6	bottom	complement	5	66	ACCTCGGCCCGGTGGAGCTGGACTTACCTTCGGCCGCCGTGGAGCGATTGCCTAAGTGGTGAGGTT
 pbr322	78	cds:bla	49	0	lane1	feature	5	64	mobile_element (+)
-pbr322	78	cds:bla	49	1	lane2	feature	63	6	bla (-)
-pbr322	78	cds:bla	49	2	lane3	feature	63	6	bla (-)
-pbr322	78	cds:bla	49	3	lane4	feature	66	3	bla (-)
+pbr322	78	cds:bla	49	1	lane2	feature_end	63	6	bla (-)
+pbr322	78	cds:bla	49	2	lane3	feature_end	63	6	bla (-)
+pbr322	78	cds:bla	49	3	lane4	feature_end	66	3	bla (-)
 pbr322	78	cds:bla	49	4	ruler	ruler_number	7	4	3240
 pbr322	78	cds:bla	49	4	ruler	tick	20	1	╷
 pbr322	78	cds:bla	49	4	ruler	tick	30	1	╷
@@ -674,8 +674,8 @@ pbr322	78	cds:bla	62	8	residues	residue	63	1	S
 pbr322	78	cds:bla	62	8	residues	residue	66	1	M
 pbr322	40	cds:tet	2	0	lane1	feature	30	3	tet (+)
 pbr322	40	cds:tet	2	1	lane2	feature	30	3	tet (+)
-pbr322	40	cds:tet	2	2	lane3	feature	11	4	misc_binding (+)
-pbr322	40	cds:tet	2	3	lane4	feature	24	4	misc_binding (+)
+pbr322	40	cds:tet	2	2	lane3	feature_end	11	4	misc_binding (+)
+pbr322	40	cds:tet	2	3	lane4	feature_end	24	4	misc_binding (+)
 pbr322	40	cds:tet	2	4	residues	residue	31	1	M
 pbr322	40	cds:tet	2	5	numbers	residue_number	31	1	1
 pbr322	40	cds:tet	2	6	ruler	tick	14	1	╷
@@ -708,8 +708,8 @@ pbr322	40	cds:tet	3	5	top	right_number	36	3	118
 pbr322	40	cds:tet	3	6	bottom	complement	5	30	TTTAGATTGTTACGCGAGTAGCAGTAGGAG
 pbr322	40	cds:tet	4	0	lane1	feature	5	30	tet (+)
 pbr322	40	cds:tet	4	1	lane2	feature	5	30	tet (+)
-pbr322	40	cds:tet	4	2	lane3	feature	27	2	misc_feature (-)
-pbr322	40	cds:tet	4	3	lane4	feature	32	2	tet (+)
+pbr322	40	cds:tet	4	2	lane3	feature_end	27	2	misc_feature (-)
+pbr322	40	cds:tet	4	3	lane4	feature_end	32	2	tet (+)
 pbr322	40	cds:tet	4	4	residues	residue	6	1	G
 pbr322	40	cds:tet	4	4	residues	residue	9	1	T
 pbr322	40	cds:tet	4	4	residues	residue	12	1	V
@@ -731,9 +731,9 @@ pbr322	40	cds:tet	4	7	top	bases	5	30	GGCACCGTCACCCTGGATGCTGTAGGCATA
 pbr322	40	cds:tet	4	7	top	right_number	36	3	148
 pbr322	40	cds:tet	4	8	bottom	complement	5	30	CCGTGGCAGTGGGACCTACGACATCCGTAT
 pbr322	40	cds:bla	109	0	lane1	feature	5	28	mobile_element (+)
-pbr322	40	cds:bla	109	1	lane2	feature	27	6	bla (-)
-pbr322	40	cds:bla	109	2	lane3	feature	27	6	bla (-)
-pbr322	40	cds:bla	109	3	lane4	feature	30	3	bla (-)
+pbr322	40	cds:bla	109	1	lane2	feature_end	27	6	bla (-)
+pbr322	40	cds:bla	109	2	lane3	feature_end	27	6	bla (-)
+pbr322	40	cds:bla	109	3	lane4	feature_end	30	3	bla (-)
 pbr322	40	cds:bla	109	4	ruler	tick	14	1	╷
 pbr322	40	cds:bla	109	4	ruler	tick	24	1	╷
 pbr322	40	cds:bla	109	5	top	left_number	0	4	3271
@@ -761,10 +761,10 @@ pbr322	40	cds:bla	138	9	residues	residue	9	1	Q
 pbr322	40	cds:bla	138	9	residues	residue	12	1	I
 pbr322	40	cds:bla	138	9	residues	residue	15	1	S
 pbr322	40	cds:bla	138	9	residues	residue	18	1	M
-pbr322	78	three	0	0	lane1	feature	31	7	regulatory (-)
-pbr322	78	three	0	1	lane2	feature	47	7	regulatory (+)
-pbr322	78	three	0	2	lane3	feature	28	4	misc_binding (+)
-pbr322	78	three	0	3	lane4	feature	43	4	misc_binding (+)
+pbr322	78	three	0	0	lane1	feature_end	31	7	regulatory (-)
+pbr322	78	three	0	1	lane2	feature_end	47	7	regulatory (+)
+pbr322	78	three	0	2	lane3	feature_end	28	4	misc_binding (+)
+pbr322	78	three	0	3	lane4	feature_end	43	4	misc_binding (+)
 pbr322	78	three	0	4	more	more	5	7	+1 more
 pbr322	78	three	0	5	+3	label	2	2	+3
 pbr322	78	three	0	5	+3	residue	8	1	L
@@ -845,9 +845,9 @@ pbr322	78	three	0	9	top	bases	5	66	TTCTCATGTTTGACAGCTTATCATCGATAAGCTTTAATGCGGTAG
 pbr322	78	three	0	9	top	right_number	72	2	66
 pbr322	78	three	0	10	bottom	complement	5	66	AAGAGTACAAACTGTCGAATAGTAGCTATTCGAAATTACGCCATCAAATAGTGTCAATTTAACGAT
 pbr322	118	six	39	0	lane1	feature	5	108	mobile_element (+)
-pbr322	118	six	39	1	lane2	feature	60	4	misc_binding (-)
-pbr322	118	six	39	2	lane3	feature	72	4	misc_binding (-)
-pbr322	118	six	39	3	lane4	feature	77	4	misc_binding (-)
+pbr322	118	six	39	1	lane2	feature_end	60	4	misc_binding (-)
+pbr322	118	six	39	2	lane3	feature_end	72	4	misc_binding (-)
+pbr322	118	six	39	3	lane4	feature_end	77	4	misc_binding (-)
 pbr322	118	six	39	4	more	more	5	7	+3 more
 pbr322	118	six	39	5	+3	label	2	2	+3
 pbr322	118	six	39	5	+3	residue	5	1	Y

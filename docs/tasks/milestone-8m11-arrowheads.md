@@ -1,6 +1,22 @@
 # Contract 8m11 — cli: a lane's arrowhead at the feature's 3′ end (M8-34)
 
-Planner: Claude. Status: delegated to `w-8m11` 2026-10-28. Tier: full
+Planner: Claude. Status: **Implemented 2026-10-28** by worker `w-8m11` in
+one round, reviewed and accepted. Findings from review:
+
+* A mistake in §5: the second `tet` value said no head appears on any lane
+  line of block 1. The two `misc_binding` sites (`67..70`, `80..83`) lie
+  wholly inside that block, so their runs hold their 3′ ends and draw
+  `mis▸`. The worker reported this and kept the rule's value. Test 1
+  asserts that the `tet` runs have no head and the sites do.
+* A gap in §3: `layout.rs`'s unit test `a_lane_name_longer_than_its_run_is_cut`
+  expected `"misc"`. Under rule 2 it is `"mis▸"`. The change was reported,
+  and the planner accepted it as rule-derived.
+* The planner reran the reference: `--check` OK, 1087 cells, 54 of them
+  `feature_end`. In `cds:bla` block 49, the third `bla (-)` lane is the
+  `mat_peptide complement(3296..4084)`, which ends in that block, so
+  `feature_end` is right. G1–G5 each failed what §8 names.
+
+Tier: full
 (D051): it changes lane text, which the layout tables pin. Owner's answer:
 `docs/tasks/milestone-8m-polish.md` §1, M8-34: "an arrowhead at a lane's 3′
 end in place of the arrow after the name".

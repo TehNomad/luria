@@ -33,7 +33,10 @@ D055, as contract 8j states them:
 * **Feature lanes.** Every drawn feature except `source` that has a base in
   the block, longest drawn length first, then file order; at most four; the
   rest counted on the `more` line. A lane covers the columns of the feature's
-  bases in the block, as one cell run per stretch of consecutive bases.
+  bases in the block, as one cell run per stretch of consecutive bases. The
+  run that holds the feature's 3' end is kind `feature_end` and every other run
+  is `feature` (contract 8m11 rule 1); the 3' end is one base, and its column
+  is not in the tables, which pin no glyphs.
 * **Residues.** Each over its codon's middle base, on the line holding that
   base (D055). A CDS's stop codon is `*`; a frame's unreadable codon is `?`.
 * **Residue numbers** (selected CDS only, D055). Every residue whose number is
@@ -51,6 +54,9 @@ D055, as contract 8j states them:
   sits in the gutter.
 
 Independent of luria: the codon table is checked against Biopython's table 11;
+the 3' end of a feature comes from Biopython, whose part order is its own, and
+is checked against the same base taken from the sorted positions of the parts
+for every feature that does not cross the origin;
 a CDS's codons come from Biopython's reading of its location, its residues
 must equal the file's /translation, and its codons must match
 `cds-map-codons.tsv` where that table has rows; frames are checked against
@@ -175,20 +181,28 @@ def not_drawn(name: str) -> set[int]:
 
 
 class Feature:
-    def __init__(self, index, key, name, strand, positions):
+    def __init__(self, index, key, name, strand, positions, three_prime):
         self.index, self.key, self.name = index, key, name
         self.strand, self.positions = strand, positions
+        self.three_prime = three_prime
 
 
-def features(name: str, record) -> list[Feature]:
+def features(name: str, record, length: int) -> list[Feature]:
     refused = not_drawn(name)
     out = []
     for index, f in enumerate(record.features):
         if index in refused:
             continue
-        positions = sorted({int(p) for p in f.location})
+        order = [int(p) for p in f.location]   # biological order, per Biopython
+        positions = sorted(set(order))
         strand = "-" if f.location.strand == -1 else "+"
-        out.append(Feature(index, f.type, display_name(f), strand, positions))
+        three_prime = order[-1]                # the last base in that order
+        if not (0 in positions and length - 1 in positions):   # no origin cross
+            # Rule 1's answer for a feature that does not cross the origin, the
+            # same base taken from the sorted positions instead of Biopython.
+            rule = positions[0] if strand == "-" else positions[-1]
+            assert three_prime == rule, (name, f.type, str(f.location), three_prime, rule)
+        out.append(Feature(index, f.type, display_name(f), strand, positions, three_prime))
     return out
 
 
@@ -353,7 +367,11 @@ def lay_out(name, text, feats, mode, cds, n, block) -> list[tuple]:
             if b != a + 1:
                 runs.append((first, a))
                 first = b
-        cells = [("feature", g + a - s, b - a + 1, f"{f.name} ({f.strand})") for a, b in runs]
+        # Rule 2: the run that holds the 3' end of the feature, the one place a
+        # head glyph stands in the view's text. The run is already clipped to
+        # the block, and `a`, `b` are both inside it.
+        cells = [("feature_end" if a <= f.three_prime <= b else "feature",
+                  g + a - s, b - a + 1, f"{f.name} ({f.strand})") for a, b in runs]
         lines.append((f"lane{number}", cells))
     if len(lanes) > 4:
         lines.append(("more", [("more", g, len(f"+{len(lanes) - 4} more"),
@@ -425,7 +443,7 @@ def validate_cells(name, text, width, rows) -> None:
     by_line: dict[tuple, list] = {}
     for line, role, kind, column, cells, value in rows:
         assert 0 <= column and column + cells <= width, (name, line, role, kind, column)
-        assert cells == len(value) or kind in ("feature",), (name, kind, value)
+        assert cells == len(value) or kind in ("feature", "feature_end"), (name, kind, value)
         by_line.setdefault(line, []).append((column, column + cells, kind))
     for line, spans in by_line.items():
         spans.sort()
@@ -445,7 +463,7 @@ def build():
             assert hashlib.sha256(text.encode()).hexdigest() == CANONICAL_DIGEST[name], name
         frames = frame_codons(text)
         stats["frame_rows"] += check_frames(name, text, frames)
-        feats = features(name, record) if path.endswith(".gb") else []
+        feats = features(name, record, len(text)) if path.endswith(".gb") else []
         loaded[name] = (record, text, frames, feats)
     for name, width, mode, chosen in CASES:
         record, text, frames, feats = loaded[name]
@@ -524,12 +542,17 @@ def constructions(block_rows, cell_rows) -> None:
     assert [r[7] for r in stop] == ["27"], stop
     # Lanes, longest first then file order: on the 67-130 line the tet gene and
     # the tet CDS (1191 bases each, gene first in the file) come before the two
-    # 4-base misc_binding sites at 67-70 and 80-83.
-    lanes = [(r[5], r[7], r[8], r[9])
-             for r in cells("pbr322", 78, "cds:tet", 1, kind="feature")]
-    assert lanes == [("lane1", "24", "45", "tet (+)"), ("lane2", "24", "45", "tet (+)"),
-                     ("lane3", "5", "4", "misc_binding (+)"),
-                     ("lane4", "18", "4", "misc_binding (+)")], lanes
+    # 4-base misc_binding sites at 67-70 and 80-83. The tet runs hold no head:
+    # their 45 columns start at column 24 (base 86) and end at column 69 (base
+    # 130), short of tet's 3' end at 1276, which stands in the 1253-1318 line.
+    # The two misc_binding sites lie whole inside the line and each holds its own
+    # head at its last column, 8 (5 + 4 - 1) and 21 (18 + 4 - 1).
+    lanes = [(r[5], r[6], r[7], r[8], r[9])
+             for r in cells("pbr322", 78, "cds:tet", 1) if r[5].startswith("lane")]
+    assert lanes == [("lane1", "feature", "24", "45", "tet (+)"),
+                     ("lane2", "feature", "24", "45", "tet (+)"),
+                     ("lane3", "feature_end", "5", "4", "misc_binding (+)"),
+                     ("lane4", "feature_end", "18", "4", "misc_binding (+)")], lanes
     # synthetic pj crosses the origin of a 60-base record: codon 1 (55-57)
     # puts M at column 3 + 55 = 58 and codon 3 (1-3) another M at column 4;
     # its lane is two runs on the one line.
@@ -541,8 +564,49 @@ def constructions(block_rows, cell_rows) -> None:
     # block, and at width 36 that block is 2, not 1.
     fp = cells("frames62", 36, "cds:fP", 0, "residues", "residue")
     assert ("3", "T") in [(r[7], r[9]) for r in fp], fp
-    lane = [r for r in cells("synthetic", 78, "off", 0, kind="feature") if r[9] == "pj (+)"]
-    assert [(r[7], r[8]) for r in lane] == [("3", "12"), ("57", "6")], lane
+    lane = [r for r in cells("synthetic", 78, "off", 0)
+            if r[5] == "lane1" and r[9] == "pj (+)"]
+    assert [(r[6], r[7], r[8]) for r in lane] == [("feature_end", "3", "12"),
+                                                  ("feature", "57", "6")], lane
+    # The arrowhead (contract 8m11 rules 1 and 2): one run of a lane holds the
+    # feature's 3' end, and that run is kind `feature_end`; every other run is
+    # `feature`. The column the head glyph stands in is not in the tables, which
+    # pin no glyphs, but the run holding it is, and its width.
+    def lane_kinds(record, width, mode, block):
+        return [(r[5], r[6], r[7], r[8], r[9]) for r in cells(record, width, mode, block)
+                if r[5].startswith("lane")]
+
+    # tet (86..1276, plus) ends at base 1276, zero-based 1275, standing at column
+    # 5 + (1275 - 1252) = 28, the last column of the 24-cell run that starts at 5.
+    assert lane_kinds("pbr322", 78, "cds:tet", tet66.index((1253, 1318))) == [
+        ("lane1", "feature_end", "5", "24", "tet (+)"),
+        ("lane2", "feature_end", "5", "24", "tet (+)")], tet66
+    # bla (complement(3293..4153), minus) ends at base 3293, zero-based 3292, on
+    # the 3235-3298 line at column 5 + (3292 - 3234) = 63, the first column of its
+    # 6-cell run. Its 4091-4156 line runs down to its 5' end, base 4153, and no
+    # run of that line holds the head. `mobile_element` (3148..4361, plus) is
+    # whole inside the line above and ends below it; bla's mat_peptide
+    # (complement 3296..4084) ends at base 3296, at column 66 of its 3-cell run.
+    bla66 = blocks_of("pbr322", 78, "cds:bla")
+    assert (3235, 3298) in bla66 and (4091, 4156) in bla66, bla66[:2]
+    assert lane_kinds("pbr322", 78, "cds:bla", bla66.index((3235, 3298))) == [
+        ("lane1", "feature", "5", "64", "mobile_element (+)"),
+        ("lane2", "feature_end", "63", "6", "bla (-)"),
+        ("lane3", "feature_end", "63", "6", "bla (-)"),
+        ("lane4", "feature_end", "66", "3", "bla (-)")], bla66
+    assert lane_kinds("pbr322", 78, "cds:bla", bla66.index((4091, 4156))) == [
+        ("lane1", "feature", "5", "66", "mobile_element (+)"),
+        ("lane2", "feature", "5", "63", "bla (-)"),
+        ("lane3", "feature", "5", "63", "bla (-)"),
+        ("lane4", "feature", "5", "63", "bla (-)")], bla66
+    # The same count over the whole table: 93 lane runs over the 28 tabled blocks,
+    # 54 of them holding a head -- one per feature whose 3' end lies in a tabled
+    # block, so no run holds more than one and no feature holds two. Counted by
+    # hand from each feature's 3' end and each block's bases, in the file's own
+    # locations, and not from the table.
+    ends = [r for r in cell_rows if r[6] == "feature_end"]
+    plain = [r for r in cell_rows if r[6] == "feature"]
+    assert (len(ends), len(plain)) == (54, 39), (len(ends), len(plain))
     # a minus CDS: numbers then residues below the strands, numbers falling left to right.
     m1 = cells("synthetic", 78, "cds:m1", 0)
     roles = []

@@ -32,8 +32,9 @@
 //!   the block, longest drawn length first then file order, at most four; the
 //!   rest are counted on the `more` line. A lane covers the columns of that
 //!   feature's bases in the block, as one run per stretch of consecutive bases,
-//!   and its text is its name, an arrow for its strand, and the bar filled
-//!   with `═`, cut to the run.
+//!   and its text is its name and the bar filled with `═`, cut to the run. The
+//!   one run that holds the feature's 3' end draws its arrowhead there (8m11):
+//!   `▸` at the last column of a plus run, `◂` before the name on a minus run.
 //! * **Lane colours** (M8-31, contract 8m7 §4 rules 3 and 4). With `colours`
 //!   on, every cell of a lane is its feature's colour: the colour the file
 //!   gives it on the strand it was written on, or its key's colour when the
@@ -204,13 +205,17 @@ struct Lane {
     index: usize,
     /// The D053 display name, which is what the lane spells out.
     name: String,
-    /// As written in the location, never inferred (D009): the arrow's strand.
+    /// As written in the location, never inferred (D009): the head's strand.
     strand: Strand,
     /// The feature's whole drawn length in bases, the lane order's first key.
     length: u64,
     /// The bases it covers inside the block, as half-open runs of consecutive
     /// bases in record coordinates.
     runs: Vec<(u64, u64)>,
+    /// The feature's 3' end, one base in record coordinates, taken from the
+    /// location's intervals in D036 order (contract 8m11 rule 1): the base the
+    /// arrowhead stands on.
+    three_prime: u64,
 }
 
 /// One codon of the selected CDS whose middle base stands in this block.
@@ -238,7 +243,7 @@ fn gutter(length: u64) -> u16 {
     }
 }
 
-/// The strand as written, never inferred (D009): it decides the arrow, the
+/// The strand as written, never inferred (D009): it decides the head's glyph, the
 /// frame label's sign, and which side of the strands a CDS's residues sit on.
 /// `Strand::is_plus` takes `self`, so this borrows it.
 fn strand_is_plus(strand: &Strand) -> bool {
@@ -378,7 +383,19 @@ fn lanes(record: &ViewRecord, start: u64, end: u64, level: FeatureLevel) -> Vec<
             // A feature this record cannot draw has no cells to cover (D053).
             FeatureShape::NotDrawn(_) => continue,
         };
-        let runs: Vec<(u64, u64)> = merged(shape.location.intervals());
+        // Rule 1 of contract 8m11: the 3' end comes from the location's own
+        // intervals in D036 order, not from the merged runs below, which are
+        // sorted. The list is never empty: a `Drawn` shape has one interval per
+        // part (step 9 of `genbank_location`). A partial end (`<`, `>`) changes
+        // nothing: the interval still starts and ends where the record says.
+        let intervals: Vec<(u64, u64)> = shape.location.intervals();
+        let strand: Strand = shape.location.strand();
+        let three_prime: u64 = if strand == Strand::Minus {
+            intervals[0].0
+        } else {
+            intervals[intervals.len() - 1].1 - 1
+        };
+        let runs: Vec<(u64, u64)> = merged(intervals.clone());
         let length: u64 = runs.iter().map(|(first, last)| last - first).sum();
         let inside: Vec<(u64, u64)> = runs
             .iter()
@@ -398,9 +415,10 @@ fn lanes(record: &ViewRecord, start: u64, end: u64, level: FeatureLevel) -> Vec<
         out.push(Lane {
             index: feature.index,
             name: feature.name.clone(),
-            strand: shape.location.strand(),
+            strand,
             length,
             runs: inside,
+            three_prime,
         });
     }
     out.sort_by(|left, right| {
@@ -433,21 +451,35 @@ fn merged(intervals: Vec<(u64, u64)>) -> Vec<(u64, u64)> {
     runs
 }
 
-/// The text of one lane run: its name, an arrow for its strand, and the bar,
-/// cut to `length` columns. Every run starts with the name, including one
-/// clipped at a block edge (contract 8j rule 3), so a run shorter than its
-/// name spells part of the name and nothing else.
-fn lane_text(name: &str, strand: &Strand, length: u64) -> String {
-    let arrow: char = if strand_is_plus(strand) { '▸' } else { '◂' };
+/// The text of one lane run: its name and the bar, cut to `length` columns, with
+/// no arrow after the name (contract 8m11 rule 2). `head` says the run holds the
+/// feature's 3' end, and the head's glyph then stands at that end: a plus run
+/// keeps its body and puts it in the last column, in place of what is there, and
+/// a minus run starts its body with the glyph before the name. Every run starts
+/// with the name, including one clipped at a block edge (contract 8j rule 3), so
+/// a run shorter than its name spells part of the name and nothing else, and a
+/// run of one column with the head is the head alone.
+fn lane_text(name: &str, strand: &Strand, length: u64, head: bool) -> String {
+    let minus: bool = !strand_is_plus(strand);
     let mut text: String = String::new();
+    if minus && head {
+        text.push('◂');
+        text.push(' ');
+    }
     text.push_str(name);
-    text.push(' ');
-    text.push(arrow);
     text.push(' ');
     while (text.chars().count() as u64) < length {
         text.push('═');
     }
-    text.chars().take(length as usize).collect()
+    let mut letters: Vec<char> = text.chars().take(length as usize).collect();
+    if !minus && head {
+        // The head replaces whatever stands in the run's last column; `letters`
+        // holds exactly `length` of them, and a run has at least one column.
+        if let Some(last) = letters.last_mut() {
+            *last = '▸';
+        }
+    }
+    letters.into_iter().collect()
 }
 
 /// The style of one residue letter: a stop is bold red, the way
@@ -1025,10 +1057,16 @@ pub fn block_lines(
         let cells: Vec<Cell> = lane
             .runs
             .iter()
-            .map(|(first, last)| Cell {
-                column: g + first - start,
-                text: lane_text(&lane.name, &lane.strand, last - first),
-                style,
+            .map(|(first, last)| {
+                // Rule 2: the run holds the head when the 3' base stands in it,
+                // and `lanes` has already clipped the run to the block, which is
+                // where the head then draws.
+                let head: bool = *first <= lane.three_prime && lane.three_prime < *last;
+                Cell {
+                    column: g + first - start,
+                    text: lane_text(&lane.name, &lane.strand, last - first, head),
+                    style,
+                }
             })
             .collect();
         lines.push((LineRole::Lane(number as u8 + 1), cells));
@@ -1356,7 +1394,10 @@ mod tests {
         // pBR322, 40 columns, `tet` on 30-base lines: block 2 is the line from
         // 61, shortened to 88 (D055). Its `tet` lanes cover 3 columns each and
         // `misc_binding`'s covers 4, and each run spells its name from the
-        // first column of the run.
+        // first column of the run. The two `misc_binding` sites are whole
+        // features, so their runs end on their own 3′ end and hold the head,
+        // which replaces the run's last drawn column (8m11 rule 2): the name cut
+        // to `misc` loses the bar it would have had and ends in the head.
         let record: ViewRecord = pbr322();
         let laid: Layout = layout(&record, 40, &LaneMode::Cds(0)).unwrap();
         assert_eq!(laid.blocks[2], (60, 88));
@@ -1376,7 +1417,7 @@ mod tests {
         let lane1: usize = line_of(&lines, &LineRole::Lane(1));
         assert_eq!(span(&rows[lane1], 30, 32), "tet");
         let lane3: usize = line_of(&lines, &LineRole::Lane(3));
-        assert_eq!(span(&rows[lane3], 11, 14), "misc");
+        assert_eq!(span(&rows[lane3], 11, 14), "mis▸");
     }
 
     #[test]
