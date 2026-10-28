@@ -199,7 +199,8 @@ fn w_and_b_step_first_bases_on_the_minus_strand() {
 
 /// Test 4: the residue letter is still drawn over the codon's middle base
 /// (D055) when go-to puts the cursor on the codon's first base — the column of
-/// base 4151, not that of 4152.
+/// base 4151, not that of 4152. Since 8m14 (M8-36) `bla`'s cursor row is the
+/// bottom strand, so the letters on that row are the complements of the file's.
 #[test]
 fn the_letter_stays_over_the_middle_base() {
     let mut state: ViewState = ViewState::new(pbr(), W, H);
@@ -213,25 +214,26 @@ fn the_letter_stays_over_the_middle_base() {
     assert_eq!(state.cursor(), 4152, "the codon's first base");
 
     // The cursor's own cell stands on base 4152, and the two cells to its left
-    // hold the file's letters one-based 4151 and 4152, `c` and `a` — so those
-    // three columns are the codon's three columns, reference order left to
-    // right: zero-based 4150, 4151 and 4152.
+    // hold the complements of the file's letters one-based 4151 and 4152, `c`
+    // and `a` — so those three columns are the codon's three columns, reference
+    // order left to right: zero-based 4150, 4151 and 4152.
     let rows: Vec<Vec<Cell>> = drawn(&state);
     let (row, column): (usize, usize) = cursor_cell(&rows);
     assert_eq!(
         symbol(&rows, row, column),
-        "T",
-        "the base the cursor stands on, the file's `t` at 4153"
+        "A",
+        "the complement drawn where the cursor stands, of the file's `t` at \
+         one-based 4153"
     );
     assert_eq!(
         symbol(&rows, row, column - 1),
-        "A",
-        "and 4151's base below it"
+        "T",
+        "and 4151's complement, the file's `a` at one-based 4152"
     );
     assert_eq!(
         symbol(&rows, row, column - 2),
-        "C",
-        "and 4150's base below it"
+        "G",
+        "and 4150's complement, the file's `c` at one-based 4151"
     );
 
     // The cursor's codon on the residue line is those same three columns, on a

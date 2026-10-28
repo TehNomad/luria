@@ -1,6 +1,21 @@
 # Contract 8m14 — cli: a minus-strand CDS's strand drawn bright (M8-36)
 
-Planner: Claude. Status: written 2026-10-28, to run after 8m13. Tier:
+Planner: Claude. Status: **Implemented 2026-10-28** by worker `w-8m14` in
+three rounds, reviewed and accepted. Findings from review:
+
+* A gap in §3: 8m13's new `the_letter_stays_over_the_middle_base` selects
+  `bla`, so its cursor cell moved to the bottom strand. The worker reported
+  it. Round 3 changed only its three expected letters to the complements
+  (`A`, `T`, `G` at 4152, 4151, 4150; the file reads `CAT` at one-based
+  4151–4153).
+* Round 2: the worker's previous reply had written a tool call as plain
+  text, leaving the G4 mutation in place. It restored the file (md5
+  checked) and finished.
+* Round 3 also corrected `mark_bases`' doc comment ("never on its
+  complement") and a typo. An unusable CDS in `Cds` mode keeps 8m9's look.
+* G1–G4 each failed the test §8 names.
+
+Tier:
 light (D051): drawing only. Owner's answer: `docs/tasks/milestone-8m-polish.md`
 §1, M8-36.
 

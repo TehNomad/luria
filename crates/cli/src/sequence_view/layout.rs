@@ -584,6 +584,12 @@ fn base_runs(text: &str, column: u64, colours: bool, base: Style) -> Vec<Cell> {
 /// view's secondary text and dim, the colours on and off alike (M8-34 rule 1);
 /// the top line's letters are never dim, and `colours` gives an ambiguous letter
 /// its own colour on either line (M8-34 rule 4).
+///
+/// M8-36 (contract 8m14 §4 rule 1): while the mode reads the bottom strand — a
+/// minus-strand CDS — `bottom_primary` is true and the two lines swap their
+/// look, so the bottom line's letters are undimmed and the top line's are dim.
+/// The gutter's number and the number after the last base stay dim whichever
+/// strand is primary, and an ambiguous letter keeps its colour on both lines.
 fn strand_cells(
     record: &ViewRecord,
     d: u64,
@@ -591,6 +597,7 @@ fn strand_cells(
     start: u64,
     end: u64,
     colours: bool,
+    bottom_primary: bool,
 ) -> Result<(Vec<Cell>, Vec<Cell>), LayoutProblem> {
     let mut bases: String = String::new();
     for position in start..end {
@@ -613,19 +620,27 @@ fn strand_cells(
     let left: String = (start + 1).to_string();
     let right: String = end.to_string();
     let dim: Style = Style::default().add_modifier(Modifier::DIM);
+    // Which of the two lines carries the plain look and which the dim one is
+    // which line the record's reading sits on (M8-36).
+    let bright: Style = Style::default();
+    let (top_base, bottom_base): (Style, Style) = if bottom_primary {
+        (dim, bright)
+    } else {
+        (bright, dim)
+    };
     let mut top: Vec<Cell> = Vec::new();
     top.push(Cell {
         column: d - left.chars().count() as u64,
         text: left,
         style: dim,
     });
-    top.extend(base_runs(&bases, g, colours, Style::default()));
+    top.extend(base_runs(&bases, g, colours, top_base));
     top.push(Cell {
         column: g + (end - start) + 1,
         text: right,
         style: dim,
     });
-    let bottom: Vec<Cell> = base_runs(&complement, g, colours, dim);
+    let bottom: Vec<Cell> = base_runs(&complement, g, colours, bottom_base);
     Ok((top, bottom))
 }
 
@@ -1085,7 +1100,17 @@ pub fn block_lines(
         ));
     }
 
-    let (top, bottom) = strand_cells(record, d, g, start, end, drawing.colours)?;
+    // M8-36 (contract 8m14 §4 rule 1): which line is primary is which line the
+    // mode's reading sits on, and only the CDS mode can read the bottom one.
+    // An unusable CDS keeps the look it has today, and the arm below refuses it
+    // its lines anyway.
+    let bottom_primary: bool = match mode {
+        LaneMode::Cds(index) => usable_cds(record, *index)
+            .ok()
+            .is_some_and(|cds| cds.strand() == Strand::Minus),
+        LaneMode::Off | LaneMode::ThreeFrames | LaneMode::SixFrames => false,
+    };
+    let (top, bottom) = strand_cells(record, d, g, start, end, drawing.colours, bottom_primary)?;
     // The ruler line stands directly above the top strand in every mode, and the
     // lines below it move down by one row with it (M8-33).
     let ruler: Vec<Cell> = ruler_cells(g, start, end);

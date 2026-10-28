@@ -408,8 +408,8 @@ fn draw_rule(frame: &mut Frame, body: Rect, gutter: u16, line_width: u64, row: u
     }
 }
 
-/// The cursor's cell and the cells of its codon, on the row that carries a
-/// block's bases (§4 rule 12), the cells of the hits the search marked (8l1 §4
+/// The cursor's cell and the cells of its codon, on the row the mode reads
+/// (§4 rule 12, M8-36), the cells of the hits the search marked (8l1 §4
 /// rule 8, M8-24), the same on the row of a block's complements, and the codon's
 /// three cells on the selected CDS's residue row, reversed and bold (M8-32 §4
 /// rule 2). A base `p`
@@ -420,12 +420,14 @@ fn draw_rule(frame: &mut Frame, body: Rect, gutter: u16, line_width: u64, row: u
 /// codon the frame cuts off on the right has the cells it shows marked and the
 /// rest of it nowhere.
 ///
-/// The cursor is reversed on the base it stands on, never on its complement, and
-/// the whole codon is underlined rather than only the cursor's cell. A cursor
-/// with no selected CDS, and a CDS whose codon the cursor is not in, underline
-/// nothing. A hit's cells go yellow behind all of that: every base of every hit
-/// shown, both runs of a hit whose span crosses the origin, and the cursor's
-/// reversal and the codon's underline stay as 8k1 draws them over the yellow.
+/// The cursor is reversed on the row the mode reads — the row of the bases it
+/// stands on, or the row of their complements for a minus-strand CDS (M8-36,
+/// contract 8m14 §4 rule 2) — and the whole codon is underlined rather than only
+/// the cursor's cell. A cursor with no selected CDS, and a CDS whose codon the
+/// cursor is not in, underline nothing. A hit's cells go yellow behind all of
+/// that: every base of every hit shown, both runs of a hit whose span crosses
+/// the origin, and the cursor's reversal and the codon's underline stay as 8k1
+/// draws them over the yellow.
 ///
 /// Which row a hit's yellow goes on is the hit's strand, and `rows` holds those
 /// rows: the top row for a `Plus` or `Both` hit, the bottom row for a `Minus` or
@@ -446,6 +448,15 @@ fn mark_bases(
     {
         Some(pair) => pair,
         None => return,
+    };
+    // The row the cursor and its codon mark: the row of the bases the mode
+    // reads, which is the complements' row while a minus-strand CDS is the
+    // mode's reading (M8-36, contract 8m14 §4 rule 2). Every block `layout`
+    // draws has a bottom row; if one ever came without, the marks would go on
+    // the top row rather than nowhere.
+    let reading: u16 = match (state.reads_bottom(), rows.bottom) {
+        (true, Some(bottom)) => bottom,
+        _ => rows.top,
     };
     // The hits are marked against the record's length, because a hit whose run
     // passes the origin covers bases at both ends of the record (D052, 8l1 §4 rule
@@ -508,10 +519,10 @@ fn mark_bases(
             // The cell's own modifiers are kept: the underline goes on top of
             // whatever `layout` styled the base with, and the cursor's cell
             // carries both marks (§4 rule 12).
-            frame.buffer_mut()[(column, rows.top)].modifier |= Modifier::UNDERLINED;
+            frame.buffer_mut()[(column, reading)].modifier |= Modifier::UNDERLINED;
         }
         if position == marks.cursor {
-            frame.buffer_mut()[(column, rows.top)].modifier |= Modifier::REVERSED;
+            frame.buffer_mut()[(column, reading)].modifier |= Modifier::REVERSED;
         }
         if let (Some(residues), true) = (rows.residues, underlined) {
             // The codon's three cells on the residue line are reversed and bold

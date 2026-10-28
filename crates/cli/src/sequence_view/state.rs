@@ -542,6 +542,27 @@ impl ViewState {
         &self.mode
     }
 
+    /// Whether the mode reads the bottom strand (M8-36, contract 8m14 §4
+    /// rule 2): the mode is `Cds(i)` with CDS `i` on the minus strand, so the
+    /// screen puts the cursor's cell and its codon's underline on the row of the
+    /// complements. Every other mode — no translation, a plus-strand CDS, the
+    /// three frames, the six — and an unusable CDS, which has no lines at all,
+    /// read the top row.
+    pub fn reads_bottom(&self) -> bool {
+        match self.mode {
+            LaneMode::Cds(index) => {
+                self.record
+                    .cdss
+                    .get(index)
+                    .is_some_and(|view| match &view.status {
+                        CdsStatus::Usable(cds) => cds.strand() == Strand::Minus,
+                        CdsStatus::Unusable(_reason) => false,
+                    })
+            }
+            LaneMode::Off | LaneMode::ThreeFrames | LaneMode::SixFrames => false,
+        }
+    }
+
     /// The topology the view moves on: `T` flips it only for a record whose
     /// topology was assumed (D049 M8-3).
     pub fn circular(&self) -> bool {
