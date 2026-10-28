@@ -1,6 +1,21 @@
 # Contract 8m13 — cli: go-to and `w`/`b` land on a codon's first base (M8-35)
 
-Planner: Claude. Status: delegated to `w-8m13` 2026-10-28. Tier: light
+Planner: Claude. Status: **Implemented 2026-10-28** by worker `w-8m13` in
+two rounds, reviewed and accepted. Findings from review:
+
+* A gap in §3: after `fP`'s new steps (`b` → 61, `w` → 2) the cursor no
+  longer ended on 0, so `fM` was selected inside its codon 4 and the
+  status-line asserts failed. The worker reported it without changing the
+  test. Round 2 added two `h` presses back to 0, as the planner allowed.
+* Accepted: one extra `b` press in `codon_moves_step_codon_firsts`; the new
+  tests select `bla` with `select_cds`, because a pick would jump to the
+  start codon first.
+* Wording left as is: in the `fM` part, `w` → 1 is still codon 3 (its first
+  base), not "the codon below the join", and `b` → 60 is codon 4, not
+  "back". The values are right.
+* G1–G3 each failed the tests §8 names.
+
+Tier: light
 (D051): cursor landing only. Owner's answer: `docs/tasks/milestone-8m-polish.md`
 §1, M8-35.
 

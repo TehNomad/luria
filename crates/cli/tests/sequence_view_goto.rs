@@ -167,31 +167,32 @@ fn a_number_goes_to_that_base() {
     assert_eq!(selected.cursor(), 99, "100 is a base, not residue 100");
 }
 
-/// D055 and 8k2 §4 rule 4: a residue stands over its codon's middle base, in the
-/// reading order of the strand its CDS is on (8k1 §4 rule 5).
+/// D055, 8k2 §4 rule 4 and M8-35: a residue goes to the first base of its codon
+/// in reading direction, in the reading order of the strand its CDS is on (8m13
+/// §4 rule 1); the residue letter still stands over the codon's middle base.
 #[test]
-fn a_residue_goes_to_its_codon_middle() {
+fn a_residue_goes_to_its_codon_first_base() {
     let mut state: ViewState = ViewState::new(lin(), W, H);
 
     go_to(&mut state, "A42");
     assert_eq!(
         state.cursor(),
-        166,
-        "residue 42's codon is 165..168, so it stands over 166"
+        165,
+        "residue 42's codon is 165..168, so it starts at 165"
     );
     go_to(&mut state, "W87");
-    assert_eq!(state.cursor(), 301, "residue 87's codon is 300..303");
+    assert_eq!(state.cursor(), 300, "residue 87's codon is 300..303");
     go_to(&mut state, "M1");
-    assert_eq!(state.cursor(), 43, "residue 1's codon is 42..45");
+    assert_eq!(state.cursor(), 42, "residue 1's codon is 42..45");
 
-    // bla is a minus-strand CDS: M1's codon is read 4152, 4151, 4150, and the
-    // middle base of that reading order is 4151.
+    // bla is a minus-strand CDS: M1's codon is read 4152, 4151, 4150, and that
+    // reading order's first base is the codon's highest base, 4152.
     let mut selected: ViewState = ViewState::new(pbr(), W, H);
     assert!(selected.select_cds(Some(2)), "bla's CDS is usable");
     go_to(&mut selected, "M1");
-    assert_eq!(selected.cursor(), 4151, "the middle of 4152, 4151, 4150");
+    assert_eq!(selected.cursor(), 4152, "the first of 4152, 4151, 4150");
     go_to(&mut selected, "S2");
-    assert_eq!(selected.cursor(), 4148, "and of 4149, 4148, 4147");
+    assert_eq!(selected.cursor(), 4149, "and of 4149, 4148, 4147");
 }
 
 /// D057: the letter catches a number written for the wrong residue, and the

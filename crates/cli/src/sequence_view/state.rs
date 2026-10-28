@@ -100,9 +100,9 @@ pub enum Action {
     Quit,
 }
 
-/// How far `w` and `b` look for the next codon's middle base (§4 rule 5): a
-/// codon is three bases, so the middle base of the next one is at most two
-/// bases from the middle base of this one, and three covers either edge.
+/// How far `w` and `b` look for the next codon's first base (M8-35, 8m13 §4
+/// rule 2): a codon is three bases, so the first base of the next one is never
+/// more than three bases from the first base of this one.
 const CODON_SEARCH: u64 = 3;
 
 /// The blank row between two blocks (§4 rule 1). `super::screen` leaves exactly
@@ -1182,10 +1182,10 @@ impl ViewState {
         self.top = target;
     }
 
-    /// `w` and `b`: the nearest base 1 to 3 bases away that is a codon's middle
-    /// base of the selected CDS, wrapping when the view moves on a circular
-    /// record; the cursor stays when there is no such base or no CDS is selected
-    /// (§4 rule 5).
+    /// `w` and `b`: the nearest base 1 to 3 bases away that is a codon's first
+    /// base in reading direction of the selected CDS, wrapping when the view
+    /// moves on a circular record; the cursor stays when there is no such base
+    /// or no CDS is selected (M8-35, 8m13 §4 rule 2).
     fn step_codon(&mut self, direction: i64) {
         let chosen: &Chosen = match self.chosen.as_ref() {
             Some(found) => found,
@@ -1196,14 +1196,14 @@ impl ViewState {
             let base: u64 = match self.around_session(self.cursor as i64 + steps) {
                 Some(found) => found,
                 // Past either end of a record the view does not wrap: nothing
-                // further in that direction can be a codon's middle base.
+                // further in that direction can be a codon's first base.
                 None => break,
             };
-            let middle: bool = match chosen.map.base_residue(base) {
-                Some(place) => place.place == 2,
+            let first: bool = match chosen.map.base_residue(base) {
+                Some(place) => place.place == 1,
                 None => false,
             };
-            if middle {
+            if first {
                 self.cursor = base;
                 return;
             }
@@ -1487,7 +1487,7 @@ impl ViewState {
     /// list closes, and the cursor goes to the first base of its residue 1's codon
     /// — its start codon, in reading direction — after the list has closed, with the
     /// scroll following (8m1 §4 rule 1). A residue go-to asked for with no CDS
-    /// selected is answered by that residue's codon middle base instead, and when
+    /// selected is answered by that residue's codon first base instead, and when
     /// this CDS has no such residue the cursor goes to the start codon and the
     /// status line says why (M8-22 rule 3). An unusable one selects nothing, keeps
     /// the list open, and leaves its code in the status line (D042, D052).
@@ -1512,7 +1512,7 @@ impl ViewState {
         // there; the refusals say otherwise if they ever are not.
         let asked: Option<Result<u64, String>> =
             residue.map(|(letter, number)| match self.chosen.as_ref() {
-                Some(chosen) => residue_middle(chosen, letter, number),
+                Some(chosen) => residue_first(chosen, letter, number),
                 None => Err("no CDS is selected".to_string()),
             });
         let start: Result<u64, String> = match self.chosen.as_ref() {
@@ -1697,12 +1697,13 @@ impl ViewState {
         self.follow();
     }
 
-    /// A residue of the selected CDS (8k2 §4 rule 4): the cursor stands on the
-    /// codon's middle base, where D055 draws the residue, as `w` and `b` leave it
-    /// (8k1 §4 rule 5), and the scroll follows. Its refusals — a number outside
+    /// A residue of the selected CDS (8k2 §4 rule 4, M8-35): the cursor stands
+    /// on the first base of its codon in reading direction, as `w` and `b` leave
+    /// it (8m13 §4 rule 2), and the scroll follows; the residue letter stays over
+    /// the codon's middle base (D055). Its refusals — a number outside
     /// `1..=residues()`, residue `residues + 1` being the terminal stop, which has a
     /// codon and no residue (D010), and a letter that is not this residue's own
-    /// (D057)) — are what `residue_middle` answers. With no CDS selected, M8-22 rule
+    /// (D057)) — are what `residue_first` answers. With no CDS selected, M8-22 rule
     /// 3 takes over: the residue is remembered and the CDS picker is opened to
     /// choose one; a record with no CDS at all opens nothing and says so (8m1 §4
     /// rule 4).
@@ -1723,7 +1724,7 @@ impl ViewState {
                 return;
             }
         };
-        match residue_middle(chosen, letter, number) {
+        match residue_first(chosen, letter, number) {
             Ok(base) => {
                 self.cursor = base;
                 self.follow();
@@ -1821,11 +1822,11 @@ fn five_prime_is_unstated(shape: &DisplayLocation) -> bool {
     }
 }
 
-/// The residue rule of a selected CDS (8k2 §4 rule 4, D010, D057): the codon's
-/// middle base, where D055 draws the residue, and otherwise the words the status
-/// line says — a number outside `1..=residues()`, or a letter that is not this
-/// residue's own.
-fn residue_middle(chosen: &Chosen, letter: char, number: u64) -> Result<u64, String> {
+/// The residue rule of a selected CDS (8k2 §4 rule 4, D010, D057, M8-35): the
+/// first base of its codon in reading direction, which is the codon's highest
+/// base on the minus strand, and otherwise the words the status line says — a
+/// number outside `1..=residues()`, or a letter that is not this residue's own.
+fn residue_first(chosen: &Chosen, letter: char, number: u64) -> Result<u64, String> {
     let count: u64 = chosen.map.residues();
     if number == 0 || number > count {
         return Err(format!("the selected CDS has residues 1 to {count}"));
@@ -1837,7 +1838,7 @@ fn residue_middle(chosen: &Chosen, letter: char, number: u64) -> Result<u64, Str
         Some(_found) => chosen
             .map
             .residue_bases(number)
-            .map(|codon| codon[1])
+            .map(|codon| codon[0])
             .map_err(|error| error.message()),
         // The map's count and the translation have the same length, so this is
         // reached only if they ever disagree; either way there is no residue here

@@ -309,8 +309,8 @@ fn a_residue_with_no_cds_opens_the_picker() {
     assert!(state.list().is_none(), "and closes the list");
     assert_eq!(
         state.cursor(),
-        4151,
-        "residue 1 of complement(3293..4153) sits over its codon's middle base"
+        4152,
+        "residue 1 of complement(3293..4153) goes to its codon's first base"
     );
     cursor_block_is_drawn(&state);
 }

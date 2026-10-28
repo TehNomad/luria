@@ -247,25 +247,27 @@ fn line_moves_keep_the_offset() {
     assert_eq!(state.cursor(), 4360, "past the last block: stay");
 }
 
-/// §4 rule 5: `w` and `b` step to the nearest codon's middle base of the selected
-/// CDS, at most three bases away, and stay when there is none in that direction.
+/// M8-35 and 8m13 §4 rule 2: `w` and `b` step to the nearest codon's first base
+/// of the selected CDS, at most three bases away, and stay when there is none in
+/// that direction.
 #[test]
-fn codon_moves_step_codon_middles() {
-    // `synA` starts at zero-based 42, so its codon middles are 43, 46, 49, …
+fn codon_moves_step_codon_firsts() {
+    // `synA` starts at zero-based 42, so its codon first bases are 42, 45, 48, …
     let mut state: ViewState = ViewState::new(lin(), 80, 24);
     walk(&mut state, Key::Char('l'), 42);
     assert_eq!(state.cursor(), 42);
     assert_eq!(state.handle(Key::Char('w')), Action::Continue);
-    assert_eq!(state.cursor(), 43, "the next codon's middle base");
+    assert_eq!(state.cursor(), 45, "the next codon's first base");
     assert_eq!(state.handle(Key::Char('w')), Action::Continue);
-    assert_eq!(state.cursor(), 46, "and the next");
+    assert_eq!(state.cursor(), 48, "and the next");
     assert_eq!(state.handle(Key::Char('b')), Action::Continue);
-    assert_eq!(state.cursor(), 43, "back to a middle base");
+    assert_eq!(state.cursor(), 45, "back to a first base");
     assert_eq!(state.handle(Key::Char('b')), Action::Continue);
+    assert_eq!(state.cursor(), 42, "the first codon's own first base");
     assert_eq!(
         state.cursor(),
-        43,
-        "the first codon has no middle base left of it"
+        42,
+        "the first codon has no first base left of it"
     );
 
     // With no CDS selected there is no codon to step between.
@@ -276,16 +278,16 @@ fn codon_moves_step_codon_middles() {
     assert_eq!(state.cursor(), 100, "no CDS selected, no codon move");
 
     // `bla` is on the minus strand and ends at zero-based 4153, so its codons run
-    // downwards: 4152, 4151, 4150 are its first codon, and 4151 — a middle base —
+    // downwards: 4152, 4151, 4150 are its first codon, and 4152 — its first base —
     // has nothing within three bases above it.
     let mut state: ViewState = ViewState::new(pbr(), 80, 24);
     assert!(state.select_cds(Some(2)), "bla is usable");
-    walk(&mut state, Key::Char('l'), 4151);
-    assert_eq!(state.cursor(), 4151);
+    walk(&mut state, Key::Char('l'), 4152);
+    assert_eq!(state.cursor(), 4152);
     assert_eq!(state.handle(Key::Char('w')), Action::Continue);
-    assert_eq!(state.cursor(), 4151, "the CDS ends above the cursor");
+    assert_eq!(state.cursor(), 4152, "the CDS ends above the cursor");
     assert_eq!(state.handle(Key::Char('b')), Action::Continue);
-    assert_eq!(state.cursor(), 4148, "the next codon down reads at 4148");
+    assert_eq!(state.cursor(), 4149, "the next codon down reads from 4149");
 }
 
 /// §4 rule 7: `t` runs the lanes through the selected CDS, three frames, six
@@ -639,13 +641,19 @@ fn a_codon_across_the_origin_spans_it() {
     assert!(status.contains("ACA"), "status: {status}");
     assert!(status.contains("62..2"), "status: {status}");
 
-    // The codon above it lies wholly in the CDS's first location part: its middle
-    // base is zero-based 59, one base left of the cursor across the join. From
-    // there, `w` steps the three bases of one codon back over the join.
+    // `b` steps to codon 3's first base, the base 61 that lies across the origin
+    // in CDS `fP`'s first location part; `w` then steps to the next codon's first
+    // base, zero-based 2, whose codon lies wholly in the CDS's second part.
     assert_eq!(state.handle(Key::Char('b')), Action::Continue);
-    assert_eq!(state.cursor(), 59, "the codon above the join");
+    assert_eq!(state.cursor(), 61, "the codon above the join");
     assert_eq!(state.handle(Key::Char('w')), Action::Continue);
-    assert_eq!(state.cursor(), 0, "and back across it");
+    assert_eq!(state.cursor(), 2, "and back across it");
+    walk(&mut state, Key::Char('h'), 2);
+    assert_eq!(
+        state.cursor(),
+        0,
+        "back on fP's third codon, the base the fM part starts from"
+    );
 
     // The same three bases are `fM`'s third codon, read downwards and complemented
     // - TGT, Cys, the third residue of MVCAH - and its span is reference order too.
@@ -663,11 +671,11 @@ fn a_codon_across_the_origin_spans_it() {
     assert_eq!(state.handle(Key::Char('w')), Action::Continue);
     assert_eq!(
         state.cursor(),
-        3,
-        "the middle base of the codon below the join"
+        1,
+        "the first base of the codon below the join"
     );
     assert_eq!(state.handle(Key::Char('b')), Action::Continue);
-    assert_eq!(state.cursor(), 0, "and back");
+    assert_eq!(state.cursor(), 60, "and back");
 }
 
 /// §4 rule 1: `visible()` is the longest run of whole blocks whose lines *and the
