@@ -1,8 +1,8 @@
 # Milestone 8m: the owner's hand test of the sequence view, as changes
 
-Status: **Implemented 2026-10-27**: 8m1 to 8m5 (8m4 and 8m5 after the
-owner's second look: M8-28 and M8-29).
-Planner: Claude.
+Status: **In progress, 2026-10-27**: 8m1 to 8m5 implemented (8m4 and 8m5
+after the owner's second look: M8-28 and M8-29). After the colours the
+owner asked for M8-30 to M8-34, contracts 8m6 to 8m11. Planner: Claude.
 
 The owner tried `luria FILE` in a terminal after 8l2 and reported that all
 the features work. They asked for the changes below. The planner's questions
@@ -23,6 +23,11 @@ glyphs and wording can change again without a decision entry.
 | M8-27 | Milestone 9 scope | **Milestone 9 is a general sequence editor in the view**: vim-style `v` (select), `i` (insert) and `r` (replace), with cut, yank and paste of any length, features following the edits, and the edited construct saved. Reverses `proposal-product-direction.md` §5's "not a general sequence editor" and pulls milestone 10's export forward. Its plan and decisions belong to milestone 9 and are not part of 8m. |
 | M8-28 | Line width | (owner, 2026-10-27, second look) **A line holds as many bases as fit beside the base numbers, rounded down to a multiple of 3, in every mode**: 66 at 80 columns for pBR322, 108 at 120. The same width with and without a translation, so toggling `t` does not reflow the lines. Replaces plan §5.1's "largest multiple of 10, and of 30 when a translation lane is on". D050's phase and D055's shortened line are unchanged. Contract 8m4. |
 | M8-29 | Residue colours | (owner, 2026-10-27, after 8m4) **Residues are coloured by Zappo's seven physicochemical groups**, as a background across all three bases of the codon, in the residue lines (the selected CDS's and every frame's). The letter stays where it is. IUPAC defines no colours; Zappo was chosen by name so the colours are documented (Jalview's Zappo). **`C` turns the colours off and on**; they are on at open unless `NO_COLOR` is set and not empty. The stop and any symbol outside the twenty keep today's look. Planner's choices: the xterm 256-colour palette, which is Zappo's own values or within 25 of them on every channel, so no true-colour detection is needed; black letters (WCAG contrast at least 4.5 on all seven). A second exception to D055's "no display toggles". Contract 8m5. |
+| M8-30 | Feature levels | (owner, 2026-10-27) **`F` cycles all features → CDSs only → none → all**, and opens on all. Replaces M8-23's two states. Planner's choices: CDSs only means features with the key `CDS`; the lanes are chosen from that level's features, so a CDS is never left in `+N more` behind a gene; the overview strip still shows every feature. Contract 8m6. |
+| M8-31 | Lane colours | (owner, 2026-10-27, from the planner's list) **Each lane is coloured by its feature key**, or by the colour the file gives the feature where it has one (ApE's `/ApEinfo_fwdcolor` and `/ApEinfo_revcolor`; the contract names the exact qualifiers). The strip's bars use the same colours. **The selected CDS's lane is marked** (bold). Contract 8m7. |
+| M8-32 | Cursor codon | (owner, 2026-10-27, from the planner's list) **The cursor's codon is highlighted on the residue line, and the status line says what is under the cursor**: residue and number, codon bases, and the features covering the base. Contract 8m8. |
+| M8-33 | Ruler and dimming | (owner, 2026-10-27, from the planner's list) **A ruler line with a tick every 10 bases and a number every 30**, next to the top strand. **The bottom strand, the gutter numbers and the frame labels are dimmed.** The ruler changes the blocks' lines, so it is a full-tier contract with the layout tables (8m10). The dimming is drawing only (8m9). |
+| M8-34 | The rest of the list | (owner, 2026-10-27, from the planner's list) **A GC-content sparkline** as a third strip line; **ambiguous bases** (anything but `ACGT`) in their own colour; **an arrowhead at a lane's 3′ end** in place of the arrow after the name; **a title badge** with the length and topology; **a dim rule in the blank row between blocks** (no row count changes). `NO_COLOR` turns off every colour, not only M8-29's. Contracts 8m9 (badge, rule, ambiguous bases, `NO_COLOR`) and 8m11 (arrowheads, sparkline). |
 
 Seen at the hand test, with no change asked: the cap sentence is cut short
 on the status line at 80 columns; the list window scrolls as soon as the
@@ -37,3 +42,10 @@ not drawn; pBR322 takes about a second to open.
 3. `8m3`, keys: M8-23, M8-25 and M8-26.
 4. `8m4`, the line width: M8-28.
 5. `8m5`, residue colours: M8-29.
+6. `8m6`, feature levels: M8-30.
+7. `8m7`, lane colours and the selected CDS's lane: M8-31.
+8. `8m8`, the cursor's codon and the status line: M8-32.
+9. `8m9`, drawing only: dimming (M8-33), the title badge, the rule between
+   blocks, ambiguous bases, and `NO_COLOR` for every colour (M8-34).
+10. `8m10`, the ruler, with the layout tables (M8-33).
+11. `8m11`, arrowheads, with the layout tables, and the GC sparkline (M8-34).
