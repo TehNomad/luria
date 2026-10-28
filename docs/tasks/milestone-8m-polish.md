@@ -1,9 +1,10 @@
 # Milestone 8m: the owner's hand test of the sequence view, as changes
 
-Status: **In progress, 2026-10-28**: 8m1 to 8m12 implemented (8m4 and 8m5
-after the owner's second look: M8-28 and M8-29). After the colours the
-owner asked for M8-30 to M8-34, contracts 8m6 to 8m12. At the hand look
-at 8m5 to 8m12 the owner asked for M8-35 to M8-40, contracts 8m13 to 8m18. Planner: Claude.
+Status: **Implemented 2026-10-28**, awaiting the owner's hand look at 8m13
+to 8m18: 8m1 to 8m18 implemented (8m4 and 8m5 after the owner's second
+look: M8-28 and M8-29). After the colours the owner asked for M8-30 to
+M8-34, contracts 8m6 to 8m12. At the hand look at 8m5 to 8m12 the owner
+asked for M8-35 to M8-40, contracts 8m13 to 8m18. Planner: Claude.
 
 The owner tried `luria FILE` in a terminal after 8l2 and reported that all
 the features work. They asked for the changes below. The planner's questions
