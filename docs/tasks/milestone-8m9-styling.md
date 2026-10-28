@@ -1,8 +1,26 @@
 # Contract 8m9 — cli: dimming, title badge, rule between blocks, ambiguous bases, colours off means none (M8-33, M8-34)
 
-Planner: Claude. Status: delegated to `w-8m9` 2026-10-28. Tier: light
-(D051): every style here can change at the hand test. Owner's answers:
-`docs/tasks/milestone-8m-polish.md` §1, M8-33 (dimming) and M8-34.
+Planner: Claude. Status: **Implemented 2026-10-28** by worker `w-8m9` in
+three rounds, reviewed and accepted. Tier: light (D051): every style here
+can change at the hand test. Owner's answers:
+`docs/tasks/milestone-8m-polish.md` §1, M8-33 (dimming) and M8-34. Findings
+from review:
+
+* Two gaps in this contract, both reported by the worker rather than
+  worked around. 8k1's `the_title_names_the_topology_the_view_moves_on`
+  pinned `"4361 bp circular"`; round 2 updated it (§3 item 5). Test 5 named
+  hit 58, but selecting `tet` puts the cursor on 85, so the search goes to
+  251. The planner checked the hits against the file (58, 251, 1319, …) and
+  round 2 pinned 251 at columns 61–64. Round 3 allowed for the cursor's
+  codon 250–252, which underlines column 60 on the top row.
+* G1–G4 each failed the test §7 names. G5 fails only the `layout.rs` unit
+  test: no stop is on screen in test 5's state. Accepted, since the unit
+  test checks the stop directly.
+* Colour inventory: stop red, Zappo backgrounds and their black letters,
+  ambiguous 208, lane and strip colours, and the hit's yellow. Each is gated
+  on `colours`. `overview.rs` needed no change.
+* Choices accepted: the title reads `pBR322 · 4361 bp · ⟳ circular`; the
+  rule spans a full line's width even before a shorter last block.
 
 ## 1. What this contract builds
 
@@ -36,6 +54,9 @@ blank row between two blocks and the title.
    with `colours: false`. Pass `colours: true` there instead, and add the
    rule 5 assertion for `false`.
 4. `crates/cli/tests/sequence_view_styling.rs`: new.
+5. `state.rs`'s `the_title_names_the_topology_the_view_moves_on` (round 2):
+   its `"4361 bp circular"` and `"393 bp linear"` become
+   `"4361 bp · ⟳ circular"` and `"393 bp · — linear"`.
 
 ## 4. Rules
 
@@ -91,7 +112,7 @@ row whose gutter holds the block's first base number.
 | 2 | `the_title_has_a_topology_badge` | `pbr`'s row 0 contains `⟳ circular`. `amb`'s contains `— linear` and `(assumed)`. The border's corner cell (0, 0) is dim |
 | 3 | `a_dotted_rule_between_blocks` | `pbr` with `o` (strip off), where blocks 0 and 1 are drawn. Exactly one row between block 0's top row and block 1's top row holds `┄`. In it, columns 6 to 71 are `┄` and dim, columns 1 to 5 and 72 to 78 are blank, and no other row of the body holds `┄` |
 | 4 | `ambiguous_bases_have_their_own_colour` | `amb`: on the top row, columns 18, 21, 24, 27, 28, 29, 30, 35, 36 have fg 208, and columns 4 to 17 do not. The same columns on the bottom row are fg 208. After `C`, none has an fg |
-| 5 | `colours_off_means_no_colour` | `pbr`: `c`, `Home`, `enter` (`tet`), `/`, type `AATT`, `enter`, then `C`. No cell of the buffer has an fg or bg other than `Color::Reset`. The first hit at 58 (block 0, columns 64–67, strand `both`) has `BOLD` and `UNDERLINED` on both its top and bottom rows |
+| 5 | `colours_off_means_no_colour` | `pbr`: `c`, `Home`, `enter` (`tet`), `/`, type `AATT`, `enter`, then `C`. No cell of the buffer has an fg or bg other than `Color::Reset`. Selecting `tet` puts the cursor on 85, so the search goes to the first hit after it, 251 (zero-based; the hits are 58, 251, 1319, …). Its block starts at base 197 (1-based), so the hit is at columns 61–64, strand `both`. Those cells have `BOLD` and `UNDERLINED` on both the block's top and bottom rows, Columns 60 and 65 have neither on the bottom row, and are not bold on the top row, where the cursor's codon 250–252 underlines 60 (rounds 2–3) |
 | 6 | `no_color_at_open_reaches_every_colour` | `set_colours(false)` on a fresh `pbr` view, then `f` (the feature list) and `?`: in each, no cell has an fg or bg other than `Reset` |
 
 ## 6. Checks

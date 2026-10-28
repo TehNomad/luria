@@ -661,7 +661,7 @@ impl ViewState {
     /// selected, when the record has usable ones and M8-11 selected none.
     pub(super) fn title(&self) -> String {
         let head: String = format!(
-            "{} · {} bp {}",
+            "{} · {} bp · {}",
             self.record.sequence.name().value(),
             self.record.sequence.length(),
             self.topology_words()
@@ -951,16 +951,18 @@ impl ViewState {
         names
     }
 
-    /// The topology as the title words it (§4 rule 11, D049 M8-3): what the file
-    /// states, or the assumption a FASTA record carries, named as an assumption
-    /// until `T` sets it aside for the session.
+    /// The topology as the title words it (§4 rule 11, D049 M8-3, M8-34 rule 2):
+    /// the badge that goes before the words — `⟳` for a circular record, `—` for a
+    /// linear one — and what the file states, or the assumption a FASTA record
+    /// carries, named as an assumption until `T` sets it aside for the session.
     fn topology_words(&self) -> String {
         let assumed: bool = self.record.topology == TopologySource::Assumed;
+        let badge: char = if self.circular { '⟳' } else { '—' };
         match (self.circular, assumed) {
-            (true, true) => "circular (set with T)".to_string(),
-            (true, false) => "circular".to_string(),
-            (false, true) => "linear (assumed)".to_string(),
-            (false, false) => "linear".to_string(),
+            (true, true) => format!("{badge} circular (set with T)"),
+            (true, false) => format!("{badge} circular"),
+            (false, true) => format!("{badge} linear (assumed)"),
+            (false, false) => format!("{badge} linear"),
         }
     }
 
@@ -1891,7 +1893,7 @@ mod tests {
         // assumption and nothing to set.
         let state: ViewState = ViewState::new(pbr(), 80, 24);
         assert!(
-            state.title().contains("4361 bp circular"),
+            state.title().contains("4361 bp · ⟳ circular"),
             "title: {}",
             state.title()
         );
@@ -1911,7 +1913,7 @@ mod tests {
         // prints (D036 order).
         let state: ViewState = ViewState::new(lin(), 80, 24);
         assert!(
-            state.title().contains("393 bp linear"),
+            state.title().contains("393 bp · — linear"),
             "title: {}",
             state.title()
         );

@@ -44,6 +44,7 @@ use luria_core::search::HitStrand;
 use ratatui::layout::Rect;
 use ratatui::style::Color;
 use ratatui::style::Modifier;
+use ratatui::style::Style;
 use ratatui::text::Line;
 use ratatui::widgets::Block;
 use ratatui::widgets::Paragraph;
@@ -62,7 +63,10 @@ pub fn draw(frame: &mut Frame, state: &ViewState) {
     // The frame takes every row but the key line, which sits below it as it
     // does on the review screen, so its inner area is `height - 3` rows.
     let screen_area: Rect = Rect::new(0, 0, area.width, area.height - 1);
-    let block: Block<'static> = frame_block(Line::from(format!(" {} ", state.title())));
+    // M8-34 rule 2: the frame's border is the view's secondary text and dim, its
+    // title in that border is not.
+    let block: Block<'static> = frame_block(Line::from(format!(" {} ", state.title())))
+        .border_style(Style::default().add_modifier(Modifier::DIM));
     let inner: Rect = block.inner(screen_area);
     frame.render_widget(block, screen_area);
 
@@ -149,7 +153,7 @@ fn draw_overview(frame: &mut Frame, state: &ViewState, inner: Rect) {
         shown,
         state.cursor(),
         &hits,
-        state.colours(),
+        state.colours(), // M8-34 rule 5: what is coloured, is coloured
     );
     frame.render_widget(
         Paragraph::new(bars),
@@ -194,12 +198,13 @@ fn draw_body(frame: &mut Frame, state: &ViewState, body: Rect) {
 }
 
 /// The run of blocks `ViewState::visible` chose, from its first block, each one
-/// drawn as it comes from `block_lines` with one blank row between blocks. A
-/// block that does not fit in `body` stops the run: what is drawn is only what
-/// fits in the area given, and the gap is never left after the last block drawn.
+/// drawn as it comes from `block_lines` with one blank row between blocks, and
+/// that row holds the dotted rule M8-34 rule 3 writes into it. A block that does
+/// not fit in `body` stops the run: what is drawn is only what fits in the area
+/// given, and the gap is never left after the last block drawn.
 fn draw_blocks(frame: &mut Frame, state: &ViewState, body: Rect) {
-    let gutter: u16 = match state.layout() {
-        Some(built) => built.gutter,
+    let (gutter, line_width): (u16, u64) = match state.layout() {
+        Some(built) => (built.gutter, built.line_width),
         None => return,
     };
     let marks: Marks = Marks {
@@ -220,6 +225,14 @@ fn draw_blocks(frame: &mut Frame, state: &ViewState, body: Rect) {
         let gap: usize = usize::from(GAP) * usize::from(drawn > 0);
         if used + gap + need > rows {
             break;
+        }
+        // The row that separates this block from the one before it is the body's
+        // own blank row, and it carries nothing but the rule (M8-34 rule 3): no
+        // row is added or removed, and the first block has no rule above it.
+        if gap > 0 {
+            for row in used..used + gap {
+                draw_rule(frame, body, gutter, line_width, row);
+            }
         }
         used += gap;
         // A run longer than the frame counts in `u16` is not drawn: inventing a
@@ -356,6 +369,32 @@ fn draw_help(frame: &mut Frame, state: &ViewState, body: Rect) {
     }
 }
 
+/// The one blank row between two blocks, filled with the dim, uncoloured `┄` of
+/// M8-34 rule 3 across the columns a full line's bases stand in — the inner
+/// columns `d + 1` to `d + N` — and nowhere else in the row: the gutter, the one
+/// column after the last base and whatever the frame does not draw stay blank.
+/// A shortened last line still has the rule spanning the width a full line has,
+/// because the columns are the layout's and not the block's.
+fn draw_rule(frame: &mut Frame, body: Rect, gutter: u16, line_width: u64, row: usize) {
+    let y: u16 = match u16::try_from(row) {
+        // The gap row is inside the body already: `ViewState::visible` counted it.
+        Ok(y) if body.y + y < body.bottom() => body.y + y,
+        _ => return,
+    };
+    let first: u64 = u64::from(body.x) + u64::from(gutter) + 1;
+    // The last base a full line holds, the column the rule ends in.
+    let last: u64 = first + line_width - 1;
+    for column in first..=last {
+        let x: u16 = match u16::try_from(column) {
+            // A column the frame does not draw holds nothing of the rule.
+            Ok(x) if x < body.right() => x,
+            _ => break,
+        };
+        frame.buffer_mut()[(x, y)].set_symbol("┄");
+        frame.buffer_mut()[(x, y)].modifier |= Modifier::DIM;
+    }
+}
+
 /// The cursor's cell and the cells of its codon, on the row that carries a
 /// block's bases (§4 rule 12), the cells of the hits the search marked (8l1 §4
 /// rule 8, M8-24), the same on the row of a block's complements, and the codon's
@@ -432,13 +471,25 @@ fn mark_bases(
                 _ => continue,
             };
         if top_mark {
-            // The background goes under the modifiers, which is the other way round
-            // from what a cursor cell looks like: `REVERSED` swaps the cell's own
-            // colours, so a cursor on a hit reads yellow too (8l1 §4 rule 8).
-            frame.buffer_mut()[(column, rows.top)].bg = Color::Yellow;
+            if state.colours() {
+                // The background goes under the modifiers, which is the other way round
+                // from what a cursor cell looks like: `REVERSED` swaps the cell's own
+                // colours, so a cursor on a hit reads yellow too (8l1 §4 rule 8).
+                frame.buffer_mut()[(column, rows.top)].bg = Color::Yellow;
+            } else {
+                // M8-34 rule 5: with no colour to mark a hit, the mark is bold and
+                // underlined, on the row the hit's strand names.
+                frame.buffer_mut()[(column, rows.top)].modifier |=
+                    Modifier::BOLD | Modifier::UNDERLINED;
+            }
         }
         if let (true, Some(bottom)) = (bottom_mark, rows.bottom) {
-            frame.buffer_mut()[(column, bottom)].bg = Color::Yellow;
+            if state.colours() {
+                frame.buffer_mut()[(column, bottom)].bg = Color::Yellow;
+            } else {
+                frame.buffer_mut()[(column, bottom)].modifier |=
+                    Modifier::BOLD | Modifier::UNDERLINED;
+            }
         }
         if underlined {
             // The cell's own modifiers are kept: the underline goes on top of

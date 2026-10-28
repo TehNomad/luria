@@ -440,13 +440,17 @@ fn lane_text(name: &str, strand: &Strand, length: u64) -> String {
 /// The style of one residue letter: a stop is bold red, the way
 /// `review::view::letter_style` draws a protein's `*` (contract 8j rule 5).
 /// Everything else is left alone, and 8m5's colour rule adds a background and a
-/// black letter on top of what is here.
-fn residue_style(symbol: char) -> Style {
-    if symbol == '*' {
-        Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)
-    } else {
-        Style::default()
+/// black letter on top of what is here. With the colours off the stop is bold
+/// only, its red being a colour and not a modifier (M8-34 rule 5).
+fn residue_style(symbol: char, colours: bool) -> Style {
+    if symbol != '*' {
+        return Style::default();
     }
+    let mut style: Style = Style::default().add_modifier(Modifier::BOLD);
+    if colours {
+        style.fg = Some(Color::Red);
+    }
+    style
 }
 
 /// The background one of the twenty letters draws by Zappo's seven
@@ -476,24 +480,72 @@ fn zappo(symbol: char) -> Option<Color> {
     }
 }
 
-/// A label right-aligned in the gutter: `columns [0, d)`, blank at `d`.
+/// A label right-aligned in the gutter: `columns [0, d)`, blank at `d`. Every
+/// gutter label is part of the view's secondary text and dim, the colours on and
+/// off alike (M8-34 rule 1).
 fn label_cell(label: &str, d: u64) -> Cell {
     Cell {
         column: d - label.chars().count() as u64,
         text: label.to_string(),
-        style: Style::default(),
+        style: Style::default().add_modifier(Modifier::DIM),
     }
 }
 
+/// The colour a base letter that is not one of the four DNA letters draws:
+/// an IUPAC ambiguity code, or any other letter the record's sequence holds
+/// (M8-34 rule 4). Nothing outside the four is coloured with the colours off.
+const AMBIGUOUS: Color = Color::Indexed(208);
+
+/// The style one letter of a strand line draws: `base`'s modifiers always, and
+/// the ambiguous colour over them when the letter stands for anything but one of
+/// `A C G T` and `colours` is on (M8-34 rules 1 and 4).
+fn base_style(letter: char, colours: bool, base: Style) -> Style {
+    if colours && !matches!(letter, 'A' | 'C' | 'G' | 'T') {
+        let mut style: Style = base;
+        style.fg = Some(AMBIGUOUS);
+        style
+    } else {
+        base
+    }
+}
+
+/// The letters of one strand line, as one cell per run of letters that share a
+/// look: an ambiguous letter starts a cell of its own, and a run of ordinary
+/// letters keeps the one cell the whole line used to be. `column` is where the
+/// line's first letter stands.
+fn base_runs(text: &str, column: u64, colours: bool, base: Style) -> Vec<Cell> {
+    let letters: Vec<char> = text.chars().collect();
+    let mut cells: Vec<Cell> = Vec::new();
+    let mut at: usize = 0;
+    while at < letters.len() {
+        let style: Style = base_style(letters[at], colours, base);
+        let mut end: usize = at + 1;
+        while end < letters.len() && base_style(letters[end], colours, base) == style {
+            end += 1;
+        }
+        cells.push(Cell {
+            column: column + at as u64,
+            text: letters[at..end].iter().collect(),
+            style,
+        });
+        at = end;
+    }
+    cells
+}
+
 /// The two strand lines of a block: the bases, their complements, and the
-/// line's first and last base numbers. The right number starts one blank
-/// column after the last base.
+/// line's first and last base numbers. The right number starts one blank column
+/// after the last base. The bottom line and the two numbers in the gutter are the
+/// view's secondary text and dim, the colours on and off alike (M8-34 rule 1);
+/// the top line's letters are never dim, and `colours` gives an ambiguous letter
+/// its own colour on either line (M8-34 rule 4).
 fn strand_cells(
     record: &ViewRecord,
     d: u64,
     g: u64,
     start: u64,
     end: u64,
+    colours: bool,
 ) -> Result<(Vec<Cell>, Vec<Cell>), LayoutProblem> {
     let mut bases: String = String::new();
     for position in start..end {
@@ -515,28 +567,20 @@ fn strand_cells(
 
     let left: String = (start + 1).to_string();
     let right: String = end.to_string();
-    let top: Vec<Cell> = vec![
-        Cell {
-            column: d - left.chars().count() as u64,
-            text: left,
-            style: Style::default(),
-        },
-        Cell {
-            column: g,
-            text: bases.clone(),
-            style: Style::default(),
-        },
-        Cell {
-            column: g + (end - start) + 1,
-            text: right,
-            style: Style::default(),
-        },
-    ];
-    let bottom: Vec<Cell> = vec![Cell {
-        column: g,
-        text: complement,
-        style: Style::default(),
-    }];
+    let dim: Style = Style::default().add_modifier(Modifier::DIM);
+    let mut top: Vec<Cell> = Vec::new();
+    top.push(Cell {
+        column: d - left.chars().count() as u64,
+        text: left,
+        style: dim,
+    });
+    top.extend(base_runs(&bases, g, colours, Style::default()));
+    top.push(Cell {
+        column: g + (end - start) + 1,
+        text: right,
+        style: dim,
+    });
+    let bottom: Vec<Cell> = base_runs(&complement, g, colours, dim);
     Ok((top, bottom))
 }
 
@@ -609,8 +653,10 @@ fn cds_cells(
     let mut cells: Vec<Cell> = Vec::new();
     for residue in on {
         let style: Style = match group_of(colours, residue.symbol) {
-            Some(bg) => residue_style(residue.symbol).fg(Color::Black).bg(bg),
-            None => residue_style(residue.symbol),
+            Some(bg) => residue_style(residue.symbol, colours)
+                .fg(Color::Black)
+                .bg(bg),
+            None => residue_style(residue.symbol, colours),
         };
         cells.push(Cell {
             column: residue.column,
@@ -849,8 +895,10 @@ fn frame_cells(
                     continue;
                 }
                 let style: Style = match colour {
-                    Some(bg) => residue_style(residue.symbol).fg(Color::Black).bg(bg),
-                    None => residue_style(residue.symbol),
+                    Some(bg) => residue_style(residue.symbol, colours)
+                        .fg(Color::Black)
+                        .bg(bg),
+                    None => residue_style(residue.symbol, colours),
                 };
                 cells.push(Cell {
                     column,
@@ -936,7 +984,7 @@ pub fn block_lines(
         ));
     }
 
-    let (top, bottom) = strand_cells(record, d, g, start, end)?;
+    let (top, bottom) = strand_cells(record, d, g, start, end, drawing.colours)?;
 
     match mode {
         LaneMode::Off => {
@@ -1292,12 +1340,12 @@ mod tests {
             &LaneMode::Cds(2),
             0,
             &Drawing {
-                colours: false,
+                colours: true,
                 features: FeatureLevel::All,
             },
         )
         .unwrap();
-        let (_, styles) = drawn(&lines, 78);
+        let (symbols, styles) = drawn(&lines, 78);
         let residues: usize = lines
             .iter()
             .position(|(role, _)| *role == LineRole::Residues)
@@ -1330,6 +1378,61 @@ mod tests {
             styled,
             vec![13],
             "the `*` at column 13 is the residues line's only bold red cell"
+        );
+
+        // Rule 5: with the colours off the stop keeps its bold and loses its red,
+        // and nothing else on the line gains a colour. The block is the same one,
+        // so its residues line keeps the row and the column it had.
+        let off: Vec<(LineRole, Line<'static>)> = block_lines(
+            &record,
+            &laid,
+            &LaneMode::Cds(2),
+            0,
+            &Drawing {
+                colours: false,
+                features: FeatureLevel::All,
+            },
+        )
+        .unwrap();
+        let (off_symbols, off_styles) = drawn(&off, 78);
+        let off_residues: usize = line_of(&off, &LineRole::Residues);
+        let off_stop: Style = off_styles[off_residues][13];
+        // What the drawn cell holds is what a terminal resolves, so an unset
+        // foreground reads as `Reset`; what matters is that no colour is drawn.
+        assert!(
+            matches!(off_stop.fg, None | Some(Color::Reset)),
+            "the stop has no colour to lose: {off_stop:?}"
+        );
+        assert!(
+            matches!(off_stop.bg, None | Some(Color::Reset)),
+            "and no background either: {off_stop:?}"
+        );
+        assert!(
+            off_stop.add_modifier.contains(Modifier::BOLD),
+            "the stop keeps its bold: {off_stop:?}"
+        );
+        assert_eq!(
+            off_symbols[off_residues][13], "*",
+            "the same letter in the same column"
+        );
+        // Rule 5 over the whole line: with the colours off, no cell of the residues
+        // line carries a colour, and the letters themselves are still there.
+        let coloured: Vec<usize> = (0..70usize)
+            .filter(|column| {
+                let style: Style = off_styles[off_residues][*column];
+                matches!(style.fg, Some(colour) if colour != Color::Reset)
+                    || matches!(style.bg, Some(colour) if colour != Color::Reset)
+            })
+            .collect();
+        assert_eq!(
+            coloured,
+            Vec::<usize>::new(),
+            "the residues line of a view with the colours off holds no colour cell"
+        );
+        assert_eq!(
+            off_symbols, symbols,
+            "the colours-off drawing holds the same characters in the same places as \
+             the colours-on drawing, and differs in colour only"
         );
     }
 
