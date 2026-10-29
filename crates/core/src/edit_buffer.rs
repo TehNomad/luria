@@ -20,6 +20,7 @@
 //! and visits each feature and each range once; no `Sequence`, hash or copy
 //! of the whole letters is made per edit.
 
+use crate::edit_location::read_edit_location;
 use crate::error::CoordinateOutOfBoundsProblem;
 use crate::error::DomainError;
 use crate::error::EmptyIntervalProblem;
@@ -32,6 +33,7 @@ use crate::sequence::normalize;
 use crate::sequence::Sequence;
 use crate::sequence::SequenceTopology;
 use crate::strand::Strand;
+use crate::view_record::ViewRecord;
 
 /// The one feature key whose qualifiers an edit may invalidate: only `CDS`
 /// loses `/translation` or changes `/codon_start` (fixture README, columns).
@@ -83,6 +85,10 @@ pub struct EditFeature {
     /// `location`, and set to `None` by the first edit that does (a shift
     /// counts), so the writer can keep unmoved text exactly (plan M9-7).
     pub location_text: Option<String>,
+    /// The line of the feature key in the file the record was opened from,
+    /// counted from 1 (`GenBankFeature::line`). The status line names a
+    /// feature with it (M9-12).
+    pub line: u64,
 }
 
 /// One change of a record's bases.
@@ -783,9 +789,90 @@ impl EditBuffer {
     }
 }
 
+/// Why a record cannot be edited (M9-12): the first feature, in file order,
+/// whose location `read_edit_location` refuses.
+#[derive(Clone, Debug, PartialEq)]
+pub struct EditBlocked {
+    /// Its index in `GenBankRecord::features()`.
+    pub feature: usize,
+    pub key: String,
+    /// The name the feature list shows (`ViewFeature::name`).
+    pub name: String,
+    pub line: u64,
+    pub error: DomainError,
+}
+
+/// The buffer for an opened record: its sequence's name, topology and
+/// letters, and for a GenBank record every feature in file order, with
+/// `location_text` set to `GenBankFeature::location()` and `qualifiers`
+/// from `GenBankQualifier::name()`/`value()`. A FASTA record has none.
+///
+/// The features are read in file order, and the first location
+/// `read_edit_location` refuses is the block (M9-12): nothing past it is
+/// read, because the status line names one feature and one refusal only.
+///
+/// `EditBlocked` carries a `DomainError`, as every refusal in the workspace
+/// does; boxing it would make every caller of `buffer_for` unwrap.
+#[allow(clippy::result_large_err)]
+pub fn buffer_for(record: &ViewRecord) -> Result<EditBuffer, EditBlocked> {
+    let length: u64 = record.sequence.length();
+    let topology: SequenceTopology = record.sequence.topology();
+    let mut features: Vec<EditFeature> = Vec::new();
+
+    // A FASTA record has no feature table at all (D049), so nothing to read
+    // and nothing that can block it.
+    if let Some(genbank) = record.genbank.as_ref() {
+        for (index, feature) in genbank.features().iter().enumerate() {
+            match read_edit_location(feature.location().as_str(), length, topology.clone()) {
+                Ok(location) => {
+                    let qualifiers: Vec<(String, Option<String>)> = feature
+                        .qualifiers()
+                        .iter()
+                        .map(|qualifier| (qualifier.name(), qualifier.value()))
+                        .collect();
+                    features.push(EditFeature {
+                        key: feature.key(),
+                        location,
+                        qualifiers,
+                        location_text: Some(feature.location()),
+                        line: feature.line(),
+                    });
+                }
+                Err(error) => {
+                    // The name is the feature list's own, taken from the
+                    // feature at the same index.
+                    return Err(EditBlocked {
+                        feature: index,
+                        key: feature.key(),
+                        name: record.features[index].name.clone(),
+                        line: feature.line(),
+                        error,
+                    });
+                }
+            }
+        }
+    }
+
+    match EditBuffer::new(
+        record.sequence.name(),
+        topology,
+        record.sequence.letters(),
+        features,
+    ) {
+        // Every range was read against this sequence's own length, and a
+        // sequence `open_record` accepted is made of DNA letters and has bases
+        // at all: `EditBuffer::new` has nothing left to refuse.
+        Ok(buffer) => Ok(buffer),
+        Err(error) => unreachable!("a record open_record accepted: {}", error.code()),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::error::GenBankLocationRule;
+    use crate::error::UnusableGenBankLocationProblem;
+    use crate::view_record::open_record;
 
     fn bases(count: usize) -> Vec<char> {
         vec!['A'; count]
@@ -817,6 +904,7 @@ mod tests {
                 .map(|(name, value)| (name.to_string(), value.map(|text| text.to_string())))
                 .collect(),
             location_text: Some("join(1..2)".to_string()),
+            line: 1,
         }
     }
 
@@ -1081,6 +1169,7 @@ mod tests {
                 ("codon_start".to_string(), Some("2".to_string())),
             ],
             location_text: None,
+            line: 1,
         };
         assert_eq!(buffer.features(), [expected]);
     }
@@ -1213,5 +1302,66 @@ mod tests {
             features[half - 1].location_text
         );
         assert_eq!(buffer.features()[half + 1].location_text, None);
+    }
+
+    /// M9-12 (contract 9b2 §5 test 5): a record whose feature this reader
+    /// cannot read is not editable at all, and the name given is the first
+    /// such feature in file order. `synthetic.gb:61` holds
+    /// `order(1..6,7..12)`, which is feature 18 of the table; every feature
+    /// before it is a range, an origin join on this 60 bp circular record,
+    /// or `<1..12`.
+    #[test]
+    fn a_blocked_record_names_its_first_feature() {
+        let path: &str = "../../tests/fixtures/genbank/synthetic.gb";
+        let text: String = std::fs::read_to_string(path)
+            .unwrap_or_else(|error| panic!("cannot read {}: {}", path, error));
+        let name: Identifier = Identifier::create("synthetic".to_string())
+            .unwrap_or_else(|error| panic!("a name is created: {}", error.message()));
+        let record: ViewRecord = open_record(name, text)
+            .unwrap_or_else(|error| panic!("open_record reads synthetic.gb: {}", error.message()));
+        let blocked: EditBlocked = match buffer_for(&record) {
+            Ok(buffer) => panic!(
+                "synthetic.gb is blocked, not a buffer of {} features",
+                buffer.features().len()
+            ),
+            Err(blocked) => blocked,
+        };
+        assert_eq!(blocked.feature, 18, "the index in the feature table");
+        assert_eq!(blocked.key, "CDS", "the key on the feature line");
+        assert_eq!(blocked.name, "ord", "the name the feature list shows");
+        assert_eq!(blocked.line, 61, "the file line of the feature key");
+        assert_eq!(
+            blocked.error,
+            DomainError::UnusableGenBankLocation(UnusableGenBankLocationProblem {
+                location: "order(1..6,7..12)".to_string(),
+                rule: GenBankLocationRule::Order,
+                sequence_length: 60,
+                cds: None,
+                line: None,
+            }),
+            "the refusal that blocks the record"
+        );
+    }
+
+    /// §5 test 6: a FASTA record gives a buffer with the sequence's letters
+    /// and no features: it states no feature table at all (D049).
+    #[test]
+    fn fasta_opens_with_no_features() {
+        let text: String = ">w16 no feature table\nACGTACGTACGTACGT\n".to_string();
+        let name: Identifier = Identifier::create("w16".to_string())
+            .unwrap_or_else(|error| panic!("a name is created: {}", error.message()));
+        let record: ViewRecord = open_record(name, text).unwrap_or_else(|error| {
+            panic!("open_record reads the FASTA text: {}", error.message())
+        });
+        assert!(
+            record.genbank.is_none(),
+            "a FASTA record has no GenBank record to read features from"
+        );
+        let buffer: EditBuffer = buffer_for(&record)
+            .unwrap_or_else(|blocked| panic!("a FASTA record opens for editing: {:?}", blocked));
+        assert_eq!(buffer.name(), record.sequence.name());
+        assert_eq!(buffer.length(), 16);
+        assert_eq!(buffer.letters(), letters("ACGTACGTACGTACGT").as_slice());
+        assert!(buffer.features().is_empty(), "no feature to read");
     }
 }

@@ -173,6 +173,10 @@ pub struct ViewRecord {
     pub features: Vec<ViewFeature>,
     /// Every CDS feature, in file order.
     pub cdss: Vec<ViewCds>,
+    /// The record as `read_genbank` read it, kept so the editor can reach
+    /// each feature's location text and qualifiers (`buffer_for`, M9-12).
+    /// `None` for a FASTA record, which has no feature table (D049).
+    pub genbank: Option<GenBankRecord>,
 }
 
 /// The qualifiers a display name is taken from, in order of preference (D053).
@@ -469,11 +473,12 @@ pub fn open_record(name: Identifier, text: String) -> Result<ViewRecord, DomainE
     // chose, and a reader's refusal is returned as it is. Each arm then applies
     // the ceiling to the sequence it got, and nothing else happens to a record
     // that is over it.
-    let (sequence, topology, features, cdss): (
+    let (sequence, topology, features, cdss, genbank): (
         Sequence,
         TopologySource,
         Vec<ViewFeature>,
         Vec<ViewCds>,
+        Option<GenBankRecord>,
     ) = match format {
         // A FASTA record states no topology, so linear is assumed and named as
         // an assumption (D049), and it has no features and no CDSs (§4.1).
@@ -482,7 +487,13 @@ pub fn open_record(name: Identifier, text: String) -> Result<ViewRecord, DomainE
             let sequence: Sequence = record.sequence();
             // Step 3, before step 4 lists anything (D048).
             check_ceiling(&sequence, &identifier)?;
-            (sequence, TopologySource::Assumed, Vec::new(), Vec::new())
+            (
+                sequence,
+                TopologySource::Assumed,
+                Vec::new(),
+                Vec::new(),
+                None,
+            )
         }
         // A GenBank record's topology came from its LOCUS line (D036, D041).
         RecordFormat::GenBank => {
@@ -494,7 +505,13 @@ pub fn open_record(name: Identifier, text: String) -> Result<ViewRecord, DomainE
             let features: Vec<ViewFeature> =
                 view_features(&record, sequence.length(), sequence.topology());
             let cdss: Vec<ViewCds> = view_cdss(&record)?;
-            (sequence, TopologySource::Stated, features, cdss)
+            (
+                sequence,
+                TopologySource::Stated,
+                features,
+                cdss,
+                Some(record),
+            )
         }
     };
 
@@ -504,6 +521,7 @@ pub fn open_record(name: Identifier, text: String) -> Result<ViewRecord, DomainE
         topology,
         features,
         cdss,
+        genbank,
     })
 }
 

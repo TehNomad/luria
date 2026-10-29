@@ -5,6 +5,7 @@ pub mod cds_map;
 pub mod codon_usage;
 pub mod display_location;
 pub mod edit_buffer;
+pub mod edit_location;
 pub mod error;
 pub mod extraction;
 pub mod fasta;

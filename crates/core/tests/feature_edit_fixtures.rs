@@ -392,6 +392,7 @@ fn record(row: &Row) -> EditBuffer {
         location: parse_shape(&row.shape, &row.id),
         qualifiers: parse_qualifiers(row.qualifiers.as_str()),
         location_text: Some("x".to_string()),
+        line: 1,
     };
     EditBuffer::new(
         Identifier::create("record".to_string()).unwrap(),
