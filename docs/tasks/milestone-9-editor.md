@@ -31,7 +31,7 @@ unchanged unless §5 says otherwise.
 | GenBank reader | `crates/core/src/genbank.rs:82-160` | Keeps LOCUS name and topology, accession, version, the sequence and every feature with its location text and qualifiers. **Drops every other header line** (DEFINITION, SOURCE, REFERENCE, COMMENT) **and the LOCUS molecule type, division and date** (`Locus`, `genbank.rs:174`) |
 | GenBank writer | — | **None.** `--write-edited` writes FASTA only (`crates/cli/src/write.rs`) |
 | Location writer | — | **None.** Nothing in core turns intervals back into GenBank location text (`complement`, `join`, `<`/`>`) |
-| Feature shapes | `crates/core/src/display_location.rs`, `view_record.rs:129` | The view's display parser: partial ends, joins, origin-crossing intervals (D036, D049, D053) |
+| Feature shapes | `crates/core/src/display_location.rs`, `view_record.rs:129` | The view's display parser: partial ends and origin-crossing joins (D036, D049, D053). **Every other `join(…)` is refused** `UnsupportedJoin`, as `order(…)`, `^` and remote references are (`genbank_location.rs:1-60`, rule 9; D009); see M9-17 |
 | Edits with verification | `crates/core/src/mutation.rs:1072-1375` | `apply_nucleotide`, `apply_deletion`, `apply_insertion`, `apply_replacement`: CDS-relative edits for Q5, independently verified. Base-range edits in the view are simpler; whether to reuse these is a planner choice in 9c |
 | Feature remapping | — | **None.** No code moves a feature when the sequence under it changes |
 | The view | `crates/cli/src/sequence_view/` | Read-only state, layout, lanes, lists, go-to, search, ORFs. Bound today: `h l j k w b t T o g F O C f c / n N ? q`, `ctrl-c/d/u` (`state.rs:386-492`). Free for an editor: `v V i a r R x d y p P u s J K` (M8-38 kept `J`/`K` free). `ctrl-r` is not mapped from the terminal yet (`terminal.rs:46-64`). `q` quits whenever no list or prompt is open, and `ctrl-c` always (`state.rs:386`) |
@@ -98,6 +98,7 @@ removed end interval moves to the feature's new end, and an absent
 | M9-14 | On a circular record, does an insertion at the origin grow a feature that crosses it (`join(4000..4361,1..10)` on pBR322)? Under M9-6 (b) the origin is the edge of two intervals, so it would not, though the bases are contiguous. | **It grows it.** On a circular record the last base and the first are "two bases of an interval" for a feature that crosses the origin. The bases go where they were typed: `a` on the last base appends them (`join(4000..4361+k,1..10)`), `i` on base 1 puts them first and every feature shifts (`join(4000+k..4361+k,1..10+k)`). On a linear record both are edges, as (b) says |
 | M9-15 | What else does the saved LOCUS line and header carry? | LOCUS keeps the name, molecule type (`DNA`, `ds-DNA` …), topology and division as read, which the reader starts keeping (9c1). ACCESSION is kept; **VERSION is dropped**, since it names one exact sequence and the edited one is not it. M9-11's line is added as the last line of the file's COMMENT, or as a new COMMENT just before FEATURES if it has none. Saving twice in a session writes the same one line with the count at that save |
 | M9-16 | What is one edit, for undo and for M9-11's count? | **One command**, as in Vim: everything typed from `i`, `a` or `R` until `esc` is one edit; each `r`, `x`, `d` and paste is one. `u` undoes one edit and `ctrl-r` redoes it; the count is the edits on the undo stack at the save, so undone edits do not count |
+| M9-17 | The shared parser refuses every spliced join (`join(10..20,30..40)`, D009), so under M9-12 one such feature makes a record uneditable. Should the editor read them? (Raised by the planner, 2026-10-29, writing 9b) | **Approved by the owner, 2026-10-29: an edit-only reading.** The editor reads `join(…)` and `complement(join(…))` of ranges, with `<` on the first range's start and `>` on the last range's end, into its own location type (contract 9b2), so those records can be edited and saved. Q5, CDS import and the view's CDS checks still refuse them as D009 says. `order(…)`, `^`, remote references and every other refusal stay under M9-12 |
 
 ## 6. Testing (if §5 is answered as proposed)
 
@@ -127,7 +128,8 @@ removed end interval moves to the feature's new end, and an absent
 | # | Contract | Tier |
 | --- | --- | --- |
 | 9a | fixtures: the M9-6, M9-13 and M9-14 table, its checker, the README section | full (planner) |
-| 9b | core: an edit buffer of bases and features, with insert, delete and replace by range, M9-6's, M9-13's and M9-14's rules, and M9-12's refusal; fast on D056's largest record | full |
+| 9b | core: an edit buffer of bases and features, with insert, delete, replace and substitute by range, and M9-6's, M9-13's and M9-14's rules on its own location type; fast on D056's largest record | full |
+| 9b2 | core: the editor's reading of a feature's location text into 9b's type (M9-17), and M9-12's refusal for every other form | full |
 | 9c1 | core: the reader keeping the LOCUS molecule type and division and the header lines as text | full |
 | 9c2 | core: the location writer, with its Biopython-checked table | full |
 | 9c3 | core: the GenBank writer (M9-7, M9-11, M9-15) and the round-trip fixtures | full |
