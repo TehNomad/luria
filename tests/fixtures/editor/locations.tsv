@@ -1,0 +1,18 @@
+id	length	topology	shape	text
+l1	100	linear	+ 30..40	30..40
+l2	100	linear	- 30..40	complement(30..40)
+l3	4361	circular	+ 426..426	426
+l4	100	linear	- 27..27	complement(27)
+l5	100	linear	+ <30..40	<30..40
+l6	100	linear	+ 30..>40	30..>40
+l7	100	linear	- <30..>40	complement(<30..>40)
+l8	100	linear	+ <30..30	<30..30
+l9	100	linear	+ 10..20,30..40	join(10..20,30..40)
+l10	100	linear	- 10..20,30..40	complement(join(10..20,30..40))
+l11	100	linear	+ <10..20,30..>40	join(<10..20,30..>40)
+l12	100	linear	- <10..20,30..40	complement(join(<10..20,30..40))
+l13	100	linear	+ 10..20,20..30	join(10..20,20..30)
+l14	100	linear	+ 10..20,25..25,30..40	join(10..20,25,30..40)
+l15	62	circular	+ 56..62,1..11	join(56..62,1..11)
+l16	62	circular	- 53..62,1..8	complement(join(53..62,1..8))
+l17	4366	circular	+ 4000..4366,1..10	join(4000..4366,1..10)

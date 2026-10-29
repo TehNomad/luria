@@ -64,6 +64,7 @@ CHECKS = [
     "view/reference/layout_columns.py",
     "view/reference/orfs.py",
     "editor/reference/feature_edits.py",
+    "editor/reference/locations.py",
 ]
 
 

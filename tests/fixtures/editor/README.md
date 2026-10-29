@@ -92,3 +92,56 @@ origin-crossing CDS shapes of `../view/frames-62.gb` (62 bases, circular);
 o4–o5 use the 4361-base length of pBR322 with the shape the plan's M9-14
 names. M9-12 (records whose locations the view refuses) and M9-6 (i) (CDS
 checks after an edit) are not in this table: 9b and 9e test them.
+
+## Location text (9c2)
+
+`locations.tsv` gives, for one feature shape on one record, the GenBank
+location text that shape is written as. Its test 1 asks `write_edit_location`
+for the row's text and its test 2 asks 9b2's `read_edit_location` to read
+that text back to the row's shape, on the row's length and topology; both run
+in `crates/core/tests/location_text_fixtures.rs`. The planner wrote every
+`text` cell by hand from the rules below (2026-11-06), and nothing was filled
+in by running luria. `reference/locations.py` builds a minimal record of the
+row's length and topology, puts one `misc_feature` at the row's text, reads it
+with Biopython 1.88, and asks that the parts that feature has are the shape's
+ranges — reversing them first, because Biopython lists a minus join 5′→3′.
+
+| Column | Meaning |
+| --- | --- |
+| `id` | Row name |
+| `length`, `topology` | The record the text is read against: its length in bases, `linear` or `circular` |
+| `shape` | As in "Columns": strand and intervals. A minus-strand join lists them as `complement(join(…))` writes them, and an origin-crossing feature lists the interval that ends at the record's last base first (D036) |
+| `text` | The location text, on one line (9c3 wraps it) |
+
+Rows l1–l14 use the 100-base record; l3 uses pBR322's 4361-base length, and
+l15–l16 the two origin-crossing shapes of `../view/frames-62.gb`. l17 uses
+4366, a length of its own to put an origin join at the end of.
+
+The rules, in the table's terms (contract 9c2 §4):
+
+- **One interval** `(s, e)`, zero-based half-open (D006), writes `s+1..e`. A
+  one-base interval, `e == s + 1`, writes its bare position: the number `e`
+  on its own (M9-18). If a mark stands on it, it writes a range with the mark,
+  `<s+1..e` or `s+1..>e`, because a bare position has no end to be open past.
+- **Marks** (M9-17): `<` stands before the first interval's low end when the
+  feature's 5′ end is open, and `>` before the last interval's high end when its
+  3′ end is open, counting in the order the shape lists them. They belong to the
+  feature's ends, not to the interval that carries them ("Partial marks",
+  Reading 1).
+- **Joins** (M9-17): one interval writes itself; several are `,`-joined inside
+  `join(…)` in the order the shape lists them, whatever order that is (l15 is
+  D036 order, and l13 keeps the touching intervals ribosomal slippage writes).
+- **The strand** (M9-18): a minus location wraps the whole text in
+  `complement(…)`, so a minus join reads `complement(join(…))` and never
+  `join(complement(…),…)`. l16 is the minus origin join: its text reads back as
+  the D036 shape the table records.
+
+The command, from the repository root:
+
+```
+python3 -I tests/fixtures/editor/reference/locations.py --check
+```
+
+It prints `OK locations.tsv (17 rows)` or `DIFFERS locations.tsv` with the row,
+and exits 1 on a difference; it writes nothing and never runs luria.
+`tests/fixtures/verify.py` runs it with every other check.

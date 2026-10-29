@@ -659,6 +659,79 @@ pub fn read_edit_location(
     })
 }
 
+/// One range, 1-based inclusive, as the text writes it: `(start, end)` as
+/// `start + 1..end` (D006). A one-base range, `end == start + 1`, writes its
+/// bare position instead — `end` alone — unless a mark stands on either end,
+/// in which case the range is written as the bare position's two ends with
+/// the marks on them (M9-18, rule 1).
+fn write_span(start: u64, end: u64, marked_start: bool, marked_end: bool) -> String {
+    if !marked_start && !marked_end && end == start + 1 {
+        return end.to_string();
+    }
+    let low: String = if marked_start {
+        format!("{}{}", OPEN_BEFORE, start + 1)
+    } else {
+        (start + 1).to_string()
+    };
+    let high: String = if marked_end {
+        format!("{}{}", OPEN_AFTER, end)
+    } else {
+        end.to_string()
+    };
+    format!("{}..{}", low, high)
+}
+
+/// The ranges, in the location's order, without `complement`: one range on
+/// its own, several of them `,`-joined inside `join(…)` (rules 2 and 3). `<` stands on
+/// the first range's start when `open_start`, and `>` on the last range's end
+/// when `open_end`, counting in this order — which is the order both a D036
+/// origin join and a minus `complement(join(…))` are stored in, and so the
+/// order the reader checked the marks in (rule 6).
+fn write_ranges(ranges: &[(u64, u64)], open_start: bool, open_end: bool) -> String {
+    let last: usize = ranges.len() - 1;
+    let written: Vec<String> = ranges
+        .iter()
+        .enumerate()
+        .map(|(index, &(start, end))| {
+            write_span(
+                start,
+                end,
+                index == 0 && open_start,
+                index == last && open_end,
+            )
+        })
+        .collect();
+    if ranges.len() == 1 {
+        written[0].clone()
+    } else {
+        format!("join({})", written.join(","))
+    }
+}
+
+/// The GenBank text of a location, on one line (9c3 wraps it).
+///
+/// M9-17 and M9-18: `join(…)` for several ranges and `complement(…)` around
+/// the whole thing for a minus location, so that a minus join reads
+/// `complement(join(…))` and never `join(complement(…),…)` (rule 4). A
+/// one-base range reads back as the bare position it was (M9-18). Every
+/// range of every `locations.tsv` row, and every location
+/// `read_edit_location` accepts, comes back through this text to the same
+/// location (§5 tests 2 and 3).
+///
+/// A location with no range writes the empty text, which nothing reads: the
+/// editor holds no such feature, because `buffer_for` refuses a feature with
+/// no range (contract 9b, `check_features`).
+pub fn write_edit_location(location: &EditLocation) -> String {
+    if location.ranges.is_empty() {
+        return String::new();
+    }
+    let body: String = write_ranges(&location.ranges, location.open_start, location.open_end);
+    match location.strand {
+        Strand::Plus => body,
+        Strand::Minus => format!("complement({})", body),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -959,5 +1032,71 @@ mod tests {
         assert_eq!(found.ranges, vec![(9, 20), (29, 40), (49, 60)]);
         assert!(found.open_start);
         assert!(found.open_end);
+    }
+
+    /// Contract 9c2 §5 test 3: every text §5's table accepts, written and read
+    /// again, is the same location. The rows here are the accepted ones of
+    /// §5's table, in the order they are given there; a refused row has no
+    /// location to write. `locations.tsv` fixes what each location writes.
+    #[test]
+    fn write_then_read_is_identity() {
+        let rows: Vec<(&str, u64, SequenceTopology)> = vec![
+            ("30..40", DEFAULT, SequenceTopology::Linear),
+            ("complement(30..40)", DEFAULT, SequenceTopology::Linear),
+            ("426", 4_361, SequenceTopology::Linear),
+            ("complement(27)", DEFAULT, SequenceTopology::Linear),
+            ("<30..40", DEFAULT, SequenceTopology::Linear),
+            ("30..>40", DEFAULT, SequenceTopology::Linear),
+            ("complement(<30..>40)", DEFAULT, SequenceTopology::Linear),
+            ("join(10..20,30..40)", DEFAULT, SequenceTopology::Linear),
+            (
+                "complement(join(10..20,30..40))",
+                DEFAULT,
+                SequenceTopology::Linear,
+            ),
+            (
+                "join(complement(30..40),complement(10..20))",
+                DEFAULT,
+                SequenceTopology::Linear,
+            ),
+            ("join(<10..20,30..>40)", DEFAULT, SequenceTopology::Linear),
+            (
+                "complement(join(<10..20,30..40))",
+                DEFAULT,
+                SequenceTopology::Linear,
+            ),
+            ("join(10..20,20..30)", DEFAULT, SequenceTopology::Linear),
+            ("join(10..20)", DEFAULT, SequenceTopology::Linear),
+            ("join(56..62,1..11)", 62, SequenceTopology::Circular),
+            (
+                "join(complement(1..8),complement(53..62))",
+                62,
+                SequenceTopology::Circular,
+            ),
+        ];
+        for (text, length, topology) in rows {
+            let read: EditLocation = read_edit_location(text, length, topology.clone())
+                .unwrap_or_else(|error| {
+                    panic!("{:?} on length {}: {}", text, length, error.message())
+                });
+            let written: String = write_edit_location(&read);
+            let again: EditLocation =
+                read_edit_location(written.as_str(), length, topology.clone()).unwrap_or_else(
+                    |error| {
+                        panic!(
+                            "{:?} written as {:?}, read again on length {}: {}",
+                            text,
+                            written,
+                            length,
+                            error.message()
+                        )
+                    },
+                );
+            assert_eq!(
+                read, again,
+                "{:?} read, written as {:?}, read again",
+                text, written
+            );
+        }
     }
 }
