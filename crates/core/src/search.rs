@@ -54,6 +54,49 @@ use crate::sequence::complement_letter;
 use crate::sequence::Sequence;
 use crate::sequence::SequenceTopology;
 
+/// The four bases a mask can hold: bit 0 is `A`, bit 1 `C`, bit 2 `G`, bit 3
+/// `T`, in the order `sequence::bases_of` lists a code's bases in.
+const B_A: u8 = 1 << 0;
+const B_C: u8 = 1 << 1;
+const B_G: u8 = 1 << 2;
+const B_T: u8 = 1 << 3;
+
+/// What an IUPAC nucleotide code stands for, as a 4-bit mask over `A`, `C`,
+/// `G`, `T`: the same base sets `sequence::bases_of` gives, and
+/// `the_masks_agree_with_the_base_sets` says so for every pair of the alphabet.
+///
+/// A letter outside `sequence::DNA_ALPHABET` gives `0`, the empty set: it stands
+/// for no base and matches nothing, which is how `bases_of` answers `None` for
+/// it. `U` and `u` are not in the alphabet, and a pattern's `U` is read as `T`
+/// by `fold_letter` before it is masked.
+fn base_mask(letter: char) -> u8 {
+    match letter {
+        'A' => B_A,
+        'C' => B_C,
+        'G' => B_G,
+        'T' => B_T,
+        'R' => B_A | B_G,
+        'Y' => B_C | B_T,
+        'S' => B_C | B_G,
+        'W' => B_A | B_T,
+        'K' => B_G | B_T,
+        'M' => B_A | B_C,
+        'B' => B_C | B_G | B_T,
+        'D' => B_A | B_G | B_T,
+        'H' => B_A | B_C | B_T,
+        'V' => B_A | B_C | B_G,
+        'N' => B_A | B_C | B_G | B_T,
+        _ => 0,
+    }
+}
+
+/// §4.4's containment over masks: every base in the template's set is in the
+/// pattern's set, which is `template & !pattern == 0` once the template's set
+/// is non-empty — and never an intersection, which would answer `S` for `R`.
+fn masks_cover(template: u8, pattern: u8) -> bool {
+    template != 0 && template & !pattern == 0
+}
+
 /// The strand a DNA hit was found on. `Both` is its own state, not a pair of
 /// flags: a place that matches on both strands is one hit (M8-8, D052).
 ///
@@ -100,19 +143,14 @@ pub struct DnaHit {
 /// `N` alone. A letter outside `sequence::DNA_ALPHABET` stands for no known
 /// set and matches nothing.
 pub fn covers(template: char, pattern: char) -> bool {
-    let template_bases: Vec<char> = match bases_of(template) {
-        Some(bases) => bases,
-        None => return false,
-    };
-    let pattern_bases: Vec<char> = match bases_of(pattern) {
-        Some(bases) => bases,
-        None => return false,
-    };
-    // Containment over the base sets, never an intersection test on them and
-    // never a comparison of the letters themselves.
-    template_bases
-        .iter()
-        .all(|base| pattern_bases.contains(base))
+    let template_mask: u8 = base_mask(template);
+    let pattern_mask: u8 = base_mask(pattern);
+    // Containment over the base sets as a mask test: the sets are four bits
+    // wide, so `template & !pattern` is empty exactly when every base the
+    // template letter stands for is one the pattern letter stands for. An
+    // empty template set (`0`, a letter outside the alphabet) matches nothing,
+    // as `bases_of`'s `None` did.
+    masks_cover(template_mask, pattern_mask)
 }
 
 /// A pattern letter as §4.4 reads it, before anything else: ASCII case is
@@ -131,19 +169,29 @@ fn fold_letter(letter: char) -> char {
 
 /// The span of `pattern` at `start`, read base by base off the top strand and
 /// wrapped modulo the record length where it runs past the last base — never
-/// from a doubled copy of the record (rule 6).
-fn span_matches(sequence: &Sequence, start: u64, pattern: &[char]) -> bool {
+/// from a doubled copy of the record (rule 6). `pattern` is the base mask of
+/// each pattern letter, which `find_dna` builds once for the whole pattern.
+fn span_matches(sequence: &Sequence, start: u64, pattern: &[u8]) -> bool {
+    let letters: &[char] = sequence.letter_slice();
     let size: u64 = sequence.length();
-    for (offset, letter) in pattern.iter().enumerate() {
-        // `letter_at` is the checked read (D006). `size` is at least the
-        // pattern width wherever this runs, so the modulo keeps every position
-        // inside the record and the refusal arm cannot be reached; a span that
-        // cannot be read does not match, rather than a panic.
-        let template: char = match sequence.letter_at((start + offset as u64) % size) {
-            Ok(template) => template,
-            Err(_) => return false,
+    for (offset, mask) in pattern.iter().enumerate() {
+        // The modulo keeps every position inside the record; it is only asked
+        // for where the span runs past the last base, and `size` is at least
+        // the pattern width wherever this runs, so a position in `start +
+        // offset` is never out of range by more than one record length.
+        let position: u64 = start + offset as u64;
+        let index: usize = if position < size {
+            position as usize
+        } else {
+            (position % size) as usize
         };
-        if !covers(template, *letter) {
+        // The checked read (D006): a span that cannot be read does not match,
+        // rather than a panic.
+        let template: char = match letters.get(index) {
+            Some(template) => *template,
+            None => return false,
+        };
+        if !masks_cover(base_mask(template), *mask) {
             return false;
         }
     }
@@ -153,7 +201,7 @@ fn span_matches(sequence: &Sequence, start: u64, pattern: &[char]) -> bool {
 /// Every start in `0..=last` where `pattern` matches the top strand, ascending,
 /// with every overlapping match kept: the scan steps one base, never the width
 /// of the pattern (D050, M8-16).
-fn top_strand_starts(sequence: &Sequence, pattern: &[char], last: u64) -> Vec<u64> {
+fn top_strand_starts(sequence: &Sequence, pattern: &[u8], last: u64) -> Vec<u64> {
     let mut starts: Vec<u64> = Vec::new();
     let mut start: u64 = 0;
     while start <= last {
@@ -214,6 +262,15 @@ pub fn find_dna(sequence: &Sequence, pattern: &str) -> Result<Vec<DnaHit>, Domai
     }
     complemented.reverse();
 
+    // The pattern and its reverse complement are turned into base masks once
+    // here, never per start: the scan reads a mask off the record's own
+    // letters. Both were validated above, so no mask is `0`.
+    let pattern_masks: Vec<u8> = folded.iter().map(|letter| base_mask(*letter)).collect();
+    let complement_masks: Vec<u8> = complemented
+        .iter()
+        .map(|letter| base_mask(*letter))
+        .collect();
+
     let width: u64 = folded.len() as u64;
     let size: u64 = sequence.length();
     // Rule 7: a pattern longer than the record has no legal start on either
@@ -229,10 +286,10 @@ pub fn find_dna(sequence: &Sequence, pattern: &str) -> Result<Vec<DnaHit>, Domai
     } else {
         size - width
     };
-    let plus: Vec<u64> = top_strand_starts(sequence, &folded, last);
+    let plus: Vec<u64> = top_strand_starts(sequence, &pattern_masks, last);
     // Rule 4: the minus-strand hits are the top-strand hits of the reverse
     // complement, at the same top-strand coordinates.
-    let minus: Vec<u64> = top_strand_starts(sequence, &complemented, last);
+    let minus: Vec<u64> = top_strand_starts(sequence, &complement_masks, last);
 
     let mut candidates: Vec<(u64, HitStrand)> = Vec::new();
     for start in plus {
@@ -825,6 +882,124 @@ mod tests {
             hits == vec![want(HitStrand::Plus, 4, 3, false)],
             "AAN on the same record gives {:?}, expected one hit at 4",
             rows(&hits)
+        );
+    }
+
+    /// A letter in the failure messages of `the_masks_agree_with_the_base_sets`.
+    fn quote(letter: char) -> String {
+        format!("`{}`", letter)
+    }
+
+    fn yes(answer: bool) -> &'static str {
+        if answer {
+            "matches"
+        } else {
+            "does not match"
+        }
+    }
+
+    /// §5 test 2: the masks `covers` compares are the base sets
+    /// `sequence::bases_of` gives, not a second mapping of the alphabet. The
+    /// containment below is written over `bases_of`'s own lists of bases,
+    /// independently of the mask route `covers` takes, and every pair of the 15
+    /// IUPAC codes — plus `X` and `U` on either side — is compared.
+    #[test]
+    fn the_masks_agree_with_the_base_sets() {
+        let alphabet: Vec<char> = DNA_ALPHABET.chars().collect();
+        assert!(
+            alphabet.len() == 15,
+            "DNA_ALPHABET holds {} letters, expected the 15 IUPAC codes",
+            alphabet.len()
+        );
+        // `X` is a letter outside the alphabet outright, and `U` is a letter a
+        // **record** may not hold (`normalize` refuses it, and a pattern folds
+        // it to `T`). Neither has a base set; both go on either side of a pair.
+        let outside: Vec<char> = vec!['X', 'U'];
+        let letters: Vec<char> = alphabet
+            .iter()
+            .cloned()
+            .chain(outside.iter().cloned())
+            .collect();
+
+        // Containment over the base sets, written out from `bases_of`: every
+        // base the template letter stands for is one the pattern letter stands
+        // for. A letter with no set matches nothing, and an empty set matches
+        // nothing rather than everything — which is what `t != 0` says in
+        // `covers`.
+        let contains = |template: char, pattern: char| -> bool {
+            let template_bases: Vec<char> = match bases_of(template) {
+                Some(bases) => bases,
+                None => return false,
+            };
+            let pattern_bases: Vec<char> = match bases_of(pattern) {
+                Some(bases) => bases,
+                None => return false,
+            };
+            !template_bases.is_empty()
+                && template_bases
+                    .iter()
+                    .all(|base| pattern_bases.contains(base))
+        };
+
+        let mut compared: u64 = 0;
+        for template in letters.iter() {
+            for pattern in letters.iter() {
+                let via_masks: bool = covers(*template, *pattern);
+                let via_sets: bool = contains(*template, *pattern);
+                assert!(
+                    via_masks == via_sets,
+                    "covers({}, {}) answers {}, while containment over bases_of's sets answers {}",
+                    quote(*template),
+                    quote(*pattern),
+                    yes(via_masks),
+                    yes(via_sets),
+                );
+                compared += 1;
+            }
+        }
+        // Every pair was compared, so the loop bounds are the ones the test
+        // names: 15 IUPAC codes and the two letters outside them, both ways.
+        assert!(
+            compared == 17 * 17,
+            "{} letter pairs compared, expected 17 * 17 (15 IUPAC codes plus X and U either way)",
+            compared
+        );
+    }
+
+    /// §5 test 4, `#[ignore]`d: a 6-base pattern over a 10 Mb record is scanned
+    /// by reading the record's own letters, not by building a `Vec` or a
+    /// `String` per start. Timed on the release profile, and on its own
+    /// (contract 8r2 §6):
+    ///
+    /// ```text
+    /// cargo test -p luria-core --release -- --ignored a_search_of_a_long_record_is_quick
+    /// ```
+    #[test]
+    #[ignore]
+    fn a_search_of_a_long_record_is_quick() {
+        let text: String = "ACGT".repeat(2_500_000);
+        let sequence: Sequence = dna(text.as_str(), SequenceTopology::Linear);
+        assert!(
+            sequence.length() == 10_000_000,
+            "the test record is {} bases, expected 10 000 000, the ceiling `MAX_RECORD_BASES` allows (D048, D056)",
+            sequence.length()
+        );
+        // The record is built outside the timed part; only the search is timed.
+        let began: std::time::Instant = std::time::Instant::now();
+        let hits: Vec<DnaHit> = hits_of(&sequence, "GAATTC");
+        let elapsed: u128 = began.elapsed().as_millis();
+        // `ACGT` repeated holds no `GAATTC`, so the answer is empty while the
+        // scan is asked at every start on both strands: the whole record is
+        // read twice over, and the timing measures that work.
+        assert!(
+            hits.is_empty(),
+            "GAATTC in `ACGT` repeated gives {} hits, expected none",
+            hits.len()
+        );
+        assert!(
+            elapsed < 500,
+            "GAATTC over a 10 Mb record took {} ms: the scan reads the record's letters by slice, and the search must stay under 500 ms in --release",
+            elapsed
         );
     }
 }

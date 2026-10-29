@@ -132,44 +132,103 @@ pub fn frame_residues(
         return Err(DomainError::ReversedInterval(problem));
     }
 
-    let letters: Vec<char> = sequence.letters();
+    let letters: &[char] = sequence.letter_slice();
     let plus: bool = strand.is_plus();
 
-    // The frame's start, zero-based: base `f` (1-based) on the plus strand,
-    // the last base minus `f - 1` on the minus strand. The length is taken as
-    // `i64` — the same idiom `codon_at` uses — so a record shorter than the
-    // frame's offset gives a start outside the sequence rather than a wrapped
-    // `u64`, and `codon_at` answers `None` for it at once.
-    let length: i64 = letters.len() as i64;
-    let offset: i64 = frame.index() as i64 - 1;
-    let mut position: i64 = if plus { offset } else { length - 1 - offset };
+    // The frame's offset: base `f` (1-based) on the plus strand, the last base
+    // minus `f - 1` on the minus strand. Everything is worked out in `i128`,
+    // because `window_start` and `window_end` are `u64` and a window may name
+    // a position no frame codon stands at, even one above what an `i64` holds.
+    let offset: i128 = frame.index() as i128 - 1;
+    let length: i128 = letters.len() as i128;
+
+    // A frame codon's middle base always stands inside the record: the first
+    // codon of a plus frame spans `offset..offset + 3` and every later codon
+    // sits further in, and a minus frame's codons lie below its first base. So
+    // every middle lies in `0..length`, and clamping the window to the record
+    // before solving for the first codon makes the arithmetic below
+    // independent of how far outside the record the window's ends name.
+    let window_start: i128 = (window_start as i128).min(length);
+    let window_end: i128 = (window_end as i128).min(length);
+
+    // Codons of the frame, counted from 0: on the plus strand codon `k` starts
+    // at `offset + 3k` and reads up, and on the minus strand it starts at
+    // `length - 1 - offset - 3k` and reads down. The middle base of codon `k`
+    // is therefore `offset + 3k + 1` on the plus strand and
+    // `length - offset - 2 - 3k` on the minus — increasing by 3 along a plus
+    // frame, decreasing by 3 along a minus frame.
+    //
+    // `k` is the frame's own codon count from 0, so the residue number is
+    // `k + 1`: the same number the walk from the frame's first codon gave the
+    // codon (§4.3, D050). No codon outside the window is read, and no codon is
+    // stepped over one at a time: the first codon the window can hold is found
+    // by the division below, and the walk starts there.
+    let first: i128 = if plus {
+        // The first `k` with `offset + 3k + 1 >= window_start`, i.e.
+        // `3k >= window_start - offset - 1`.
+        ceil_div(window_start - offset - 1, 3)
+    } else {
+        // A minus frame reads down, so the walk skips the codons whose middle
+        // lies at or above the window: the first `k` with
+        // `length - offset - 2 - 3k < window_end`, i.e.
+        // `3k >= length - offset - 1 - window_end`.
+        ceil_div(length - offset - 1 - window_end, 3)
+    };
+    let mut k: i128 = if first < 0 { 0 } else { first };
 
     let mut out: Vec<FrameResidue> = Vec::new();
-    let mut number: u64 = 0;
-
-    while let Some(codon) = codon_at(letters.as_slice(), position, plus) {
-        // `Some` from `codon_at` means three whole bases stand at `position`:
-        // `position >= 0` on the plus strand and `position >= 2` on the minus
-        // strand, so the middle base is a real reference position and the
-        // conversion to `u64` cannot wrap.
-        let middle: u64 = if plus {
-            (position + 1) as u64
+    loop {
+        let middle: i128 = if plus {
+            offset + 3 * k + 1
         } else {
-            (position - 1) as u64
+            length - offset - 2 - 3 * k
         };
-        number += 1;
-        // Half-open window, tested on the middle base (D006, §4.3).
-        if middle >= window_start && middle < window_end {
-            out.push(FrameResidue {
-                number,
-                symbol: codon_symbol(codon),
-                middle,
-            });
+        // Half-open window, tested on the middle base (D006, §4.3). Both ends
+        // are tested on both strands: a plus frame's middles rise and a minus
+        // frame's fall, so the test that admits the first codon in the window
+        // is answered by the other end at the first codon leaving it again.
+        if middle < window_start || middle >= window_end {
+            break;
         }
-        position += if plus { 3 } else { -3 };
+        // `middle` lies inside the record, so `position` is `middle` ± 1 and
+        // cannot overflow the `i64` that `codon_at` takes.
+        let position: i64 = if plus {
+            (middle - 1) as i64
+        } else {
+            (middle + 1) as i64
+        };
+        // Reading ends where three whole bases do not stand: on a linear
+        // coordinate line that is the end of the sequence, and the leftover 1
+        // or 2 bases of a frame get no residue (D050, §4.3).
+        let codon: String = match codon_at(letters, position, plus) {
+            Some(codon) => codon,
+            None => break,
+        };
+        out.push(FrameResidue {
+            number: k as u64 + 1,
+            symbol: codon_symbol(codon),
+            middle: middle as u64,
+        });
+        k += 1;
     }
 
     Ok(out)
+}
+
+/// Smallest integer `n` with `divisor * n >= value` for a positive `divisor`
+/// (here 3, the width of a codon): the least `k` a frame may start at.
+///
+/// `value / divisor` in Rust truncates towards 0, which is the ceiling only for
+/// a negative `value` — `-4 / 3` is `-1`, and `ceil(-4/3)` is `-1` — so a
+/// positive `value` with a remainder has one added.
+fn ceil_div(value: i128, divisor: i128) -> i128 {
+    debug_assert!(divisor > 0);
+    let quotient: i128 = value / divisor;
+    if value > 0 && quotient * divisor != value {
+        quotient + 1
+    } else {
+        quotient
+    }
 }
 
 #[cfg(test)]
@@ -375,6 +434,188 @@ mod tests {
             minus[0].number == 1 && minus[1].number == 2,
             "a minus frame numbers from its own far end: {:?}",
             minus
+        );
+    }
+
+    /// One residue as a short row: `number symbol@middle`.
+    fn row(residue: &FrameResidue) -> String {
+        format!("{}{}@{}", residue.number, residue.symbol, residue.middle)
+    }
+
+    fn rows(residues: &[FrameResidue]) -> Vec<String> {
+        residues.iter().map(row).collect()
+    }
+
+    /// The walk `frame_residues` performed before contract 8r2: take the whole
+    /// record, step codon by codon from the frame's first codon to the end of
+    /// the sequence, and keep only the codons whose middle base lies in the
+    /// window. Written out again here, in the test, because
+    /// `a_window_gives_what_the_whole_frame_gives_inside_it` compares the
+    /// reading under test against it, and that comparison must not depend on
+    /// the code under test.
+    fn whole_frame_filtered_by_window(
+        sequence: &Sequence,
+        strand: Strand,
+        frame: ReadingFrame,
+        window_start: u64,
+        window_end: u64,
+    ) -> Vec<FrameResidue> {
+        let letters: Vec<char> = sequence.letters();
+        let plus: bool = strand.is_plus();
+        let length: i64 = letters.len() as i64;
+        let offset: i64 = frame.index() as i64 - 1;
+        let mut position: i64 = if plus { offset } else { length - 1 - offset };
+
+        let mut out: Vec<FrameResidue> = Vec::new();
+        let mut number: u64 = 0;
+        while let Some(codon) = codon_at(letters.as_slice(), position, plus) {
+            let middle: u64 = if plus {
+                (position + 1) as u64
+            } else {
+                (position - 1) as u64
+            };
+            number += 1;
+            if middle >= window_start && middle < window_end {
+                out.push(FrameResidue {
+                    number,
+                    symbol: codon_symbol(codon),
+                    middle,
+                });
+            }
+            position += if plus { 3 } else { -3 };
+        }
+        out
+    }
+
+    /// §5 test 1: the windowed reading gives, residue for residue, what the
+    /// whole-frame walk gives when its residues are filtered to the window. The
+    /// comparison is with `whole_frame_filtered_by_window`, which is that walk
+    /// written out again, so a window begun in the middle of a frame cannot be
+    /// a codon off, cannot number itself from 1 inside the window, and cannot
+    /// miss the leftover bases at either end.
+    #[test]
+    fn a_window_gives_what_the_whole_frame_gives_inside_it() {
+        // The two fixture records that show how a base is left over: `frames61`
+        // (61 bases, 61 = 3 * 20 + 1) and `frames62` (62 bases, 62 = 3 * 20 +
+        // 2), whose texts agree up to the last two bases.
+        const SIXTY_ONE: &str = "CAGACCATTAAAAGGTCCTTTGGGGGAATACGCCGAGCAGGTAATCATTAATTTAATGCGC";
+        const SIXTY_TWO: &str = "CAGACCATTAAAAGGTCCTTTGGGGGAATACGCCGAGCAGGTAATCATTAATTTAATGCGCA";
+        for text in [SIXTY_ONE, SIXTY_TWO] {
+            let sequence: Sequence = record("window", text);
+            let length: u64 = sequence.length();
+            assert!(
+                length == 61 || length == 62,
+                "the test record is {} bases long, expected 61 or 62, as `frames61` and `frames62` are",
+                length
+            );
+            for frame in ReadingFrame::ALL {
+                for plus in [true, false] {
+                    let strand: Strand = if plus { Strand::Plus } else { Strand::Minus };
+                    let label: String = strand.clone().symbol();
+                    // Every window inside the record, and past it: `length + 3`
+                    // stands past the last codon any frame can complete, so a
+                    // window wholly past the record is compared too.
+                    let mut compared: u64 = 0;
+                    for start in 0..=length + 3 {
+                        for end in start..=length + 3 {
+                            let windowed: Vec<FrameResidue> =
+                                frame_residues(&sequence, strand.clone(), frame, start, end)
+                                    .unwrap_or_else(|error| {
+                                        panic!(
+                                            "window [{}, {}) is refused: {:?}",
+                                            start, end, error
+                                        )
+                                    });
+                            let walked: Vec<FrameResidue> = whole_frame_filtered_by_window(
+                                &sequence,
+                                strand.clone(),
+                                frame,
+                                start,
+                                end,
+                            );
+                            assert!(
+                                windowed == walked,
+                                "the {} base record on {} frame {} with window [{}, {}): the windowed reading gives {:?}, the whole-frame walk filtered to the window gives {:?}",
+                                length,
+                                label,
+                                frame.index(),
+                                start,
+                                end,
+                                rows(windowed.as_slice()),
+                                rows(walked.as_slice()),
+                            );
+                            compared += 1;
+                        }
+                    }
+                    // Every start and end pair in `0..=length + 3` was
+                    // compared, so the loop bounds are the ones the test names.
+                    let windows: u64 = (length + 4) * (length + 5) / 2;
+                    assert!(
+                        compared == windows,
+                        "{} frame {} on the {} base record: {} windows compared, expected {} (every start and end in 0..={})",
+                        frame.index(),
+                        label,
+                        length,
+                        compared,
+                        windows,
+                        length + 3
+                    );
+                }
+            }
+        }
+    }
+
+    /// §5 test 3, `#[ignore]`d: the six frames' 60-base windows of a 10 Mb
+    /// record are read in the window, not by walking the record. Timed on the
+    /// release profile, and on its own (contract 8r2 §6):
+    ///
+    /// ```text
+    /// cargo test -p luria-core --release -- --ignored a_window_of_a_long_record_is_quick
+    /// ```
+    #[test]
+    #[ignore]
+    fn a_window_of_a_long_record_is_quick() {
+        let text: String = "ACGT".repeat(2_500_000);
+        let sequence: Sequence = record("tenmeg", text.as_str());
+        assert!(
+            sequence.length() == 10_000_000,
+            "the test record is {} bases, expected 10 000 000, the ceiling `MAX_RECORD_BASES` allows (D048, D056)",
+            sequence.length()
+        );
+        // The record is built outside the timed part; only the six calls are
+        // measured.
+        let start: u64 = 9_000_000;
+        let end: u64 = start + 60;
+        let began: std::time::Instant = std::time::Instant::now();
+        let mut residues: Vec<FrameResidue> = Vec::new();
+        for frame in ReadingFrame::ALL {
+            for plus in [true, false] {
+                let strand: Strand = if plus { Strand::Plus } else { Strand::Minus };
+                residues.extend(
+                    frame_residues(&sequence, strand, frame, start, end).unwrap_or_else(|error| {
+                        panic!(
+                            "frame {} window [{}, {}) is refused: {:?}",
+                            frame.index(),
+                            start,
+                            end,
+                            error
+                        )
+                    }),
+                );
+            }
+        }
+        let elapsed: u128 = began.elapsed().as_micros();
+        // A 60-base window holds 20 middles for every frame, so 120 residues
+        // were read and the timing measures real work.
+        assert!(
+            residues.len() == 120,
+            "the six frames give {} residues, expected 120: 20 middles in a 60-base window for each of six frames",
+            residues.len()
+        );
+        assert!(
+            elapsed < 5_000,
+            "the six frames' 60-base windows of a 10 Mb record took {} us: a window is read by walking the window, and the six calls together must stay under 5 ms in --release",
+            elapsed
         );
     }
 }
