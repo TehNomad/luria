@@ -24,6 +24,7 @@
 use crate::result::rule_code;
 use crate::sequence_view::layout::feature_colour;
 use crate::sequence_view::layout::key_colour;
+use crate::sequence_view::state::five_prime_is_unstated;
 use luria_core::display_location::DisplayLocation;
 use luria_core::error::DomainError;
 use luria_core::name_match::cds_names;
@@ -224,7 +225,8 @@ fn cds_words(record: &ViewRecord, index: usize) -> String {
 
 /// Whether `enter` refuses this row (§4 rule 7) — which is both what the screen
 /// draws DIM and what keeps the list open with a reason: a feature that is not
-/// drawn, one whose start is not stated, and an unusable CDS in the picker. A
+/// drawn, one whose 5′ end is not stated (M8-21, D053), and an unusable CDS in
+/// the picker. A
 /// CDS feature whose CDS is unusable is not refused in the feature list, where
 /// `enter` still jumps to the feature and says separately why it was not
 /// selected (§4 rule 4).
@@ -233,7 +235,7 @@ fn refused(record: &ViewRecord, kind: ListKind, index: usize) -> bool {
         ListKind::Features => match record.features.get(index) {
             Some(feature) => match &feature.shape {
                 FeatureShape::NotDrawn(_error) => true,
-                FeatureShape::Drawn(drawn) => drawn.open_before.is_some(),
+                FeatureShape::Drawn(drawn) => five_prime_is_unstated(drawn),
             },
             None => true,
         },
@@ -598,5 +600,53 @@ mod tests {
             !refused(&syn, Features, 11),
             "a CDS feature with an unusable CDS still jumps"
         );
+    }
+
+    /// M8-21, D053 and contract 8r1 item 1: a row is DIM by whether the
+    /// feature's 5′ end is stated, not by whichever marker comes first. On the
+    /// minus strand that end is the end of the last interval, so a `>` there
+    /// refuses the row and a `<` before the first interval says nothing about it.
+    #[test]
+    fn a_minus_strand_row_is_dim_by_its_5_prime_end() {
+        let text: &str = r#"LOCUS       fprime                120 bp    DNA     linear   SYN 28-OCT-2026
+FEATURES             Location/Qualifiers
+     misc_feature    <1..100
+                     /gene="plus-open"
+     misc_feature    1..>100
+                     /gene="plus-stated"
+     misc_feature    complement(<1..100)
+                     /gene="minus-stated"
+     misc_feature    complement(1..>100)
+                     /gene="minus-open"
+ORIGIN
+        1 atggcttggt aactactgct gcatgtggct tggtaaatgt aagcttaagg gcccatgaaa
+       61 atggcttggt aactactgct gcatgtggct tggtaaatgt aagcttaagg gcccatgaaa
+//
+"#;
+        let record: ViewRecord = open_record(
+            Identifier::create("fprime".to_string()).unwrap(),
+            text.to_string(),
+        )
+        .unwrap_or_else(|error| panic!("open the 120 bp record: {error:?}"));
+
+        // Every case answers `refused` for the row naming that gene.
+        for (gene, is_refused) in [
+            ("plus-open", true),
+            ("plus-stated", false),
+            ("minus-stated", false),
+            ("minus-open", true),
+        ] {
+            let index: usize = record
+                .features
+                .iter()
+                .position(|feature: &ViewFeature| feature.name == gene)
+                .unwrap_or_else(|| panic!("no feature named {gene}"));
+            assert_eq!(
+                refused(&record, Features, index),
+                is_refused,
+                "{gene}: its 5′ end is the first interval's start on the plus strand \
+                 and the last interval's end on the minus one"
+            );
+        }
     }
 }

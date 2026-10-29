@@ -341,16 +341,20 @@ fn protein_strand(strand: &Strand) -> HitStrand {
 
 /// What a protein hit is named by (§4 rule 4): the frame it was read in — `+2` —
 /// in six-frame mode, and in a CDS the numbers of its first and last residue. The
-/// terminal stop codon has no residue number (D010, D054), so a CDS hit ending on
-/// one is named by the residues it does have numbers for, and a hit whose codons
-/// have none at all — the pattern `*` matching a CDS's stop alone — falls back to
-/// the strand its codons are read on.
+/// terminal stop codon has no residue number (D010, D054), so a CDS hit that ends
+/// on one is named by its first residue and the words `to the stop codon` —
+/// `284 to the stop codon` (M8-17, D050) — and a hit whose codons have none at
+/// all, the pattern `*` matching a CDS's stop alone, falls back to the strand its
+/// codons are read on.
 fn protein_label(hit: &ProteinHit) -> String {
     match hit.frame {
         Some(frame) => format!("{}{}", hit.strand.clone().symbol(), frame.index()),
         None => match (hit.first, hit.last) {
             (Some(first), Some(last)) if first != last => format!("{first}..{last}"),
-            (Some(first), _) => first.to_string(),
+            // D050's M8-17: it is the stop codon that ends the run, and the stop
+            // has no residue number, so the label names where the run ends.
+            (Some(first), None) => format!("{first} to the stop codon"),
+            (Some(first), Some(_)) => first.to_string(),
             (None, Some(last)) => last.to_string(),
             (None, None) => hit.strand.clone().symbol(),
         },
@@ -360,9 +364,12 @@ fn protein_label(hit: &ProteinHit) -> String {
 #[cfg(test)]
 mod tests {
     use super::auto_mode;
+    use super::protein_label;
     use super::Hit;
     use super::HitStrand;
+    use super::ProteinHit;
     use super::SearchMode;
+    use super::Strand;
 
     /// §4 rule 2 and plan §5.4: `Aa` only once a character that cannot be a
     /// nucleotide letter appears, either case (contract 8l1 §5).
@@ -409,5 +416,23 @@ mod tests {
         for base in [57, 62, 0, 4360] {
             assert!(!inside.covers(base, 4361), "{base} is not covered");
         }
+    }
+
+    /// D050's M8-17 and contract 8r1 item 3: a CDS hit that ends on the stop
+    /// codon, which has no residue number, says so in its label.
+    #[test]
+    fn a_cds_hit_ending_on_the_stop_says_so() {
+        let hit: ProteinHit = ProteinHit {
+            // Ten codons in CDS mode, so no frame: residues 284 to 293, and the
+            // codon after them is the stop, which `last` cannot number.
+            start: 849,
+            length: 30,
+            strand: Strand::Plus,
+            frame: None,
+            first: Some(284),
+            last: None,
+            wraps_origin: false,
+        };
+        assert_eq!(protein_label(&hit), "284 to the stop codon");
     }
 }

@@ -2008,8 +2008,10 @@ fn five_prime_end(shape: &DisplayLocation) -> Option<u64> {
 
 /// Whether a drawn feature's 5′ end is not stated (M8-21, D053): a `<` before the
 /// first interval on the plus strand, a `>` after the last one on the minus strand.
-/// The other marker marks the far end and says nothing about this one.
-fn five_prime_is_unstated(shape: &DisplayLocation) -> bool {
+/// The other marker marks the far end and says nothing about this one. It is
+/// `pub(super)` because `super::list::refused` asks the same rule (M8-21, D053,
+/// contract 8r1 item 1).
+pub(super) fn five_prime_is_unstated(shape: &DisplayLocation) -> bool {
     match shape.location.strand() {
         Strand::Plus => shape.open_before.is_some(),
         Strand::Minus => shape.open_after.is_some(),
