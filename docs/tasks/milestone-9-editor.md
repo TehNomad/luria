@@ -99,6 +99,7 @@ removed end interval moves to the feature's new end, and an absent
 | M9-15 | What else does the saved LOCUS line and header carry? | LOCUS keeps the name, molecule type (`DNA`, `ds-DNA` …), topology and division as read, which the reader starts keeping (9c1). ACCESSION is kept; **VERSION is dropped**, since it names one exact sequence and the edited one is not it. M9-11's line is added as the last line of the file's COMMENT, or as a new COMMENT just before FEATURES if it has none. Saving twice in a session writes the same one line with the count at that save |
 | M9-16 | What is one edit, for undo and for M9-11's count? | **One command**, as in Vim: everything typed from `i`, `a` or `R` until `esc` is one edit; each `r`, `x`, `d` and paste is one. `u` undoes one edit and `ctrl-r` redoes it; the count is the edits on the undo stack at the save, so undone edits do not count |
 | M9-17 | The shared parser refuses every spliced join (`join(10..20,30..40)`, D009), so under M9-12 one such feature makes a record uneditable. Should the editor read them? (Raised by the planner, 2026-10-29, writing 9b) | **Approved by the owner, 2026-10-29: an edit-only reading.** The editor reads `join(…)` and `complement(join(…))` of ranges, with `<` on the first range's start and `>` on the last range's end, into its own location type (contract 9b2), so those records can be edited and saved. Q5, CDS import and the view's CDS checks still refuse them as D009 says. `order(…)`, `^`, remote references and every other refusal stay under M9-12 |
+| M9-18 | pBR322 has four one-base features written as a bare position (`misc_difference 426`, and 2535, 2729, 2730), which the shared parser refuses (`SinglePosition`), so under M9-12 pBR322 could not be edited. Should the editor read them? (Raised by the planner, 2026-10-29, writing 9c3) | **Approved by the owner, 2026-10-29: yes.** The editor's reading (9b2) takes `N` and `complement(N)` as the one base N. Such a range follows 9a's rules (a one-base range never grows), and the location writer (9c2) writes every one-base range as a bare `N`. The view and Q5 still refuse the form |
 
 ## 6. Testing (if §5 is answered as proposed)
 
@@ -139,6 +140,7 @@ removed end interval moves to the feature's new end, and an absent
 | 9g | cli: cut, yank, paste, undo, redo (M9-16), and `ctrl-r` from the terminal | light |
 | 9h | cli: save, the overwrite prompt, quitting with unsaved edits | light |
 | 9i | the owner's hand test, then a polish set | — |
+| 9k | cli: the messages that promise milestone 9 reworded (M9-1) | light |
 | 9j | docs: `docs/cli.md` §13, the decisions, the brief | — |
 
 Carried over from milestone 8's hand test, no change asked yet (8m §1):
