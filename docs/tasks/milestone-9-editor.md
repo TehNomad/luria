@@ -1,9 +1,10 @@
 # Milestone 9 plan: a sequence editor in the view
 
 Status: **Draft for the owner, 2026-10-28, revised 2026-10-29 (M9-12 to
-M9-16, the contract order, the 9c split). Nothing here is approved
-except M8-27, the scope line it starts from.** Planner: Claude. Branch:
-the owner's `feat/milestone-9`, once created. Decision: D059 (recorded by
+M9-16, the contract order, the 9c split). Approved: M8-27, the scope
+line it starts from, and M9-12 to M9-16 as proposed (owner, 2026-10-29).
+M9-1 to M9-11 are open.** Planner: Claude. Branch:
+the owner's `feat/milestone-9`. Decision: D059 (recorded by
 contract 8n).
 
 ## 1. What this milestone is
@@ -71,6 +72,10 @@ D051 expires when milestone 8 merges, so this milestone returns to
 ## 5. Questions for the owner
 
 Each row has the planner's proposal. "As proposed" is a full answer.
+**M9-12 to M9-16: approved by the owner as proposed, 2026-10-29**; they
+are recorded as decisions in 9j. Where they lean on an open row (M9-13
+and M9-14 on M9-6, M9-15 and M9-16 on M9-11), they hold for whatever
+that row's answer is, and the planner re-checks them against it.
 
 | # | Question | Planner's proposal |
 | --- | --- | --- |
