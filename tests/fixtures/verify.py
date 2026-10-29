@@ -26,7 +26,11 @@ import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.dirname(HERE)  # tests/fixtures/ -> the repository root
+# verify.py lives in tests/fixtures/, so the repository root is two levels up.
+# It used to be one, which sent every check running with the wrong working
+# directory; only the scripts that anchor their own paths (all of them, until
+# frame_tables.py exercised it) were unaffected.
+ROOT = os.path.dirname(os.path.dirname(HERE))
 
 # Every generator and verifier under tests/fixtures/*/reference/ that writes a
 # tracked file, as it is named on the command line. `unit-expectations.py` is
@@ -52,6 +56,13 @@ CHECKS = [
     "review/reference/member.py",
     "new/reference/shorthand.py",
     "new/reference/requests.py",
+    "view/reference/make_frames_62.py",
+    "view/reference/cds_map.py",
+    "view/reference/frame_tables.py",
+    "view/reference/search_dna.py",
+    "view/reference/search_protein.py",
+    "view/reference/layout_columns.py",
+    "view/reference/orfs.py",
 ]
 
 

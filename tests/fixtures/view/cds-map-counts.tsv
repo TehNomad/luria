@@ -1,0 +1,9 @@
+record	cds	strand	nt	codons	residues	terminal_stop	first_codon_ref	last_codon_ref	last_residue_ref
+synthetic	p1	+	12	4	3	yes	1,2,3	10,11,12	7,8,9
+synthetic	m1	-	12	4	3	yes	22,23,24	13,14,15	16,17,18
+synthetic	pj	+	18	6	5	yes	55,56,57	10,11,12	7,8,9
+synlin	synA	+	303	101	100	yes	43,44,45	343,344,345	340,341,342
+pbr322	tet	+	1191	397	396	yes	86,87,88	1274,1275,1276	1271,1272,1273
+pbr322	bla	-	861	287	286	yes	4151,4152,4153	3293,3294,3295	3296,3297,3298
+frames62	fP	+	18	6	5	yes	56,57,58	9,10,11	6,7,8
+frames62	fM	-	18	6	5	yes	6,7,8	53,54,55	56,57,58

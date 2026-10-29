@@ -1,0 +1,23 @@
+LOCUS       frames62                  62 bp    DNA     circular SYN 24-OCT-2026
+DEFINITION  Hand-written record for the Milestone 8 view: a length that is
+            not a multiple of 3, and CDSs that cross the origin on both
+            strands and overlap each other.
+ACCESSION   SYN0003
+VERSION     SYN0003.1
+KEYWORDS    .
+SOURCE      synthetic construct
+  ORGANISM  synthetic construct
+FEATURES             Location/Qualifiers
+     source          1..62
+                     /organism="synthetic construct"
+                     /mol_type="other DNA"
+     CDS             join(56..62,1..11)
+                     /gene="fP"
+                     /translation="MRTDH"
+     CDS             complement(join(53..62,1..8))
+                     /gene="fM"
+                     /translation="MVCAH"
+ORIGIN
+        1 CAGACCATTA AAAGGTCCTT TGGGGGAATA CGCCGAGCAG GTAATCATTA ATTTAATGCG
+       61 CA
+//

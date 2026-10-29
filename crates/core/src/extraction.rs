@@ -34,7 +34,7 @@ pub fn extract(
     validate_against(feature.clone(), sequence, intervals)?;
     validate_structure(feature, sequence, intervals)?;
 
-    let letters: Vec<char> = sequence.letters();
+    let letters: &[char] = sequence.letter_slice();
     let mut selected: Vec<char> = Vec::new();
     for interval in intervals {
         let mut position: u64 = interval.start();

@@ -2087,7 +2087,7 @@ pub fn rebuild_cds(edited: Sequence, annotation: Cds) -> Result<Cds, DomainError
 
 /// Reference coordinates of the codon at a residue, in the order the codon
 /// is read on the CDS strand.
-fn codon_positions(
+pub(crate) fn codon_positions(
     intervals: OrderedIntervals,
     strand: Strand,
     number: u64,

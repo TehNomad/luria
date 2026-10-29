@@ -1,12 +1,15 @@
 //! luria core: the canonical first-milestone domain model.
 
 pub mod cds;
+pub mod cds_map;
 pub mod codon_usage;
+pub mod display_location;
 pub mod error;
 pub mod extraction;
 pub mod fasta;
 pub mod feature;
 pub mod frame;
+pub mod frames;
 pub mod genbank;
 pub mod genbank_cds;
 pub mod genbank_location;
@@ -14,13 +17,19 @@ pub mod genetic_code;
 pub mod identity;
 pub mod interval;
 pub mod mutation;
+pub mod name_match;
+pub mod orf;
+pub mod overview;
 pub mod primer;
 pub mod primer_design;
 pub mod primer_quality;
+pub mod protein_search;
 pub mod q5;
 pub mod q5_design;
 pub mod q5_expand;
+pub mod search;
 pub mod sequence;
 pub mod strand;
 pub mod tm;
 pub mod translation;
+pub mod view_record;

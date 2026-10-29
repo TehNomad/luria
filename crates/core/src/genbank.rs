@@ -152,9 +152,20 @@ impl GenBankRecord {
         self.sequence.clone()
     }
 
+    /// The record's sequence, borrowed; `sequence()` clones it.
+    pub(crate) fn sequence_ref(&self) -> &Sequence {
+        &self.sequence
+    }
+
     /// The feature table, in the order written.
     pub fn features(&self) -> Vec<GenBankFeature> {
         self.features.clone()
+    }
+
+    /// The feature table, in the order written, borrowed; `features()` clones
+    /// it.
+    pub(crate) fn feature_slice(&self) -> &[GenBankFeature] {
+        &self.features
     }
 }
 

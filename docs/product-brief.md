@@ -342,12 +342,28 @@ protein), details, provenance and export screens, and an IDT order
 table, docs/cli.md section 11 (D046); luria new, a form for a new design,
 docs/cli.md section 12 (D047).
 
-Milestone 8: Web interface
+Milestone 8: Sequence view
+
+Open a GenBank or FASTA file in the terminal and read it: both strands,
+translation, numbering, features, go-to and search.
+
+Implemented: luria FILE, with frame, feature and ORF lanes, an overview
+strip, go-to, and DNA and protein search; luria find, the same search as
+a table; docs/cli.md section 13 (D048 to D058).
+
+Milestone 9: Sequence editor
+
+Edit the sequence in the view: select, insert, replace, cut, yank and
+paste, with features following the edits, and save the edited construct
+(D059).
+
+Later: Web interface
 
 Expose the same capabilities through a web interface without duplicating
-scientific logic.
+scientific logic. Not scheduled (D059).
 
-The order from Milestone 4 on was set by D034 (owner, 2026-10-16).
+The order from Milestone 4 on was set by D034 (owner, 2026-10-16), and
+from Milestone 8 on by D059 (owner, 2026-10-27).
 
 Reorder these milestones only through an explicit scope decision.
 

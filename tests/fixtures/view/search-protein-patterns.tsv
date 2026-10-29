@@ -1,0 +1,41 @@
+record	target	pattern	normalized_pattern	pattern_length	hit_count	purpose
+synthetic	frames	X	X	1	116	every codon of every frame, stops included (D054)
+synthetic	frames	*	*	1	7	every stop codon of every frame
+synthetic	frames	M	M	1	6	plus and minus hits interleaved by start
+synthetic	frames	XX	XX	2	110	every overlapping pair, in each frame
+synthetic	frames	W*	W*	2	2	a residue then a stop
+synthetic	frames	WX	WX	2	5	X after W: the W* hits and every other W
+synthetic	frames	MKMA	MKMA	4	0	built to match only if frame +1 wrapped: no hit (D052)
+synthetic	pj	MKM	MKM	3	1	a run across the origin: wraps
+synthetic	pj	mkm	MKM	3	1	case ignored: the MKM hit
+synthetic	pj	KM	KM	2	1	starts in the last six bases, wraps
+synthetic	pj	MAW	MAW	3	1	after the origin, no wrap
+synthetic	pj	M	M	1	2	base order, not reading order: residue 3 first (D054)
+synthetic	pj	X	X	1	6	every codon, the stop at 9 with no number
+synthetic	pj	MKMAWX	MKMAWX	6	1	X matches the terminal stop (D054)
+synthetic	pj	MKMAW*	MKMAW*	6	1	the whole CDS, stop included
+synthetic	pj	MKMAWW	MKMAWW	6	0	as long as the target, last letter differs: no hit
+synthetic	pj	MKMAW*M	MKMAW*M	7	0	longer than the target: no hit
+synthetic	m1	Q	Q	1	2	minus strand: residue 3 before residue 2 (D054)
+synthetic	m1	MQQ*	MQQ*	4	1	minus strand: the run starts at the stop codon
+synthetic	m1	QX	QX	2	2	X matches the stop on the minus strand
+synthetic	p1	AW*	AW*	3	1	a plain plus-strand CDS, ending on the stop
+synthetic	p1	MAWXX	MAWXX	5	0	longer than the target: no hit
+pbr322	tet	MKSNNA	MKSNNA	6	1	tet's first six residues
+pbr322	tet	TST*	TST*	4	1	tet's last three residues and its stop
+pbr322	tet	X*	X*	2	1	one stop, at the end: last is stop
+pbr322	tet	LL	LL	2	9	overlapping pairs in a real protein
+pbr322	bla	MSIQHF	MSIQHF	6	1	bla's first six residues, at its right-hand end
+pbr322	bla	M	M	1	10	minus strand: residue 1 is the last hit by base (D054)
+pbr322	bla	KHWX	KHWX	4	1	X matches bla's stop
+pbr322	frames	MKSNNA	MKSNNA	6	1	the same peptide in six frames: tet's own frame
+pbr322	frames	MSIQHF	MSIQHF	6	1	the same peptide in six frames: bla's own frame
+pbr322	frames	WW	WW	2	3	a pair, found across 4361 bases and six frames
+framesamb	frames	X	X	1	62	every codon, `?` and `*` included
+framesamb	frames	**X	**X	3	1	X matches the unreadable TAR codon
+framesamb	frames	***	***	3	0	TAR is `?`, not a stop, though every reading is one: no hit
+framesamb	frames	VX	VX	2	3	X after V: a residue, and the unreadable RAA and TSK codons
+framesamb	frames	G	G	1	0	GGN is `?`: no hit, though every reading is G
+framesamb	frames	XXXXXXXXXXX	XXXXXXXXXXX	11	2	as long as the longest frames: one hit in each
+framesamb	frames	XXXXXXXXXXXX	XXXXXXXXXXXX	12	0	longer than every frame: no hit
+framesamb	frames	y	Y	1	4	case ignored, both strands

@@ -5,13 +5,15 @@ use std::env;
 use std::ffi::OsString;
 use std::fs;
 use std::io::{stderr, stdin, stdout, IsTerminal, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use luria_cli::args::{
-    checked_endpoint, checked_key, parse, utf8_arguments, Command, NewBackend, UsageError, USAGE,
+    checked_endpoint, checked_key, parse_with, utf8_arguments, Command, NewBackend, UsageError,
+    USAGE,
 };
 use luria_cli::exit::ExitStatus;
+use luria_cli::find;
 use luria_cli::interpret::document::render_interpretation;
 use luria_cli::interpret::document::InterpretationDocument;
 use luria_cli::interpret::run::{
@@ -20,6 +22,7 @@ use luria_cli::interpret::run::{
 };
 use luria_cli::new;
 use luria_cli::new::form::NewForm;
+use luria_cli::record_file;
 use luria_cli::request::{parse_profile, ProfileDocument};
 use luria_cli::result::render;
 use luria_cli::review;
@@ -27,6 +30,7 @@ use luria_cli::review::app::App;
 use luria_cli::review::export::{export_plan, write_export, ExportPlan};
 use luria_cli::review::proposal::ProposalApp;
 use luria_cli::run::{run_with_constructs, run_with_output, Outcome};
+use luria_cli::sequence_view;
 use luria_cli::version::render_version;
 use luria_nl::openai::OpenAiCompatible;
 
@@ -467,6 +471,42 @@ fn emit_new(
     }
 }
 
+/// `luria FILE`: open the sequence view on the file the command line named
+/// (8h §4 rules 4-5, D048 M8-13). The terminal comes first, before a byte of
+/// the file is read, so a missing terminal and an unreadable file cannot both
+/// claim the error; the message names the file as the command line gave it and
+/// points at `luria find FILE PATTERN`, which needs no terminal (rule 4). The
+/// file is then read by `record_file::read_record_file`, the reader `luria
+/// find` uses (D056), and a problem is printed and exited with exactly as
+/// `find` prints it (rule 5). A view that fails at the terminal itself is the
+/// internal error `review` gives it, exit 1.
+fn emit_view(file: PathBuf) -> ExitStatus {
+    // The path as the command line gave it, which is what `parse_with` kept.
+    let name: String = file.display().to_string();
+    match review::terminal_problem_for(
+        name.as_str(),
+        "'luria find FILE PATTERN' searches a file without one",
+        stdin().is_terminal(),
+        stdout().is_terminal(),
+    ) {
+        Some(problem) => report_usage(problem),
+        None => match record_file::read_record_file(&file) {
+            Err(problem) => {
+                let (message, status): (String, ExitStatus) = problem.report(&file);
+                write_err(format!("luria: {}\n", message).as_str());
+                status
+            }
+            Ok(record) => match sequence_view::terminal::run(record) {
+                Ok(()) => ExitStatus::Success,
+                Err(problem) => {
+                    write_err(format!("luria: the terminal failed: {}\n", problem).as_str());
+                    ExitStatus::Internal
+                }
+            },
+        },
+    }
+}
+
 /// Report a usage error on stderr, with the usage text repeated (plan §3.7,
 /// exit code 2: text on stderr, nothing on stdout).
 fn report_usage(problem: UsageError) -> ExitStatus {
@@ -480,7 +520,7 @@ fn main() -> ExitCode {
     let words: Vec<OsString> = env::args_os().skip(1).collect();
     let status: ExitStatus = match utf8_arguments(words) {
         Err(problem) => report_usage(problem),
-        Ok(arguments) => match parse(&arguments) {
+        Ok(arguments) => match parse_with(&arguments, &|word| Path::new(word).exists()) {
             Ok(Command::Help) => emit_help(),
             Ok(Command::Version) => emit_version(),
             Ok(Command::Q5Design {
@@ -529,6 +569,20 @@ fn main() -> ExitCode {
                 export,
                 backend,
             }) => emit_new(design, export, backend),
+            // 8i2: one file, one pattern, tab-separated rows. `find` prints its
+            // own rows and its own refusal, and the status is what the outcome
+            // says it is (contract §4).
+            Ok(Command::Find {
+                file,
+                pattern,
+                aa,
+                cds,
+                circular,
+            }) => find::run(&file, &pattern, aa, cds.as_deref(), circular),
+            // 8h: a first word naming an existing path, and nothing else.
+            // §4's order — terminal, then the shared file reader, then the
+            // view — is inside `emit_view`.
+            Ok(Command::View { file }) => emit_view(file),
             Err(problem) => report_usage(problem),
         },
     };

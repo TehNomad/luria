@@ -1127,7 +1127,7 @@ Decision:
 * **Milestone 6** is natural-language interpretation: an LLM adapter that
   turns user requests into typed operations and clarification requests.
 * **Milestone 7** is the review-oriented user interface (TUI).
-* **Milestone 8** is the web interface.
+* **Milestone 8** is the web interface. D059 replaces this line.
 
 Reason:
 
@@ -1659,3 +1659,561 @@ Reversibility:
 
 Other placements, composition choices, a different default overlap, or
 any other default for a scientific value needs approval.
+
+## D048: What the Milestone 8 view selects, shows, and refuses to read
+
+Status: approved by the owner, 2026-10-24
+(`docs/tasks/milestone-8-view.md`, answers M8-11 to M8-14). Applies
+D003, D005, D006, D018, D041, D046 and D047. M8-15 was answered on
+2026-10-24 and is recorded in D049; M8-1, M8-3, M8-6 and M8-20 are in
+D049, M8-16 to M8-19 in D050, M8-10 in D051. Still open there: M8-2,
+M8-4, M8-5, M8-7, M8-8 and M8-9.
+
+Decision:
+
+* **Which CDS is selected on open** (M8-11). A record with exactly one
+  usable CDS opens with it selected. A record with several opens with
+  none, and the title bar says so. The view never picks a CDS silently,
+  because the selected CDS decides the residue numbering on screen, what
+  the codon-step keys do, and what a protein search reads — the case
+  D005 lists first among the ambiguities that block.
+* **A cap on search hits** (M8-12). The view and `luria find` show at
+  most 200 hits and say how many there really are (`showing the first
+  200 of 8521 hits`). The cap is presentation: luria-core returns every
+  hit, at every position, overlapping included, uncapped. Without it one
+  all-ambiguity pattern such as `N` hits at every base of the record —
+  8521 hits on an 8521 bp construct — which is no usable hit list in the
+  view and 8521 rows on stdout.
+* **A terminal or nothing** (M8-13). `luria FILE` needs a terminal on
+  both stdin and stdout, checked by the same code `luria review` and
+  `luria new` use, and refusing with the usage error and exit status
+  `docs/cli.md` §5 already gives. Redirected output is a usage error, not
+  a half-drawn screen; the check runs before the file is opened. `luria
+  find` needs no terminal and writes its table to stdout like any other
+  report.
+* **How big a file luria will read** (M8-14). A record over 10 000 000
+  bases is refused, and the limit is named in the message. The
+  application refuses an over-long file on byte size before reading it,
+  so a gigabase FASTA never reaches the parser. This bounds what the
+  application opens; it does not change the sequence model's own
+  coordinate limits (D006), and both checks are tested at the boundary
+  and one base or byte past it.
+* **Shared entry point.** The view and `luria find` build the record
+  through one luria-core function, so file-format detection, topology and
+  these limits cannot differ between the two.
+
+Reversibility:
+
+Raising or removing either ceiling, a different hit cap, or selecting one
+CDS when a record offers several needs approval, since the last one would
+put numbers on screen that the user did not choose.
+
+## D049: Reading a record for the view: partials, format, topology, CDS names
+
+Status: approved by the owner, 2026-10-24
+(`docs/tasks/milestone-8-view.md`, answers M8-1, M8-3, M8-6, M8-15 and
+M8-20). Applies D005, D006, D009, D036, D041 and D042.
+
+Decision:
+
+* **Partial features are drawn, by their own parser** (M8-1). A feature
+  location with `<` or `>` — `<1..12`, `1..>900` — is read for display by
+  a separate display-only parser, which takes the stated base as the
+  bound and records which end is uncertain. The feature list names the
+  uncertain end; go-to does not jump to a feature whose start is not
+  stated. `parse_genbank_location` and its tests stay exactly as they
+  are: no flag is added to the shared parser, because a boolean that
+  changes what it accepts is the shape D009 and D036 reject. CDS import
+  still refuses a partial location (D041), so a partial feature is never
+  selectable for numbering and D042 is unchanged.
+* **Format by content, not by name** (M8-6). `LOCUS` first is GenBank,
+  `>` first is FASTA, anything else is refused. The view and `luria find`
+  read the record through one core entry point, so they cannot disagree
+  about what a file is (D048).
+* **FASTA topology is assumed, stated, and switchable** (M8-3, M8-20).
+  FASTA carries no topology, so the view assumes linear and labels it
+  `linear (assumed)`; `T` switches the record to circular for that
+  session, and `luria find --circular` does the same for one run. A
+  GenBank record's declared topology stays authoritative as D036 reads
+  it. This is a bounded exception to D005's "never guess": the
+  assumption is named on screen, changed by one visible key, and cannot
+  enter a design's arithmetic — no design is built from a view-only
+  assumption, and `find` names the mode it searched in. It licenses no
+  other inference, and what an assumed-circular FASTA may be *designed*
+  on remains milestone 9's question (T1, D035 — unchanged, unapproved).
+* **`--cds VALUE` names a CDS by any id the record offers** (M8-15). It
+  matches the display name, `/gene`, `/locus_tag` and `/protein_id`, and
+  the list form's `name (start..end)` only as the whole string. Matching
+  ignores ASCII case and interior whitespace; a substring must start at
+  a word boundary; a case-folded prefix is accepted when it matches one
+  CDS and rejected when it matches several. When several CDSs match,
+  `luria find` **refuses and lists the candidates** with the id source
+  and span that matched — it does not pause, because a command a script
+  runs must fail fast; choosing among them by eye is the view's picker.
+  The flag takes no range in milestone 8; `86..1276` is refused with a
+  message saying ranges come later, so the grammar does not change under
+  `proposal-commands.md` §3.2.
+
+Reversibility:
+
+Drawing a partial feature without marking the uncertain end, letting the
+science parser accept `<` or `>`, making FASTA circular by default, or
+letting an ambiguous `--cds` pick a CDS instead of listing the candidates
+all need approval.
+
+## D050: What the Milestone 8 search and frame fixtures encode
+
+Status: approved by the owner, 2026-10-24
+(`docs/tasks/milestone-8-view.md`, answers M8-16 to M8-19). Applies
+D006, D010, D018, D028, D040 and D048.
+
+Decision:
+
+* **Overlapping hits are all reported** (M8-16). `AA` on `AAA` is three
+  hits. On a circular sequence an equal-length pattern matches at every
+  rotation — a 6 bp pattern has as many start positions per strand as the
+  record has bases, including starts that run across the origin, and
+  those are not omitted. luria-core returns them uncapped; the 200 cap is
+  presentation (D048).
+* **Whose residue numbers a protein hit carries** (M8-17). In CDS mode it
+  carries that CDS's residue numbering (D006), and a hit ending on the
+  terminal stop carries none, because D010 says that codon is not a
+  residue — `luria find` prints `stop` there and the view says "to the
+  stop codon". In six-frame mode the number counts codons within that
+  frame from its first complete codon, and the strand and frame columns
+  are never empty.
+* **Reference order is not reading order.** `residue_bases` returns
+  reading order, as D040 records: descending base ranges on a
+  minus-strand CDS, so `bla` residue 1 sits on bases 4153, 4152, 4151.
+  D040's `aa_to_base` columns are ascending reference order, because
+  design intervals are sorted and merged. They are the same bases in two
+  orders, and every Milestone 8 fixture column states which one it holds.
+* **A leftover codon in a frame is not drawn** (M8-18). When a frame's
+  length is not a multiple of 3, the trailing one or two bases have no
+  letter above them. `?` means a *complete* codon that cannot be read —
+  an ambiguity code, or a codon D010 refuses to guess at. The Python
+  reference script maps Biopython's partial-codon output by hand and
+  states what it did, because Rust and Biopython disagree there first.
+* **Blocks snap to the translation's phase** (M8-19). In CDS mode a block
+  starts on the selected CDS's phase even when the terminal is too narrow
+  for a whole codon's worth of columns; the block widens or the view
+  scrolls. A residue never moves off its own bases, so single-basing past
+  a block edge does not re-seat every letter on the screen. The rejected
+  alternative — a split codon drawn over the line holding its middle base
+  — would make the residue-to-base relationship depend on scroll position
+  and double the layout fixtures.
+
+Reversibility:
+
+Collapsing overlapping hits, numbering frame-mode residues from the
+sequence start instead of the frame, drawing the leftover codon, or
+splitting a codon across a block edge all need approval, and each changes
+fixture rows already written against them.
+
+## D051: The two-tier process, for Milestone 8 only
+
+Status: approved by the owner, 2026-10-24
+(`docs/tasks/milestone-8-view.md`, answer M8-10; triage P1 and P2 of
+`docs/tasks/proposal-decision-triage.md`, which remains otherwise
+unapproved). `AGENTS.md` is **not** edited by this entry: the rules there
+stay as they are, and this is the owner's exception for one milestone,
+recorded here so the difference is visible rather than inferred.
+
+Decision:
+
+* **Science tier keeps the full process.** Contracts 8a1, 8a2, 8b, 8c,
+  8d, 8e, 8f, 8g and 8j are written as the milestones so far were: named
+  functions and signatures, the exact tests and commands, a "do not"
+  list, planner-written fixtures with independently verified expectations
+  recorded under `tests/fixtures/`, and decision entries for what they
+  settle. Nothing about that changes.
+* **Presentation tier is lighter.** Contracts 8h, 8i, 8k1, 8k2, 8k3, 8l1
+  and 8l2 name the behaviour, the keys and the tests, but key bindings,
+  colours and on-screen sentences are not numbered as M8-n questions and
+  get no decision entry. Their tests assert what a command does — that
+  pressing `j` moves the selection to the next base, that the view opens
+  a file and refuses one it cannot read — not the exact wording of a
+  status line. The planner may change such wording or a key between
+  contracts without an approval round.
+* **Scope and expiry.** This applies to Milestone 8 and nothing else. It
+  expires when Milestone 8 merges: the next milestone returns to
+  `AGENTS.md` unless the owner approves triage P1 and P2 as standing
+  rules. T1–T6 and P3–P5 stay unapproved, so the biology and the
+  design-side rules they would change are untouched.
+* **Why.** The milestone exists to find out how luria's sequences read at
+  a keyboard. A keystroke set chosen before that test is a set the owner
+  will want to change after it, and under the current rules each change
+  costs a contract amendment and a decision entry. The part of the
+  process that protects the science — fixtures, independent verification,
+  no silent inference, no expectation copied from an implementation — is
+  kept in full.
+
+Reversibility:
+
+The owner can pull any named screen back to the full process at any point
+in the milestone by naming it. A later milestone that approves triage P1
+and P2 supersedes this entry; one that does not returns to `AGENTS.md`
+by default.
+
+## D052: Frames, ambiguity codes, palindromic sites, and what `find` exits with
+
+Status: approved by the owner, 2026-10-24
+(`docs/tasks/milestone-8-view.md`, answers M8-2, M8-4, M8-5, M8-7, M8-8
+and M8-9, all as proposed). Applies D006, D010, D018, D028, D041, D042,
+D048, D049 and D050. With this entry, Milestone 8's open-question list is
+closed.
+
+Decision:
+
+* **Six frames do not run across the origin** (M8-2). Frames are counted
+  on the linear coordinates from base 1 and stop at the last base, on a
+  circular record as on a linear one: a codon that would wrap is not
+  translated in frame mode. A CDS that crosses the origin is still one
+  translation in CDS mode, joined as D018 has it. Frame numbering is
+  therefore independent of topology, and switching a FASTA to circular
+  (D049) changes search and the overview, not the frames.
+* **A template ambiguity code matches only what it truly is** (M8-7). At
+  an aligned position, the template letter matches a pattern letter only
+  when the pattern letter's base set contains **all** the template
+  letter's bases: template `A` matches pattern `A`, `R` and `N`; template
+  `N` matches pattern `N` alone. This rule is not derived from any
+  library. An earlier version of this bullet said Biopython's IUPAC
+  matching is intersection-based and answers `N` versus `A` the other way
+  round; measured on the pinned `biopython==1.88` that is not what
+  `Bio.Restriction` does — it compiles a regular expression out of the
+  enzyme's own site and matches the record literally, so `BstEII`
+  (`GGTNACC`) matches `GGTXACC`, where `X` is no IUPAC letter at all,
+  while `Dpi3090II` (`AAGRAG`) and `SenSARA26III` (`ACRCAG`) refuse a
+  record `R` at the position of their own `R`, which this rule accepts.
+  Neither containment nor intersection: Biopython says nothing about how
+  a record's own ambiguity codes should be read. So the reference script
+  hand-codes the containment rule, and Biopython is used in the fixtures
+  only where measurement supports it — the letter sets, the complement
+  table, and site counts over records whose bases are all `A`, `C`, `G`
+  and `T`. The answers are asserted in
+  `tests/fixtures/view/reference/search_dna.py`, corrected in
+  `docs/tasks/milestone-8-view.md` §6 and §8, and recorded in
+  `tests/fixtures/view/README.md` (text amended 2026-10-24 on the
+  owner's instruction; the rule itself is unchanged).
+* **A palindromic site is one hit** (M8-8). A site equal to its own
+  reverse complement is reported once, with strand `both`, in the view and
+  in `luria find`; a non-palindromic match still yields separate `+` and
+  `−` hits. pBR322 makes the count checkable: its EcoRI site `GAATTC`
+  occurs **exactly once** in the whole record, at 4359, only because the
+  record is circular (`GAA` at 4359–4361 plus `TTC` at 1–3), and its
+  BamHI (375), HindIII (29) and NdeI (2295) sites likewise occur exactly
+  once — matching the map every pBR322 prep sheet carries. Searching it
+  for `GAATTC` yields one hit, not two, and zero if the search refuses to
+  wrap.
+* **`luria find` exits 0 when nothing matches** (M8-9). A search that
+  finds nothing is a successful run: exit 0, `0 hits` on stdout. Exit 1
+  stays what `docs/cli.md` reserves it for — an internal error — and the
+  usage, malformed-input and design-failure codes stay 2, 4 and 7.
+  `grep`'s habit of exiting 1 on no match would read here as a broken
+  program, and a script that chains on `&&` would treat a clean search as
+  a failure.
+* **ORF finding stays in milestone 9** (M8-4). Milestone 8 gives a FASTA
+  file six-frame translation and nothing that numbers an ORF. Triage T2
+  is not approved and is not implemented here.
+  D058 replaces this bullet (M8-40).
+* **The CDS picker shows unusable CDSs** (M8-5). pBR322's ROP CDS appears
+  in the picker, greyed, with the reason it cannot be selected, and
+  cannot be chosen. The reason comes from the refusal code the core
+  returns (D042), not from a second judgement in the ui — the ui renders
+  a code, it does not decide biology. Whether `GTG` starts become usable
+  is triage T3, unapproved.
+
+Reversibility:
+
+Letting frames wrap, matching a record's ambiguity codes by intersection
+instead of containment, reporting a palindromic site twice, exiting 1 on
+no matches, or deciding greyness in the ui instead of from a core refusal
+code each need approval, and the first three change fixture rows written
+against them.
+
+## D053: How the view draws partial features and names refusals
+
+Status: approved by the owner, 2026-10-26, all four as proposed in
+contracts 8b1 and 8b2. Applies D036, D041, D042 and D049.
+
+Decision:
+
+* **A partial marker is drawn only on a feature's outer ends.** A `<` is
+  drawn when its base is the first interval's start, and a `>` when its
+  base is the last interval's end, both in D036 order. A marker on an
+  inner boundary (`1..<12`, or `join(55..>60,1..5)`, whose `>` sits on the
+  origin boundary) is not drawn and keeps its `fuzzy_end` refusal: one bar
+  with an open inner end has no honest drawing, and no fixture holds one.
+* **The feature list gives the refusal that stands without the marker.**
+  The display parser removes outer markers before calling the shared
+  parser, so `order(<1..10,20..30)` is refused there as `order` and
+  `join(1..>5,8..10)` as `unsupported_join`, while
+  `parse_genbank_location` keeps answering `fuzzy_end` for both.
+* **Refusals shown in the view are the existing `DomainError` codes.**
+  `docs/tasks/milestone-8-view.md` §4.1's `partial_location`,
+  `non_atg_start` and `fuzzy_start` were illustrations; inventing them
+  would give one rule two codes. A CDS shows the first rule that refuses
+  it, so pBR322's ROP is unusable as `no_id`, though it also has a `GTG`
+  start.
+* **A feature's display name is not its CDS id.** The name is the first
+  of `/label`, `/gene`, `/locus_tag` and `/product` with a value, else the
+  feature key; the D041 id is unchanged. synthetic's `m1` CDS is named
+  `ignored-gene` in the feature list, and ROP is named `ROP protein` with
+  no id.
+
+Reversibility:
+
+Drawing inner markers needs a drawing rule for an open inner boundary.
+New refusal codes for the view would change `docs/cli.md`'s stable codes
+(5a1). Either needs approval and changes fixture rows written against
+these answers.
+
+## D054: Protein-search matching and order, and the overview's columns
+
+Status: approved by the owner, 2026-10-26. Settles four questions that
+contracts 8f and 8g put to the owner and that
+`docs/tasks/milestone-8-view.md` §4.5 and §4.6 left open. Applies D006,
+D010, D050 and D052.
+
+Decision:
+
+* **`X` matches every symbol, the stop included.** In a protein pattern
+  `X` matches any residue, an unreadable codon `?`, and `*`. So `MKMAWX`
+  finds synthetic's `pj` (`MKMAW*`), and `KX` finds frame +1's `K*` in
+  `ATGAAATAG`. `*` still matches only `*`, any other letter only itself,
+  and `?` is matched only by `X`. This is a matching rule only: the stop
+  codon still has no residue number (D010), so a CDS hit that ends on it
+  has no last residue. The planner proposed that `X` skip stops, since a
+  stop is not a residue; the owner chose the wider match.
+* **Protein hits come left to right by base, in both modes.** Hits sort
+  by their zero-based `start`, as DNA hits do (D052), and two six-frame
+  hits with the same start come plus strand first. In CDS mode this is not
+  reading order: on a minus-strand CDS later residues come first, and in
+  `pj`, which crosses the origin, `M` at residue 3 (base 0) comes before
+  `M` at residue 1 (base 54). A hit that crosses the origin sorts by its
+  start, near the end of the record. `luria find --cds` prints its rows in
+  this order. The planner proposed reading order for CDS hits.
+* **Overview columns use the floor formula.** With `w` columns over `L`
+  bases, column `i` covers `[⌊i·L/w⌋, ⌊(i+1)·L/w⌋)`. Sizes differ by at
+  most one, and the larger columns are spread through the strip rather
+  than bunched at one end: pBR322 (4361 bases) on 80 columns gets 41
+  columns of 55 bases and 39 of 54, interleaved.
+* **A record shorter than the overview is drawn narrow.** When there are
+  more columns than bases, the overview uses one column per base and the
+  strip is that much shorter: a 60 bp record on 80 columns is 60 columns
+  wide. No column is empty and no base is stretched over two. Keeping all
+  80 columns would leave every fourth one empty under the floor formula,
+  and a feature drawn in the columns its bases fall in (§4.6) would show
+  gaps.
+
+Reversibility:
+
+Each is local to one function: `find_protein`'s matcher or its sort, or
+`overview_columns`. The first two also fix rows in
+`tests/fixtures/view/search-protein-hits.tsv` and the order `luria find`
+prints, so reversing either rewrites that table and needs approval.
+
+## D055: How the view's blocks meet codons, frames and numbers
+
+Status: approved by the owner, 2026-10-26, all four as the planner
+proposed them with mockups drawn from pBR322. Applies D050 (M8-19, blocks
+snap to the translation's phase) and `docs/tasks/milestone-8-view.md` §5.1;
+contracts 8a2 and 8j carry the column rules.
+
+Decision:
+
+* **With a CDS selected, one line is shortened rather than the grid
+  shifted.** Lines start at base 1 and are the full line width; a line that
+  would end inside a codon of the selected CDS ends just before that codon
+  instead, so it is 1 or 2 bases short and the lines after it continue from
+  there. In pBR322 with `tet` selected on 30-base lines, the line from 61
+  ends at 88 and the next starts at `tet`'s codon at 89. The same rule
+  covers a CDS that crosses the origin of a record whose length is not a
+  multiple of 3, where the codons on the two sides of the origin are in
+  different phases (`frames-62.gb`), with no extra case. The rejected
+  alternative started the first line one or two blank columns before base 1,
+  and still needed this rule for the origin.
+* **In three- and six-frame modes, a residue sits over its codon's middle
+  base, on whichever line holds that base.** No grid keeps three frames'
+  codons whole, so a codon cut by a line edge keeps its residue over its
+  middle base and its other bases on the neighbouring line. The grid is
+  fixed from base 1, so a residue never moves when the view scrolls. Frame
+  labels (`+1` … `-3`) sit in the number gutter; forward frames above the
+  top strand, `+1` nearest it, and reverse frames below the bottom strand,
+  `-1` nearest it. The rejected alternative hid the residue of a cut codon.
+* **Residue numbers are drawn for the selected CDS only.** Under (plus
+  strand) or over (minus strand) its residues, next to the strand: every
+  fifth residue and the first on the line, centred on the residue. Frame
+  modes draw no number lines; the status line gives a frame residue's own
+  number (D050) at the cursor.
+* **No display toggles in milestone 8.** The bottom strand is always shown
+  and there is no gap every 10 bases, so there is one layout per width and
+  one set of column tables. `r` and `space` from the proposal can come in a
+  polish contract after the hand test (8m).
+  D058 replaces this bullet (M8-23, M8-29, M8-30, M8-40).
+
+Reversibility:
+
+Each changes rows of the 8a2 column tables and the 8j layout tests; the
+toggles add a dimension to both. Needs approval.
+
+## D056: The byte ceiling, the CDS matcher's home, and the cli order
+
+Status: approved by the owner, 2026-10-26, all three as the planner
+proposed them. Applies D048 (M8-14), D049 (M8-15) and D041; changes the
+order of `docs/tasks/milestone-8-view.md` §7.
+
+Decision:
+
+* **`MAX_RECORD_BYTES` is 64 MiB** (67 108 864 bytes). D048 asked for a
+  byte check before a file is read and set no number. A fully annotated
+  10 Mb GenBank file is roughly 25-30 MB and a 10 Mb FASTA about 10 MB,
+  so a record within D048's base ceiling is never refused by bytes, while
+  a gigabase FASTA never reaches the parser. Tested at exactly 64 MiB and
+  one byte over, as D048 asks of both checks.
+* **The `--cds` matcher is core's, in a contract of its own (8i1).** Each
+  CDS in the view's record carries every id D049 names, with its source
+  (display name, `/gene`, `/locus_tag`, `/protein_id`), and one core
+  function matches a value to one CDS, none, or several candidates by
+  D049's rules. `luria find` (8i2), go-to (8k2) and the feature list (8k3)
+  share it. In `luria find`, no match or several matches is a usage error
+  (exit 2) whose message lists the candidates with the source and span that
+  matched; a value matching one unusable CDS exits with that CDS's own
+  refusal and its category's exit code.
+* **`luria find` before opening a bare file.** 8i1 then 8i2 (`find`, its
+  dispatch arm, the byte ceiling and the file reader the view will share)
+  come first. Opening `luria FILE` (8h: the terminal check, the `.json`
+  refusal, "did you mean") moves to just after 8k1, when there is a view
+  to open; until then `luria FILE` stays an unknown command, as today.
+
+Reversibility:
+
+A different byte ceiling changes one constant and its two boundary tests.
+Moving the matcher, or changing its exit codes, changes `docs/cli.md`'s
+codes and the 8i2 tests. Needs approval.
+
+## D057: A bare number in go-to, and the feature list before go-to
+
+Status: approved by the owner, 2026-10-26, both as the planner proposed
+them. Settles an ambiguity in `docs/tasks/milestone-8-view.md` §5.3 and
+`proposal-sequence-view.md` §3, which list both `1210` (a base) and `404`
+(a residue) as go-to input; changes the order D056 set.
+
+Decision:
+
+* **A bare number is a base.** In go-to, digits alone go to that 1-based
+  base, the numbering the status line shows, whatever CDS is selected. A
+  residue is a letter and a number (`D404`): it goes to that residue's
+  codon in the selected CDS, and is refused with the actual residue when
+  the letter does not match (`residue 404 is V, not D`). There is no
+  residue form without the letter. One input has one meaning, so the same
+  text never goes somewhere else because the selection changed, and the
+  letter catches a number that names the wrong residue.
+  D058 says where on the codon the cursor lands (M8-35).
+* **The feature list and CDS picker (8k3) come before go-to (8k2).** Go-to
+  opens the feature list filtered to its matches when a name matches
+  several features, so building the list first lets 8k2 do that in one
+  contract instead of 8k3 rewriting 8k2's code. The order is 8i1, 8i2, 8j,
+  8k1, 8h, 8k3, 8k2, 8l1, 8l2.
+
+Reversibility:
+
+Accepting a bare residue later would change go-to's parse and its tests,
+and would have to say which meaning a bare number keeps. Needs approval.
+
+## D058: What the hand test changed beyond keys and wording (Milestone 8)
+
+Status: recorded by the planner, 2026-10-28, from the owner's answers
+M8-21 to M8-40 (`docs/tasks/milestone-8m-polish.md` §1, 2026-10-27 and
+2026-10-28), implemented in contracts 8m1 to 8m18. Keys, colours and
+on-screen words stay in that table without decision entries, as D051
+allows; this entry records the answers that change core, a fixture, or
+an earlier decision. Changes D052, D055 and D057.
+
+Decision:
+
+* **The view draws open reading frames** (M8-40). This replaces D052's
+  "ORF finding stays in milestone 9". `luria_core::orf::find_orfs` reads
+  each strand in its own direction. A start is `ATG`, a stop is a codon
+  the standard table reads as a stop, and an ambiguous codon is neither
+  (D010). Each stop has at most one ORF: the one from the furthest-back
+  `ATG` since the previous stop in that frame. It is kept when it has at
+  least `ORF_MIN_RESIDUES` (75) codons, the `ATG` counted and the stop
+  not. On a circular record an ORF may cross the origin, but is never
+  longer than the record; on a linear one a reading that runs off an end
+  without a stop is not an ORF. The view's topology decides which, so `T`
+  changes a FASTA's ORFs. `tests/fixtures/view/orfs.tsv`, from an
+  independent Biopython reference (D039), pins it. ORFs are drawn as
+  lanes and nothing else: an ORF is not a CDS, cannot be selected, and no
+  command prints one. Triage T2 is settled for display only.
+* **The view has display toggles** (M8-23, M8-29, M8-30, M8-40). This
+  replaces D055's "No display toggles in milestone 8". `F` cycles the
+  feature lanes (all, CDSs only, none), `C` turns colours off and on, and
+  `O` shows and hides the ORF lanes, beside `t` and `o` from the plan.
+  The bottom strand is still always shown and there is still no gap every
+  10 bases: `r` and `space` were not added.
+* **Lines are a multiple of 3 bases in every mode** (M8-28), as many as
+  fit beside the base numbers: 66 at 80 columns for pBR322. This replaces
+  the plan's "a multiple of 10, and of 30 with a translation", so D055's
+  30-base example no longer describes the screen; D055's shortened line
+  and D050's phase are unchanged. Every block has a ruler line over the
+  top strand (M8-33), and a lane's arrowhead is drawn at the feature's 3′
+  end (M8-34). The layout tables of contract 8a2 were regenerated by
+  their reference script for both, in 8m10 and 8m11.
+* **Where the cursor lands** (M8-21, M8-35). This refines D057. Go-to a
+  residue puts the cursor on the first base of its codon in reading
+  direction (`CdsMap::residue_bases(n)[0]`, the highest base on the minus
+  strand), and so do `w` and `b`. A CDS picked from the `c` list lands on
+  its start codon. A feature, from the `f` list or by name, lands on its
+  5′ end, and one whose 5′ end is open (`<` on plus, `>` on minus) is
+  refused. A bare number is still a base. With no CDS selected, a residue
+  opens the CDS list first (M8-22).
+
+Reason:
+
+The owner tried the view at the keyboard after 8l2, and again after 8m4
+and 8m12, and asked for these; the 8m table gives each answer as the
+owner gave it. One line width in every mode means `t` no longer reflows
+the lines (M8-28).
+
+Reversibility:
+
+Changing the ORF rules changes `orfs.tsv`, its reference script and
+`orf_fixtures.rs`. Changing the line width or the ruler changes the 8a2
+layout tables and `layout_fixtures.rs`. The landing rules and toggles are
+cli only. Needs approval.
+
+## D059: The milestone order from Milestone 8 on
+
+Status: recorded by the planner, 2026-10-28, from the owner's answer
+M8-27 (2026-10-27, `docs/tasks/milestone-8m-polish.md` §1). Replaces
+D034's "Milestone 8 is the web interface" and the milestone list in
+`docs/product-brief.md` from Milestone 8 on.
+
+Decision:
+
+* **Milestone 8 is the sequence view**: `luria FILE`, a read-only view of
+  a GenBank or FASTA file, and `luria find`, as implemented under
+  `docs/tasks/milestone-8-*.md` and recorded in D048 to D058.
+* **Milestone 9 is a general sequence editor in the view**: Vim-style `v`
+  (select), `i` (insert) and `r` (replace), with cut, yank and paste of
+  any length, features following the edits, and the edited construct
+  saved. This reverses `docs/tasks/proposal-product-direction.md` §5's
+  "not a general sequence editor", and takes in the export of an edited
+  construct that the proposal put in milestone 10. Milestone 9's plan
+  and its own decisions settle the rest.
+* **The web interface is not scheduled.** Nothing after milestone 9 is
+  ordered yet. The proposal's §6 order for milestones 10 and 11 is not
+  approved.
+
+Reason:
+
+The owner built milestone 8 as the proposal's sequence view rather than
+D034's web interface, and after the hand test chose an editor next. No
+entry recorded either change; this records both, as D034 did for
+milestone 4.
+
+Reversibility:
+
+Reordering milestones needs an explicit scope decision, as D034 and the
+product brief say. Needs approval.

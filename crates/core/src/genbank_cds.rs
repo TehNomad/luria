@@ -95,6 +95,8 @@ use crate::interval::OrderedIntervals;
 use crate::sequence::Sequence;
 use crate::translation::translate;
 use crate::translation::Translation;
+use std::collections::HashMap;
+use std::collections::HashSet;
 
 /// Which qualifier a CDS's id came from (D041 G2).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -292,30 +294,6 @@ fn id_text(feature: &GenBankFeature) -> Option<String> {
     id_of(feature).map(|(_qualifier, text)| text)
 }
 
-/// True when the feature is a `CDS` (G1) whose id text is `wanted` (§4.1
-/// step 2 and §4.2 step 3).
-fn is_named_cds(feature: &GenBankFeature, wanted: String) -> bool {
-    if feature.key() != "CDS" {
-        return false;
-    }
-    match id_text(feature) {
-        Some(text) => text == wanted,
-        None => false,
-    }
-}
-
-/// The key lines of the CDS features whose id text is `wanted`, in file
-/// order (§4.2 step 3).
-fn shared_lines(features: &[GenBankFeature], wanted: String) -> Vec<u64> {
-    let mut found: Vec<u64> = Vec::new();
-    for feature in features.iter() {
-        if is_named_cds(feature, wanted.clone()) {
-            found.push(feature.line());
-        }
-    }
-    found
-}
-
 /// The letters of a text, one string each, so a residue and a codon can be
 /// compared one at a time.
 fn letters(text: String) -> Vec<String> {
@@ -382,16 +360,62 @@ fn intervals_of(
     Ok(found)
 }
 
+/// What every evaluation of a CDS feature needs from the record, gathered
+/// once per import: the feature table and the sequence, both borrowed from the
+/// record instead of cloned, and the map from an id text to the `CDS` features
+/// that carry it (§4.1 step 2, §4.2 step 3). Each group holds the feature's
+/// index in the table and its key line, in file order, which is what
+/// `shared_lines` used to collect by scanning the whole table for every CDS.
+/// Only a feature whose key is `CDS` joins a group, as `is_named_cds` checked:
+/// a `gene` feature with the same id text never makes a CDS ambiguous.
+struct Survey<'a> {
+    features: &'a [GenBankFeature],
+    sequence: &'a Sequence,
+    cdss: HashMap<String, Vec<(usize, u64)>>,
+}
+
+impl<'a> Survey<'a> {
+    /// The survey of `record`: one pass over its feature table.
+    fn read(record: &'a GenBankRecord) -> Survey<'a> {
+        let features: &'a [GenBankFeature] = record.feature_slice();
+        let mut cdss: HashMap<String, Vec<(usize, u64)>> = HashMap::new();
+        for pair in features.iter().enumerate() {
+            if pair.1.key() != "CDS" {
+                continue;
+            }
+            let text: String = match id_text(pair.1) {
+                Some(found) => found,
+                None => continue,
+            };
+            cdss.entry(text).or_default().push((pair.0, pair.1.line()));
+        }
+        Survey {
+            features,
+            sequence: record.sequence_ref(),
+            cdss,
+        }
+    }
+
+    /// The index and the key line of every `CDS` feature whose id text is
+    /// `wanted`, in file order; empty when none has it.
+    fn matches(&self, wanted: &str) -> &[(usize, u64)] {
+        match self.cdss.get(wanted) {
+            Some(found) => found.as_slice(),
+            None => &[],
+        }
+    }
+}
+
 /// §4.2: the CDS feature at `index`, checked against every rule luria applies.
-/// The first step that fails gives the refusal.
-fn evaluate(record: &GenBankRecord, index: usize) -> Result<ImportedCds, DomainError> {
-    let features: Vec<GenBankFeature> = record.features();
-    let feature: GenBankFeature = features[index].clone();
-    let seq: Sequence = record.sequence();
+/// The first step that fails gives the refusal. Everything the steps need
+/// beyond the feature itself comes from `survey`.
+fn evaluate(survey: &Survey, index: usize) -> Result<ImportedCds, DomainError> {
+    let feature: &GenBankFeature = &survey.features[index];
+    let seq: &Sequence = survey.sequence;
     let line: u64 = feature.line();
 
     // Step 1: the id, and the qualifier it came from.
-    let (qualifier, text): (CdsIdQualifier, String) = match id_of(&feature) {
+    let (qualifier, text): (CdsIdQualifier, String) = match id_of(feature) {
         Some(found) => found,
         None => return refuse(GenBankCdsRule::NoId, "".to_string(), Some(line), None),
     };
@@ -400,12 +424,12 @@ fn evaluate(record: &GenBankRecord, index: usize) -> Result<ImportedCds, DomainE
     let id: Identifier = Identifier::create(text.to_string())?;
 
     // Step 3: two CDSs with this id cannot be told apart.
-    let lines: Vec<u64> = shared_lines(&features, text.clone());
-    if lines.len() >= 2 {
+    let shared: &[(usize, u64)] = survey.matches(&text);
+    if shared.len() >= 2 {
         return refuse(
             GenBankCdsRule::AmbiguousName,
             text.clone(),
-            Some(lines[1]),
+            Some(shared[1].1),
             None,
         );
     }
@@ -418,7 +442,7 @@ fn evaluate(record: &GenBankRecord, index: usize) -> Result<ImportedCds, DomainE
         "translation".to_string(),
     ];
     for name in checked.iter() {
-        if count(&feature, name.to_string()) > 1 {
+        if count(feature, name.to_string()) > 1 {
             return refuse(
                 GenBankCdsRule::RepeatedQualifier,
                 text,
@@ -431,7 +455,7 @@ fn evaluate(record: &GenBankRecord, index: usize) -> Result<ImportedCds, DomainE
     // Step 5: a pseudo feature is not a coding sequence luria edits.
     let pseudo_names: Vec<String> = vec!["pseudo".to_string(), "pseudogene".to_string()];
     for name in pseudo_names.iter() {
-        if count(&feature, name.to_string()) > 0 {
+        if count(feature, name.to_string()) > 0 {
             return refuse(
                 GenBankCdsRule::Pseudo,
                 text,
@@ -442,8 +466,8 @@ fn evaluate(record: &GenBankRecord, index: usize) -> Result<ImportedCds, DomainE
     }
 
     // Step 6: only a codon start of 1 is read.
-    if count(&feature, "codon_start".to_string()) > 0 {
-        let stated: Option<String> = first_value(&feature, "codon_start".to_string());
+    if count(feature, "codon_start".to_string()) > 0 {
+        let stated: Option<String> = first_value(feature, "codon_start".to_string());
         if stated != Some("1".to_string()) {
             return refuse(GenBankCdsRule::CodonStart, text.clone(), Some(line), stated);
         }
@@ -452,8 +476,8 @@ fn evaluate(record: &GenBankRecord, index: usize) -> Result<ImportedCds, DomainE
     // Step 7: only tables 1 and 11 are read at all, and 11 because tables 1
     // and 11 give every codon the same residue; step 11 requires an ATG start
     // under every table (D042).
-    let transl_table: Option<String> = first_value(&feature, "transl_table".to_string());
-    if count(&feature, "transl_table".to_string()) > 0
+    let transl_table: Option<String> = first_value(feature, "transl_table".to_string());
+    if count(feature, "transl_table".to_string()) > 0
         && transl_table != Some("1".to_string())
         && transl_table != Some("11".to_string())
     {
@@ -489,7 +513,7 @@ fn evaluate(record: &GenBankRecord, index: usize) -> Result<ImportedCds, DomainE
     // Step 9: the intervals, and the CDS they carry.
     let intervals: OrderedIntervals = intervals_of(seq.reference(), location.intervals())?;
     let cds: Cds = Cds::create(
-        &seq,
+        seq,
         id,
         intervals,
         location.strand(),
@@ -499,10 +523,10 @@ fn evaluate(record: &GenBankRecord, index: usize) -> Result<ImportedCds, DomainE
     )?;
 
     // Step 10: the residues, whose terminal stop is not one.
-    let residues: Translation = translate(&seq, &cds)?;
+    let residues: Translation = translate(seq, &cds)?;
 
     // Step 11: every table is the standard code only from an ATG start (D042).
-    let coding: String = extract_cds(&seq, &cds)?;
+    let coding: String = extract_cds(seq, &cds)?;
     let start: String = first_codon(coding);
     if start != "ATG" {
         return refuse(
@@ -514,8 +538,8 @@ fn evaluate(record: &GenBankRecord, index: usize) -> Result<ImportedCds, DomainE
     }
 
     // Step 12: a stated translation must be luria's own (G3).
-    if count(&feature, "translation".to_string()) > 0 {
-        let stated: String = match first_value(&feature, "translation".to_string()) {
+    if count(feature, "translation".to_string()) > 0 {
+        let stated: String = match first_value(feature, "translation".to_string()) {
             Some(value) => value,
             None => "".to_string(),
         };
@@ -552,14 +576,18 @@ pub fn import_cds(
     record: &GenBankRecord,
     names: &[Identifier],
 ) -> Result<GenBankImport, DomainError> {
-    // §4.1 step 1: a name the request gives more than once.
-    for position in 0..names.len() {
-        let name: Identifier = names[position].clone();
-        let repeated: bool = names
-            .iter()
-            .skip(position + 1)
-            .any(|other| other.value() == name.value());
-        if repeated {
+    // §4.1 step 1: a name the request gives more than once, refused before
+    // anything else is examined. The refusal names the first name, in request
+    // order, that occurs again later, so every name is counted first and the
+    // names are then walked in order: a set filled while walking would name
+    // the first pair that closes, and in `[p1, m1, m1, p1]` that is `m1`
+    // rather than `p1`.
+    let mut counts: HashMap<&str, usize> = HashMap::new();
+    for name in names.iter() {
+        *counts.entry(name.value()).or_insert(0) += 1;
+    }
+    for name in names.iter() {
+        if counts[name.value()] >= 2 {
             return unusable(
                 GenBankCdsRule::RepeatedName,
                 name.value().to_string(),
@@ -569,45 +597,41 @@ pub fn import_cds(
         }
     }
 
-    let features: Vec<GenBankFeature> = record.features();
+    // Everything every evaluation needs, gathered once for the call: the
+    // feature table and the sequence borrowed from the record, and the CDS
+    // features grouped by id text.
+    let survey: Survey = Survey::read(record);
     let mut imported: Vec<ImportedCds> = Vec::new();
-    let mut used: Vec<usize> = Vec::new();
+    let mut used: HashSet<usize> = HashSet::new();
 
     // §4.1 step 2: each name, in the order the request gives it.
     for name in names.iter() {
         let wanted: String = name.value().to_string();
-        let mut matches: Vec<usize> = Vec::new();
-        for pair in features.iter().enumerate() {
-            if is_named_cds(pair.1, wanted.clone()) {
-                matches.push(pair.0);
-            }
-        }
+        let matches: &[(usize, u64)] = survey.matches(&wanted);
         if matches.is_empty() {
             return unusable(GenBankCdsRule::NotFound, wanted, None, None);
         }
         if matches.len() >= 2 {
-            let second: u64 = features[matches[1]].line();
+            let second: u64 = matches[1].1;
             return unusable(GenBankCdsRule::AmbiguousName, wanted, Some(second), None);
         }
-        {
-            let imported_cds: ImportedCds = evaluate(record, matches[0])?;
-            imported.push(imported_cds);
-            used.push(matches[0]);
-        }
+        let imported_cds: ImportedCds = evaluate(&survey, matches[0].0)?;
+        imported.push(imported_cds);
+        used.insert(matches[0].0);
     }
 
     // §4.1 step 3: every feature the request did not import, in file order.
     let mut unused: Vec<UnusedFeature> = Vec::new();
-    for pair in features.iter().enumerate() {
+    for pair in survey.features.iter().enumerate() {
         let position: usize = pair.0;
         if used.contains(&position) {
             continue;
         }
-        let feature: GenBankFeature = pair.1.clone();
+        let feature: &GenBankFeature = pair.1;
         let is_cds: bool = feature.key() == "CDS";
-        let id: Option<String> = if is_cds { id_text(&feature) } else { None };
+        let id: Option<String> = if is_cds { id_text(feature) } else { None };
         let refusal: Option<DomainError> = if is_cds {
-            evaluate(record, position).err()
+            evaluate(&survey, position).err()
         } else {
             None
         };
@@ -944,5 +968,183 @@ mod tests {
         assert_eq!(imported.unused().len(), 1);
         let refusal: Option<DomainError> = imported.unused()[0].refusal();
         assert_eq!(refusal.unwrap().code(), "empty_identifier");
+    }
+
+    /// A fixture record's text, read as it sits on disk. A test's working
+    /// directory is the package root, which is the path the integration tests
+    /// use.
+    fn read_input(file: &str) -> String {
+        let path: String = format!("../../tests/fixtures/genbank/{}", file);
+        std::fs::read_to_string(&path)
+            .unwrap_or_else(|error| panic!("cannot read {}: {}", path, error))
+    }
+
+    /// `tests/fixtures/genbank/synthetic.gb`, which holds two CDSs named `p1`,
+    /// two named `m1`, and a `gene` feature whose id text is `p1`.
+    fn synthetic() -> GenBankRecord {
+        let text: String = read_input("synthetic.gb");
+        read_genbank(Identifier::create("synthetic".to_string()).unwrap(), text)
+            .unwrap_or_else(|error| panic!("synthetic.gb is refused: {:?}", error.message()))
+    }
+
+    /// §4.1 step 1 names the first name, in request order, that occurs again
+    /// later. Here `p1` repeats at 0 and 3 and `m1` at 1 and 2, so the pair
+    /// that closes first is `m1` while the first name repeated later is `p1`.
+    #[test]
+    fn the_first_name_repeated_later_is_the_one_refused() {
+        let found: GenBankRecord = synthetic();
+        let problem =
+            cds_problem(import_cds(&found, &names(&["p1", "m1", "m1", "p1"])).unwrap_err());
+        assert_eq!(problem.rule, GenBankCdsRule::RepeatedName);
+        assert_eq!(problem.cds, "p1".to_string());
+        assert_eq!(problem.line, None);
+        assert_eq!(problem.detail, None);
+    }
+
+    /// The record of the scale test below: `GENES` genes, each written as a
+    /// `gene` feature and a `CDS` feature on the same span and with the same
+    /// `/gene` and `/locus_tag`, each CDS `ATG` + `CODONS` `GCT` codons +
+    /// `TAA`, and `GAP` `C`s before the next gene.
+    const GENES: usize = 1000;
+    const CODONS: usize = 331;
+    const GAP: usize = 101;
+    const CDS_BP: usize = 3 + 3 * CODONS + 3;
+    const PER_GENE: usize = CDS_BP + GAP;
+
+    /// The id of gene `index`: `b00000` for the first, `b00999` for the last.
+    fn tag(index: usize) -> String {
+        format!("b{:05}", index)
+    }
+
+    /// That record as text, read as the caller reads it. Gene `index` runs
+    /// `index * PER_GENE + 1 ..= index * PER_GENE + CDS_BP`, and the sequence
+    /// is `GENES * PER_GENE` bp, as its LOCUS line states. Every CDS sits
+    /// inside its own block, so the `C`s between two genes are read as part of
+    /// neither gene's CDS.
+    fn thousand_genes() -> GenBankRecord {
+        let mut lines: Vec<String> = vec![
+            format!(
+                "LOCUS       thousand      {} bp    DNA     linear   SYN 17-OCT-2026",
+                GENES * PER_GENE
+            ),
+            "FEATURES             Location/Qualifiers".to_string(),
+            format!("     source          1..{}", GENES * PER_GENE),
+        ];
+        for index in 0..GENES {
+            let span: String = format!("{}..{}", index * PER_GENE + 1, index * PER_GENE + CDS_BP);
+            for name in ["gene", "CDS"].iter() {
+                lines.push(key(name, &span));
+                lines.push(q(&format!("/gene=\"{}\"", tag(index))));
+                lines.push(q(&format!("/locus_tag=\"{}\"", tag(index))));
+            }
+        }
+        // ORIGIN: 60 bases to a line, each line numbered with the position of
+        // its first base, as the reader requires.
+        lines.push("ORIGIN".to_string());
+        let block: String = "ATG".to_string() + &"GCT".repeat(CODONS) + "TAA" + &"C".repeat(GAP);
+        let bases: String = block.repeat(GENES);
+        let letters: Vec<char> = bases.chars().collect();
+        for group in letters.chunks(60).enumerate() {
+            let text: String = group.1.iter().collect();
+            lines.push(format!("{:>10} {}", group.0 * 60 + 1, text));
+        }
+        lines.push("//".to_string());
+        read_genbank(
+            Identifier::create("thousand".to_string()).unwrap(),
+            lines.join("\n"),
+        )
+        .unwrap_or_else(|error| {
+            panic!(
+                "the {} gene record is refused: {:?}",
+                GENES,
+                error.message()
+            )
+        })
+    }
+
+    /// Correctness at scale: the `gene` feature of every id text must not join
+    /// its `CDS` (D041 G1), so the empty request lists all `2 * GENES + 1`
+    /// features and gives every CDS no refusal, and a request naming all
+    /// `GENES` locus tags in reverse order gets the CDSs back in that order
+    /// and leaves only the source and the genes.
+    #[test]
+    fn a_thousand_cdss_with_their_genes_import_in_file_order() {
+        let found: GenBankRecord = thousand_genes();
+        let every: GenBankImport = import_cds(&found, &[]).unwrap();
+        let unused: Vec<UnusedFeature> = every.unused();
+        assert_eq!(
+            unused.len(),
+            2 * GENES + 1,
+            "the empty request leaves {} features, expected the source and the {} genes \
+             with their CDSs",
+            unused.len(),
+            GENES,
+        );
+        assert_eq!(unused[0].key(), "source".to_string());
+        for index in 0..GENES {
+            let gene: &UnusedFeature = &unused[2 * index + 1];
+            let cds: &UnusedFeature = &unused[2 * index + 2];
+            assert!(
+                gene.key() == "gene" && cds.key() == "CDS" && cds.id() == Some(tag(index)),
+                "row {} of the not-used list is {:?} ({:?}) and row {} is {:?} ({:?}), expected \"gene\" and its CDS named {}",
+                2 * index + 1,
+                gene.key(),
+                gene.id(),
+                2 * index + 2,
+                cds.key(),
+                cds.id(),
+                tag(index),
+            );
+        }
+        let refused: Vec<String> = unused
+            .iter()
+            .filter(|feature| feature.refusal().is_some())
+            .map(|feature| {
+                format!(
+                    "index {} {} says {:?}",
+                    feature.index(),
+                    feature.key(),
+                    feature.refusal().unwrap().message(),
+                )
+            })
+            .collect();
+        assert!(
+            refused.is_empty(),
+            "{} unused features carry a refusal, expected none: {:?}",
+            refused.len(),
+            refused,
+        );
+
+        let wanted: Vec<Identifier> = (0..GENES)
+            .rev()
+            .map(|index| Identifier::create(tag(index)).unwrap())
+            .collect();
+        let taken: GenBankImport = import_cds(&found, &wanted).unwrap();
+        let order: Vec<String> = taken
+            .cds()
+            .iter()
+            .map(|each| each.cds().id().value().to_string())
+            .collect();
+        assert_eq!(
+            order,
+            (0..GENES).rev().map(tag).collect::<Vec<String>>(),
+            "the request names {} locus tags in reverse order, the import gives them back \
+             another way",
+            GENES,
+        );
+        let left: Vec<String> = taken.unused().iter().map(|feature| feature.key()).collect();
+        assert_eq!(
+            left.len(),
+            GENES + 1,
+            "the not-used list has {} features, expected the source and the {} gene features",
+            left.len(),
+            GENES,
+        );
+        assert_eq!(left[0], "source".to_string());
+        assert!(
+            left[1..].iter().all(|key| key == "gene"),
+            "the not-used list keeps a CDS: {:?}",
+            left,
+        );
     }
 }
