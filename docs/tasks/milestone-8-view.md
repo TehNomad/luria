@@ -1,6 +1,9 @@
 # Milestone 8 plan: the sequence view (`luria FILE`) and `luria find`
 
-Status: **Draft for the owner, 2026-10-23; amended 2026-10-24 after the
+Status: **Implemented, 2026-10-28.** Every contract in §7 up to 8m18 is committed,
+the owner's hand test is closed (`milestone-8m-polish.md`), and 8n puts
+the milestone in `docs/cli.md` §13, D058 and D059. D051 expires when this
+branch merges. History: **Draft for the owner, 2026-10-23; amended 2026-10-24 after the
 planner re-checked §2 against the code and the fixtures. Every question is
 now answered (§9), so §4–§6 are settled by D048–D052; what has not been
 approved is the plan's contract split, which is exercised one contract at a

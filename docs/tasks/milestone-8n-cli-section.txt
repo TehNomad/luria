@@ -1,0 +1,187 @@
+## 13. Looking at a sequence: `luria FILE` and `luria find`
+
+`luria FILE` opens a GenBank or FASTA file in a full-screen view of its
+sequence: both strands, the translation, the features, go-to and search.
+It reads the file and writes nothing. `luria find` runs the same search
+without a terminal and prints the hits as a table. The decisions behind
+them are D048 to D058, `docs/tasks/milestone-8-view.md` and
+`docs/tasks/milestone-8m-polish.md`.
+
+```
+luria FILE
+luria find FILE PATTERN [--aa] [--cds NAME] [--circular]
+```
+
+### 13.1 Opening a file
+
+luria reads the format from the file, not its name: a first line starting
+`LOCUS` is GenBank, one starting `>` is FASTA, and anything else is
+refused. A file over 64 MiB, or a record over 10 000 000 bases, is
+refused before it is drawn (D048, D056). A `.json` file is refused with a
+pointer to `luria review`. A word that is neither a command nor a file is
+an unknown command, and a near miss names the command it was close to
+(`did you mean 'luria find'?`).
+
+The view needs a terminal on stdin and stdout, as `luria review` does, so
+`luria FILE > out` is a usage error, and a screen of at least 80 by 24.
+
+A GenBank record states its topology. A FASTA file does not, so the view
+assumes linear and says so in the title; `T` switches it to circular for
+this session only (D049).
+
+A record with exactly one CDS luria can use opens with it selected. With
+several, none is selected and the title says so; `c` picks one. luria
+never picks a CDS for you (D048). A CDS it cannot use is listed in grey
+with the reason, and cannot be picked (D052).
+
+A feature with an end the record does not state (`<1..12`, `1..>900`) is
+drawn, and marked partial in the feature list (D049, D053).
+
+### 13.2 The screen
+
+| Part | What it shows |
+| --- | --- |
+| Title | The record's name, length and topology, and the selected CDS with its strand and span |
+| Overview strip | The whole record scaled to the width: the longest features as bars; under them the part on screen, the cursor and the search hits; under those the GC content as a sparkline. `o` hides it |
+| Blocks | The sequence in lines of as many bases as fit, rounded down to a multiple of 3: a ruler, the top strand, the bottom strand, the translation and the feature lanes. Positions are 1-based |
+| Status line | The base under the cursor; inside the selected CDS, the residue, its number and its codon as read; the features at the cursor; and the current hit |
+| Key line | The keys used most; `?` lists every key |
+
+`t` cycles what the translation shows: the selected CDS, three frames,
+six frames, none. With a CDS selected, its residues sit under their
+codons, above the top strand for a plus-strand CDS and below the bottom
+strand for a minus-strand one, with every fifth residue numbered. A
+minus-strand CDS's strand is drawn bright and the top strand dim. A line
+that would end inside one of its codons ends before it, so a codon is
+never split (D050, D055). In the frame modes each residue sits over its
+codon's middle base, labelled `+1` to `-3`; frames count from base 1 and
+do not cross the origin (D052). An incomplete codon at the end is not
+drawn, and a complete one that cannot be read is `?` (D050).
+
+Feature lanes show up to four features per block, longest first, and
+`+N more` for the rest; each bar's arrowhead is at its 3′ end. A lane is
+coloured by its feature's key, or by the colour the file gives it (ApE's
+`/ApEinfo_fwdcolor` and `/ApEinfo_revcolor`), and the selected CDS's lane
+is bold. `F` cycles all features, CDSs only, and none.
+
+`O` shows open reading frames as lanes of their own, below the features;
+they are off when the view opens. An ORF runs from an `ATG` to the first
+stop in its frame, on either strand and, on a circular record, across the
+origin. It has at least 75 codons, the stop not counted, and each stop
+has one ORF, the longest. Its lane is labelled with its length
+(`ORF 286 aa`). An ORF is drawn only: it is not a CDS, and cannot be
+picked (D058).
+
+Residues are coloured by Zappo's seven groups of amino acids, and bases
+that are not `A`, `C`, `G` or `T` have their own colour. `C` turns the
+colours off and on. With `NO_COLOR` set and not empty, the view has no
+colour at all.
+
+### 13.3 Keys
+
+| Key | What it does |
+| --- | --- |
+| `h` `j` `k` `l` | Move one base left or right, one line up or down |
+| `PgUp` `PgDn` | Move a screen up or down |
+| `ctrl-d` `ctrl-u` | Move half a screen down or up |
+| `Home` `End` | Go to the first base or the last |
+| `w` `b` | Go to the next codon, or the one before |
+| `t` | Cycle the translation: the CDS, three frames, six frames, none |
+| `F` | Cycle the feature lanes: all, CDSs only, none |
+| `O` | Show or hide the ORF lanes |
+| `C` | Colours off and on |
+| `T` | Switch the assumed topology (FASTA only) |
+| `o` | Hide or show the overview strip |
+| `f` | List the features; type to filter by name or key, `enter` goes to one |
+| `c` | List the CDSs; `enter` selects one |
+| `g` | Go to a base, a residue or a name (§13.4) |
+| `/` | Search (§13.5) |
+| `n` `N` | The next hit, the one before |
+| `esc` | Close the open list or prompt; with none open, clear the hits |
+| `?` | List every key |
+| `q` | Quit; `ctrl-c` quits from anywhere |
+
+### 13.4 Go-to
+
+| You type | The cursor goes to |
+| --- | --- |
+| `1210` | Base 1210. A number alone is always a base (D057) |
+| `D404` | The first base, in reading direction, of residue 404's codon in the selected CDS. If residue 404 is not `D`, luria says what it is (`residue 404 is V, not D`). With no CDS selected, the CDS list opens first |
+| A name | The feature with that name, or the only one it begins; several open the feature list, filtered to them |
+
+`w` and `b` land on a codon's first base too. A feature, by name or from
+the `f` list, puts the cursor on its 5′ end, and one whose 5′ end the
+record does not state is refused. A CDS picked from the `c` list puts the cursor
+on its start codon (D058).
+
+### 13.5 Search
+
+`/` opens a prompt. A search is DNA until you type a letter that is not
+an IUPAC nucleotide code, and then it is protein; `tab` switches it by
+hand. `enter` searches, and the first hit at or after the cursor becomes
+the current one.
+
+A DNA search reads both strands. A code in the pattern matches every base
+it stands for, so `GGNCC` matches `GGACC`. A code in the record matches
+only a pattern letter that covers all its bases: `N` in the record
+matches `N` in the pattern and nothing else (D052). Overlapping hits are
+all found. A site that reads the same on both strands, such as `GAATTC`,
+is one hit, marked on both strands.
+
+A protein search reads the selected CDS, or all six frames when none is
+selected; `*` matches a stop. A hit is marked on the strand it was found
+on.
+
+The view keeps at most 200 hits and says how many there were (D048).
+
+### 13.6 `luria find`
+
+`luria find` prints what it searched, one row per hit, and the count:
+
+```
+$ luria find tests/fixtures/genbank/raw/J01749.1.gb GAATTC
+# file: tests/fixtures/genbank/raw/J01749.1.gb
+# record: GenBank, 4361 bp, circular
+# searched: GAATTC as DNA on both strands
+start  end  strand
+4359   3    both
+1 hit
+```
+
+The columns are tab-separated. Positions are 1-based and inclusive, and a
+hit across the origin ends before it starts, as pBR322's EcoRI site does.
+`--aa` makes the pattern protein whatever its letters, and a protein row
+adds the frame and the residues:
+
+```
+$ luria find tests/fixtures/genbank/raw/J01749.1.gb KHW* --aa --cds bla
+# file: tests/fixtures/genbank/raw/J01749.1.gb
+# record: GenBank, 4361 bp, circular
+# searched: KHW* as protein in CDS bla (3293..4153, -)
+start  end   strand  frame  first_residue  last_residue
+3293   3304  -       -      284            stop
+1 hit
+```
+
+With `--cds NAME`, the residues are the CDS's own numbers, and a hit that
+ends on the stop codon ends at `stop`. `NAME` is matched against the
+CDS's name, `/gene`, `/locus_tag` and `/protein_id`, exactly first and
+then as the start of one; when several CDSs match, luria lists them and
+searches nothing (D049). A range of bases is refused for now. Without
+`--cds`, a protein search reads six frames, and its residues count from
+the start of each frame.
+
+A FASTA file is searched as linear unless `--circular` is given, and a
+linear search ends with a line saying that hits do not cross the end
+(D049). A GenBank record states its own topology, so `--circular` is
+refused for one. A six-frame search of a circular record ends with a line
+saying that frames do not cross the origin. At most 200 rows print; past
+that, a line says how many hits there were.
+
+A search that finds nothing exits 0 and prints `0 hits` (D052). The count
+is about this file, searched this way, and nothing more: no hits for
+`GAATTC` means none in this record, not none in your plasmid. A bad
+command line or an unknown `--cds` name is a usage error, exit 2. A file
+that cannot be read, or is neither GenBank nor FASTA, is exit 4. A CDS
+luria cannot use exits with the code of the reason it gives, as `luria q5
+design` would (§5).

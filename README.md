@@ -33,6 +33,8 @@ luria review --template FILE.gb (--text TEXT | --text-file FILE)
     --request FILE.json [--design PROFILE.json] [--allow-remote] [--export DIR]
 luria new [--design PROFILE.json] [--export DIR]
     [--backend openai-compatible --endpoint URL --model NAME [--allow-remote]]
+luria FILE
+luria find FILE PATTERN [--aa] [--cds NAME] [--circular]
 luria version
 luria help
 ```
@@ -51,4 +53,7 @@ proposal, which runs a proposal only once you approve it, and exports
 the result, the edited constructs and an IDT order table. See
 `docs/cli.md` §11 (D046). `luria new` is a form for a template and mutations,
 typed in a shorthand or in words, that writes and runs the request once you
-approve; see §12 (D047). The web interface is next (Milestone 8, D034).
+approve; see §12 (D047). Milestone 8 adds `luria FILE`, a read-only
+view of a GenBank or FASTA file's sequence, translation and features,
+with go-to and search, and `luria find`, the same search as a table;
+see §13 (D048 to D058). Milestone 9 is an editor in that view (D059).
