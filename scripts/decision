@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Print entries of docs/decisions.md without reading the whole file.
+#
+#   scripts/decision              list every entry: number, title, status
+#   scripts/decision D052 D050    print those entries in full
+set -euo pipefail
+
+FILE="$(git rev-parse --show-toplevel)/docs/decisions.md"
+
+if [ $# = 0 ]; then
+  awk '/^## D[0-9]+:/ { if (h) print h; h = substr($0, 4); next }
+       h && /^Status:/ { print h "  [" substr($0, 9) "]"; h = "" }
+       END { if (h) print h }' "$FILE"
+  exit 0
+fi
+
+for id in "$@"; do
+  [[ "$id" =~ ^D[0-9]+$ ]] || { echo "decision: not a decision number: $id" >&2; exit 2; }
+  out=$(awk -v id="$id" '/^## D[0-9]+:/ { on = ($2 == id ":") } on' "$FILE")
+  [ -n "$out" ] || { echo "decision: no entry $id" >&2; exit 1; }
+  printf '%s\n\n' "$out"
+done

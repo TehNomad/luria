@@ -26,3 +26,19 @@ Working method:
 - Network access is limited to the model server. Do not try to fetch
   crates, docs or anything else; if something needs the network, stop and
   report it.
+
+Context budget (your context is 128k tokens and auto-compacts at the limit;
+compaction loses detail, so stay well under it):
+- Never read `docs/decisions.md` whole (about 24k tokens). Use
+  `scripts/decision D0xx` for the entries the contract names.
+- Read `tests/fixtures/README.md` only by section: `grep -n` for the
+  heading, then an offset read.
+- Run `scripts/check` rather than raw `cargo test`, `clippy` or `fmt`; it
+  prints one line per check and the tail of any failure. Use `-v` only when
+  that tail is not enough.
+- Pipe any other long command through `| tail -30` or `| head -50`, and
+  widen it only if you need to.
+- Read only the files and line ranges the contract names. Before reading a
+  file you have not seen, check its size with `wc -l`.
+- Do not paste whole files or long diffs into your reply. Report paths and
+  `file:line` references.

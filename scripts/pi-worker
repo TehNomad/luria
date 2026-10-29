@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Launch and drive a sandboxed pi worker in a herdr pane.
 #
-#   scripts/pi-worker start  <name>                 open a pane and start pi
+#   scripts/pi-worker start  <name>                 open a tab and start pi
 #   scripts/pi-worker prompt <name> <file> [mins]   snapshot the tree, send a prompt, wait
 #                                                   (default 60 min)
 #   scripts/pi-worker read   <name> [lines]         print recent pane output
@@ -47,8 +47,8 @@ cmd_start() {
   fi
   mkdir -p "$SESSIONS"
 
-  pane=$(herdr pane split --current --direction right --cwd "$ROOT" --no-focus \
-    | jq -er '.result.pane.pane_id')
+  pane=$(herdr tab create --cwd "$ROOT" --label "$name" \
+    | jq -er '.result.root_pane.pane_id')
 
   launch="nono wrap -s --profile $PROFILE --allow-cwd --allow-connect-port $LLM_PORT --"
   launch+=" pi --offline --no-extensions -e '$HOME/.pi/agent/extensions/herdr-agent-state.ts'"

@@ -67,7 +67,8 @@ Claude tokens on judgment, and send bulk work to a pi worker.
 - Include a "Do not" list (no new dependencies, no changes outside the named
   files, no changes to existing tests or fixtures).
 - Prefer several small contracts, one function or module each, over one
-  large one.
+  large one. Contracts run one after another (one worker at a time), so
+  order them so each builds on the last.
 - Give the worker the relevant `docs/decisions.md` entries by D-number, not
   "see the docs".
 - For each new rule, name the test that must fail if the rule is disabled,
@@ -75,14 +76,21 @@ Claude tokens on judgment, and send bulk work to a pi worker.
   (a weak assertion can pass with the rule removed).
 
 ## Running workers
-Workers are pi on `strata/qwen3.8-flash-next`, one herdr pane per contract,
+Workers are pi on `strata/qwen3.8-flash-next`, one herdr tab per contract,
 driven with `scripts/pi-worker`. The script runs pi under
 `nono wrap --profile luria-worker`. The worker gets no Claude config and no
 network except the model server on port 8080, and `--no-context-files`
 keeps this file out of its prompt.
 
-1. `scripts/pi-worker start w-<contract>` (e.g. `w-8e`) opens a sibling
-   pane and waits until pi is idle.
+The local model server serves one request stream at a time, so run **one
+worker at a time**. Do not start a second worker, or send a second `prompt`,
+while another worker is running. Run contracts and review rounds
+sequentially: finish and review one (and `stop` its tab) before starting
+the next. Scouts (`s-<topic>`) count as workers. Use planner-side reading
+(`grep`, offset reads) while a worker runs, not another pi session.
+
+1. `scripts/pi-worker start w-<contract>` (e.g. `w-8e`) opens a new tab
+   (unfocused) and waits until pi is idle.
 2. Write the prompt to `target/tmp/prompts/<name>-<round>.md`: the contract
    path and anything the contract leaves to the planner. Then run
    `scripts/pi-worker prompt <name> <file> [minutes]` with

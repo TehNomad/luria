@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+# Run the five required checks from AGENTS.md and print a short summary.
+#
+#   scripts/check            one line per check; the tail of any failure
+#   scripts/check -v         full output of every check
+#
+# Exits 0 only if fmt, test, clippy and diff --check all pass. git status is
+# shown for information and never fails the run.
+set -uo pipefail
+
+ROOT=$(git rev-parse --show-toplevel)
+cd "$ROOT"
+mkdir -p target/tmp
+export TMPDIR="$ROOT/target/tmp"
+
+verbose=0
+[ "${1:-}" = -v ] && verbose=1
+TAIL=40
+failed=0
+log="$TMPDIR/check.log"
+
+run() {
+  local name=$1
+  shift
+  if "$@" >"$log" 2>&1; then
+    printf 'PASS  %-8s %s\n' "$name" "$(summary "$name")"
+    [ $verbose = 1 ] && cat "$log"
+  else
+    printf 'FAIL  %-8s %s\n' "$name" "$*"
+    if [ $verbose = 1 ]; then cat "$log"; else tail -n $TAIL "$log" | plain | sed 's/^/      /'; fi
+    failed=1
+  fi
+}
+
+# Strip terminal colour codes, which rustfmt emits even into a file.
+plain() { sed $'s/\x1b\\[[0-9;]*m//g; s/\x1b(B//g'; }
+
+summary() {
+  case "$1" in
+    test)
+      awk '/^test result:/ { p += $4; f += $6; i += $8 }
+           END { printf "%d passed, %d failed, %d ignored", p, f, i }' "$log"
+      ;;
+  esac
+}
+
+run fmt cargo fmt --all -- --check
+run test cargo test --workspace
+run clippy cargo clippy --workspace --all-targets -- -D warnings
+run diff git diff --check
+
+status=$(git status --short)
+if [ -z "$status" ]; then
+  echo "INFO  status   clean"
+else
+  echo "INFO  status   $(wc -l <<<"$status") changed:"
+  sed 's/^/      /' <<<"$status"
+fi
+exit $failed
