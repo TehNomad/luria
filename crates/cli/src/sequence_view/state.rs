@@ -21,7 +21,8 @@ use crate::review::view::MIN_HEIGHT;
 use crate::review::view::MIN_WIDTH;
 use crate::sequence_view::goto::parse_target;
 use crate::sequence_view::goto::Target;
-use crate::sequence_view::layout::block_lines;
+use crate::sequence_view::layout::block_line_count_with;
+use crate::sequence_view::layout::block_lines_with;
 use crate::sequence_view::layout::layout;
 use crate::sequence_view::layout::Drawing;
 use crate::sequence_view::layout::FeatureLevel;
@@ -216,8 +217,9 @@ pub(super) struct CursorCodon {
 struct Chosen {
     map: CdsMap,
     /// The translation's one-letter residues in reading order, without a
-    /// terminal stop (D010).
-    letters: String,
+    /// terminal stop (D010), held as `char`s so that a block's residue lines
+    /// borrow them instead of making them again (8r3 §4 item 2).
+    letters: Vec<char>,
     /// As the feature states it, never inferred (D009): which way the codon
     /// keys and the codon's letters run.
     strand: Strand,
@@ -1001,7 +1003,7 @@ impl ViewState {
             letters.push(letter);
         }
         let letter: Option<char> = match place.residue {
-            Some(number) => chosen.letters.chars().nth(number as usize - 1),
+            Some(number) => chosen.letters.get(number as usize - 1).copied(),
             None => None,
         };
         // The span the status line gives is in reference order (§4 rule 13): the
@@ -1111,7 +1113,7 @@ impl ViewState {
                 Some(cds) => match translate(&self.record.sequence, cds) {
                     Ok(made) => Some(Chosen {
                         map: CdsMap::new(cds, &made),
-                        letters: made.residues_text(),
+                        letters: made.residues_text().chars().collect(),
                         strand: cds.strand(),
                     }),
                     Err(_error) => None,
@@ -1123,13 +1125,56 @@ impl ViewState {
         self.chosen = built;
     }
 
-    /// How many rows one block takes on the screen: the lines `drawn_lines` gives
-    /// it for the current mode, gaps aside — the blocks are drawn inside one frame,
-    /// not fenced by their own border (§4 rule 1). A block whose lines are refused
-    /// takes none, the same as `lines` gives it, so a run is never measured
-    /// shorter than it draws.
+    /// How many rows one block takes on the screen: the lines `block_lines`
+    /// gives it for the current mode, counted as they are counted there and
+    /// without drawing them (8r3 §4 item 1), gaps aside — the blocks are drawn
+    /// inside one frame, not fenced by their own border (§4 rule 1). A block
+    /// whose lines are refused takes none, the same as `lines` gives it, so a
+    /// run is never measured shorter than it draws. The reading the counting
+    /// skips, and the drawing keeps, is the one `held_cds` hands over.
     fn line_count(&self, block: usize) -> usize {
-        self.drawn_lines(block).len()
+        match self.layout.as_ref() {
+            Some(built) => block_line_count_with(
+                &self.record,
+                built,
+                &self.mode,
+                block,
+                &self.drawing(),
+                self.held_cds(),
+            )
+            .unwrap_or_default(),
+            None => 0,
+        }
+    }
+
+    /// The reading the state holds for the CDS it selected, and only where the
+    /// current mode names that same CDS: what `choose` translated once (D042).
+    /// `drawn_lines` draws from it and `line_count` counts with it, so neither
+    /// the drawing nor the counting of a block translates the whole CDS again
+    /// (8r3 §4 item 2). A mode that names another CDS, or none, or a selection
+    /// that failed, gets `None`, and those read it for themselves.
+    fn held_cds(&self) -> Option<(&CdsMap, &[char])> {
+        match (self.mode, self.selected, self.chosen.as_ref()) {
+            (LaneMode::Cds(index), Some(selected), Some(chosen)) if index == selected => {
+                Some((&chosen.map, chosen.letters.as_slice()))
+            }
+            _ => None,
+        }
+    }
+
+    /// How the state's keys have left the lines to be drawn (8m3 §4 rule 1,
+    /// 8m6 §4 rule 3, 8m18 §4 rule 1): the one `Drawing` a block's lines and the
+    /// rows they take are both counted from.
+    fn drawing(&self) -> Drawing<'_> {
+        Drawing {
+            colours: self.colours,
+            features: self.features,
+            orfs: if self.orf_lanes {
+                self.orfs.as_deref().unwrap_or(&[])
+            } else {
+                &[]
+            },
+        }
     }
 
     /// The one place a block's lines come from, for the drawing and for the rows
@@ -1141,20 +1186,13 @@ impl ViewState {
     /// has none, for both (8k1 §4 rule 7).
     fn drawn_lines(&self, block: usize) -> Vec<(LineRole, Line<'static>)> {
         match self.layout.as_ref() {
-            Some(built) => block_lines(
+            Some(built) => block_lines_with(
                 &self.record,
                 built,
                 &self.mode,
                 block,
-                &Drawing {
-                    colours: self.colours,
-                    features: self.features,
-                    orfs: if self.orf_lanes {
-                        self.orfs.as_deref().unwrap_or(&[])
-                    } else {
-                        &[]
-                    },
-                },
+                &self.drawing(),
+                self.held_cds(),
             )
             .unwrap_or_default(),
             None => Vec::new(),
@@ -1244,31 +1282,36 @@ impl ViewState {
         Some(first + offset)
     }
 
+    /// The block move `page` and `half_page` share (8r3 §4 item 3): the
+    /// cursor's block moved by `step` blocks in `direction` and clamped at the
+    /// first and the last block, and the cursor moved to the same offset in the
+    /// target with that offset clamped to the target's last base. `None` is
+    /// where either key returns early today: no layout drawn, no block in it,
+    /// or the cursor standing in no block. The target block is what each key
+    /// moves the top of the screen towards.
+    fn move_by_blocks(&mut self, step: usize, direction: i64) -> Option<usize> {
+        let built: &Layout = self.layout.as_ref()?;
+        let last: usize = built.blocks.len().checked_sub(1)?;
+        let block: usize = self.block_of(self.cursor)?;
+        let (start, _end): (u64, u64) = built.blocks[block];
+        let target: usize = if direction > 0 {
+            (block + step).min(last)
+        } else {
+            block.saturating_sub(step)
+        };
+        let (first, last_base): (u64, u64) = built.blocks[target];
+        self.cursor = first + (self.cursor - start).min(last_base - first - 1);
+        Some(target)
+    }
+
     /// `PageDown` and `PageUp`: the same line move by one screen of blocks,
     /// clamped at either end, and the cursor's block goes on top (§4 rule 4).
     fn page(&mut self, direction: i64) {
         let screen: usize = self.visible().len().max(1);
-        let built: &Layout = match self.layout.as_ref() {
-            Some(built) => built,
+        let target: usize = match self.move_by_blocks(screen, direction) {
+            Some(target) => target,
             None => return,
         };
-        let last: usize = match built.blocks.len().checked_sub(1) {
-            Some(last) => last,
-            None => return,
-        };
-        let block: usize = match self.block_of(self.cursor) {
-            Some(found) => found,
-            None => return,
-        };
-        let (start, _end): (u64, u64) = built.blocks[block];
-        let target: usize = if direction > 0 {
-            (block + screen).min(last)
-        } else {
-            block.saturating_sub(screen)
-        };
-        let (first, last_base): (u64, u64) = built.blocks[target];
-        let cursor: u64 = first + (self.cursor - start).min(last_base - first - 1);
-        self.cursor = cursor;
         self.top = target;
     }
 
@@ -1282,27 +1325,20 @@ impl ViewState {
     /// cursor as §4 rule 6 has it.
     fn half_page(&mut self, direction: i64) {
         let half: usize = (self.visible().len() / 2).max(1);
-        let built: &Layout = match self.layout.as_ref() {
-            Some(built) => built,
-            None => return,
-        };
-        let last: usize = match built.blocks.len().checked_sub(1) {
+        if self.move_by_blocks(half, direction).is_none() {
+            return;
+        }
+        // The same last block `move_by_blocks` clamped the cursor's block at,
+        // clamping `top` here (§4 rule 2, M8-38). A layout with no block got
+        // `None` there and returned before this.
+        let last: usize = match self
+            .layout
+            .as_ref()
+            .and_then(|built| built.blocks.len().checked_sub(1))
+        {
             Some(last) => last,
             None => return,
         };
-        let block: usize = match self.block_of(self.cursor) {
-            Some(found) => found,
-            None => return,
-        };
-        let (start, _end): (u64, u64) = built.blocks[block];
-        let target: usize = if direction > 0 {
-            (block + half).min(last)
-        } else {
-            block.saturating_sub(half)
-        };
-        let (first, last_base): (u64, u64) = built.blocks[target];
-        let cursor: u64 = first + (self.cursor - start).min(last_base - first - 1);
-        self.cursor = cursor;
         self.top = if direction > 0 {
             (self.top + half).min(last)
         } else {
@@ -2029,7 +2065,7 @@ fn residue_first(chosen: &Chosen, letter: char, number: u64) -> Result<u64, Stri
     }
     // The residues are held in reading order, so residue `number` is the
     // `number - 1`th letter, and the range above keeps that index inside them.
-    match chosen.letters.chars().nth(number as usize - 1) {
+    match chosen.letters.get(number as usize - 1).copied() {
         Some(found) if found != letter => Err(format!("residue {number} is {found}, not {letter}")),
         Some(_found) => chosen
             .map
@@ -2227,6 +2263,54 @@ mod tests {
         assert!(
             visible.start <= block && block < visible.end,
             "cursor block {block}, visible {visible:?}"
+        );
+    }
+
+    /// 8r3 §5 test 3: not an assertion, only the timings the contract asks for,
+    /// printed in release mode, where the view is built as the binary builds it.
+    /// The sequence is the one §5 names: reading the record, opening the view,
+    /// 50 presses of `j`, 10 of `PageDown` and nothing else. `j` moves the
+    /// cursor a base at a time, so `visible` measures the rows of every block on
+    /// screen before each press. `PageDown` moves the cursor a whole screen of
+    /// blocks and counts the rows of the block it puts on top. `pBR322` opens the
+    /// view with no CDS selected — two are usable, so M8-11 selects none — and
+    /// these keys keep it in `Off` mode, where the state holds no reading; the
+    /// mode that does hold one, `Cds`, is what `block_line_count_with` counts
+    /// without translating again, and test 1 pins that count.
+    /// It prints; it asserts nothing.
+    ///
+    /// ```text
+    /// cargo test --release -p luria-cli --lib -- view_timing --ignored --nocapture
+    /// ```
+    #[test]
+    #[ignore]
+    fn view_timing_of_pbr322() {
+        use std::time::Instant;
+
+        let started: Instant = Instant::now();
+        let record: ViewRecord = pbr();
+        let reading: std::time::Duration = started.elapsed();
+
+        let started: Instant = Instant::now();
+        let mut state: ViewState = ViewState::new(record, 80, 24);
+        let opening: std::time::Duration = started.elapsed();
+        let base: u64 = state.record().sequence.length();
+
+        let started: Instant = Instant::now();
+        for _ in 0..50 {
+            state.handle(Key::Char('j'));
+        }
+        let lines: std::time::Duration = started.elapsed();
+
+        let started: Instant = Instant::now();
+        for _ in 0..10 {
+            state.handle(Key::PageDown);
+        }
+        let pages: std::time::Duration = started.elapsed();
+
+        println!(
+            "{base} bp: read {reading:?}, built the view {opening:?}, 50 `j` {lines:?}, \
+             10 `PageDown` {pages:?}"
         );
     }
 }

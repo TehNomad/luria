@@ -1130,7 +1130,26 @@ fn frame_cells(
     Ok(cells)
 }
 
-/// The lines of one block, in the order they draw (D055, plan §5.1).
+/// The lines of one block, in the order they draw (D055, plan §5.1): what
+/// `block_lines_with` gives with no reading of the selected CDS handed over, so
+/// a `Cds` mode translates that CDS for this one block (8r3 §4 item 2).
+pub fn block_lines(
+    record: &ViewRecord,
+    layout: &Layout,
+    mode: &LaneMode,
+    block: usize,
+    drawing: &Drawing,
+) -> Result<Vec<(LineRole, Line<'static>)>, LayoutProblem> {
+    block_lines_with(record, layout, mode, block, drawing, None)
+}
+
+/// The same lines, with the selected CDS's reading handed over as `cds`: the
+/// `CdsMap` and the residue letters of one translation of it (D042), the
+/// letters as `residues_text` gives them — no terminal stop. `ViewState` holds
+/// them for the CDS it selects, and a block drawn in that CDS's mode takes them
+/// instead of translating the whole CDS again (8r3 §4 item 2). `None` makes the
+/// reading here, as `block_lines` always did; a `Some` must name the CDS
+/// `mode` names, which is what the state hands it.
 ///
 /// Every line's text starts at column 0 and never runs past its last item: the
 /// gaps between items are spaces, and there are no trailing ones, except the
@@ -1143,12 +1162,13 @@ fn frame_cells(
 /// `drawing.features` which features get lanes (M8-30, contract 8m6 §4 rule 2),
 /// and `drawing.orfs` which open reading frames get lines (M8-40, contract 8m18
 /// §4 rule 1).
-pub fn block_lines(
+pub fn block_lines_with(
     record: &ViewRecord,
     layout: &Layout,
     mode: &LaneMode,
     block: usize,
     drawing: &Drawing,
+    cds: Option<(&CdsMap, &[char])>,
 ) -> Result<Vec<(LineRole, Line<'static>)>, LayoutProblem> {
     let (start, end): (u64, u64) = layout.blocks[block];
     let d: u64 = u64::from(layout.gutter);
@@ -1265,18 +1285,29 @@ pub fn block_lines(
         }
         LaneMode::Cds(index) => {
             // One reading of the CDS: its map and its residue letters come from
-            // the same translation (D042).
-            let cds: &Cds = usable_cds(record, *index)?;
-            let translation = translate(&record.sequence, cds).map_err(LayoutProblem::Domain)?;
-            let map: CdsMap = CdsMap::new(cds, &translation);
-            let letters: Vec<char> = translation.residues_text().chars().collect();
-            let on: Vec<Residue> = cds_residues(&map, &letters, g, start, end);
-            let residues: Vec<Cell> =
-                cds_cells(&map, &on, &letters, g, start, end, drawing.colours);
+            // the same translation (D042). Where `cds` handed the state's own
+            // reading over, every block draws from it rather than translating
+            // the whole CDS again (8r3 §4 item 2); `None` reads it here.
+            let read: &Cds = usable_cds(record, *index)?;
+            let own: (CdsMap, Vec<char>);
+            let (map, letters): (&CdsMap, &[char]) = match cds {
+                Some((held_map, held_letters)) => (held_map, held_letters),
+                None => {
+                    let translation =
+                        translate(&record.sequence, read).map_err(LayoutProblem::Domain)?;
+                    own = (
+                        CdsMap::new(read, &translation),
+                        translation.residues_text().chars().collect(),
+                    );
+                    (&own.0, &own.1)
+                }
+            };
+            let on: Vec<Residue> = cds_residues(map, letters, g, start, end);
+            let residues: Vec<Cell> = cds_cells(map, &on, letters, g, start, end, drawing.colours);
             let numbers: Vec<Cell> = number_cells(&on, g, g + (end - start));
             // A plus-strand CDS reads above the top strand, a minus-strand one
             // below the bottom (plan §5.1); its numbers line goes with it.
-            if cds.strand().is_plus() {
+            if read.strand().is_plus() {
                 lines.push((LineRole::Residues, residues));
                 lines.push((LineRole::Numbers, numbers));
                 lines.push((LineRole::Ruler, ruler));
@@ -1341,6 +1372,119 @@ pub fn block_lines(
         .collect())
 }
 
+/// The number of lines `block_lines_with` returns for these arguments, counted
+/// without drawing them (8r3 §4 item 1): the same lanes and their `+N more`
+/// line, the same ORF lines and theirs, and the same mode lines. `Ok(n)` where
+/// `block_lines_with` gives `Ok` of `n` lines, and `Err` where it refuses, so a
+/// run of blocks is never measured shorter than the rows it draws.
+///
+/// Every line the count gives is one `block_lines_with` builds, so what is
+/// counted here is what is drawn there: the same `lanes` call, the same
+/// `orf_lanes`, and the same refusals in the same order — the block's bases for
+/// the two strand lines, the selected CDS for its two lines, and every frame
+/// line `frame_cells` would build.
+pub fn block_line_count(
+    record: &ViewRecord,
+    layout: &Layout,
+    mode: &LaneMode,
+    block: usize,
+    drawing: &Drawing,
+) -> Result<usize, LayoutProblem> {
+    block_line_count_with(record, layout, mode, block, drawing, None)
+}
+
+/// The same count, taking the selected CDS's reading exactly as
+/// `block_lines_with` does (8r3 §4 item 2): `cds` is the held `CdsMap` and
+/// letters of the CDS `mode` names, and its `Cds` arm does not translate again
+/// — the held reading already succeeded, so that block could not be refused by
+/// a translation. With `None` the count asks whether a translation would work,
+/// as the drawing does.
+pub fn block_line_count_with(
+    record: &ViewRecord,
+    layout: &Layout,
+    mode: &LaneMode,
+    block: usize,
+    drawing: &Drawing,
+    cds: Option<(&CdsMap, &[char])>,
+) -> Result<usize, LayoutProblem> {
+    let (start, end): (u64, u64) = layout.blocks[block];
+
+    // The feature lanes: what `lanes` leaves past `LANE_LIMIT` is one `+N more`
+    // line, and under `None` no lane line and no more line is drawn at all
+    // (§4 rule 2, 8m6 §4 rule 3).
+    let lanes: Vec<Lane> = lanes(record, start, end, drawing.features);
+    let mut count: usize = lanes.len().min(LANE_LIMIT);
+    if lanes.len() > LANE_LIMIT {
+        count += 1;
+    }
+
+    // The ORF lines stand after the lanes and before every other line, and the
+    // leftover ORFs are counted on one more line (contract 8m18 §4 rules 2 and
+    // 3), empty with `O` off.
+    let ors: Vec<OrfLine> = orf_lanes(drawing.orfs, start, end);
+    count += ors.len().min(LANE_LIMIT);
+    if ors.len() > LANE_LIMIT {
+        count += 1;
+    }
+
+    // The ruler and the two strand lines, asked for before the mode's lines as
+    // `block_lines_with` asks for them: `strand_cells` reads every base of the
+    // block, and refuses one the record does not hold.
+    for position in start..end {
+        record
+            .sequence
+            .letter_at(position)
+            .map_err(LayoutProblem::Domain)?;
+    }
+
+    match mode {
+        // `Ruler`, `Top`, `Bottom`.
+        LaneMode::Off => Ok(count + 3),
+        // `Residues` and `Numbers`, in either order round `Ruler`, `Top`,
+        // `Bottom`: five lines whichever way the CDS reads. The reading itself
+        // is either handed over, already translated, or asked for here as the
+        // drawing asks for it (D042, 8r3 §4 item 2).
+        LaneMode::Cds(index) => {
+            let read: &Cds = usable_cds(record, *index)?;
+            if cds.is_none() {
+                translate(&record.sequence, read).map_err(LayoutProblem::Domain)?;
+            }
+            Ok(count + 5)
+        }
+        LaneMode::ThreeFrames | LaneMode::SixFrames => {
+            // The same window `frame_cells` asks for, and every frame line in
+            // the order it builds them, so the first refusal is the one that
+            // stops the drawing there too (D055).
+            let length: u64 = record.sequence.length();
+            let (first, last): (u64, u64) = (start.saturating_sub(1), (end + 1).min(length));
+            for frame in [
+                ReadingFrame::Third,
+                ReadingFrame::Second,
+                ReadingFrame::First,
+            ] {
+                frame_residues(&record.sequence, Strand::Plus, frame, first, last)
+                    .map_err(LayoutProblem::Domain)?;
+            }
+            let frames: usize = if *mode == LaneMode::SixFrames {
+                for frame in [
+                    ReadingFrame::First,
+                    ReadingFrame::Second,
+                    ReadingFrame::Third,
+                ] {
+                    frame_residues(&record.sequence, Strand::Minus, frame, first, last)
+                        .map_err(LayoutProblem::Domain)?;
+                }
+                6
+            } else {
+                3
+            };
+            // The three forward frames and, in `SixFrames`, the three reverse
+            // ones (D055), plus the ruler, `Top` and `Bottom` between them.
+            Ok(count + frames + 3)
+        }
+    }
+}
+
 /// One line's cells as a `Line`: text from column 0, a span of spaces for each
 /// gap, and nothing past the last item.
 fn drawn_line(mut cells: Vec<Cell>) -> Line<'static> {
@@ -1361,6 +1505,10 @@ fn drawn_line(mut cells: Vec<Cell>) -> Line<'static> {
 mod tests {
     use super::*;
     use luria_core::identity::Identifier;
+    use luria_core::orf::find_orfs;
+    use luria_core::orf::ORF_MIN_RESIDUES;
+    use luria_core::sequence::SequenceTopology;
+    use luria_core::translation::Translation;
     use luria_core::view_record::open_record;
     use ratatui::backend::TestBackend;
     use ratatui::widgets::Paragraph;
@@ -1386,6 +1534,12 @@ mod tests {
 
     fn synthetic() -> ViewRecord {
         record("../../tests/fixtures/genbank/synthetic.gb", "synthetic.gb")
+    }
+
+    /// `frames-62.gb`: 62 bp, circular, with two CDSs that cross the origin and
+    /// overlap each other (the record `layout_fixtures` tables as `frames62`).
+    fn frames62() -> ViewRecord {
+        record("../../tests/fixtures/view/frames-62.gb", "frames62")
     }
 
     /// Draw `lines` `width` columns wide on a test backend, and return the
@@ -1931,5 +2085,202 @@ mod tests {
             vec![(61, "1000")],
             "`1000` is clamped to the four columns that stay over the bases"
         );
+    }
+
+    /// Every mode a record answers under test: the three that name no CDS, and
+    /// the mode of every CDS of its that is usable (D041, D042).
+    fn modes_of(record: &ViewRecord) -> Vec<LaneMode> {
+        let mut found: Vec<LaneMode> =
+            vec![LaneMode::Off, LaneMode::ThreeFrames, LaneMode::SixFrames];
+        found.extend(
+            (0..record.cdss.len())
+                .filter(|index| usable_cds(record, *index).is_ok())
+                .map(LaneMode::Cds),
+        );
+        found
+    }
+
+    /// 8r3 §5 test 1: `block_line_count` answers `Ok` of the number of lines
+    /// `block_lines` builds and `Err` where `block_lines` refuses, for pBR322 and
+    /// `frames-62.gb` at the widths 80 and 120, in every mode, at every
+    /// `FeatureLevel`, with the ORFs `find_orfs` gives and with none, and for
+    /// every block. Every `Cds` mode is asked twice: with a fresh reading, and
+    /// with the reading the state holds (round 2), which is counted without
+    /// translating that CDS again.
+    #[test]
+    fn the_count_is_the_number_of_lines() {
+        for record in [pbr322(), frames62()] {
+            // The ORF lines come from the one scan the state keeps (8m18 §4 rule
+            // 6), on the topology the file states.
+            let circular: bool = record.sequence.topology() == SequenceTopology::Circular;
+            let scanned: Vec<Orf> = find_orfs(&record.sequence, circular, ORF_MIN_RESIDUES);
+            for width in [80, 120] {
+                // §5's `Err` half, at the end.
+                let refused: Option<usize> =
+                    (0..record.cdss.len()).find(|index| usable_cds(&record, *index).is_err());
+                if let Some(index) = refused {
+                    // A mode naming a CDS the record cannot show (`pBR322`'s
+                    // `ROP`) gets no layout of its own, since `layout` refuses it
+                    // too; the blocks come from the mode that does lay out, and
+                    // every one of them is refused, drawn and counted alike.
+                    let built: Layout = layout(&record, width, &LaneMode::Off).expect("laid out");
+                    let mode: LaneMode = LaneMode::Cds(index);
+                    let drawing: Drawing = Drawing {
+                        colours: true,
+                        features: FeatureLevel::All,
+                        orfs: &scanned,
+                    };
+                    for block in 0..built.blocks.len() {
+                        let drawn: Result<usize, LayoutProblem> =
+                            block_lines(&record, &built, &mode, block, &drawing)
+                                .map(|lines| lines.len());
+                        let counted: Result<usize, LayoutProblem> =
+                            block_line_count(&record, &built, &mode, block, &drawing);
+                        assert_eq!(
+                            counted,
+                            Err(LayoutProblem::NotUsable(index)),
+                            "{} bp width {width} block {block}: CDS {index} is unusable",
+                            record.sequence.length(),
+                        );
+                        assert_eq!(counted, drawn, "refused alike");
+                    }
+                }
+
+                let levels: [FeatureLevel; 3] =
+                    [FeatureLevel::All, FeatureLevel::Cdss, FeatureLevel::None];
+                let with_and_without: [&[Orf]; 2] = [&[], scanned.as_slice()];
+                for mode in modes_of(&record) {
+                    let built: Layout =
+                        layout(&record, width, &mode).expect("a laid out record and mode");
+                    // The reading `ViewState` holds for the CDS this mode names:
+                    // its map and its letters, translated once (D042). No mode
+                    // that names no CDS has one.
+                    let held: Option<(CdsMap, Vec<char>)> = match mode {
+                        LaneMode::Cds(index) => {
+                            let cds: &Cds =
+                                usable_cds(&record, index).expect("a mode names a usable CDS");
+                            let made: Translation =
+                                translate(&record.sequence, cds).expect("and it translates");
+                            Some((
+                                CdsMap::new(cds, &made),
+                                made.residues_text().chars().collect(),
+                            ))
+                        }
+                        _ => None,
+                    };
+                    for level in levels {
+                        for orfs in with_and_without {
+                            let drawing: Drawing = Drawing {
+                                colours: true,
+                                features: level,
+                                orfs,
+                            };
+                            for block in 0..built.blocks.len() {
+                                let drawn: Result<usize, LayoutProblem> =
+                                    block_lines(&record, &built, &mode, block, &drawing)
+                                        .map(|lines| lines.len());
+                                let counted: Result<usize, LayoutProblem> =
+                                    block_line_count(&record, &built, &mode, block, &drawing);
+                                assert_eq!(
+                                    counted,
+                                    drawn,
+                                    "{} bp, width {width}, {mode:?}, {level:?}, ORFs {}, block {block}",
+                                    record.sequence.length(),
+                                    if orfs.is_empty() {
+                                        "hidden"
+                                    } else {
+                                        "shown"
+                                    },
+                                );
+                                if let Some((map, letters)) = held.as_ref() {
+                                    // The held reading is counted and drawn from
+                                    // the same map and the same letters, and the
+                                    // count is asked not to translate again.
+                                    let held_draw: Result<usize, LayoutProblem> = block_lines_with(
+                                        &record,
+                                        &built,
+                                        &mode,
+                                        block,
+                                        &drawing,
+                                        Some((map, letters.as_slice())),
+                                    )
+                                    .map(|lines| lines.len());
+                                    let held_count: Result<usize, LayoutProblem> =
+                                        block_line_count_with(
+                                            &record,
+                                            &built,
+                                            &mode,
+                                            block,
+                                            &drawing,
+                                            Some((map, letters.as_slice())),
+                                        );
+                                    assert_eq!(
+                                        held_count,
+                                        held_draw,
+                                        "{} bp, width {width}, {mode:?} held, {level:?}, ORFs {}, block {block}",
+                                        record.sequence.length(),
+                                        if orfs.is_empty() {
+                                            "hidden"
+                                        } else {
+                                            "shown"
+                                        },
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// 8r3 §5 test 2: the reading `ViewState` holds for the selected CDS draws
+    /// exactly what a fresh translation draws, for every usable CDS of pBR322 and
+    /// `frames-62.gb` at the widths 80 and 120, and for every block of that
+    /// CDS's own mode.
+    #[test]
+    fn a_held_cds_draws_what_a_fresh_one_draws() {
+        for record in [pbr322(), frames62()] {
+            for index in 0..record.cdss.len() {
+                if usable_cds(&record, index).is_err() {
+                    continue;
+                }
+                let cds: &Cds = usable_cds(&record, index).expect("usable after the test");
+                let made: Translation =
+                    translate(&record.sequence, cds).expect("a usable CDS translates");
+                let map: CdsMap = CdsMap::new(cds, &made);
+                let letters: Vec<char> = made.residues_text().chars().collect();
+                for width in [80, 120] {
+                    let mode: LaneMode = LaneMode::Cds(index);
+                    let built: Layout =
+                        layout(&record, width, &mode).expect("a laid out record and mode");
+                    for block in 0..built.blocks.len() {
+                        let drawing: Drawing = Drawing {
+                            colours: true,
+                            features: FeatureLevel::All,
+                            orfs: &[],
+                        };
+                        let held: Vec<(LineRole, Line<'static>)> = block_lines_with(
+                            &record,
+                            &built,
+                            &mode,
+                            block,
+                            &drawing,
+                            Some((&map, letters.as_slice())),
+                        )
+                        .expect("the held reading draws");
+                        let fresh: Vec<(LineRole, Line<'static>)> =
+                            block_lines(&record, &built, &mode, block, &drawing)
+                                .expect("a fresh reading draws");
+                        assert_eq!(
+                            held,
+                            fresh,
+                            "{} bp, CDS {index}, width {width}, block {block}",
+                            record.sequence.length(),
+                        );
+                    }
+                }
+            }
+        }
     }
 }
