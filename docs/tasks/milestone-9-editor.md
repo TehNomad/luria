@@ -75,7 +75,10 @@ Each row has the planner's proposal. "As proposed" is a full answer.
 **M9-1 to M9-16: all approved by the owner as proposed, 2026-10-29**
 (M9-12 to M9-16 first, then M9-1 to M9-11); they are recorded as
 decisions in 9j. With every row answered as proposed, M9-13 to M9-16 need
-no change for M9-6 or M9-11.
+no change for M9-6 or M9-11. The owner also approved 9a's two readings
+(2026-10-29, `tests/fixtures/editor/README.md`): a partial mark on a
+removed end interval moves to the feature's new end, and an absent
+`/codon_start` counts as 1 and is added when a 5′ trim makes it not 1.
 
 | # | Question | Planner's proposal |
 | --- | --- | --- |

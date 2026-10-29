@@ -15,6 +15,7 @@
 | [`primer-quality/`](./primer-quality/) | Sourced thresholds for the non-blocking primer-quality warnings. Drives `crates/core/tests/primer_quality_thresholds.rs`. |
 | [`codon-usage/`](./codon-usage/) | The Kazusa Codon Usage Database page for *Escherichia coli* W3110 (species 316407) as captured, parsed to `counts.tsv` by `reference/parse_kazusa.py`. Checked against `crates/core/src/codon_usage.rs` by `crates/core/tests/codon_usage_fixture.rs`. |
 | [`view/`](./view/) | The screens of Milestone 8: what every frame of a record covers (`frame-tables.tsv`), how a CDS numbers its codons and bases (`cds-map-*.tsv`), what a search may match and what a hit covers (`search-*.tsv`), where every base and residue goes on the page (`layout-*.tsv`), and which runs of codons are open reading frames (`orfs.tsv`, contract 8m17, written by `reference/orfs.py` and read by `crates/core/tests/orf_fixtures.rs`). Its record `frames-62.gb` is hand-built for the shape only a hand-built record can have. |
+| [`editor/`](./editor/) | Milestone 9's editor: what one edit of a record's bases does to a feature's intervals, partial marks and qualifiers (`feature-edits.tsv`, contract 9a, M9-6, M9-13, M9-14), written by hand and checked by `reference/feature_edits.py`. Drives contract 9b's edit buffer. |
 
 ## Rerunning fixture verification
 
@@ -38,7 +39,8 @@ q5-primer generators, the codon-usage parser, the FASTA digest check, the three
 GenBank checks, the review checks, the request and shorthand check, and the view
 references that write its tables (`make_frames_62.py` aside from the record it
 chose, `cds_map.py`, `frame_tables.py`, `search_dna.py`, `search_protein.py`,
-`layout_columns.py`, `orfs.py`).
+`layout_columns.py`, `orfs.py`), and the editor's feature-edit check
+(`feature_edits.py`).
 
 These Python checks are **not** part of the required cargo checks (D039, D026):
 the Rust tests never call Python, and `cargo test --workspace` does not run
