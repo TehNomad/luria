@@ -9,3 +9,5 @@ package.json
 package-lock.json
 .cargo/config.toml
 vendor/
+.claude
+CLAUDE.md
