@@ -52,6 +52,7 @@ use luria_core::edit_buffer::EditBlocked;
 use luria_core::edit_buffer::EditBuffer;
 use luria_core::edit_buffer::EditFeature;
 use luria_core::edit_buffer::EditOutcome;
+use luria_core::edit_buffer::Undo;
 use luria_core::error::DomainError;
 use luria_core::name_match::cds_span;
 use luria_core::name_match::match_name;
@@ -110,6 +111,9 @@ pub enum Key {
     /// `ctrl-u`, which moves the cursor half a screen up (8m15 §4 rules 1 and
     /// 2, M8-38) and half a page up in an open list.
     CtrlU,
+    /// `ctrl-r`, which redoes the last group `u` undid (9g §4 rule 8, M9-8), and
+    /// which every list or prompt swallows as nothing.
+    CtrlR,
     /// Any other press.
     Other,
 }
@@ -362,6 +366,21 @@ pub struct ViewState {
     last_search: Option<(SearchMode, String)>,
     /// The selected CDS's map and residues, `None` with no selection.
     chosen: Option<Chosen>,
+    /// The bases `x`/`d` cut and `y` yank, and what `p`/`P` reads back (9g
+    /// §4 rule 1): empty at open, replaced whole by every cut and yank, kept
+    /// for the session (M9-5: never the system clipboard).
+    register: Vec<char>,
+    /// The edit groups `u` pops and `ctrl-r` pushes back (9g §4 rules 6 to 8):
+    /// oldest first, each group holding one command's steps as `(Edit, Undo)`
+    /// in the order they were applied.
+    undo_groups: Vec<Vec<(Edit, Undo)>>,
+    /// The groups `ctrl-r` re-applies in order and `u` returns (9g §4 rule 8),
+    /// oldest first, with the same step order as the original command.
+    redo_groups: Vec<Vec<(Edit, Undo)>>,
+    /// The command whose steps are still being collected (9g §4 rule 6: each
+    /// `apply_edit` adds its step here, and the command's last key closes it
+    /// into `undo_groups`.
+    current_group: Vec<(Edit, Undo)>,
 }
 
 impl ViewState {
@@ -411,6 +430,10 @@ impl ViewState {
             overtype_stopped: false,
             last_search: None,
             chosen: None,
+            register: Vec::new(),
+            undo_groups: Vec::new(),
+            redo_groups: Vec::new(),
+            current_group: Vec::new(),
         };
         state.choose();
         state.relayout(false);
@@ -639,10 +662,39 @@ impl ViewState {
                 self.open_replace();
                 return Action::Continue;
             }
-            // The keys 9e edits with (M9-2, M9-12): 9g fills them in. A record
-            // whose feature 9b2 refuses names that feature and core's reason
-            // instead, and nothing else changes.
-            Key::Char('x' | 'd' | 'y' | 'p' | 'P' | 'u' | 's') => {
+            // The keys 9e edits with (M9-2, M9-12), now carrying 9g's cut,
+            // yank, paste and the undo of M9-8: as 9d says, a record whose feature
+            // 9b2 refuses names that feature and core's reason instead, and
+            // nothing else happens. `s`, the save prompt, is 9h's.
+            Key::Char('x') => {
+                self.cut();
+                return Action::Continue;
+            }
+            Key::Char('d') => {
+                self.cut_or_ask();
+                return Action::Continue;
+            }
+            Key::Char('y') => {
+                self.yank();
+                return Action::Continue;
+            }
+            Key::Char('p') => {
+                self.paste_register(true);
+                return Action::Continue;
+            }
+            Key::Char('P') => {
+                self.paste_register(false);
+                return Action::Continue;
+            }
+            Key::Char('u') => {
+                self.undo_group();
+                return Action::Continue;
+            }
+            Key::CtrlR => {
+                self.redo_group();
+                return Action::Continue;
+            }
+            Key::Char('s') => {
                 if let Err(blocked) = &self.edit {
                     self.message = Some(blocked_words(blocked));
                 }
@@ -743,6 +795,9 @@ impl ViewState {
                     self.cursor = point.saturating_sub(1);
                 }
                 self.editing = EditMode::Normal;
+                // 9g §4 rule 6: the whole spell of insert, its backspaces
+                // included, is one group on the undo stack.
+                self.close_group();
                 self.follow();
             }
             Key::Backspace => {
@@ -809,6 +864,8 @@ impl ViewState {
             Key::Esc => {
                 self.editing = EditMode::Normal;
                 self.overtype_stopped = false;
+                // 9g §4 rule 6: every overtype letter up to here is one group.
+                self.close_group();
                 self.follow();
             }
             Key::Char(letter) if is_dna_letter(letter.to_ascii_uppercase()) => {
@@ -856,6 +913,9 @@ impl ViewState {
                     bases: vec![letter.to_ascii_uppercase(); count],
                 });
                 self.close_replace();
+                // 9g §4 rule 6: the whole `r`, whatever it replaced, is one
+                // group; the refusal arms leave the group empty and change.
+                self.close_group();
                 if outcome.is_ok() {
                     self.follow();
                 }
@@ -881,7 +941,7 @@ impl ViewState {
     /// dropped, and any other character that is not one of the 15 IUPAC
     /// bases says so, naming the character and its 1-based line and column.
     /// Outside `Insert` nothing is pasted and the line asks for `i` or `a`.
-    pub(super) fn paste(&mut self, text: &str) {
+    pub(super) fn paste_text(&mut self, text: &str) {
         let (point, typed): (u64, u64) = match self.editing {
             EditMode::Insert { point, typed } => (point, typed),
             // M9-5: the terminal's paste works in insert mode only.
@@ -942,6 +1002,220 @@ impl ViewState {
         self.follow();
     }
 
+    /// `x` (9g §4 rule 2): cuts the cursor's own base in `Normal`, and the
+    /// selection in `Visual`, as one `Delete`. The register gets what the cut
+    /// took, the cursor goes to the cut's start clamped, and a `Visual` cut
+    /// leaves the mode. The bases are read off the buffer before the edit, so
+    /// the register holds exactly what the cut removed.
+    fn cut(&mut self) {
+        let (start, end): (u64, u64) = match self.selection() {
+            Some(range) => range,
+            None => (self.cursor, self.cursor.saturating_add(1)),
+        };
+        // A record 9d refuses answers with 9d's own words, and the selection is
+        // kept for another try.
+        let letters: Vec<char> = match &self.edit {
+            Ok(buffer) => buffer.letters()[start as usize..end as usize].to_vec(),
+            Err(blocked) => {
+                self.message = Some(blocked_words(blocked));
+                return;
+            }
+        };
+        if self.apply_edit(Edit::Delete { start, end }).is_err() {
+            // `apply_edit` has said why the bases were not cut.
+            return;
+        }
+        self.register = letters;
+        self.editing = EditMode::Normal;
+        // §4 rule 2: the cursor goes to the cut's start, clamped to the record's
+        // last base when the cut took the tail of the record out.
+        let last: u64 = self.record.sequence.length().saturating_sub(1);
+        self.cursor = start.min(last);
+        self.follow();
+        self.close_group();
+    }
+
+    /// `d` (9g §4 rule 3): with a selection, the very cut `x` does; in `Normal`
+    /// nothing is cut beyond a line that asks for a selection made with `v`.
+    fn cut_or_ask(&mut self) {
+        if self.selection().is_none() {
+            self.message = Some("d needs a selection: press v first to select".to_string());
+            return;
+        }
+        self.cut();
+    }
+
+    /// `y` (9g §4 rule 4): the selection's bases are copied to the register and
+    /// the record is left as it was; the mode leaves `Visual` and the count of
+    /// the yanked bases is said. In `Normal` there is nothing to yank, and the
+    /// line asks for a selection made with `v`.
+    fn yank(&mut self) {
+        let (start, end): (u64, u64) = match self.selection() {
+            Some(range) => range,
+            None => {
+                self.message = Some("y needs a selection: press v first to select".to_string());
+                return;
+            }
+        };
+        let letters: Vec<char> = match &self.edit {
+            Ok(buffer) => buffer.letters()[start as usize..end as usize].to_vec(),
+            Err(blocked) => {
+                self.message = Some(blocked_words(blocked));
+                return;
+            }
+        };
+        let count: usize = letters.len();
+        self.register = letters;
+        self.editing = EditMode::Normal;
+        self.message = Some(format!("yanked {count} bases"));
+    }
+
+    /// `p` and `P` (9g §4 rule 5): the register's bases go back in as one
+    /// `Insert`, after the cursor's base (`p`, at the cursor + 1) or before it
+    /// (`P`, at the cursor), and the cursor lands on the last pasted base. With
+    /// an empty register the line says there is nothing to paste, and the
+    /// register itself stays as it is, so `p` can go on repeating.
+    fn paste_register(&mut self, after: bool) {
+        if let Err(blocked) = &self.edit {
+            self.message = Some(blocked_words(blocked));
+            return;
+        }
+        if self.register.is_empty() {
+            self.message = Some("paste: the register is empty".to_string());
+            return;
+        }
+        let bases: Vec<char> = self.register.clone();
+        let count: u64 = bases.len() as u64;
+        let at: u64 = if after {
+            self.cursor
+                .saturating_add(1)
+                .min(self.record.sequence.length())
+        } else {
+            self.cursor
+        };
+        if self.apply_edit(Edit::Insert { at, bases }).is_err() {
+            // `apply_edit` has said why nothing was pasted.
+            return;
+        }
+        // §4 rule 5: the cursor goes to the last pasted base, which sits
+        // `count` bases after the insert point minus one step.
+        let last: u64 = self.record.sequence.length().saturating_sub(1);
+        self.cursor = (at + count - 1).min(last);
+        self.follow();
+        self.close_group();
+    }
+
+    /// `u` (9g §4 rule 7, M9-8): the last group's steps are put back in reverse
+    /// order straight onto the buffer, and the view is recomputed once for the
+    /// whole group. The group goes onto the redo stack for `ctrl-r` to bring
+    /// back, and the cursor lands on the first base of the group's first edit,
+    /// clamped. With nothing on the undo stack, the line says so.
+    fn undo_group(&mut self) {
+        let Some(group) = self.undo_groups.pop() else {
+            self.message = Some("nothing to undo".to_string());
+            return;
+        };
+        let mut buffer: EditBuffer = match &self.edit {
+            Ok(buffer) => buffer.clone(),
+            Err(blocked) => {
+                self.undo_groups.push(group);
+                self.message = Some(blocked_words(blocked));
+                return;
+            }
+        };
+        // §4 rule 7: the undo of the last step goes first, so every step is put
+        // back on the record the steps before it left.
+        for (_edit, undo) in group.iter().rev() {
+            buffer.undo(undo.clone());
+        }
+        let start: u64 = group
+            .first()
+            .map_or(self.cursor, |(edit, _undo)| edit_start(edit));
+        if self.rebuild_view(buffer, Vec::new(), Vec::new()).is_err() {
+            // `rebuild_view` has said why; the group goes back where it was.
+            self.undo_groups.push(group);
+            return;
+        }
+        self.redo_groups.push(group);
+        // §4 rule 7: the cursor goes to the group's first edit, clamped.
+        let last: u64 = self.record.sequence.length().saturating_sub(1);
+        self.cursor = start.min(last);
+        self.follow();
+    }
+
+    /// `ctrl-r` (9g §4 rule 8, M9-8): the last group `u` undid is applied
+    /// again, in the order its steps were first applied, and each step's fresh
+    /// `Undo` takes the old one's place. The group goes back onto the undo
+    /// stack, and the view is recomputed once. With nothing on the redo stack,
+    /// the line says so.
+    fn redo_group(&mut self) {
+        let Some(group) = self.redo_groups.pop() else {
+            self.message = Some("nothing to redo".to_string());
+            return;
+        };
+        let mut buffer: EditBuffer = match &self.edit {
+            Ok(buffer) => buffer.clone(),
+            Err(blocked) => {
+                self.redo_groups.push(group);
+                self.message = Some(blocked_words(blocked));
+                return;
+            }
+        };
+        // §4 rule 8: the edits go on again in their original order, and each
+        // one's fresh undo goes onto the group in the old one's place.
+        let mut fresh: Vec<(Edit, Undo)> = Vec::new();
+        let mut refused: Option<DomainError> = None;
+        for (edit, _undo) in group.iter() {
+            match buffer.apply_undoable(edit) {
+                Ok((_outcome, undo)) => fresh.push((edit.clone(), undo)),
+                Err(error) => {
+                    refused = Some(error);
+                    break;
+                }
+            }
+        }
+        if let Some(error) = refused {
+            self.redo_groups.push(group);
+            self.message = Some(error.message());
+            return;
+        }
+        let start: u64 = fresh
+            .first()
+            .map_or(self.cursor, |(edit, _undo)| edit_start(edit));
+        if self.rebuild_view(buffer, Vec::new(), Vec::new()).is_err() {
+            // `rebuild_view` has said why; the group goes back where it was.
+            self.redo_groups.push(group);
+            return;
+        }
+        self.undo_groups.push(fresh);
+        let last: u64 = self.record.sequence.length().saturating_sub(1);
+        self.cursor = start.min(last);
+        self.follow();
+    }
+
+    /// Ends the command group the view is collecting (9g §4 rule 6): the steps
+    /// of one command go onto the undo stack together, and the redo stack goes
+    /// away, since what sits on it no longer matches the record as this command
+    /// leaves it. Nothing happens when the command made.
+    fn close_group(&mut self) {
+        if self.current_group.is_empty() {
+            return;
+        }
+        // §4 rule 6: a new group clears the redo stack.
+        self.redo_groups.clear();
+        let group: Vec<(Edit, Undo)> = std::mem::take(&mut self.current_group);
+        self.undo_groups.push(group);
+    }
+
+    /// The edit groups `u` can step back through (M9-16): the count 9h's save
+    /// prompt stamps to say what a quit would leave behind.
+    // 9h wires this in; until then the unit tests in this module are its only
+    // readers. (M9-16: `edits()` is the undo-stack length the save prompt stamps.)
+    #[allow(dead_code)]
+    pub(super) fn edits(&self) -> usize {
+        self.undo_groups.len()
+    }
+
     /// 8k3's picker: `false`, and nothing changes, for an index out of range or
     /// a CDS that is not `CdsStatus::Usable` (D041, D042, D052). A chosen CDS is
     /// shown by its own lane, and dropping the selection takes a `Cds` mode off
@@ -978,31 +1252,22 @@ impl ViewState {
     // The edit keys 9f and 9g are wired through this; the tests in this module
     // also call it directly.
     pub(super) fn apply_edit(&mut self, edit: Edit) -> Result<EditOutcome, DomainError> {
-        // The selected CDS is followed by the line its feature's key was read
-        // from, which no edit moves (§4 rule 2): a removed feature shifts the
-        // index of every other one in `features` and in `cdss`, and its own name
-        // is needed for the message before the record is replaced.
-        let selected_line: Option<u64> = self
-            .selected
-            .and_then(|index| self.record.cdss.get(index))
-            .and_then(|cds| self.record.features.get(cds.feature))
-            .map(|feature| feature.line);
-        let selected_name: Option<String> =
-            self.selected.map(|index| display_name(&self.record, index));
-
         // The edit goes onto a copy of the buffer, so that a refusal from `apply`
         // or from `rebuild` below leaves the buffer the view edits untouched.
-        let edited: Result<(EditBuffer, EditOutcome), DomainError> = match self.edit.as_ref() {
-            // A record 9d and every later edit key refuses before it gets at in
+        let edited: Result<(EditBuffer, EditOutcome, Undo), DomainError> = match self.edit.as_ref()
+        {
+            // A record 9d and every later edit key refuses before it gets at
             // the first place; core's own reason is what says so here.
             Ok(buffer) => {
                 let mut candidate: EditBuffer = buffer.clone();
-                candidate.apply(&edit).map(|outcome| (candidate, outcome))
+                candidate
+                    .apply_undoable(&edit)
+                    .map(|(outcome, undo)| (candidate, outcome, undo))
             }
             Err(blocked) => Err(blocked.error.clone()),
         };
-        let (buffer, outcome) = match edited {
-            Ok((buffer, outcome)) => (buffer, outcome),
+        let (buffer, outcome, undo) = match edited {
+            Ok((buffer, outcome, undo)) => (buffer, outcome, undo),
             Err(error) => {
                 self.message = Some(error.message());
                 return Err(error);
@@ -1028,6 +1293,40 @@ impl ViewState {
                 format!("/{qualifier} dropped from {name}")
             })
             .collect();
+
+        self.rebuild_view(buffer, removed, dropped)?;
+        // 9g §4 rule 6: an edit is never just an edit, it is an edit with the
+        // step that puts it back. Both go onto the group the command now being
+        // carried collects, and the command's last key closes the group. The
+        // step goes on only once `rebuild_view` has said the whole edit stands:
+        // a record the rebuild refuses keeps no group as it kept the buffer.
+        self.current_group.push((edit, undo));
+        Ok(outcome)
+    }
+
+    /// The steps an edit's aftermath takes, shared by `apply_edit`, `undo` and
+    /// `redo` (9g §4 rule 7): `rebuild` gives the record the buffer's bases
+    /// and features, and everything after it reads the record again — the
+    /// selection and its `Chosen` map, the strip's GC line, the ORFs, the last
+    /// search's hits, the cursor and the layout. `removed` and `dropped` hold
+    /// the names the message is to name them by, and are empty for an undo.
+    fn rebuild_view(
+        &mut self,
+        buffer: EditBuffer,
+        removed: Vec<String>,
+        dropped: Vec<String>,
+    ) -> Result<(), DomainError> {
+        // The selected CDS is followed by the line its feature's key was read
+        // from, which no edit moves (§4 rule 2): a removed feature shifts the
+        // index of every other one in `features` and in `cdss`, and its own name
+        // is needed for the message before the record is replaced.
+        let selected_line: Option<u64> = self
+            .selected
+            .and_then(|index| self.record.cdss.get(index))
+            .and_then(|cds| self.record.features.get(cds.feature))
+            .map(|feature| feature.line);
+        let selected_name: Option<String> =
+            self.selected.map(|index| display_name(&self.record, index));
 
         let rebuilt: ViewRecord = match rebuild(&buffer, &self.opened) {
             Ok(record) => record,
@@ -1133,7 +1432,7 @@ impl ViewState {
 
         // §4 rule 7: the record is laid out again, anchored on the cursor's block.
         self.relayout(true);
-        Ok(outcome)
+        Ok(())
     }
 
     /// Open a list over the record with this filter and the first row
@@ -2274,7 +2573,7 @@ impl ViewState {
             // `left` and `right` have no rule while a list is open (8k3 §4 rule 3
             // names the keys that move the highlight), so they change nothing — as
             // does any other press, `ctrl-c` having left in `handle`.
-            Key::Left | Key::Right | Key::Tab | Key::Other | Key::CtrlC => {}
+            Key::Left | Key::Right | Key::Tab | Key::Other | Key::CtrlC | Key::CtrlR => {}
         }
     }
 
@@ -2451,7 +2750,8 @@ impl ViewState {
             | Key::End
             | Key::Tab
             | Key::Other
-            | Key::CtrlC => {}
+            | Key::CtrlC
+            | Key::CtrlR => {}
         }
     }
 
@@ -2502,7 +2802,8 @@ impl ViewState {
             | Key::Home
             | Key::End
             | Key::Other
-            | Key::CtrlC => {}
+            | Key::CtrlC
+            | Key::CtrlR => {}
         }
     }
 
@@ -2646,6 +2947,19 @@ fn blocked_words(blocked: &EditBlocked) -> String {
         blocked.line,
         blocked.error.message()
     )
+}
+
+/// The first base one edit touches, in the coordinates the edit was made in
+/// (9g §4 rule 7): where `u` and `ctrl-r` leave the cursor once a whole group
+/// is put back or applied again. An insert's first base is the point it
+/// inserts at, which the cursor then clamps.
+fn edit_start(edit: &Edit) -> u64 {
+    match edit {
+        Edit::Insert { at, .. } => *at,
+        Edit::Delete { start, .. }
+        | Edit::Replace { start, .. }
+        | Edit::Substitute { start, .. } => *start,
+    }
 }
 
 /// Which CDS M8-11 selects on open (D048): exactly one usable CDS is it; several
@@ -3335,7 +3649,7 @@ mod tests {
         let mut state: ViewState = ViewState::new(opened.clone(), 80, 24);
         state.cursor = 9;
         state.handle(Key::Char('i'));
-        state.paste(">x\nACGT 12\nacgt\n");
+        state.paste_text(">x\nACGT 12\nacgt\n");
         assert_eq!(
             state.record().sequence.length(),
             opened.sequence.length() + 8,
@@ -3362,7 +3676,7 @@ mod tests {
         let mut state: ViewState = ViewState::new(opened.clone(), 80, 24);
         state.cursor = 9;
         state.handle(Key::Char('i'));
-        state.paste("ACGT\nAC!T");
+        state.paste_text("ACGT\nAC!T");
         assert_eq!(
             state.record().sequence.length(),
             opened.sequence.length(),
@@ -3385,7 +3699,7 @@ mod tests {
     fn paste_outside_insert_does_nothing() {
         let opened: ViewRecord = pbr();
         let mut state: ViewState = ViewState::new(opened.clone(), 80, 24);
-        state.paste("ACGT");
+        state.paste_text("ACGT");
         assert_eq!(
             state.record().sequence.letters(),
             opened.sequence.letters(),
@@ -3506,6 +3820,227 @@ mod tests {
             state.message().expect("the status line names it"),
             "removed: misc_binding"
         );
+    }
+
+    // 9g §5 test 3 (M9-2, M9-5): `x` cuts the selection into the register and
+    // `p` puts the three bases back after the cursor base; the record ends up
+    // just as long as it was.
+    #[test]
+    fn cut_then_paste_moves_bases() {
+        let opened: ViewRecord = pbr();
+        let first: Vec<char> = opened.sequence.letters()[..3].to_vec();
+        let mut state: ViewState = ViewState::new(opened.clone(), 80, 24);
+        assert_eq!(state.handle(Key::Char('v')), Action::Continue);
+        for _ in 0..2 {
+            state.handle(Key::Char('l'));
+        }
+        assert_eq!(state.selection(), Some((0, 3)), "three bases selected");
+        state.handle(Key::Char('x'));
+        assert_eq!(
+            state.record().sequence.length(),
+            opened.sequence.length() - 3,
+            "three bases went"
+        );
+        assert_eq!(state.selection(), None, "the Visual cut leaves the mode");
+        assert_eq!(state.cursor(), 0, "the cursor stands at the cut start");
+        state.handle(Key::Char('p'));
+        assert_eq!(
+            state.record().sequence.length(),
+            opened.sequence.length(),
+            "the paste puts them back, the length is unchanged overall"
+        );
+        let letters: Vec<char> = state.record().sequence.letters();
+        assert_eq!(
+            &letters[1..4],
+            first.as_slice(),
+            "the three bases sit after the cursor base"
+        );
+        assert_eq!(
+            state.cursor(),
+            3,
+            "the cursor stands on the last pasted base"
+        );
+        assert_eq!(state.edits(), 2, "the cut and the paste are two groups");
+    }
+
+    // 9g §5 test 4 (M9-5): `y` copies the selection to the register without
+    // touching the record, and `P` puts it in before the cursor base.
+    #[test]
+    fn yank_keeps_the_record() {
+        let opened: ViewRecord = pbr();
+        let pair: Vec<char> = opened.sequence.letters()[..2].to_vec();
+        let mut state: ViewState = ViewState::new(opened.clone(), 80, 24);
+        assert_eq!(state.handle(Key::Char('v')), Action::Continue);
+        state.handle(Key::Char('l'));
+        assert_eq!(state.handle(Key::Char('y')), Action::Continue);
+        assert_eq!(
+            state.record().sequence.length(),
+            opened.sequence.length(),
+            "yank leaves the record alone"
+        );
+        assert_eq!(
+            state.message().expect("y names how many bases"),
+            "yanked 2 bases"
+        );
+        state.handle(Key::Char('P'));
+        assert_eq!(
+            state.record().sequence.length(),
+            opened.sequence.length() + 2,
+            "P added the pair back"
+        );
+        let letters: Vec<char> = state.record().sequence.letters();
+        assert_eq!(
+            &letters[1..3],
+            pair.as_slice(),
+            "the pair sits before the cursor base"
+        );
+        assert_eq!(state.edits(), 1, "the paste is one group, yank is not");
+    }
+
+    // 9g §4 rule 6 and §5 test 5 (M9-16): the insert from `i` to `esc` is one
+    // group, so one `u` takes the whole spell of letters back at once.
+    #[test]
+    fn an_insert_session_is_one_undo() {
+        let opened: ViewRecord = pbr();
+        let mut state: ViewState = ViewState::new(opened.clone(), 80, 24);
+        state.cursor = 100;
+        state.handle(Key::Char('i'));
+        for ch in ['a', 'c', 'g'] {
+            state.handle(Key::Char(ch));
+        }
+        state.handle(Key::Esc);
+        assert_eq!(
+            state.record().sequence.length(),
+            opened.sequence.length() + 3,
+            "three bases took in"
+        );
+        assert_eq!(state.edits(), 1, "one group for the whole spell");
+        state.handle(Key::Char('u'));
+        // The letters and the feature list must come back exactly as the file
+        // had them. The whole `ViewRecord` cannot be compared this way, as a
+        // rebuild carries the record as the writer wrote it and not its header
+        // lines (9e's `rebuild` builds a GenBank record from parts).
+        let record: &ViewRecord = state.record();
+        assert_eq!(
+            record.sequence.letters(),
+            opened.sequence.letters(),
+            "one `u` took back the whole spell"
+        );
+        assert_eq!(record.features, opened.features, "the features are back");
+        assert_eq!(record.cdss, opened.cdss, "the CDSs are back");
+        assert_eq!(
+            record.sequence.content_hash(),
+            opened.sequence.content_hash(),
+            "the same sequence"
+        );
+        assert_eq!(state.edits(), 0, "nothing is left on the undo stack");
+    }
+
+    // 9g §5 test 6 (M9-8, M9-16): `ctrl-r` puts the undone group back on the
+    // undo stack, and any new command clears what sat there.
+    #[test]
+    fn redo_after_undo() {
+        let opened: ViewRecord = pbr();
+        let mut state: ViewState = ViewState::new(opened.clone(), 80, 24);
+        state.handle(Key::Char('x'));
+        assert_eq!(
+            state.record().sequence.length(),
+            opened.sequence.length() - 1,
+            "the cursor base is cut"
+        );
+        state.handle(Key::Char('u'));
+        assert_eq!(
+            state.record().sequence.letters(),
+            opened.sequence.letters(),
+            "the undo puts the base back"
+        );
+        assert_eq!(state.edits(), 0, "the undo stack is empty");
+        state.handle(Key::CtrlR);
+        assert_eq!(state.edits(), 1, "the group is back on the undo stack");
+        assert_eq!(
+            state.record().sequence.length(),
+            opened.sequence.length() - 1,
+            "the base is cut again"
+        );
+        // `u` moves the undone group onto the redo stack, and the new `x`
+        // starts a new group, which clears the redo (M9-16). Only the second
+        // cut is left standing, and its group is the only one on the undo stack.
+        state.handle(Key::Char('u'));
+        state.handle(Key::Char('x'));
+        assert_eq!(state.edits(), 1, "the new cut replaces the undone one");
+        state.handle(Key::CtrlR);
+        let message: String = state
+            .message()
+            .expect("the new cut cleared the redo stack")
+            .to_string();
+        assert!(message.contains("nothing"), "nothing to redo: {message}");
+        assert_eq!(
+            state.record().sequence.length(),
+            opened.sequence.length() - 1,
+            "the cleared redo changed nothing"
+        );
+    }
+
+    // 9g §5 test 7 (M9-6 c, M9-8): undoing a `Delete` that had removed a
+    // feature brings that feature back with its location text.
+    #[test]
+    fn undo_brings_back_a_removed_feature() {
+        let opened: ViewRecord = pbr();
+        let mut state: ViewState = ViewState::new(opened.clone(), 80, 24);
+        let outcome: EditOutcome = state
+            .apply_edit(Edit::Delete { start: 23, end: 27 })
+            .expect("the four bases of misc_binding 24..27");
+        assert_eq!(outcome.removed.len(), 1, "that one feature only");
+        state.close_group();
+        assert_eq!(state.edits(), 1, "the Delete is a group of one");
+        assert_eq!(
+            state.record().features.len(),
+            opened.features.len() - 1,
+            "the feature list lost the binding"
+        );
+        state.handle(Key::Char('u'));
+        assert_eq!(
+            state.record().sequence.letters(),
+            opened.sequence.letters(),
+            "the four bases are back"
+        );
+        let buffer: &EditBuffer = state.edit.as_ref().expect("an editable record");
+        let feature: &EditFeature = buffer
+            .features()
+            .iter()
+            .find(|feature| feature.key == "misc_binding" && feature.line == 242)
+            .expect("the binding feature is back");
+        assert_eq!(
+            feature.location_text.as_deref(),
+            Some("24..27"),
+            "and its location text came back as it was read"
+        );
+        assert_eq!(
+            state.record().features,
+            opened.features,
+            "the view features are the opened ones again"
+        );
+    }
+
+    // 9g §5 test 8 (§4 rules 3 and 4): `d` and `y` with no selection do nothing
+    // and say the selection is made with `v`.
+    #[test]
+    fn d_and_y_need_a_selection() {
+        let opened: ViewRecord = pbr();
+        let mut state: ViewState = ViewState::new(opened.clone(), 80, 24);
+        state.cursor = 20;
+        for key in [Key::Char('d'), Key::Char('y')] {
+            assert_eq!(state.handle(key), Action::Continue, "{key:?}");
+            let message: String = state.message().expect("the refusal is said").to_string();
+            assert!(message.contains('v'), "{key:?} asks for v: {message}");
+        }
+        assert_eq!(
+            state.record().sequence.letters(),
+            opened.sequence.letters(),
+            "either key left the record as it was"
+        );
+        assert_eq!(state.cursor(), 20, "the cursor stays put");
+        assert_eq!(state.edits(), 0, "nothing was edited");
     }
 
     // 9e §5 test 8 (M9-6 d): an edit on pBR322 with the ORF lanes shown, in a

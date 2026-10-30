@@ -19,7 +19,7 @@
 //! `super::state::ViewState::handle` does, and this module only names the key
 //! that was pressed and passes the answer on. Bracketed paste is switched on
 //! and off here as well (9f §3 item 2), since only the terminal knows a paste
-//! is one; what a paste means stays `state::paste`'s rule.
+//! is one; what a paste means stays `state::paste_text`'s rule.
 
 use crate::sequence_view::screen;
 use crate::sequence_view::state::Action;
@@ -66,6 +66,11 @@ fn key_of(press: KeyEvent) -> Key {
     }
     if press.code == KeyCode::Char('u') && press.modifiers == KeyModifiers::CONTROL {
         return Key::CtrlU;
+    }
+    // 9g's redo key, named the same way: `r` on its own is text, and a press
+    // with another modifier is `Other`.
+    if press.code == KeyCode::Char('r') && press.modifiers == KeyModifiers::CONTROL {
+        return Key::CtrlR;
     }
     match press.code {
         KeyCode::Char(letter) => Key::Char(letter),
@@ -172,9 +177,9 @@ pub fn run(record: ViewRecord) -> std::io::Result<()> {
             // the new width (§4 rule 14).
             Ok(Event::Resize(width, height)) => state.resize(width, height),
             // A bracketed paste: the whole text comes in one event, and every
-            // rule about what a paste means is `ViewState::paste`'s, not this (9f
+            // rule about what a paste means is `ViewState::paste_text`'s, not this (9f
             // §3 item 2).
-            Ok(Event::Paste(text)) => state.paste(&text),
+            Ok(Event::Paste(text)) => state.paste_text(&text),
             // A mouse event, a focus change, a poll that found nothing: the next
             // draw pass redraws.
             Ok(_other) => {}
@@ -195,7 +200,12 @@ pub fn run(record: ViewRecord) -> std::io::Result<()> {
 
 #[cfg(test)]
 mod tests {
+    use super::key_of;
     use super::no_color;
+    use super::Key;
+    use crossterm::event::KeyCode;
+    use crossterm::event::KeyEvent;
+    use crossterm::event::KeyModifiers;
     use std::ffi::OsStr;
 
     /// §5's U2: the three answers the environment gives, as no-color.org has
@@ -216,5 +226,15 @@ mod tests {
             no_color(Some(OsStr::new("0"))),
             "`NO_COLOR=0` is set and not empty, so it asks for none too"
         );
+    }
+
+    /// 9g §3 item 3: `ctrl` + `r` names the view's redo key, the way `ctrl-c`
+    /// is named. A plain `r` is still the replace key.
+    #[test]
+    fn ctrl_r_is_the_redo_key() {
+        let press: KeyEvent = KeyEvent::new(KeyCode::Char('r'), KeyModifiers::CONTROL);
+        assert_eq!(key_of(press), Key::CtrlR, "ctrl-r comes in as redo");
+        let plain: KeyEvent = KeyEvent::new(KeyCode::Char('r'), KeyModifiers::NONE);
+        assert_eq!(key_of(plain), Key::Char('r'), "a plain r is replace");
     }
 }

@@ -5,7 +5,8 @@
 //! `Edit` — insert, delete, replace or substitute — moves the bases, then
 //! moves every feature by the rules of `tests/fixtures/editor/README.md`
 //! (M9-6, M9-13, M9-14), which the table `tests/fixtures/editor/feature-edits.tsv`
-//! pins row by row.
+//! pins row by row. `apply_undoable` is the same edit with the `Undo` that
+//! puts it back, which `undo` applies (contract 9g).
 //!
 //! Nothing here reads or writes GenBank text. A location is the editor's own
 //! `EditLocation` (M9-17): its ranges in the order they were written, an
@@ -120,6 +121,19 @@ pub struct EditOutcome {
     /// the features that stay; and only a `CDS` can lose qualifiers through
     /// an edit, which is why one name needs no second copy.
     pub dropped: Vec<(usize, String)>,
+}
+
+/// What it takes to put the buffer back as it was before one edit (contract
+/// 9g). `wrote` is the span the edit wrote in the buffer as it stands after
+/// the edit, so `undo` knows what to take back out; `removed` holds the
+/// letters that stood in the span before the edit, and `features` every
+/// feature exactly as it was: ranges, partial marks, qualifiers and location
+/// text included.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Undo {
+    wrote: (u64, u64),
+    removed: Vec<char>,
+    features: Vec<EditFeature>,
 }
 
 /// A record being edited: its name, topology, bases and features.
@@ -621,8 +635,14 @@ impl EditBuffer {
     }
 
     /// Applies one edit to the bases and to every feature. On `Err` the
-    /// buffer is unchanged.
+    /// buffer is unchanged. The `Undo` of the edit is thrown away; the view
+    /// keeps its own, and calls `apply_undoable` (contract 9g).
     pub fn apply(&mut self, edit: &Edit) -> Result<EditOutcome, DomainError> {
+        self.apply_undoable(edit).map(|(outcome, _undo)| outcome)
+    }
+
+    /// `apply`, and the step that undoes it (contract 9g).
+    pub fn apply_undoable(&mut self, edit: &Edit) -> Result<(EditOutcome, Undo), DomainError> {
         let plan: Plan = self.check(edit)?;
         let written: &[char] = match edit {
             Edit::Insert { bases, .. }
@@ -634,8 +654,16 @@ impl EditBuffer {
         let circular: bool = self.topology == SequenceTopology::Circular;
         let length_before: u64 = self.length();
 
-        // The bases: one splice, which moves the tail of the record once.
+        // The undo is made before anything moves: `span` is in the buffer's
+        // coordinates, and its letters and its features are about to change.
         let span: (u64, u64) = plan.span();
+        let undo: Undo = Undo {
+            wrote: (span.0, span.0 + written.len() as u64),
+            removed: self.letters[span.0 as usize..span.1 as usize].to_vec(),
+            features: self.features.clone(),
+        };
+
+        // The bases: one splice, which moves the tail of the record once.
         let range: std::ops::Range<usize> = (span.0 as usize)..(span.1 as usize);
         self.letters.splice(range, written.iter().copied());
 
@@ -720,7 +748,21 @@ impl EditBuffer {
             kept.push(edited);
         }
         self.features = kept;
-        Ok(outcome)
+        Ok((outcome, undo))
+    }
+
+    /// Puts back the letters and features `undo` holds (contract 9g). It
+    /// must be the undo of the last edit applied and not yet undone: the
+    /// view's `u` and `ctrl-r` keep that order. Anything else is a
+    /// programming error, and the debug build says so.
+    pub fn undo(&mut self, undo: Undo) {
+        debug_assert!(
+            undo.wrote.1 as usize <= self.letters.len(),
+            "an undo whose span ends past the end of the bases is a programming error"
+        );
+        let range: std::ops::Range<usize> = (undo.wrote.0 as usize)..(undo.wrote.1 as usize);
+        self.letters.splice(range, undo.removed.iter().copied());
+        self.features = undo.features;
     }
 
     /// The bases as a `Sequence` with this name and topology, through
@@ -1363,5 +1405,364 @@ mod tests {
         assert_eq!(buffer.length(), 16);
         assert_eq!(buffer.letters(), letters("ACGTACGTACGTACGT").as_slice());
         assert!(buffer.features().is_empty(), "no feature to read");
+    }
+
+    /// §5 test 1 (full tier): `apply_undoable` then `undo` gives back the
+    /// buffer exactly as it was: its length, its letters, and its features
+    /// with their qualifiers, partial marks and location text. The rows are
+    /// 15 of 9a's table rows, a list covering every rule group (M9-6 a
+    /// through h, M9-13 a and b, and M9-14), built the way
+    /// `crates/core/tests/feature_edit_fixtures.rs` builds them: the table's
+    /// 1-based inclusive coordinates become the buffer's zero-based
+    /// half-open ones (D006). Each row moves or drops its feature, so the
+    /// undo has features as well as letters to put back.
+    #[test]
+    fn undo_restores_exactly() {
+        // The row's one feature: its key, its shape, its location text and
+        // its qualifiers. The text is `Some` because the feature is as the
+        // row opens it, and `apply` clears it when the feature moves.
+        fn one(
+            key: &str,
+            shape: EditLocation,
+            text: &str,
+            qualifiers: &[(&str, Option<&str>)],
+        ) -> EditFeature {
+            EditFeature {
+                key: key.to_string(),
+                location: shape,
+                qualifiers: qualifiers
+                    .iter()
+                    .map(|(name, value)| (name.to_string(), value.map(|text| text.to_string())))
+                    .collect(),
+                location_text: Some(text.to_string()),
+                line: 1,
+            }
+        }
+
+        // The row: its id, topology, length, feature and edit.
+        let rows: Vec<(&str, SequenceTopology, usize, EditFeature, Edit)> = vec![
+            // M9-6 a: a deletion just before the feature shifts it left.
+            (
+                "a3: M9-6a, del 20-29",
+                SequenceTopology::Linear,
+                100,
+                one(
+                    "misc_feature",
+                    location(Strand::Plus, &[(29, 40)]),
+                    "30..40",
+                    &[],
+                ),
+                Edit::Delete { start: 19, end: 29 },
+            ),
+            // M9-6 b: an insertion inside the feature, at either end.
+            (
+                "b1: M9-6b, ins 5 after 30",
+                SequenceTopology::Linear,
+                100,
+                one(
+                    "misc_feature",
+                    location(Strand::Plus, &[(29, 40)]),
+                    "30..40",
+                    &[],
+                ),
+                Edit::Insert {
+                    at: 30,
+                    bases: vec!['A'; 5],
+                },
+            ),
+            (
+                "b2: M9-6b, ins 5 after 39",
+                SequenceTopology::Linear,
+                100,
+                one(
+                    "misc_feature",
+                    location(Strand::Plus, &[(29, 40)]),
+                    "30..40",
+                    &[],
+                ),
+                Edit::Insert {
+                    at: 39,
+                    bases: vec!['A'; 5],
+                },
+            ),
+            // M9-6 c: one deletion that leaves the feature with no range,
+            // and one that takes the second range of a two-range feature.
+            (
+                "c3: M9-6c, del 25-45",
+                SequenceTopology::Linear,
+                100,
+                one(
+                    "misc_feature",
+                    location(Strand::Plus, &[(29, 40)]),
+                    "30..40",
+                    &[],
+                ),
+                Edit::Delete { start: 24, end: 45 },
+            ),
+            (
+                "c4: M9-6c, del 28-45",
+                SequenceTopology::Linear,
+                100,
+                one(
+                    "misc_feature",
+                    location(Strand::Plus, &[(9, 20), (29, 40)]),
+                    "join(10..20,30..40)",
+                    &[],
+                ),
+                Edit::Delete { start: 27, end: 45 },
+            ),
+            // M9-6 d: the partial marks, each on the end the edit touches.
+            (
+                "d1: M9-6d, del 25-32",
+                SequenceTopology::Linear,
+                100,
+                one(
+                    "misc_feature",
+                    EditLocation {
+                        open_start: true,
+                        ..location(Strand::Plus, &[(29, 40)])
+                    },
+                    "<30..40",
+                    &[],
+                ),
+                Edit::Delete { start: 24, end: 32 },
+            ),
+            (
+                "d2: M9-6d, del 38-45",
+                SequenceTopology::Linear,
+                100,
+                one(
+                    "misc_feature",
+                    EditLocation {
+                        open_end: true,
+                        ..location(Strand::Plus, &[(29, 40)])
+                    },
+                    "30..>40",
+                    &[],
+                ),
+                Edit::Delete { start: 37, end: 45 },
+            ),
+            // M9-6 e: a replacement of a different length, and a
+            // substitution that leaves the feature in place.
+            (
+                "e1: M9-6e, rep 33-35 5",
+                SequenceTopology::Linear,
+                100,
+                one(
+                    "misc_feature",
+                    location(Strand::Plus, &[(29, 40)]),
+                    "30..40",
+                    &[],
+                ),
+                Edit::Replace {
+                    start: 32,
+                    end: 35,
+                    bases: vec!['A'; 5],
+                },
+            ),
+            (
+                "e5: M9-6e, sub 33-35",
+                SequenceTopology::Linear,
+                100,
+                one(
+                    "misc_feature",
+                    location(Strand::Plus, &[(29, 40)]),
+                    "30..40",
+                    &[],
+                ),
+                Edit::Substitute {
+                    start: 32,
+                    bases: vec!['C'; 3],
+                },
+            ),
+            // M9-6 f: an insertion between the two ranges of one feature.
+            (
+                "f1: M9-6f, ins 4 after 25",
+                SequenceTopology::Linear,
+                100,
+                one(
+                    "misc_feature",
+                    location(Strand::Plus, &[(9, 20), (29, 40)]),
+                    "join(10..20,30..40)",
+                    &[],
+                ),
+                Edit::Insert {
+                    at: 25,
+                    bases: vec!['A'; 4],
+                },
+            ),
+            // M9-6 g: an insertion into a join that crosses the origin of a
+            // circular record (D036).
+            (
+                "g1: M9-6g, ins 3 after 5",
+                SequenceTopology::Circular,
+                62,
+                one(
+                    "CDS",
+                    location(Strand::Plus, &[(55, 62), (0, 11)]),
+                    "join(56..62,1..11)",
+                    &[],
+                ),
+                Edit::Insert {
+                    at: 5,
+                    bases: vec!['A'; 3],
+                },
+            ),
+            // M9-6 h: a `CDS` that carries `codon_start`, `translation` and
+            // `product`, with an insertion before its first base.
+            (
+                "h1: M9-6h, ins 3 after 10",
+                SequenceTopology::Linear,
+                100,
+                one(
+                    "CDS",
+                    location(Strand::Plus, &[(29, 40)]),
+                    "30..40",
+                    &[
+                        ("codon_start", Some("1")),
+                        ("translation", Some("MAAA")),
+                        ("product", Some("x")),
+                    ],
+                ),
+                Edit::Insert {
+                    at: 10,
+                    bases: vec!['A'; 3],
+                },
+            ),
+            // M9-13 a: a `pos:` inside the range an insertion extends.
+            (
+                "t5: M9-13a, ins 2 after 45",
+                SequenceTopology::Linear,
+                100,
+                one(
+                    "CDS",
+                    location(Strand::Plus, &[(29, 60)]),
+                    "30..60",
+                    &[("transl_except", Some("(pos:45..47,aa:Sec)"))],
+                ),
+                Edit::Insert {
+                    at: 45,
+                    bases: vec!['A'; 2],
+                },
+            ),
+            // M9-13 b: a deletion at the 5′ end of a partial `CDS` renumbers
+            // `codon_start`.
+            (
+                "s2: M9-13b, del 1-2",
+                SequenceTopology::Linear,
+                100,
+                one(
+                    "CDS",
+                    EditLocation {
+                        open_start: true,
+                        ..location(Strand::Plus, &[(0, 60)])
+                    },
+                    "<1..60",
+                    &[("codon_start", Some("1"))],
+                ),
+                Edit::Delete { start: 0, end: 2 },
+            ),
+            // M9-14: an insertion after the last base of a record moves the
+            // origin that a join wraps around.
+            (
+                "o4: M9-14, ins 5 after 4361",
+                SequenceTopology::Circular,
+                4_361,
+                one(
+                    "misc_feature",
+                    location(Strand::Plus, &[(3_999, 4_361), (0, 10)]),
+                    "join(4000..4361,1..10)",
+                    &[],
+                ),
+                Edit::Insert {
+                    at: 4_361,
+                    bases: vec!['A'; 5],
+                },
+            ),
+        ];
+
+        for (id, topology, length, feature, edit) in rows.into_iter() {
+            let mut buffer: EditBuffer = record(topology, &bases(length), &[feature]);
+            let before: EditBuffer = buffer.clone();
+            let (_outcome, undo): (EditOutcome, Undo) =
+                buffer.apply_undoable(&edit).unwrap_or_else(|error| {
+                    panic!("{id}: the row's edit is held: {}", error.message())
+                });
+            // A substitution overwrites bases one for one and moves
+            // nothing, so a feature keeps its ranges and its text; every
+            // other row moves or removes the feature, so `undo` has
+            // features as well as letters to put back.
+            if id.contains("sub") {
+                assert_eq!(
+                    buffer.features(),
+                    before.features(),
+                    "{id}: a substitution moves nothing"
+                );
+            } else {
+                assert_ne!(
+                    buffer.features(),
+                    before.features(),
+                    "{id}: the edit moves or removes the feature"
+                );
+            }
+            assert_ne!(buffer, before, "{id}: the edit changes the record");
+
+            buffer.undo(undo);
+            assert_eq!(buffer.length(), before.length(), "{id}: the length");
+            assert_eq!(buffer.letters(), before.letters(), "{id}: the letters");
+            assert_eq!(
+                buffer.features(),
+                before.features(),
+                "{id}: the features with their qualifiers and location text"
+            );
+            assert_eq!(buffer, before, "{id}: the whole record");
+        }
+    }
+
+    /// §5 test 2: three edits on pBR322's buffer, undone last first, give
+    /// back the record exactly as it was opened.
+    #[test]
+    fn undo_in_reverse_order() {
+        let path: &str = "../../tests/fixtures/genbank/raw/J01749.1.gb";
+        let text: String = std::fs::read_to_string(path)
+            .unwrap_or_else(|error| panic!("cannot read {}: {}", path, error));
+        let name: Identifier = Identifier::create("J01749.1".to_string())
+            .unwrap_or_else(|error| panic!("a name is created: {}", error.message()));
+        let view: ViewRecord = open_record(name, text)
+            .unwrap_or_else(|error| panic!("open_record reads J01749.1: {}", error.message()));
+        let mut buffer: EditBuffer = buffer_for(&view)
+            .unwrap_or_else(|blocked| panic!("pBR322 opens for editing: {:?}", blocked));
+        let opened: EditBuffer = buffer.clone();
+
+        let edits: [Edit; 3] = [
+            Edit::Insert {
+                at: 40,
+                bases: letters("GAT"),
+            },
+            Edit::Delete {
+                start: 90,
+                end: 150,
+            },
+            Edit::Substitute {
+                start: 200,
+                bases: letters("AA"),
+            },
+        ];
+        let mut undos: Vec<Undo> = Vec::new();
+        for edit in edits.iter() {
+            let (_outcome, undo) = buffer
+                .apply_undoable(edit)
+                .unwrap_or_else(|error| panic!("an edit is held: {}", error.message()));
+            undos.push(undo);
+        }
+        assert_ne!(buffer, opened, "three edits change the record");
+
+        for undo in undos.into_iter().rev() {
+            buffer.undo(undo);
+        }
+        assert_eq!(
+            buffer, opened,
+            "the record is back as opened, with its letters and every feature"
+        );
     }
 }

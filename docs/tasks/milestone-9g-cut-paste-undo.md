@@ -1,6 +1,6 @@
 # Contract 9g — core and cli: cut, yank, paste, undo and redo
 
-Planner: Claude. Status: draft. Tier: light, with the core undo full
+Planner: Claude. Status: implemented. Tier: light, with the core undo full
 (plan M9-10).
 Plan row: `docs/tasks/milestone-9-editor.md` §7, row 9g.
 
