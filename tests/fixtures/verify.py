@@ -65,6 +65,7 @@ CHECKS = [
     "view/reference/orfs.py",
     "editor/reference/feature_edits.py",
     "editor/reference/locations.py",
+    "editor/reference/saved.py",
 ]
 
 

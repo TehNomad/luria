@@ -1,6 +1,6 @@
 # Contract 9c3 — core: the GenBank writer
 
-Planner: Claude. Status: draft. Tier: full.
+Planner: Claude. Status: implemented. Tier: full.
 Plan row: `docs/tasks/milestone-9-editor.md` §7, row 9c3.
 
 ## 1. What this contract builds

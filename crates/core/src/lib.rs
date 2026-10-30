@@ -15,6 +15,7 @@ pub mod frames;
 pub mod genbank;
 pub mod genbank_cds;
 pub mod genbank_location;
+pub mod genbank_write;
 pub mod genetic_code;
 pub mod identity;
 pub mod interval;

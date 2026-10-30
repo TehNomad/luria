@@ -145,3 +145,39 @@ python3 -I tests/fixtures/editor/reference/locations.py --check
 It prints `OK locations.tsv (17 rows)` or `DIFFERS locations.tsv` with the row,
 and exits 1 on a difference; it writes nothing and never runs luria.
 `tests/fixtures/verify.py` runs it with every other check.
+
+## Saved records (9c3)
+
+`pbr322-saved.gb` and `pbr322-substituted.gb` are what a save writes for
+pBR322 (`../../genbank/raw/J01749.1.gb`): the first is the record as opened,
+with nothing changed beyond what a save always changes, and the second is the
+same after one `Substitute` of base 100 (zero-based 99). The two Rust tests
+in `crates/core/tests/genbank_write_fixtures.rs` compare `write_genbank` with
+these files byte for byte, so every rule of contract 9c3 §4 that fires on
+pBR322 is pinned here.
+
+`reference/saved.py` builds both by plain text operations on the source file,
+never by running luria (D039), and checks them with Biopython 1.88: the same
+feature keys and locations as the source, the same qualifiers apart from the
+one removed `/translation`, and the source's sequence with only base 100
+changed in the substituted file.
+
+| File | The source, plus these changes |
+| --- | --- |
+| `pbr322-saved.gb` | the LOCUS line's date set to `29-OCT-2026`; the `VERSION` line (source line 5) removed; `            Edited with luria 9.9.9: 0 edits.` inserted before the `FEATURES` line; the `ORIGIN` line's trailing spaces removed; line ends made `\n` |
+| `pbr322-substituted.gb` | the same, with the comment saying `1 edit.`; base 100 changed in the ORIGIN block to `a` (it is `t` there), in the same case and the same place; and the tet CDS's `/translation` lines (from `/translation=` to the line where the quoted value closes) removed, because the substitution touched that CDS's bases and M9-6 (h) drops a stale translation |
+
+Both files end with `//` and one line end (`//\n`): the blank line NCBI's file
+puts after `//` is dropped, as the writer's rule says (§4: the record ends
+`//\n`).
+
+The command, from the repository root:
+
+```
+python3 -I tests/fixtures/editor/reference/saved.py --check
+```
+
+It prints `OK pbr322-saved.gb (<n> lines)` and `OK pbr322-substituted.gb
+(<n> lines)`, or `DIFFERS <name>` with the first differing line, and exits 1
+on a difference; it writes nothing and never runs luria.
+`tests/fixtures/verify.py` runs it with every other check.
