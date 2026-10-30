@@ -496,7 +496,7 @@ fn emit_view(file: PathBuf) -> ExitStatus {
                 write_err(format!("luria: {}\n", message).as_str());
                 status
             }
-            Ok(record) => match sequence_view::terminal::run(record) {
+            Ok(record) => match sequence_view::terminal::run(record, &file) {
                 Ok(()) => ExitStatus::Success,
                 Err(problem) => {
                     write_err(format!("luria: the terminal failed: {}\n", problem).as_str());

@@ -453,7 +453,7 @@ fn q_and_ctrl_c_quit() {
     walk(&mut state, Key::Char('l'), 7);
     let mode: LaneMode = *state.mode();
 
-    assert_eq!(state.handle(Key::Char('x')), Action::Continue);
+    assert_eq!(state.handle(Key::Char('z')), Action::Continue);
     assert_eq!(state.cursor(), 7, "an unbound key moves nothing");
     assert_eq!(state.mode(), &mode, "and changes no lanes");
     assert_eq!(state.handle(Key::Other), Action::Continue);

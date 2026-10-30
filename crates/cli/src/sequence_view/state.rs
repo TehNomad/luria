@@ -36,6 +36,7 @@ use crate::sequence_view::list::Drawn;
 use crate::sequence_view::list::List;
 use crate::sequence_view::list::ListKind;
 use crate::sequence_view::overview::gc_line;
+use crate::sequence_view::save;
 use crate::sequence_view::search::search_record;
 use crate::sequence_view::search::Hit;
 use crate::sequence_view::search::Hits;
@@ -54,6 +55,7 @@ use luria_core::edit_buffer::EditFeature;
 use luria_core::edit_buffer::EditOutcome;
 use luria_core::edit_buffer::Undo;
 use luria_core::error::DomainError;
+use luria_core::genbank_write::SaveStamp;
 use luria_core::name_match::cds_span;
 use luria_core::name_match::match_name;
 use luria_core::name_match::Matched;
@@ -73,6 +75,8 @@ use luria_core::view_record::FeatureShape;
 use luria_core::view_record::TopologySource;
 use luria_core::view_record::ViewRecord;
 use ratatui::text::Line;
+use std::path::Path;
+use std::path::PathBuf;
 
 /// One key press, as `super::terminal` maps it (§4 rule 14, and 8k3 §4 rule 3).
 /// Any press this view has no key for is `Other` and changes nothing (§4 rule
@@ -118,11 +122,17 @@ pub enum Key {
     Other,
 }
 
-/// What the session does after a key: draw again, or leave (§4 rule 10).
+/// What the session does after a key: draw again, ask the terminal for a save,
+/// or leave (9h §4.2, §4.5).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Action {
     Continue,
     Quit,
+    /// A successful `s`: the terminal owns the file system, so the state asks
+    /// for the write instead of making it (§4.2). `run` reads the path and text with
+    /// [`ViewState::save_request`], attempts the write, and reports the outcome
+    /// back with [`ViewState::report_save`] (§4.5).
+    Save,
 }
 
 /// How far `w` and `b` look for the next codon's first base (M8-35, 8m13 §4
@@ -381,14 +391,69 @@ pub struct ViewState {
     /// `apply_edit` adds its step here, and the command's last key closes it
     /// into `undo_groups`.
     current_group: Vec<(Edit, Undo)>,
+    /// The file the record was opened from, `None` when the view has no file
+    /// behind (the tests and `new` build one): 9h's save prompt writes beside
+    /// it, and `super::terminal::run` gives it the real path.
+    opened_path: Option<PathBuf>,
+    /// Today's day count (days since 1970-01-01) for the stamp a save writes
+    /// (§4.9, M9-15): `terminal` reads the clock, the state never does.
+    today_days: u64,
+    /// The name typed at the `s` prompt, `None` while it (9h §4.2): `s` opens
+    /// it with the default name already typed, every printable key edits it,
+    /// `enter` asks for the write and `esc` closes it writing nothing.
+    save_prompt: Option<String>,
+    /// Whether the "edits not saved" question is open (9h §4.7, §4.8): `q` and
+    /// `ctrl-c` open it when the view is dirty, and the next key answers it.
+    quit_question: bool,
+    /// Every edit, undo and redo bumps it (§4.6), so a save can say whether
+    /// anything happened since the last write.
+    change_count: usize,
+    /// The `change_count` the last save left behind (§4.6): the two differ,
+    /// the view is dirty and a quit has to ask.
+    saved_count: usize,
 }
 
 impl ViewState {
+    /// The view as it opens on a record alone: the file the record was opened
+    /// from is unknown, so that view cannot save. The view's own tests and
+    /// `super::screen` build one this way; `super::terminal` names the real
+    /// file through `new_for_file`. `s` in a view built with `new` says so in
+    /// the status line (§4.1).
+    pub fn new(record: ViewRecord, width: u16, height: u16) -> ViewState {
+        Self::build(record, width, height, None, 0)
+    }
+
+    /// The view as `super::terminal::run` opens it, on a file (`9h` §4.1, §4.9):
+    /// `opened_path` is the path that was opened, which the save prompt writes
+    /// beside, and `today_days` is today as days since 1970-01-01, which the
+    /// stamp of a save writes — the state reads no clock of its own (D003).
+    pub fn new_for_file(
+        record: ViewRecord,
+        width: u16,
+        height: u16,
+        opened_path: &Path,
+        today_days: u64,
+    ) -> ViewState {
+        Self::build(
+            record,
+            width,
+            height,
+            Some(opened_path.to_path_buf()),
+            today_days,
+        )
+    }
+
     /// The view as it opens: M8-11 decides the selection — exactly one usable
     /// CDS opens selected, several select none and the title says so — the lanes
     /// follow it, the cursor is at base 0 and the first block is on top (§4 rule
     /// 2).
-    pub fn new(record: ViewRecord, width: u16, height: u16) -> ViewState {
+    fn build(
+        record: ViewRecord,
+        width: u16,
+        height: u16,
+        opened_path: Option<PathBuf>,
+        today_days: u64,
+    ) -> ViewState {
         let selected: Option<usize> = opened(&record);
         let mode: LaneMode = match selected {
             Some(index) => LaneMode::Cds(index),
@@ -434,6 +499,12 @@ impl ViewState {
             undo_groups: Vec::new(),
             redo_groups: Vec::new(),
             current_group: Vec::new(),
+            opened_path,
+            today_days,
+            save_prompt: None,
+            quit_question: false,
+            change_count: 0,
+            saved_count: 0,
         };
         state.choose();
         state.relayout(false);
@@ -462,6 +533,16 @@ impl ViewState {
     /// rule 2); and while the search prompt is open its keys are the prompt's, with
     /// the same rule for `ctrl-c` and `q` (8l1 §4 rules 1 and 2).
     pub fn handle(&mut self, key: Key) -> Action {
+        // 9h §4.7, §4.8: while the "edits not saved" question is open the next
+        // key answers it: `y` or a second `ctrl-c` leaves, and any other key stays,
+        // closing the question and leaving the view's edits behind.
+        if self.quit_question {
+            self.quit_question = false;
+            return match key {
+                Key::Char('y') | Key::CtrlC => Action::Quit,
+                _ => Action::Continue,
+            };
+        }
         // `ctrl-c` quits from anywhere, `q` everywhere but inside an open list, an
         // open go-to prompt or an open search prompt, where every printable key is
         // text first (8k3 §4 rule 3, 8k2 §4 rule 2, 8l1 §4 rule 2) — except below
@@ -471,6 +552,7 @@ impl ViewState {
         let typing: bool = self.list.is_some()
             || self.prompt.is_some()
             || self.search.is_some()
+            || self.save_prompt.is_some()
             // 8m3's key list takes `q` itself: any key closes it and does nothing
             // else, and only `ctrl-c` leaves (8m3 §4 rule 2).
             || self.help;
@@ -482,6 +564,15 @@ impl ViewState {
             EditMode::Insert { .. } | EditMode::Overtype | EditMode::ReplaceOne
         );
         if key == Key::CtrlC || (key == Key::Char('q') && (!typing || tiny) && !typing_text) {
+            // 9h §4.6, §4.7, §4.8: an edit, undo or redo since the last save makes
+            // the view dirty, so a quit first asks; the next key answers it.
+            if self.dirty() {
+                self.quit_question = true;
+                self.message = Some(String::from(
+                    "edits not saved: y quits without saving, any other key stays",
+                ));
+                return Action::Continue;
+            }
             return Action::Quit;
         }
         self.message = None;
@@ -508,6 +599,15 @@ impl ViewState {
         // there that closes it and searches (8l1 §4 rule 2).
         if self.search.is_some() {
             self.search_key(key);
+            return Action::Continue;
+        }
+        // While the save prompt is open its keys are the prompt's: every
+        // printable key is text, `enter` asks the terminal for the write and `esc`
+        // closes it with nothing written (9h §4.2).
+        if self.save_prompt.is_some() {
+            if self.save_prompt_key(key) {
+                return Action::Save;
+            }
             return Action::Continue;
         }
         // The three modes that take text own their keys, so the view's own keys
@@ -694,9 +794,30 @@ impl ViewState {
                 self.redo_group();
                 return Action::Continue;
             }
+            // `s` in Normal and editable: the save prompt (9h §4.1, §4.2). The
+            // default name typed in is the opened file's directory, the opened
+            // file's stem, `.edited`, and the format's extension. A record that
+            // 9b2 refuses is answered as the editing keys above are; a view built
+            // with `new` has no file: `s` names the refusal in the status line.
             Key::Char('s') => {
                 if let Err(blocked) = &self.edit {
                     self.message = Some(blocked_words(blocked));
+                    return Action::Continue;
+                }
+                match self.opened_path.as_deref() {
+                    // §4.1: the default name keeps the opened file's directory.
+                    Some(path) => {
+                        let name: PathBuf = save::default_name(path, self.opened.format);
+                        self.save_prompt = Some(name.display().to_string());
+                    }
+                    // A view built with `new` has no file, so there is no
+                    // default name to type in: `s` names the refusal in the
+                    // status line (§4.1).
+                    None => {
+                        self.message = Some(String::from(
+                            "save needs the record to have been opened from a file",
+                        ));
+                    }
                 }
                 return Action::Continue;
             }
@@ -1137,6 +1258,9 @@ impl ViewState {
             return;
         }
         self.redo_groups.push(group);
+        // 9h §4.6: an undo is a change of its own, so it bumps the counter too;
+        // undoing back to the saved state still counts, which §4.6 allows.
+        self.change_count += 1;
         // §4 rule 7: the cursor goes to the group's first edit, clamped.
         let last: u64 = self.record.sequence.length().saturating_sub(1);
         self.cursor = start.min(last);
@@ -1188,6 +1312,9 @@ impl ViewState {
             return;
         }
         self.undo_groups.push(fresh);
+        // 9h §4.6: a redo is a change of its own as well, so the counter moves
+        // again and the view is dirty whatever a save did before it.
+        self.change_count += 1;
         let last: u64 = self.record.sequence.length().saturating_sub(1);
         self.cursor = start.min(last);
         self.follow();
@@ -1207,11 +1334,9 @@ impl ViewState {
         self.undo_groups.push(group);
     }
 
-    /// The edit groups `u` can step back through (M9-16): the count 9h's save
-    /// prompt stamps to say what a quit would leave behind.
-    // 9h wires this in; until then the unit tests in this module are its only
-    // readers. (M9-16: `edits()` is the undo-stack length the save prompt stamps.)
-    #[allow(dead_code)]
+    /// The edit groups `u` can step back through, and the count that 9h's save
+    /// stamps into a saved file: the edits on the undo stack at that moment
+    /// (M9-16).
     pub(super) fn edits(&self) -> usize {
         self.undo_groups.len()
     }
@@ -1295,6 +1420,10 @@ impl ViewState {
             .collect();
 
         self.rebuild_view(buffer, removed, dropped)?;
+        // 9h §4.6: the whole edit stands, so it counts toward the dirty
+        // state. A refused edit returns above and never reaches here, so a
+        // refusal leaves the counter (and so the view's cleanness) alone.
+        self.change_count += 1;
         // 9g §4 rule 6: an edit is never just an edit, it is an edit with the
         // step that puts it back. Both go onto the group the command now being
         // carried collects, and the command's last key closes the group. The
@@ -1459,6 +1588,81 @@ impl ViewState {
     /// `esc` closes it and changes nothing.
     pub fn prompt(&self) -> Option<&str> {
         self.prompt.as_deref()
+    }
+    /// The name typed at the save prompt, `None` while it is closed (9h §4.2):
+    /// `s` opens it with the default name typed in, `enter` asks for the write
+    /// and `esc` closes it with nothing written.
+    pub fn save_prompt(&self) -> Option<&str> {
+        self.save_prompt.as_deref()
+    }
+
+    /// Whether the view holds edits that no save has written (9h §4.6):
+    /// every edit, undo and redo bumps `change_count`, a save records it, and
+    /// the two counters differ whenever a save is owed.
+    pub(super) fn dirty(&self) -> bool {
+        self.change_count != self.saved_count
+    }
+
+    /// One key while the save prompt is open (9h §4.2), read as go-to's prompt
+    /// is: every printable key extends the name, `backspace` drops the last one,
+    /// and `enter` says the name is complete — `true` means the terminal owes
+    /// the write; `esc` closes the prompt and nothing is written.
+    fn save_prompt_key(&mut self, key: Key) -> bool {
+        match key {
+            Key::Char(ch) => {
+                if let Some(name) = &mut self.save_prompt {
+                    name.push(ch);
+                }
+                false
+            }
+            Key::Backspace => {
+                if let Some(name) = &mut self.save_prompt {
+                    name.pop();
+                }
+                false
+            }
+            Key::Enter => true,
+            Key::Esc => {
+                self.save_prompt = None;
+                false
+            }
+            _ => false,
+        }
+    }
+
+    /// What the terminal is asked to write (§4.2): the path typed at the save
+    /// prompt, the text for that path (§4.4), and whether an existing file may
+    /// be replaced. Only the terminal's own answer at its overwrite question
+    /// makes that `true` (§4.3), so this says `false`; the terminal owns the
+    /// refusals of §4.3, because a file is where `state.rs` does not look
+    /// (D003).
+    pub fn save_request(&self) -> (PathBuf, String, bool) {
+        let name: String = self.save_prompt.clone().unwrap_or_default();
+        let path: PathBuf = PathBuf::from(name.trim());
+        let buffer: &EditBuffer = self
+            .edit
+            .as_ref()
+            .expect("a save prompt opens only on an editable record");
+        let stamp: SaveStamp = SaveStamp {
+            date: save::date_from_days(self.today_days),
+            version: String::from(env!("CARGO_PKG_VERSION")),
+            edits: self.edits(),
+        };
+        (path, save::save_text(buffer, &self.opened, &stamp), false)
+    }
+
+    /// The terminal's report of what its write did (§4.5): a success names the
+    /// file and makes the view clean; a failure names the error and leaves the
+    /// view dirty for a quit to warn about. The prompt closes either way.
+    pub fn report_save(&mut self, path: &Path, result: Result<(), String>) {
+        self.save_prompt = None;
+        match result {
+            Ok(()) => {
+                self.saved_count = self.change_count;
+                self.message = Some(format!("saved {}", path.display()));
+            }
+            Err(error) => self.message = Some(error),
+        }
     }
 
     /// The open search prompt, `None` when it is closed (8l1 §4): `/` opens one
@@ -1673,6 +1877,13 @@ impl ViewState {
     /// key (§4 rule 13).
     pub fn message(&self) -> Option<&str> {
         self.message.as_deref()
+    }
+
+    /// A message set by the terminal (9h §4.3): the overwrite question and the
+    /// refusals about existing files are the terminal's, because files are what
+    /// this state does not see. `report_save` replaces it either way.
+    pub fn set_message(&mut self, words: String) {
+        self.message = Some(words);
     }
 
     /// The title bar's text (§4 rule 11): the record's name, its length, the
@@ -4150,6 +4361,178 @@ mod tests {
         println!(
             "{base} bp: read {reading:?}, built the view {opening:?}, 50 `j` {lines:?}, \
              10 `PageDown` {pages:?}"
+        );
+    }
+
+    // ------------------------------------------------------------------
+    // 9h §5 tests 3 to 6: the save prompt, the count a save records, and the
+    // questions `q` and `ctrl-c` ask when a save is owed.
+    // ------------------------------------------------------------------
+
+    /// The fixture record's own file, which the save tests open a view from. The
+    /// state reads no file (D003); the name is only what `s` bases its default
+    /// name on (§4.1).
+    const PBR_PATH: &str = "../../tests/fixtures/genbank/raw/J01749.1.gb";
+    const PBR_SAVE_PATH: &str = "../../tests/fixtures/genbank/raw/J01749.1.edited.gb";
+
+    /// 9h §5 test 3: `s` fills the default name in and `enter` asks for the
+    /// write, giving `Action::Save`; `save_request()` answers with the default
+    /// path, the text a save writes, and `replace` false.
+    #[test]
+    fn s_opens_the_prompt_and_enter_asks_to_save() {
+        let mut state: ViewState =
+            ViewState::new_for_file(pbr(), 80, 24, Path::new(PBR_PATH), 20_755);
+        assert!(!state.dirty(), "a view that has seen no keys is clean");
+        assert_eq!(
+            state.handle(Key::Char('s')),
+            Action::Continue,
+            "`s` opens the prompt, it does not write"
+        );
+        assert_eq!(
+            state.save_prompt(),
+            Some("../../tests/fixtures/genbank/raw/J01749.1.edited.gb"),
+            "the opened file's directory, its stem, then `.edited.gb` (§4.1)"
+        );
+        assert_eq!(
+            state.handle(Key::Enter),
+            Action::Save,
+            "`enter` asks the terminal for the write"
+        );
+
+        let (path, text, replace): (PathBuf, String, bool) = state.save_request();
+        assert_eq!(
+            path,
+            PathBuf::from(PBR_SAVE_PATH),
+            "the name as `s` typed it"
+        );
+        assert!(!replace, "the state never offers a replace (§4.3)");
+
+        // The text is the whole record through 9c3's writer. `pbr322-saved.gb`
+        // is the fixture of an unedited save that `saved.py` builds from NCBI's
+        // own file and that `genbank_write_fixtures` pins byte for byte; its
+        // stamp names `9.9.9` as the version, so the one swap this test makes is
+        // the version word, which the state takes from the crate it builds in.
+        let fixture: String = fs::read_to_string(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../tests/fixtures/editor/pbr322-saved.gb"),
+        )
+        .expect("the 9c3 fixture of an unedited save");
+        let expected: String = fixture.replace(
+            "Edited with luria 9.9.9:",
+            &format!("Edited with luria {}:", env!("CARGO_PKG_VERSION")),
+        );
+        assert_eq!(text, expected, "the buffer as read, written as a save");
+
+        // The LOCUS line's date is the day count the view was handed (20755 =
+        // 29-OCT-2026, §4.9), and the edit count names no edit yet.
+        assert!(
+            text.starts_with(
+                "LOCUS       SYNPBR322               4361 bp    DNA     circular SYN 29-OCT-2026\n"
+            ),
+            "the stamp's date comes from the day the view was given: {}",
+            text.lines().next().unwrap_or_default()
+        );
+        assert!(
+            text.contains(&format!(
+                "Edited with luria {}: 0 edits.",
+                env!("CARGO_PKG_VERSION")
+            )),
+            "nothing changed, so the stamp names no edits"
+        );
+    }
+
+    /// 9h §5 test 4: a clean view answers `q` by leaving at once. After one
+    /// `x` the `q` asks; any other key stays and closes the question, so `q`
+    /// opens it again and the `y` that follows answers by leaving.
+    #[test]
+    fn quit_asks_when_dirty() {
+        let opened: ViewRecord = pbr();
+        // §4.7: clean means no question, so `q` leaves as it does today.
+        let mut state: ViewState = ViewState::new(opened.clone(), 80, 24);
+        assert!(!state.dirty());
+        assert_eq!(
+            state.handle(Key::Char('q')),
+            Action::Quit,
+            "clean: `q` leaves at once"
+        );
+
+        // One cut base leaves the view dirty, so `q` asks rather than leaves.
+        let mut state: ViewState = ViewState::new(opened, 80, 24);
+        state.handle(Key::Char('x'));
+        assert!(state.dirty(), "one cut base makes the view dirty");
+        assert_eq!(
+            state.handle(Key::Char('q')),
+            Action::Continue,
+            "dirty: `q` does not leave, it asks"
+        );
+        assert!(
+            state
+                .message()
+                .is_some_and(|message| message.contains("edits not saved")),
+            "the question names what is at stake: {:?}",
+            state.message()
+        );
+        assert_eq!(
+            state.handle(Key::Char('n')),
+            Action::Continue,
+            "any key that is not `y` stays"
+        );
+        assert!(state.dirty(), "staying leaves the edits alone");
+        // The question closed, so `q` asks again and the `y` now answers it.
+        assert_eq!(
+            state.handle(Key::Char('q')),
+            Action::Continue,
+            "`q` asks the question again"
+        );
+        assert_eq!(state.handle(Key::Char('y')), Action::Quit, "`y` leaves");
+        assert!(
+            state.dirty(),
+            "leaving throws the edits away, it does not undo"
+        );
+    }
+
+    /// 9h §5 test 5: dirty, the first `ctrl-c` asks and the second leaves; a
+    /// clean view takes a single `ctrl-c` and leaves as it does today (§4.8).
+    #[test]
+    fn ctrl_c_twice_quits() {
+        let mut state: ViewState = ViewState::new(pbr(), 80, 24);
+        state.handle(Key::Char('x'));
+        assert_eq!(
+            state.handle(Key::CtrlC),
+            Action::Continue,
+            "dirty: the first `ctrl-c` asks"
+        );
+        assert!(state
+            .message()
+            .is_some_and(|message| message.contains("edits not saved")));
+        assert_eq!(
+            state.handle(Key::CtrlC),
+            Action::Quit,
+            "a second `ctrl-c` leaves (§4.8)"
+        );
+
+        let mut clean: ViewState = ViewState::new(pbr(), 80, 24);
+        assert_eq!(
+            clean.handle(Key::CtrlC),
+            Action::Quit,
+            "clean: one `ctrl-c` leaves"
+        );
+    }
+
+    /// 9h §5 test 6: an edit and then a save the terminal reports as written
+    /// leave the view clean, so `q` leaves without asking.
+    #[test]
+    fn saved_is_clean() {
+        let mut state: ViewState =
+            ViewState::new_for_file(pbr(), 80, 24, Path::new(PBR_PATH), 20_755);
+        state.handle(Key::Char('x'));
+        assert!(state.dirty(), "the cut makes the view dirty");
+        state.report_save(Path::new(PBR_SAVE_PATH), Ok(()));
+        assert!(!state.dirty(), "a reported write leaves the view clean");
+        assert_eq!(
+            state.handle(Key::Char('q')),
+            Action::Quit,
+            "so `q` leaves at once (§4.5)"
         );
     }
 }

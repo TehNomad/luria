@@ -1,6 +1,6 @@
 # Contract 9h — cli: saving the edited record, and quitting with edits unsaved
 
-Planner: Claude. Status: draft. Tier: light (plan M9-10).
+Planner: Claude. Status: implemented. Tier: light (plan M9-10).
 Plan row: `docs/tasks/milestone-9-editor.md` §7, row 9h.
 
 ## 1. What this contract builds

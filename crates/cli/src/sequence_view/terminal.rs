@@ -15,16 +15,18 @@
 //! dispatch, not this module's, and 8h is the caller this signature is written
 //! for.
 //!
-//! Nothing here writes a file (§8), and nothing here decides what a key means:
-//! `super::state::ViewState::handle` does, and this module only names the key
-//! that was pressed and passes the answer on. Bracketed paste is switched on
-//! and off here as well (9f §3 item 2), since only the terminal knows a paste
-//! is one; what a paste means stays `state::paste_text`'s rule.
+//! The one thing here that writes is 9h's save, and it writes only through
+//! `crate::write::write_text`, the single writer (§8). Nothing here decides what a
+//! key means: `super::state::ViewState::handle` does, and this module only names
+//! the key that was pressed and passes the answer on. Bracketed paste is
+//! switched on and off here as well (9f §3 item 2), since only the terminal knows
+//! a paste is one; what a paste means stays `state::paste_text`'s rule.
 
 use crate::sequence_view::screen;
 use crate::sequence_view::state::Action;
 use crate::sequence_view::state::Key;
 use crate::sequence_view::state::ViewState;
+use crate::write::write_text;
 use crossterm::event::read;
 use crossterm::event::DisableBracketedPaste;
 use crossterm::event::EnableBracketedPaste;
@@ -37,7 +39,12 @@ use crossterm::execute;
 use luria_core::view_record::ViewRecord;
 use ratatui::layout::Size;
 use std::ffi::OsStr;
+use std::fs;
 use std::io::stdout;
+use std::path::Path;
+use std::path::PathBuf;
+use std::time::SystemTime;
+use std::time::UNIX_EPOCH;
 
 /// Whether the view must open without the residue colours (contract 8m5 §4 rule
 /// 5, no-color.org): `NO_COLOR` present and not empty, whatever it is set to,
@@ -94,6 +101,60 @@ fn key_of(press: KeyEvent) -> Key {
     }
 }
 
+/// Today's day count, days since 1970-01-01 (9h §4.9, M9-15): the terminal is
+/// the part of the view that reads a clock, and the state never does (D003).
+/// The count goes to `ViewState::new_for_file`, which stamps a save with it
+/// through `save::date_from_days`, so tests can fix the day and match the line.
+fn today_days() -> u64 {
+    match SystemTime::now().duration_since(UNIX_EPOCH) {
+        Ok(since) => since.as_secs() / 86_400,
+        // A clock older than the epoch has no day to name: the view stamps the
+        // epoch's own day and keeps running rather than leaving the screen.
+        Err(_problem) => 0,
+    }
+}
+
+/// The whole save step (§4.3), split from the key loop so a test can reach it
+/// without a terminal (9h §5 test 7): `opened` names the file the view opened,
+/// `target` the name typed at the prompt, and `text` is the text to write.
+///
+/// An empty name refuses. A name that is the opened file refuses: the two paths
+/// are canonicalized when both exist, which catches a symlink to the opened
+/// file, and compared as they were given otherwise. Any other existing name is
+/// asked about through `ask_overwrite`, whose `y` answer is `true` — that write
+/// goes with `replace`; any other key keeps the file. A name no file yet has is
+/// written with `replace: false`. Every write is `write_text`'s, the one writer.
+pub fn save_step(
+    opened: &Path,
+    target: &Path,
+    text: &str,
+    ask_overwrite: &mut dyn FnMut() -> bool,
+) -> Result<(), String> {
+    if target.as_os_str().is_empty() {
+        return Err(String::from("save: an empty name writes nothing"));
+    }
+    let same: bool = match (fs::canonicalize(opened), fs::canonicalize(target)) {
+        (Ok(opened_path), Ok(target_path)) => opened_path == target_path,
+        // A path that cannot be canonicalized: the names as given compare.
+        _ => opened == target,
+    };
+    if same {
+        return Err(String::from("luria never writes over the file it opened"));
+    }
+    let replace: bool = if target.exists() {
+        if !ask_overwrite() {
+            return Err(format!(
+                "{} exists: kept, nothing written",
+                target.display()
+            ));
+        }
+        true
+    } else {
+        false
+    };
+    write_text(target, text, replace).map_err(|problem| format!("{}: {problem}", target.display()))
+}
+
 /// Open the view on `record`, draw it until the view asks to leave, and restore
 /// the terminal on every way out (D048 M8-13, D055): the same session, key
 /// mapping and restore rule as `review::terminal::run`.
@@ -101,8 +162,10 @@ fn key_of(press: KeyEvent) -> Key {
 /// The view is laid out at the size the terminal reports when the session opens,
 /// and re-laid out at every `Event::Resize` (§4 rule 14), which is the only way a
 /// size change reaches it: no key asks for a size. The record is moved into the
-/// view, so a session holds no reference to a caller's borrow.
-pub fn run(record: ViewRecord) -> std::io::Result<()> {
+/// view, so a session holds no reference to a caller's borrow. `opened` is the
+/// path the record was read from: the view names its save prompt after it
+/// (9h §4.1), and the terminal never writes it.
+pub fn run(record: ViewRecord, opened: &Path) -> std::io::Result<()> {
     let mut terminal = match ratatui::try_init() {
         Ok(opened) => opened,
         Err(problem) => {
@@ -148,7 +211,8 @@ pub fn run(record: ViewRecord) -> std::io::Result<()> {
             return Err(problem);
         }
     };
-    let mut state: ViewState = ViewState::new(record, size.width, size.height);
+    let mut state: ViewState =
+        ViewState::new_for_file(record, size.width, size.height, opened, today_days());
     // The residues are coloured on open unless the environment says not to
     // (8m5 §4 rule 5), which is decided before the first draw: no key asks.
     state.set_colours(!no_color(std::env::var_os("NO_COLOR").as_deref()));
@@ -168,8 +232,47 @@ pub fn run(record: ViewRecord) -> std::io::Result<()> {
             // and the next draw pass draws the screen again unchanged
             // (`review::terminal`'s rule).
             Ok(Event::Key(press)) if press.kind == KeyEventKind::Press => {
-                if state.handle(key_of(press)) == Action::Quit {
+                let action: Action = state.handle(key_of(press));
+                if action == Action::Quit {
                     break;
+                }
+                // 9h §4.2, §4.3, §4.5: the write itself is the terminal's, where
+                // files are; the state only named the name and the text.
+                if action == Action::Save {
+                    let (path, text, _): (PathBuf, String, bool) = state.save_request();
+                    let mut io_problem: Option<std::io::Error> = None;
+                    let mut question = || {
+                        state.set_message(format!(
+                            "{} exists: y replaces it, any other key keeps it",
+                            path.display()
+                        ));
+                        if let Err(problem) = terminal.draw(|frame| screen::draw(frame, &state)) {
+                            io_problem = Some(problem);
+                            return false;
+                        }
+                        match read() {
+                            Ok(Event::Key(answer)) if answer.kind == KeyEventKind::Press => {
+                                key_of(answer) == Key::Char('y')
+                            }
+                            Ok(Event::Key(_)) => false,
+                            Ok(_event) => false,
+                            Err(problem) => {
+                                io_problem = Some(problem);
+                                false
+                            }
+                        }
+                    };
+                    let outcome: Result<(), String> =
+                        save_step(opened, &path, &text, &mut question);
+                    state.report_save(&path, outcome);
+                    if let Some(problem) = io_problem.take() {
+                        // A draw or a `read` failed while the overwrite question
+                        // was being asked: the session cannot carry on, and the
+                        // error goes back to `main` rather than being dropped
+                        // (9h §4.5's message is already on the screen).
+                        looped = Err(problem);
+                        break;
+                    }
                 }
             }
             // A new size: the blocks are laid out again for it, the top block
