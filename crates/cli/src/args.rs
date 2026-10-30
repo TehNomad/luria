@@ -175,7 +175,7 @@ pub fn parse_with(
         }
         if word.to_ascii_lowercase().ends_with(".json") {
             return reject(format!(
-                "opening a design comes in milestone 9; use 'luria review {}'",
+                "opening a design is not supported yet; use 'luria review {}'",
                 word
             ));
         }
@@ -604,8 +604,9 @@ fn parse_new(words: &[String]) -> Result<Command, UsageError> {
 /// empty pattern reaches core and is refused there as `empty_search_pattern`,
 /// whose category is exit 4 (test 14), and an empty file path is a file that
 /// cannot be read, also exit 4. What `--cds` takes is not looked at here: the
-/// range form `86..1276` is refused by `find`, with D049's message that ranges
-/// come in milestone 9, after the arguments and before the file is read (§4.2).
+/// range form `86..1276` is refused by `find`, with D049's message that a range
+/// is not supported yet; the grammar is kept for a later range. The refusal
+/// comes after the arguments and before the file is read (§4.2).
 fn parse_find(words: &[String]) -> Result<Command, UsageError> {
     let mut file: Option<String> = None;
     let mut pattern: Option<String> = None;

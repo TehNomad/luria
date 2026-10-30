@@ -4,8 +4,8 @@
 //! The rules, in §4's order:
 //!
 //! * **The arguments** (§4.1) are `args::parse_find`'s; this module starts at
-//!   the `--cds` range, which D049 refuses for milestone 8 with a message saying
-//!   ranges come in milestone 9, so the flag's grammar never changes under a
+//!   the `--cds` range, which D049 refuses for milestone 8, keeping the flag's
+//!   grammar open for a later range decision, so it never changes under a
 //!   running script.
 //! * **The file** is `record_file::read_record_file`'s: the byte ceiling before
 //!   a byte is read, then `open_record`, whose refusal comes back unchanged
@@ -77,8 +77,8 @@ const MAX_ROWS: usize = 200;
 const NUCLEOTIDE_LETTERS: &str = "ACGTURYSWKMBDHVN";
 
 /// D049's M8-15, plan §5.5: `--cds` takes no range in milestone 8, and the
-/// refusal says when ranges come.
-const RANGE_MESSAGE: &str = "searching a range of bases comes in milestone 9";
+/// refusal says it is not supported yet.
+const RANGE_MESSAGE: &str = "searching a range of bases is not supported yet";
 
 /// What one `find` run answers, before anything is printed. `Found` is the whole
 /// stdout text and exit 0, whatever the count (M8-9, D052); `Refused` is one
@@ -119,10 +119,10 @@ pub(crate) fn nucleotide_letter(letter: char) -> bool {
 }
 
 /// Whether `value` is entirely the range form `c?DIGITS..DIGITS`, its leading and
-/// trailing spaces trimmed (§4.2). The `c` is milestone 9's circular range
-/// (`--cds c345..43`, plan §5.5). Anything else — a letter, a space between the
-/// digits, an empty side, a third run of dots — is a name, and `match_cds`
-/// decides what it names.
+/// trailing spaces trimmed (§4.2). The `c` is kept for a later circular range
+/// decision (`--cds c345..43`, plan §5.5). Anything else — a letter, a space
+/// between the digits, an empty side, a third run of dots — is a name, and
+/// `match_cds` decides what it names.
 fn is_range(value: &str) -> bool {
     let text: &str = value.trim();
     let body: &str = match text.strip_prefix('c') {

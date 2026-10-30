@@ -141,8 +141,8 @@ fn a_file_takes_no_further_arguments() {
     );
 }
 
-/// 4: a `.json` file is a design, and opening one is milestone 9. The ASCII
-/// case of the suffix does not matter (rule 2).
+/// 4: a `.json` file is a design, and opening a design is not supported
+/// yet. The ASCII case of the suffix does not matter (rule 2).
 #[test]
 fn a_design_file_is_refused() {
     for name in ["d.json", "D.JSON"] {
@@ -154,7 +154,7 @@ fn a_design_file_is_refused() {
         assert_eq!(
             text(&output.stderr),
             format!(
-                "luria: opening a design comes in milestone 9; use 'luria review {}'\n\n{}",
+                "luria: opening a design is not supported yet; use 'luria review {}'\n\n{}",
                 path.display(),
                 USAGE
             ),
