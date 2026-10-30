@@ -47,8 +47,12 @@ use luria_core::cds_map::CdsMap;
 use luria_core::cds_map::CodonPlace;
 use luria_core::display_location::DisplayLocation;
 use luria_core::edit_buffer::buffer_for;
+use luria_core::edit_buffer::Edit;
 use luria_core::edit_buffer::EditBlocked;
 use luria_core::edit_buffer::EditBuffer;
+use luria_core::edit_buffer::EditFeature;
+use luria_core::edit_buffer::EditOutcome;
+use luria_core::error::DomainError;
 use luria_core::name_match::cds_span;
 use luria_core::name_match::match_name;
 use luria_core::name_match::Matched;
@@ -60,6 +64,7 @@ use luria_core::sequence::complement_letter;
 use luria_core::sequence::SequenceTopology;
 use luria_core::strand::Strand;
 use luria_core::translation::translate;
+use luria_core::view_record::rebuild;
 use luria_core::view_record::CdsStatus;
 use luria_core::view_record::FeatureShape;
 use luria_core::view_record::TopologySource;
@@ -245,6 +250,10 @@ enum EditMode {
 /// lanes, the cursor and the top block.
 pub struct ViewState {
     record: ViewRecord,
+    /// The record exactly as it was opened: `rebuild` reads its format, its
+    /// topology source and its GenBank header off it, and 9h's save writes the
+    /// file it came from. Every edit moves `record`; this one does not.
+    opened: ViewRecord,
     width: u16,
     height: u16,
     /// The topology the view moves on (D049 M8-3): what the file states, or for
@@ -323,6 +332,11 @@ pub struct ViewState {
     /// The mode the keys are read in (M9-2): `Normal` at open, `Visual` once `v`
     /// anchors a selection at the cursor.
     editing: EditMode,
+    /// The last search that ran (8l1 §4 rules 3 to 5): its mode and pattern, kept
+    /// so `apply_edit` marks the same hits again after every edit (contract 9e
+    /// §4 rule 6, M9-6 i). `None` until the first `enter` at the search prompt;
+    /// an `esc` that closes the prompt leaves this memory untouched.
+    last_search: Option<(SearchMode, String)>,
     /// The selected CDS's map and residues, `None` with no selection.
     chosen: Option<Chosen>,
 }
@@ -348,6 +362,7 @@ impl ViewState {
             circular: record.sequence.topology() == SequenceTopology::Circular,
             selected,
             mode,
+            opened: record.clone(),
             record,
             width,
             height,
@@ -369,6 +384,7 @@ impl ViewState {
             help: false,
             edit,
             editing: EditMode::Normal,
+            last_search: None,
             chosen: None,
         };
         state.choose();
@@ -597,6 +613,173 @@ impl ViewState {
         self.choose();
         self.relayout(true);
         true
+    }
+
+    /// One edit, and the view after it (contract 9e §4): `EditBuffer::apply`,
+    /// `rebuild`, then everything that reads the record again — the selection and
+    /// its `Chosen` map, the strip's GC line, the ORFs, the last search's hits,
+    /// the cursor and the layout. A refusal from `apply` or from `rebuild`
+    /// leaves the view exactly as it was, with core's own message.
+    // The edit keys 9f wire to this; until then only its tests drive it, so the
+    // library target alone calls it dead (`scripts/check` includes every target).
+    #[allow(dead_code)]
+    pub(super) fn apply_edit(&mut self, edit: Edit) -> Result<EditOutcome, DomainError> {
+        // The selected CDS is followed by the line its feature's key was read
+        // from, which no edit moves (§4 rule 2): a removed feature shifts the
+        // index of every other one in `features` and in `cdss`, and its own name
+        // is needed for the message before the record is replaced.
+        let selected_line: Option<u64> = self
+            .selected
+            .and_then(|index| self.record.cdss.get(index))
+            .and_then(|cds| self.record.features.get(cds.feature))
+            .map(|feature| feature.line);
+        let selected_name: Option<String> =
+            self.selected.map(|index| display_name(&self.record, index));
+
+        // The edit goes onto a copy of the buffer, so that a refusal from `apply`
+        // or from `rebuild` below leaves the buffer the view edits untouched.
+        let edited: Result<(EditBuffer, EditOutcome), DomainError> = match self.edit.as_ref() {
+            // A record 9d and every later edit key refuses before it gets at in
+            // the first place; core's own reason is what says so here.
+            Ok(buffer) => {
+                let mut candidate: EditBuffer = buffer.clone();
+                candidate.apply(&edit).map(|outcome| (candidate, outcome))
+            }
+            Err(blocked) => Err(blocked.error.clone()),
+        };
+        let (buffer, outcome) = match edited {
+            Ok((buffer, outcome)) => (buffer, outcome),
+            Err(error) => {
+                self.message = Some(error.message());
+                return Err(error);
+            }
+        };
+        // §4 rule 3: the features the edit left with no range, and the ones
+        // M9-13 (a) took a qualifier from, are named by the names the feature
+        // list shows them by — read off the record as it was before the edit,
+        // which still knows both by the file line the buffer keeps.
+        let removed: Vec<String> = outcome
+            .removed
+            .iter()
+            .map(|feature| feature_name(&self.record, feature))
+            .collect();
+        let dropped: Vec<String> = outcome
+            .dropped
+            .iter()
+            .map(|(index, qualifier)| {
+                let name: String = match buffer.features().get(*index) {
+                    Some(feature) => feature_name(&self.record, feature),
+                    None => qualifier.clone(),
+                };
+                format!("/{qualifier} dropped from {name}")
+            })
+            .collect();
+
+        let rebuilt: ViewRecord = match rebuild(&buffer, &self.opened) {
+            Ok(record) => record,
+            Err(error) => {
+                self.message = Some(error.message());
+                return Err(error);
+            }
+        };
+        self.record = rebuilt;
+        self.edit = Ok(buffer);
+
+        // §4 rule 2: the CDS the view selected is found again by its feature's
+        // line and checked again exactly as on open (M9-6 i) — kept if it is
+        // still there and `Usable`, dropped with core's reason if not.
+        let mut words: Vec<String> = Vec::new();
+        let found: Option<usize> = selected_line.and_then(|line| {
+            let feature: usize = self
+                .record
+                .features
+                .iter()
+                .position(|feature| feature.line == line)?;
+            self.record
+                .cdss
+                .iter()
+                .position(|cds| cds.feature == feature)
+        });
+        if selected_line.is_some() {
+            match found.filter(|index| usable(&self.record, *index).is_some()) {
+                Some(index) => {
+                    let previous: Option<usize> = self.selected;
+                    self.selected = Some(index);
+                    // The lanes still read the same CDS, under its new index.
+                    if let LaneMode::Cds(old) = self.mode {
+                        if previous == Some(old) {
+                            self.mode = LaneMode::Cds(index);
+                        }
+                    }
+                }
+                None => {
+                    let name: String = selected_name.unwrap_or_default();
+                    let refusal: Option<String> = found
+                        .and_then(|index| self.record.cdss.get(index))
+                        .and_then(|cds| match &cds.status {
+                            CdsStatus::Unusable(error) => Some(error.message()),
+                            CdsStatus::Usable(_cds) => None,
+                        });
+                    words.push(match refusal {
+                        Some(reason) => format!("CDS {name} is no longer usable: {reason}"),
+                        None => format!("CDS {name} was removed by the edit"),
+                    });
+                    self.selected = None;
+                    self.mode = LaneMode::Off;
+                }
+            }
+        }
+        self.choose();
+
+        // §4 rule 4: the strip's third line counts the bases the width shows,
+        // and the edit has just changed them.
+        self.gc = gc_line(&self.record, inner_width(self.width));
+
+        // §4 rule 5: ORFs scanned once for the record's old bases are scanned
+        // again for its new ones; `None` says they were never scanned and stays.
+        if self.orfs.is_some() {
+            self.orfs = None;
+            self.compute_orfs();
+        }
+
+        // §4 rule 7: a record shortened by the edit cannot hold such a cursor.
+        let length: u64 = self.record.sequence.length();
+        if length > 0 && self.cursor >= length {
+            self.cursor = length - 1;
+        }
+
+        // §4 rule 6: the last search is re-run over the record as edited. The
+        // hits are re-marked only: an edit never moves the cursor and leaves
+        // the message alone, so a search that suddenly finds nothing or refuses
+        // is silent here (`run_search`, which parks the cursor on the current
+        // hit, is not what an edit does).
+        if let Some((mode, pattern)) = self.last_search.clone() {
+            let cds: Option<&Cds> = self.selected.and_then(|index| usable(&self.record, index));
+            match search_record(
+                &self.record,
+                cds,
+                self.circular,
+                mode,
+                &pattern,
+                self.cursor,
+            ) {
+                Outcome::Found(hits) => self.hits = Some(hits),
+                Outcome::Empty | Outcome::Refused(_) => self.hits = None,
+            }
+        }
+
+        // §4 rule 3: the names of what the edit removed follow any CDS sentence.
+        if !removed.is_empty() {
+            words.push(format!("removed: {}", removed.join(", ")));
+        }
+        words.extend(dropped);
+        if !words.is_empty() {
+            self.message = Some(words.join(" · "));
+        }
+
+        // §4 rule 7: the record is laid out again, anchored on the cursor's block.
+        self.relayout(true);
+        Ok(outcome)
     }
 
     /// Open a list over the record with this filter and the first row
@@ -1968,6 +2151,9 @@ impl ViewState {
         if text.is_empty() {
             return;
         }
+        // 9e §4 rule 6: what `enter` searches is kept, so every edit can mark
+        // the same pattern again on the record as edited.
+        self.last_search = Some((mode, text.to_string()));
         let cds: Option<&Cds> = self.selected.and_then(|index| usable(&self.record, index));
         match search_record(&self.record, cds, self.circular, mode, text, self.cursor) {
             Outcome::Refused(message) => {
@@ -2136,6 +2322,21 @@ fn display_name(record: &ViewRecord, index: usize) -> String {
             None => String::new(),
         },
         None => String::new(),
+    }
+}
+
+/// The name the status line names a buffered feature by (M9-6 c, M9-13 a,
+/// contract 9e §4 rule 3): the name the feature list showed it by (D053),
+/// found through the file line that the buffer and the record both keep
+/// (`EditFeature::line`); when that does not hold, the feature's own key.
+fn feature_name(record: &ViewRecord, feature: &EditFeature) -> String {
+    match record
+        .features
+        .iter()
+        .position(|found| found.line == feature.line)
+    {
+        Some(index) => record.features[index].name.clone(),
+        None => feature.key.clone(),
     }
 }
 
@@ -2501,6 +2702,227 @@ mod tests {
         state.handle(Key::End);
         assert_eq!(state.cursor(), 4360, "the record's last base");
         assert_eq!(state.selection(), Some((0, 4361)), "half-open [0, 4361)");
+    }
+
+    /// The file line of the feature that a CDS came from: what `apply_edit`
+    /// follows to find the selected CDS again after every edit (§4 rule 2).
+    fn cds_feature_line(record: &ViewRecord, cds: usize) -> u64 {
+        record.features[record.cdss[cds].feature].line
+    }
+
+    // 9e §5 test 4 (M9-6 a): an edit before the selected CDS keeps it selected,
+    // with its whole range shifted by the bases the insert took in.
+    #[test]
+    fn selected_cds_stays_through_a_neutral_edit() {
+        let opened: ViewRecord = pbr();
+        let tet_line: u64 = cds_feature_line(&opened, 0);
+        let mut state: ViewState = ViewState::new(opened, 80, 24);
+        assert!(state.select_cds(Some(0)), "tet is usable (M8-11)");
+        assert!(state.chosen.is_some(), "the map and residues are held");
+
+        let outcome: EditOutcome = state
+            .apply_edit(Edit::Insert {
+                at: 50,
+                bases: "AAA".chars().collect(),
+            })
+            .expect("three bases before tet");
+        assert!(outcome.removed.is_empty(), "no feature is emptied");
+        assert!(outcome.dropped.is_empty(), "no CDS loses bases");
+
+        let index: usize = state.selected().expect("tet stays selected");
+        assert_eq!(
+            cds_feature_line(state.record(), index),
+            tet_line,
+            "found again by the feature's file line"
+        );
+        assert_eq!(state.mode(), &LaneMode::Cds(index), "the same CDS is shown");
+        // tet's own range moves three bases right: 86..1276 becomes 89..1279.
+        let cds: Cds = usable(state.record(), index)
+            .expect("tet stays usable")
+            .clone();
+        assert_eq!(
+            cds.intervals()[0].start(),
+            88,
+            "its first codon now sits at 1-based 89"
+        );
+        assert!(
+            state.title().contains("tet (+) 89..1279"),
+            "title: {}",
+            state.title()
+        );
+        assert!(state.chosen.is_some(), "its map is rebuilt anew");
+    }
+
+    // 9e §5 test 5 (full tier, M9-6 i): one base inside the selected CDS frames
+    // it, so the view deselects it, the lanes go `Off`, and the status line
+    // names the CDS and gives core's own refusal.
+    #[test]
+    fn a_frameshift_deselects_with_the_reason() {
+        let opened: ViewRecord = pbr();
+        let tet_line: u64 = cds_feature_line(&opened, 0);
+        let mut state: ViewState = ViewState::new(opened, 80, 24);
+        assert!(state.select_cds(Some(0)), "tet is usable");
+
+        state
+            .apply_edit(Edit::Insert {
+                at: 200,
+                bases: vec!['G'],
+            })
+            .expect("one base inside tet");
+        assert_eq!(state.selected(), None, "the frameshifted tet is dropped");
+        assert_eq!(state.mode(), &LaneMode::Off, "the lanes go Off");
+        assert!(state.chosen.is_none(), "and its map goes with it");
+
+        // The refusal is core's own, read off the rebuilt record.
+        let rebuilt: &ViewRecord = state.record();
+        let feature: usize = rebuilt
+            .features
+            .iter()
+            .position(|found| found.line == tet_line)
+            .expect("tet is still a feature of the record");
+        let index: usize = rebuilt
+            .cdss
+            .iter()
+            .position(|cds| cds.feature == feature)
+            .expect("tet is still a CDS of the record");
+        let reason: String = match &rebuilt.cdss[index].status {
+            CdsStatus::Unusable(error) => error.message(),
+            CdsStatus::Usable(_cds) => panic!("one base inside tet frames it"),
+        };
+        let message: String = state
+            .message()
+            .expect("the edit leaves a message")
+            .to_string();
+        assert!(message.contains("tet"), "names the CDS: {message}");
+        assert!(message.contains(&reason), "and gives the reason: {message}");
+    }
+
+    // 9e §5 test 6 (M9-6 a, 8l1 §4 rules 3 to 5): the hits of the last search
+    // follow the edit, and stay marked for `n` and `N` to walk.
+    #[test]
+    fn hits_follow_the_edit() {
+        let mut state: ViewState = ViewState::new(pbr(), 80, 24);
+        state.handle(Key::Char('/'));
+        for ch in "CTGCAG".chars() {
+            state.handle(Key::Char(ch));
+        }
+        state.handle(Key::Enter);
+        let before: Vec<u64> = state
+            .hits()
+            .expect("pBR322 has one PstI site")
+            .shown()
+            .iter()
+            .map(|hit| hit.start)
+            .collect();
+        // J01749.1.gb's CTGCAG sits at zero-based 3606 (1-based 3607), read
+        // out of the fixture's ORIGIN block by hand.
+        assert_eq!(before, vec![3606], "the site as opened");
+        // The cursor sits where `enter` parked it, on the hit's start.
+        assert_eq!(state.cursor(), 3606, "the cursor on the hit");
+        let message_before: Option<String> = state.message().map(str::to_string);
+
+        state
+            .apply_edit(Edit::Insert {
+                at: 0,
+                bases: "AAA".chars().collect(),
+            })
+            .expect("three bases before base one");
+        // Contract 9e §4 rule 6: the edit re-marks the hits and moves nothing.
+        assert_eq!(state.cursor(), 3606, "the edit did not move the cursor");
+        assert_eq!(
+            state.message().map(str::to_string),
+            message_before,
+            "the re-run search wrote nothing into the message"
+        );
+        let hits: &Hits = state
+            .hits()
+            .expect("the search ran again over the edited record");
+        let after: Vec<u64> = hits.shown().iter().map(|hit| hit.start).collect();
+        assert_eq!(
+            after,
+            vec![3609],
+            "the hit moved by the three bases the insert took in"
+        );
+        let current: &Hit = &hits.shown()[hits.current()];
+        assert_eq!(current.start, 3609, "the current hit is after it");
+    }
+
+    // 9e §5 test 7 (M9-6 c): a feature the edit leaves with no range goes, and
+    // the status line names it.
+    #[test]
+    fn removal_is_named() {
+        let mut state: ViewState = ViewState::new(pbr(), 80, 24);
+        let outcome: EditOutcome = state
+            .apply_edit(Edit::Delete { start: 23, end: 27 })
+            .expect("the four bases of misc_binding 24..27");
+        assert_eq!(outcome.removed.len(), 1, "that one feature only");
+        assert_eq!(outcome.removed[0].key, "misc_binding", "its key");
+        assert_eq!(
+            state.message().expect("the status line names it"),
+            "removed: misc_binding"
+        );
+    }
+
+    // 9e §5 test 8 (M9-6 d): an edit on pBR322 with the ORF lanes shown, in a
+    // debug build, is far under one second. The 10 000 000-base case is not
+    // asserted but its timing is printed, so the cost of one edit against the
+    // ceiling (D048, M9-14) is visible too.
+    #[test]
+    fn edits_are_fast_enough() {
+        use std::time::{Duration, Instant};
+
+        let mut state: ViewState = ViewState::new(pbr(), 80, 24);
+        state.handle(Key::Char('O'));
+        assert!(state.orfs.is_some(), "the ORF lanes are shown");
+
+        let mut slowest: Duration = Duration::ZERO;
+        for round in 0..20 {
+            let started: Instant = Instant::now();
+            state
+                .apply_edit(Edit::Insert {
+                    at: round,
+                    bases: vec!['A'],
+                })
+                .unwrap_or_else(|error| panic!("insert {round}: {}", error.code()));
+            let elapsed: Duration = started.elapsed();
+            assert!(
+                elapsed < Duration::from_secs(1),
+                "edit {round} on pBR322 took {elapsed:?}, the contract asks for under 1 s"
+            );
+            slowest = slowest.max(elapsed);
+        }
+        eprintln!("pBR322 with ORFs shown, 20 one-base inserts: slowest apply_edit {slowest:?}");
+
+        // One edit on a record at the ceiling minus a base (D048): the insert
+        // brings it to `MAX_RECORD_BASES`, so it is accepted; the timing is
+        // reported without an assertion limit.
+        use luria_core::view_record::MAX_RECORD_BASES;
+        let bases: String = "A".repeat(MAX_RECORD_BASES as usize - 1);
+        let big: ViewRecord = open_record(
+            Identifier::create("big".to_string()).unwrap(),
+            format!(">big\n{bases}\n"),
+        )
+        .unwrap_or_else(|error| panic!("{} bases refused: {:?}", bases.len(), error.code()));
+        assert_eq!(big.sequence.length(), MAX_RECORD_BASES - 1, "one under");
+
+        let mut state: ViewState = ViewState::new(big, 80, 24);
+        let started: Instant = Instant::now();
+        state
+            .apply_edit(Edit::Insert {
+                at: 0,
+                bases: vec!['A'],
+            })
+            .expect("the insert fits one base under the ceiling");
+        let ceiling_edit: Duration = started.elapsed();
+        eprintln!(
+            "one apply_edit on {} bases: {ceiling_edit:?}",
+            MAX_RECORD_BASES - 1
+        );
+        assert_eq!(
+            state.record().sequence.length(),
+            MAX_RECORD_BASES,
+            "the edited record is at the ceiling"
+        );
     }
 
     /// 8r3 §5 test 3: not an assertion, only the timings the contract asks for,

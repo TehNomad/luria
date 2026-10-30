@@ -67,6 +67,8 @@
 use crate::cds::Cds;
 use crate::display_location::parse_display_location;
 use crate::display_location::DisplayLocation;
+use crate::edit_buffer::EditBuffer;
+use crate::edit_location::write_edit_location;
 use crate::error::DomainError;
 use crate::error::RecordTooLongProblem;
 use crate::error::UnknownRecordFormatProblem;
@@ -458,6 +460,24 @@ fn check_ceiling(sequence: &Sequence, identifier: &str) -> Result<(), DomainErro
     Ok(())
 }
 
+/// Steps 3 to 6 for a record that is already a `GenBankRecord`: the ceiling
+/// on the sequence it read (D048), then its features (step 5) and its CDSs
+/// (step 6). `open_record` and `rebuild` share this, so a record the editor
+/// rebuilt after an edit is listed and judged by the exact same code the view
+/// ran on open (M9-6 i): no CDS rule is applied twice, and none is re-done
+/// with the editor's rules.
+fn genbank_view(
+    record: &GenBankRecord,
+    identifier: &str,
+) -> Result<(Sequence, Vec<ViewFeature>, Vec<ViewCds>), DomainError> {
+    let sequence: Sequence = record.sequence();
+    // Step 3, before steps 5 and 6 parse a feature or import a CDS (D048).
+    check_ceiling(&sequence, identifier)?;
+    let features: Vec<ViewFeature> = view_features(record, sequence.length(), sequence.topology());
+    let cdss: Vec<ViewCds> = view_cdss(record)?;
+    Ok((sequence, features, cdss))
+}
+
 /// Read one record's text into what the view needs: the format comes from the
 /// content (D049), the sequence from the matching reader, the size ceiling is
 /// applied to that sequence before anything else is done with it (D048), and a
@@ -498,13 +518,7 @@ pub fn open_record(name: Identifier, text: String) -> Result<ViewRecord, DomainE
         // A GenBank record's topology came from its LOCUS line (D036, D041).
         RecordFormat::GenBank => {
             let record: GenBankRecord = read_genbank(name, text)?;
-            let sequence: Sequence = record.sequence();
-            // Step 3, before steps 5 and 6 parse a feature or import a CDS
-            // (D048).
-            check_ceiling(&sequence, &identifier)?;
-            let features: Vec<ViewFeature> =
-                view_features(&record, sequence.length(), sequence.topology());
-            let cdss: Vec<ViewCds> = view_cdss(&record)?;
+            let (sequence, features, cdss) = genbank_view(&record, &identifier)?;
             (
                 sequence,
                 TopologySource::Stated,
@@ -522,6 +536,84 @@ pub fn open_record(name: Identifier, text: String) -> Result<ViewRecord, DomainE
         features,
         cdss,
         genbank,
+    })
+}
+
+/// The record as the view reads it after edits: `opened`'s format and topology
+/// source; for GenBank, `GenBankRecord::from_parts` of `opened`'s LOCUS name,
+/// accession and version, `buffer.to_sequence()`, and one `GenBankFeature::new`
+/// per buffer feature (key; `location_text` or else `write_edit_location`; its
+/// qualifiers; its `line`); then the same features, CDSs and ceiling
+/// `open_record` gives. For FASTA, the sequence and no features. `genbank` is
+/// the built record.
+///
+/// The last clause is the point (M9-6 i): the rebuilt record goes through
+/// `view_features`, `view_cdss` and `check_ceiling` exactly as an opened one
+/// does, so an edit cannot leave a CDS looking usable to the view that
+/// `open_record` would refuse, and a record the ceiling refuses is refused
+/// here with the same payload it would get on open.
+pub fn rebuild(buffer: &EditBuffer, opened: &ViewRecord) -> Result<ViewRecord, DomainError> {
+    let identifier: String = buffer.name().value().to_string();
+    let sequence: Sequence = buffer.to_sequence()?;
+
+    // A FASTA record has no feature table at all (D049): the buffer holds
+    // no features and the rebuilt record keeps the sequence alone.
+    if opened.format == RecordFormat::Fasta {
+        check_ceiling(&sequence, &identifier)?;
+        return Ok(ViewRecord {
+            format: opened.format,
+            topology: opened.topology,
+            sequence,
+            features: Vec::new(),
+            cdss: Vec::new(),
+            genbank: None,
+        });
+    }
+
+    let opened_record: &GenBankRecord = match opened.genbank.as_ref() {
+        Some(record) => record,
+        None => unreachable!("a GenBank record the view opened carries the record it read"),
+    };
+
+    // The features as the editor left them, written back the way the reader
+    // reads them: an untouched feature keeps the location text it was read
+    // from, so the writer keeps it verbatim (M9-7), and a moved one writes its
+    // buffer ranges (M9-17).
+    let mut features: Vec<GenBankFeature> = Vec::with_capacity(buffer.features().len());
+    for feature in buffer.features() {
+        let location: String = match feature.location_text.as_ref() {
+            Some(text) => text.clone(),
+            None => write_edit_location(&feature.location),
+        };
+        let qualifiers: Vec<GenBankQualifier> = feature
+            .qualifiers
+            .iter()
+            .map(|(name, value)| GenBankQualifier::new(name.clone(), value.clone()))
+            .collect();
+        features.push(GenBankFeature::new(
+            feature.key.clone(),
+            location,
+            qualifiers,
+            feature.line,
+        ));
+    }
+
+    let record: GenBankRecord = GenBankRecord::from_parts(
+        opened_record.locus_name(),
+        opened_record.accession(),
+        opened_record.version(),
+        sequence,
+        features,
+    );
+
+    let (sequence, features, cdss) = genbank_view(&record, &identifier)?;
+    Ok(ViewRecord {
+        format: opened.format,
+        topology: opened.topology,
+        sequence,
+        features,
+        cdss,
+        genbank: Some(record),
     })
 }
 

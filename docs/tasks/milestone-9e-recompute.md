@@ -1,6 +1,6 @@
 # Contract 9e — core and cli: the view after an edit
 
-Planner: Claude. Status: draft. Tier: light, with M9-6 (i) full (plan
+Planner: Claude. Status: implemented. Tier: light, with M9-6 (i) full (plan
 M9-10).
 Plan row: `docs/tasks/milestone-9-editor.md` §7, row 9e.
 
@@ -123,3 +123,12 @@ After a successful edit, `apply_edit`:
 
 Test 8's times. If test 8's limit fails, stop and report the profile of
 one edit (which step takes the time) instead of optimising on your own.
+
+## 10. Result (planner)
+
+Test 8's times, measured by the planner. pBR322, slowest of 20 edits with
+ORFs shown: 47 ms in a debug build, 7 ms in release. One edit on a
+9 999 999-base FASTA: 10.1 s in debug, 1.65 s in release. The recompute stays
+in full for now. Whether the largest records need a partial recompute
+before 9f's typing is an open question for the owner. §7 proof 2 was skipped:
+no fixture's location text differs from what `write_edit_location` writes.
