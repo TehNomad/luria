@@ -61,7 +61,9 @@ use luria_core::orf::find_orfs;
 use luria_core::orf::Orf;
 use luria_core::orf::ORF_MIN_RESIDUES;
 use luria_core::sequence::complement_letter;
+use luria_core::sequence::is_dna_letter;
 use luria_core::sequence::SequenceTopology;
+use luria_core::sequence::DNA_ALPHABET;
 use luria_core::strand::Strand;
 use luria_core::translation::translate;
 use luria_core::view_record::rebuild;
@@ -235,7 +237,7 @@ struct Chosen {
 
 /// The mode the keys are read in (M9-2, M9-12): `Normal` moves the cursor and
 /// runs the view's own keys, `Visual` selects from the anchor to the cursor.
-/// 9f adds the two modes that take text.
+/// 9f adds the three modes that take text.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum EditMode {
     Normal,
@@ -244,6 +246,19 @@ enum EditMode {
     Visual {
         anchor: u64,
     },
+    /// `i` and `a` (9f §4 rule 1): bases go in before the zero-based `point`,
+    /// and `typed` counts how many this spell of insert has taken in, which is
+    /// the only thing `backspace` may delete (9f §4 rule 2).
+    Insert {
+        point: u64,
+        typed: u64,
+    },
+    /// `R` (9f §4 rule 3): every letter substitutes the base the cursor stands
+    /// on, and the cursor goes one right.
+    Overtype,
+    /// `r` (9f §4 rule 4): the next letter substitutes the cursor's base, or
+    /// every base of the selection `r` was pressed on.
+    ReplaceOne,
 }
 
 /// The view between keys: the record, the screen's size, the selection, the
@@ -332,6 +347,14 @@ pub struct ViewState {
     /// The mode the keys are read in (M9-2): `Normal` at open, `Visual` once `v`
     /// anchors a selection at the cursor.
     editing: EditMode,
+    /// The bases `r` was pressed on (9f §4 rule 4), kept because entering
+    /// `ReplaceOne` drops the `Visual` that gave them: the next letter
+    /// substitutes every one of them in a single `Substitute`.
+    replace_selection: Option<(u64, u64)>,
+    /// Whether overtype has run past the record's last base (9f §4 rule 3): the
+    /// first letter there still substitutes and stays, and the next one says
+    /// overtype stops at the end of the record.
+    overtype_stopped: bool,
     /// The last search that ran (8l1 §4 rules 3 to 5): its mode and pattern, kept
     /// so `apply_edit` marks the same hits again after every edit (contract 9e
     /// §4 rule 6, M9-6 i). `None` until the first `enter` at the search prompt;
@@ -384,6 +407,8 @@ impl ViewState {
             help: false,
             edit,
             editing: EditMode::Normal,
+            replace_selection: None,
+            overtype_stopped: false,
             last_search: None,
             chosen: None,
         };
@@ -426,7 +451,14 @@ impl ViewState {
             // 8m3's key list takes `q` itself: any key closes it and does nothing
             // else, and only `ctrl-c` leaves (8m3 §4 rule 2).
             || self.help;
-        if key == Key::CtrlC || (key == Key::Char('q') && (!typing || tiny)) {
+        // The three modes that take text read every printable key as text first
+        // (M9-2, 9f §4), so `q` there is a letter those modes refuse, not quit.
+        // `ctrl-c` quits from anywhere as it does today (9h changes that).
+        let typing_text: bool = matches!(
+            self.editing,
+            EditMode::Insert { .. } | EditMode::Overtype | EditMode::ReplaceOne
+        );
+        if key == Key::CtrlC || (key == Key::Char('q') && (!typing || tiny) && !typing_text) {
             return Action::Quit;
         }
         self.message = None;
@@ -454,6 +486,23 @@ impl ViewState {
         if self.search.is_some() {
             self.search_key(key);
             return Action::Continue;
+        }
+        // The three modes that take text own their keys, so the view's own keys
+        // are text there and not commands (M9-2, 9f §4 rules 2, 3 and 4).
+        match self.editing {
+            EditMode::Insert { .. } => {
+                self.insert_key(key);
+                return Action::Continue;
+            }
+            EditMode::Overtype => {
+                self.overtype_key(key);
+                return Action::Continue;
+            }
+            EditMode::ReplaceOne => {
+                self.replace_one_key(key);
+                return Action::Continue;
+            }
+            EditMode::Normal | EditMode::Visual { .. } => {}
         }
         match key {
             Key::Char('h') | Key::Left => self.step_base(-1),
@@ -548,6 +597,10 @@ impl ViewState {
                     },
                     // `v` in `Visual` ends the selection, as `esc` does (M9-2).
                     EditMode::Visual { .. } => self.editing = EditMode::Normal,
+                    // The three modes that take text read their own keys before
+                    // the view's keys, so `v` there is text and never reaches
+                    // branch (`v` is a base letter in a typing mode).
+                    EditMode::Insert { .. } | EditMode::Overtype | EditMode::ReplaceOne => {}
                 }
                 return Action::Continue;
             }
@@ -557,10 +610,39 @@ impl ViewState {
                 self.editing = EditMode::Normal;
                 return Action::Continue;
             }
-            // The keys 9e edits with (M9-2, M9-12): 9e fills them in. A record
+            // `i` inserts before the cursor's base and `a` after it (9f §4 rule
+            // 1): the insert point is the cursor for `i` and the cursor + 1 for
+            // `a`, and either spell of insert starts with nothing typed.
+            Key::Char('i') => {
+                self.open_insert(self.cursor);
+                return Action::Continue;
+            }
+            Key::Char('a') => {
+                // The point goes after the cursor's base, so one base past it; on
+                // the record's last base that point is its end, where the insert
+                // appends instead of running past the record.
+                let point: u64 = self
+                    .cursor
+                    .saturating_add(1)
+                    .min(self.record.sequence.length());
+                self.open_insert(point);
+                return Action::Continue;
+            }
+            // `R` overtypes from the cursor (9f §4 rule 3).
+            Key::Char('R') => {
+                self.open_overtype();
+                return Action::Continue;
+            }
+            // `r` replaces one base, or every base of the selection it was
+            // pressed on, with the next letter typed (9f §4 rule 4).
+            Key::Char('r') => {
+                self.open_replace();
+                return Action::Continue;
+            }
+            // The keys 9e edits with (M9-2, M9-12): 9g fills them in. A record
             // whose feature 9b2 refuses names that feature and core's reason
             // instead, and nothing else changes.
-            Key::Char('i' | 'a' | 'r' | 'R' | 'x' | 'd' | 'y' | 'p' | 'P' | 'u' | 's') => {
+            Key::Char('x' | 'd' | 'y' | 'p' | 'P' | 'u' | 's') => {
                 if let Err(blocked) = &self.edit {
                     self.message = Some(blocked_words(blocked));
                 }
@@ -585,6 +667,279 @@ impl ViewState {
         }
         self.follow();
         Action::Continue
+    }
+
+    /// `i` and `a` (9f §4 rule 1): the spell opens at `point` — the cursor for
+    /// `i`, one base past it for `a` — with nothing typed yet. The record's
+    /// editability is checked first, and a record 9d refuses answers with 9d's
+    /// own words (9f §4 rule 7).
+    fn open_insert(&mut self, point: u64) {
+        match &self.edit {
+            Ok(_buffer) => self.editing = EditMode::Insert { point, typed: 0 },
+            Err(blocked) => self.message = Some(blocked_words(blocked)),
+        }
+    }
+
+    /// `R` (9f §4 rule 3): overtype overwrites from the cursor on and never
+    /// lengthens the record. A record 9d refuses answers with 9d's own words
+    /// (9f §4 rule 7).
+    fn open_overtype(&mut self) {
+        match &self.edit {
+            Ok(_buffer) => {
+                self.editing = EditMode::Overtype;
+                self.overtype_stopped = false;
+            }
+            Err(blocked) => self.message = Some(blocked_words(blocked)),
+        }
+    }
+
+    /// `r`, from `Normal` or from `Visual` (9f §4 rule 4): the next letter
+    /// substitutes one base, or every base of the selection `r` was pressed on,
+    /// in one `Substitute`. The `Visual` range is kept aside because entering
+    /// `ReplaceOne` drops the `Visual` that `selection` reads it from; the field
+    /// goes when the spell does. A record 9d refuses answers with 9d's own
+    /// words (9f §4 rule 7).
+    fn open_replace(&mut self) {
+        match &self.edit {
+            Ok(_buffer) => {
+                self.replace_selection = self.selection();
+                self.editing = EditMode::ReplaceOne;
+            }
+            Err(blocked) => self.message = Some(blocked_words(blocked)),
+        }
+    }
+
+    /// Leaves `ReplaceOne`, dropping the selection kept for it (9f §4 rule 4).
+    fn close_replace(&mut self) {
+        self.editing = EditMode::Normal;
+        self.replace_selection = None;
+    }
+
+    /// The words a printable key that is not a base leaves in the status line
+    /// (9f §4 rules 2, 3 and 4): the character itself and what can be typed.
+    fn refusal_words(&mut self, letter: char) {
+        self.message = Some(format!(
+            "'{letter}' is not one of {DNA_ALPHABET}: only bases can be typed"
+        ));
+    }
+
+    /// A key pressed in `Insert` (9f §4 rule 2): a base in the 15 IUPAC letters,
+    /// either case, goes in as one `Insert` at the point and the point, the count
+    /// and the cursor move on; every other printable key changes nothing and says
+    /// only bases can be typed, so `q`, `x`, `f` and the view's keys are letters
+    /// here and not commands (M9-2). `backspace` takes back only what this spell
+    /// of insert put in, and `esc` leaves the mode. Any other press — the arrows,
+    /// `enter`, `tab` — changes nothing.
+    fn insert_key(&mut self, key: Key) {
+        let (point, typed): (u64, u64) = match self.editing {
+            EditMode::Insert { point, typed } => (point, typed),
+            _ => return,
+        };
+        match key {
+            Key::Esc => {
+                // The cursor stands on the last base typed; with nothing typed such
+                // a spell, it never moved and stays where the spell opened.
+                if typed > 0 {
+                    self.cursor = point.saturating_sub(1);
+                }
+                self.editing = EditMode::Normal;
+                self.follow();
+            }
+            Key::Backspace => {
+                // A base that was there before the `i` was pressed is never taken
+                // back: `backspace` is bounded by the bases this spell typed.
+                if typed == 0 {
+                    return;
+                }
+                // `typed > 0` implies the point is at least one base along.
+                if self
+                    .apply_edit(Edit::Delete {
+                        start: point - 1,
+                        end: point,
+                    })
+                    .is_err()
+                {
+                    // `apply_edit` has said why the base was not taken back.
+                    return;
+                }
+                self.editing = EditMode::Insert {
+                    point: point - 1,
+                    typed: typed - 1,
+                };
+                // 9f rule 2, mirrored from the letter arm: the cursor stands on the
+                // new point, clamped to the record's last base.
+                let last: u64 = self.record.sequence.length().saturating_sub(1);
+                self.cursor = (point - 1).min(last);
+                self.follow();
+            }
+            Key::Char(letter) if is_dna_letter(letter.to_ascii_uppercase()) => {
+                if self
+                    .apply_edit(Edit::Insert {
+                        at: point,
+                        bases: vec![letter.to_ascii_uppercase()],
+                    })
+                    .is_err()
+                {
+                    // `apply_edit` has said why nothing was inserted.
+                    return;
+                }
+                self.editing = EditMode::Insert {
+                    point: point + 1,
+                    typed: typed + 1,
+                };
+                // 9f rule 2: the cursor goes to the new point, clamped to the
+                // record's last base.
+                let last: u64 = self.record.sequence.length().saturating_sub(1);
+                self.cursor = (point + 1).min(last);
+                self.follow();
+            }
+            Key::Char(letter) => self.refusal_words(letter),
+            _ => {}
+        }
+    }
+
+    /// A key pressed in `Overtype` (9f §4 rule 3): a base substitutes the base
+    /// the cursor stands on and the cursor goes one right; at the record's last
+    /// base the letter still substitutes, but the cursor stays and the next letter
+    /// says overtype stops at the record's end — overtype never lengthens the
+    /// record. Any other printable key changes nothing and says only bases can be
+    /// typed; `esc` leaves the mode and any other press changes nothing.
+    fn overtype_key(&mut self, key: Key) {
+        match key {
+            Key::Esc => {
+                self.editing = EditMode::Normal;
+                self.overtype_stopped = false;
+                self.follow();
+            }
+            Key::Char(letter) if is_dna_letter(letter.to_ascii_uppercase()) => {
+                if self.overtype_stopped {
+                    self.message = Some("overtype stops at the end of the record".to_string());
+                    return;
+                }
+                if self
+                    .apply_edit(Edit::Substitute {
+                        start: self.cursor,
+                        bases: vec![letter.to_ascii_uppercase()],
+                    })
+                    .is_err()
+                {
+                    // `apply_edit` has said why nothing was substituted.
+                    return;
+                }
+                let last: u64 = self.record.sequence.length().saturating_sub(1);
+                if self.cursor >= last {
+                    self.overtype_stopped = true;
+                } else {
+                    self.cursor += 1;
+                    self.follow();
+                }
+            }
+            Key::Char(letter) => self.refusal_words(letter),
+            _ => {}
+        }
+    }
+
+    /// A key pressed in `ReplaceOne` (9f §4 rule 4): a base substitutes every
+    /// base `r` reaches, in one `Substitute` spanning the cursor's base or the
+    /// whole selection. `esc` ends the spell with nothing typed; any other press
+    /// ends it with a refusal, exactly as a non-base press does.
+    fn replace_one_key(&mut self, key: Key) {
+        match key {
+            Key::Esc => self.close_replace(),
+            Key::Char(letter) if is_dna_letter(letter.to_ascii_uppercase()) => {
+                let (start, end): (u64, u64) = self
+                    .replace_selection
+                    .unwrap_or((self.cursor, self.cursor.saturating_add(1)));
+                let count: usize = (end - start) as usize;
+                let outcome: Result<EditOutcome, DomainError> = self.apply_edit(Edit::Substitute {
+                    start,
+                    bases: vec![letter.to_ascii_uppercase(); count],
+                });
+                self.close_replace();
+                if outcome.is_ok() {
+                    self.follow();
+                }
+            }
+            Key::Char(letter) => {
+                self.close_replace();
+                self.message = Some(format!(
+                    "'{letter}' is not one of {DNA_ALPHABET}: the replace is cancelled"
+                ));
+            }
+            _ => {
+                self.close_replace();
+                self.message = Some("r needs a base letter: the replace is cancelled".to_string());
+            }
+        }
+    }
+
+    /// The terminal's own paste, handed over as one piece of text (9f §4 rule 5,
+    /// M9-4): in `Insert` the text is cleaned and inserted in one `Insert`, and
+    /// nothing is inserted when the clean-up refusal hits — the whole paste goes.
+    /// The rules apply in this order: a line whose first non-space character is `>`
+    /// is dropped whole, then spaces, tabs, `\r`, `\n` and ASCII digits are
+    /// dropped, and any other character that is not one of the 15 IUPAC
+    /// bases says so, naming the character and its 1-based line and column.
+    /// Outside `Insert` nothing is pasted and the line asks for `i` or `a`.
+    pub(super) fn paste(&mut self, text: &str) {
+        let (point, typed): (u64, u64) = match self.editing {
+            EditMode::Insert { point, typed } => (point, typed),
+            // M9-5: the terminal's paste works in insert mode only.
+            _ => {
+                self.message = Some("paste: press i or a first".to_string());
+                return;
+            }
+        };
+        // M9-4 in the order the contract gives: a FASTA/GenBank header line goes,
+        // the whitespace and digits of a body line go, and anything else that is
+        // not one of the 15 bases refuses the whole paste.
+        let mut bases: Vec<char> = Vec::new();
+        for (line_number, line) in text.split('\n').enumerate() {
+            let is_header: bool = line
+                .chars()
+                .find(|ch| !ch.is_whitespace())
+                .is_some_and(|ch| ch == '>');
+            if is_header {
+                continue;
+            }
+            for (column, ch) in line.chars().enumerate() {
+                if ch == ' ' || ch == '\t' || ch == '\r' || ch.is_ascii_digit() {
+                    continue;
+                }
+                let upper: char = ch.to_ascii_uppercase();
+                if !is_dna_letter(upper) {
+                    self.message = Some(format!(
+                        "paste refused: '{ch}' at line {} column {}",
+                        line_number + 1,
+                        column + 1
+                    ));
+                    return;
+                }
+                bases.push(upper);
+            }
+        }
+        if bases.is_empty() {
+            return;
+        }
+        // What is left, if not empty, goes in as one `Insert` at the point.
+        let count: u64 = bases.len() as u64;
+        if self
+            .apply_edit(Edit::Insert {
+                at: point,
+                bases: std::mem::take(&mut bases),
+            })
+            .is_err()
+        {
+            // `apply_edit` has said why nothing was pasted.
+            return;
+        }
+        self.editing = EditMode::Insert {
+            point: point + count,
+            typed: typed + count,
+        };
+        let last: u64 = self.record.sequence.length().saturating_sub(1);
+        self.cursor = (point + count).min(last);
+        self.follow();
     }
 
     /// 8k3's picker: `false`, and nothing changes, for an index out of range or
@@ -620,9 +975,8 @@ impl ViewState {
     /// its `Chosen` map, the strip's GC line, the ORFs, the last search's hits,
     /// the cursor and the layout. A refusal from `apply` or from `rebuild`
     /// leaves the view exactly as it was, with core's own message.
-    // The edit keys 9f wire to this; until then only its tests drive it, so the
-    // library target alone calls it dead (`scripts/check` includes every target).
-    #[allow(dead_code)]
+    // The edit keys 9f and 9g are wired through this; the tests in this module
+    // also call it directly.
     pub(super) fn apply_edit(&mut self, edit: Edit) -> Result<EditOutcome, DomainError> {
         // The selected CDS is followed by the line its feature's key was read
         // from, which no edit moves (§4 rule 2): a removed feature shifts the
@@ -829,12 +1183,17 @@ impl ViewState {
     /// selection is the range between the two bases.
     pub(super) fn selection(&self) -> Option<(u64, u64)> {
         match self.editing {
-            EditMode::Normal => None,
             EditMode::Visual { anchor } => {
                 let first: u64 = anchor.min(self.cursor);
                 let last: u64 = anchor.max(self.cursor);
                 Some((first, last.saturating_add(1)))
             }
+            // `Normal` has no selection; the typing modes keep their bases aside
+            // (`replace_selection` is what `r` reads; 9f §4 rule 4).
+            EditMode::Normal
+            | EditMode::Insert { .. }
+            | EditMode::Overtype
+            | EditMode::ReplaceOne => None,
         }
     }
 
@@ -1047,6 +1406,11 @@ impl ViewState {
             // §4 rule 5 (M9-2): while a selection is open the line names the
             // mode, the bases it covers and their range, before the usual text.
             EditMode::Visual { .. } => format!("{} · {}", self.visual_words(), self.status_body()),
+            // 9f §4 rule 6: the three modes that take text lead the line with
+            // their own marker, then what the line usually says.
+            EditMode::Insert { .. } => format!("-- INSERT -- · {}", self.status_body()),
+            EditMode::Overtype => format!("-- OVERTYPE -- · {}", self.status_body()),
+            EditMode::ReplaceOne => format!("-- REPLACE -- · {}", self.status_body()),
             EditMode::Normal => self.status_body(),
         }
     }
@@ -2751,6 +3115,287 @@ mod tests {
             state.title()
         );
         assert!(state.chosen.is_some(), "its map is rebuilt anew");
+    }
+
+    // 9f §5 test 1: `i` inserts before the base the cursor stands on and `a`
+    // after it, and the letter typed goes in upper case however it is typed.
+    #[test]
+    fn insert_before_and_after() {
+        let opened: ViewRecord = pbr();
+        // The `i` half: `i` puts the point at the cursor, so the two letters
+        // typed land at 1-based 10 and 11.
+        let mut state: ViewState = ViewState::new(opened.clone(), 80, 24);
+        state.cursor = 9;
+        assert_eq!(state.handle(Key::Char('i')), Action::Continue, "i");
+        state.handle(Key::Char('g'));
+        state.handle(Key::Char('c'));
+        state.handle(Key::Esc);
+        assert_eq!(state.editing, EditMode::Normal, "`esc` leaves insert");
+        assert_eq!(state.record().sequence.length(), 4363, "two bases took in");
+        let after: Vec<char> = state.record().sequence.letters();
+        assert_eq!(after[9], 'G', "the 10th base");
+        assert_eq!(after[10], 'C', "the 11th base");
+        // 9f §4 rule 2: `esc` leaves the cursor on the last base typed.
+        assert_eq!(state.cursor(), 10, "the cursor on the last base typed");
+
+        // The `a` half starts from a fresh view with the cursor at zero-based 9:
+        // `a` puts the point after the cursor's base, so the letter typed takes
+        // 1-based 11 and every base from the record's old 11th on shifts right.
+        let mut state: ViewState = ViewState::new(opened.clone(), 80, 24);
+        let before: Vec<char> = opened.sequence.letters();
+        state.cursor = 9;
+        assert_eq!(state.handle(Key::Char('a')), Action::Continue, "a");
+        state.handle(Key::Char('t'));
+        assert_eq!(state.record().sequence.length(), 4362, "one base took in");
+        let after: Vec<char> = state.record().sequence.letters();
+        assert_eq!(after[10], 'T', "the 11th base, upper case");
+        assert_eq!(&after[11..], &before[10..], "the rest shifts right");
+    }
+
+    // 9f §5 test 2 (M9-2): in `Insert` every other printable key is a letter the
+    // view refuses, not a command, so the record is untouched and the session
+    // goes on.
+    #[test]
+    fn insert_refuses_non_bases() {
+        let mut state: ViewState = ViewState::new(pbr(), 80, 24);
+        let before: Vec<char> = state.record().sequence.letters();
+        state.cursor = 9;
+        state.handle(Key::Char('i'));
+        for ch in ['q', '1', ' ', 'x'] {
+            assert_eq!(state.handle(Key::Char(ch)), Action::Continue, "{ch}");
+            assert_eq!(
+                state.record().sequence.letters(),
+                before,
+                "{ch} changed the record"
+            );
+            assert!(state.message().is_some(), "{ch} leaves a message");
+            assert!(
+                state.status().starts_with("-- INSERT --"),
+                "and the mode is still insert: {}",
+                state.status()
+            );
+        }
+        // `q` there is a refused letter and not quit (9f §4).
+        assert_eq!(
+            state.handle(Key::Char('q')),
+            Action::Continue,
+            "q in insert"
+        );
+    }
+
+    // 9f §5 test 3: `backspace` takes back only the bases this spell of insert
+    // put in, and never a base that was there before the `i`.
+    #[test]
+    fn backspace_only_takes_what_was_typed() {
+        let opened: ViewRecord = pbr();
+        let mut state: ViewState = ViewState::new(opened.clone(), 80, 24);
+        state.cursor = 9;
+        state.handle(Key::Char('i'));
+        for _ in 0..2 {
+            state.handle(Key::Char('a'));
+        }
+        for _ in 0..3 {
+            state.handle(Key::Backspace);
+        }
+        assert_eq!(
+            state.record().sequence.length(),
+            4361,
+            "the third backspace took nothing away"
+        );
+        assert_eq!(
+            state.record().sequence.letters(),
+            opened.sequence.letters(),
+            "and the letters are pBR322's again"
+        );
+        assert_eq!(
+            state.cursor(),
+            9,
+            "the cursor followed the point back to where it stood when `i` was pressed"
+        );
+    }
+
+    // 9f §5 test 4: overtype substitutes to the last base and stops there, so
+    // the record is never lengthened and the second letter past the end is said
+    // so.
+    #[test]
+    fn overtype_stops_at_the_end() {
+        let opened: ViewRecord = pbr();
+        let last: u64 = opened.sequence.length() - 1;
+        assert_ne!(
+            opened.sequence.letter_at(last).unwrap(),
+            'G',
+            "the record's last base is not the one typed, so the substitution bites"
+        );
+        let mut state: ViewState = ViewState::new(opened, 80, 24);
+        state.handle(Key::End);
+        assert_eq!(state.cursor(), last, "`End` on the record's last base");
+        state.handle(Key::Char('R'));
+        state.handle(Key::Char('g'));
+        assert_eq!(
+            state.record().sequence.length(),
+            4361,
+            "overtype never makes the record longer"
+        );
+        assert_eq!(
+            state.record().sequence.letter_at(last),
+            Ok('G'),
+            "the last base is substituted"
+        );
+        assert_eq!(state.cursor(), last, "and the cursor stays on it");
+        let after_first: Vec<char> = state.record().sequence.letters();
+        state.handle(Key::Char('g'));
+        assert_eq!(
+            state.record().sequence.letters(),
+            after_first,
+            "the second letter past the end is refused"
+        );
+        assert!(
+            state
+                .message()
+                .expect("the refusal is said")
+                .contains("overtype"),
+            "and says overtype stops: {:?}",
+            state.message()
+        );
+    }
+
+    // 9f §5 test 5: `r` from `Visual` substitutes every base of the selection in
+    // one `Substitute` and leaves `Normal`.
+    #[test]
+    fn r_replaces_a_selection() {
+        let opened: ViewRecord = pbr();
+        let mut state: ViewState = ViewState::new(opened.clone(), 80, 24);
+        state.handle(Key::Char('v'));
+        for _ in 0..2 {
+            state.handle(Key::Char('l'));
+        }
+        state.handle(Key::Char('r'));
+        state.handle(Key::Char('n'));
+        assert_eq!(state.editing, EditMode::Normal, "the mode is Normal");
+        for index in 0..3 {
+            assert_eq!(
+                state.record().sequence.letter_at(index),
+                Ok('N'),
+                "base {}",
+                index + 1
+            );
+        }
+        assert_eq!(
+            state.record().sequence.length(),
+            opened.sequence.length(),
+            "and the length is unchanged"
+        );
+    }
+
+    // 9f §5 test 9 (through 9e): three bases typed with `i` shift the whole
+    // record after them, and the features the record keeps with it.
+    #[test]
+    fn insert_moves_features() {
+        let opened: ViewRecord = pbr();
+        let tet_line: u64 = cds_feature_line(&opened, 0);
+        let mut state: ViewState = ViewState::new(opened, 80, 24);
+        assert!(state.select_cds(Some(0)), "tet is usable (M8-11)");
+        state.cursor = 50;
+        state.handle(Key::Char('i'));
+        for ch in ['g', 'c', 'a'] {
+            state.handle(Key::Char(ch));
+        }
+        state.handle(Key::Esc);
+        assert_eq!(
+            state.record().sequence.length(),
+            4364,
+            "three bases took in"
+        );
+        let index: usize = state.selected().expect("tet stays selected");
+        assert_eq!(
+            cds_feature_line(state.record(), index),
+            tet_line,
+            "found again by the feature's file line"
+        );
+        let cds: Cds = usable(state.record(), index)
+            .expect("tet stays usable")
+            .clone();
+        assert_eq!(
+            cds.intervals()[0].start(),
+            88,
+            "its first codon sits at 1-based 89"
+        );
+        assert!(
+            state.title().contains("tet (+) 89..1279"),
+            "title: {}",
+            state.title()
+        );
+    }
+
+    // 9f §5 test 6 (M9-4): a paste of a header line plus a body line keeps the
+    // bases, and the header line, the spaces and the digits go.
+    #[test]
+    fn paste_drops_what_m9_4_drops() {
+        let opened: ViewRecord = pbr();
+        let mut state: ViewState = ViewState::new(opened.clone(), 80, 24);
+        state.cursor = 9;
+        state.handle(Key::Char('i'));
+        state.paste(">x\nACGT 12\nacgt\n");
+        assert_eq!(
+            state.record().sequence.length(),
+            opened.sequence.length() + 8,
+            "eight bases went in"
+        );
+        let letters: Vec<char> = state.record().sequence.letters();
+        let pasted: String = letters[9..17].iter().collect();
+        assert_eq!(pasted, "ACGTACGT", "the letters kept, upper case");
+        assert_eq!(
+            state.editing,
+            EditMode::Insert {
+                point: 17,
+                typed: 8
+            },
+            "point and typed went up by the length of what was pasted"
+        );
+    }
+
+    // 9f §5 test 7: one bad character refuses the whole paste, and the refusal
+    // names the character and its 1-based line and column in the pasted text.
+    #[test]
+    fn paste_refuses_a_bad_character_whole() {
+        let opened: ViewRecord = pbr();
+        let mut state: ViewState = ViewState::new(opened.clone(), 80, 24);
+        state.cursor = 9;
+        state.handle(Key::Char('i'));
+        state.paste("ACGT\nAC!T");
+        assert_eq!(
+            state.record().sequence.length(),
+            opened.sequence.length(),
+            "nothing at all was inserted"
+        );
+        assert_eq!(
+            state.record().sequence.letters(),
+            opened.sequence.letters(),
+            "not even the first line went inserted"
+        );
+        let message: String = state.message().expect("the refusal is said").to_string();
+        assert!(message.contains('!'), "names the character: {message}");
+        assert!(message.contains("line 2"), "names the line: {message}");
+        assert!(message.contains("column 3"), "names the column: {message}");
+    }
+
+    // 9f §5 test 8 (M9-5): a paste outside insert mode is refused and says what
+    // to press first.
+    #[test]
+    fn paste_outside_insert_does_nothing() {
+        let opened: ViewRecord = pbr();
+        let mut state: ViewState = ViewState::new(opened.clone(), 80, 24);
+        state.paste("ACGT");
+        assert_eq!(
+            state.record().sequence.letters(),
+            opened.sequence.letters(),
+            "nothing was inserted"
+        );
+        let message: String = state.message().expect("the refusal is said").to_string();
+        assert!(
+            message.contains("press i or a"),
+            "says to press `i` or `a`: {message}"
+        );
     }
 
     // 9e §5 test 5 (full tier, M9-6 i): one base inside the selected CDS frames

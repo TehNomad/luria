@@ -17,21 +17,27 @@
 //!
 //! Nothing here writes a file (§8), and nothing here decides what a key means:
 //! `super::state::ViewState::handle` does, and this module only names the key
-//! that was pressed and passes the answer on.
+//! that was pressed and passes the answer on. Bracketed paste is switched on
+//! and off here as well (9f §3 item 2), since only the terminal knows a paste
+//! is one; what a paste means stays `state::paste`'s rule.
 
 use crate::sequence_view::screen;
 use crate::sequence_view::state::Action;
 use crate::sequence_view::state::Key;
 use crate::sequence_view::state::ViewState;
 use crossterm::event::read;
+use crossterm::event::DisableBracketedPaste;
+use crossterm::event::EnableBracketedPaste;
 use crossterm::event::Event;
 use crossterm::event::KeyCode;
 use crossterm::event::KeyEvent;
 use crossterm::event::KeyEventKind;
 use crossterm::event::KeyModifiers;
+use crossterm::execute;
 use luria_core::view_record::ViewRecord;
 use ratatui::layout::Size;
 use std::ffi::OsStr;
+use std::io::stdout;
 
 /// Whether the view must open without the residue colours (contract 8m5 §4 rule
 /// 5, no-color.org): `NO_COLOR` present and not empty, whatever it is set to,
@@ -97,11 +103,34 @@ pub fn run(record: ViewRecord) -> std::io::Result<()> {
         Err(problem) => {
             // `restore` reports its own failures on stderr and returns nothing,
             // so the error this returns is `try_init`'s (`review::terminal`'s
-            // comment on the same call, unchanged).
+            // comment on the same call, unchanged). Bracketed paste is switched
+            // on below, so there is nothing of that to undo at this point.
             ratatui::restore();
             return Err(problem);
         }
     };
+
+    // 9f §3 item 2: a paste arrives as one piece of text only while the terminal
+    // is asked to bracket it, which is what makes the `Event::Paste` arm below
+    // fire at all. It is switched back off on every way out of `run`, because a
+    // leftover `ESC[?2004h` would leave the shell eating the paste markers of
+    // every later command.
+    if let Err(problem) = execute!(stdout(), EnableBracketedPaste) {
+        // The screen is open, so it is restored before the error is handed on.
+        ratatui::restore();
+        return Err(problem);
+    }
+
+    // The panic path. `try_init` installed a hook that restores raw mode and the
+    // screen but knows nothing about bracketed paste, so this hook chains the one
+    // ratatui installed: paste gets switched off first, then the old hook does
+    // the rest of the restore.
+    let previous_hook: Box<dyn Fn(&std::panic::PanicHookInfo<'_>) + Sync + Send + 'static> =
+        std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        let _ = execute!(stdout(), DisableBracketedPaste);
+        previous_hook(info);
+    }));
 
     // The size the record is laid out at. A terminal that will not say its size
     // is not drawn on at all: the view has no width to lay blocks out in, and
@@ -109,6 +138,7 @@ pub fn run(record: ViewRecord) -> std::io::Result<()> {
     let size: Size = match terminal.size() {
         Ok(size) => size,
         Err(problem) => {
+            let _ = execute!(stdout(), DisableBracketedPaste);
             let _ = ratatui::try_restore();
             return Err(problem);
         }
@@ -141,12 +171,21 @@ pub fn run(record: ViewRecord) -> std::io::Result<()> {
             // keeps the base it covered, and the next draw shows the record at
             // the new width (§4 rule 14).
             Ok(Event::Resize(width, height)) => state.resize(width, height),
+            // A bracketed paste: the whole text comes in one event, and every
+            // rule about what a paste means is `ViewState::paste`'s, not this (9f
+            // §3 item 2).
+            Ok(Event::Paste(text)) => state.paste(&text),
             // A mouse event, a focus change, a poll that found nothing: the next
             // draw pass redraws.
             Ok(_other) => {}
         }
     }
 
+    // Every way out of the loop lands here: quit, an error from `read` and a
+    // failed draw. Paste gets switched off before the screen is restored, and
+    // each early return above does the same for itself; the hook installed at the
+    // open covers a panic, the one way out that is not a return.
+    let _ = execute!(stdout(), DisableBracketedPaste);
     let restored: std::io::Result<()> = ratatui::try_restore();
     match looped {
         Err(problem) => Err(problem),
