@@ -1,6 +1,6 @@
 # Contract 9d — cli: edit modes, the selection, and the blocked record
 
-Planner: Claude. Status: draft. Tier: light (plan M9-10), behaviour tested,
+Planner: Claude. Status: implemented. Tier: light (plan M9-10), behaviour tested,
 wording not pinned.
 Plan row: `docs/tasks/milestone-9-editor.md` §7, row 9d.
 

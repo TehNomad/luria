@@ -419,7 +419,9 @@ fn draw_rule(frame: &mut Frame, body: Rect, gutter: u16, line_width: u64, row: u
 
 /// The cursor's cell and the cells of its codon, on the row the mode reads
 /// (§4 rule 12, M8-36), the cells of the hits the search marked (8l1 §4
-/// rule 8, M8-24), the same on the row of a block's complements, and the codon's
+/// rule 8, M8-24), the cells of the selection the `v` keys made (9d §6, blue on
+/// both rows, over a hit's yellow), the same on the row of a block's complements,
+/// and the codon's
 /// three cells on the selected CDS's residue row, reversed and bold (M8-32 §4
 /// rule 2). A base `p`
 /// of block `[s, e)` stands at line column
@@ -471,6 +473,9 @@ fn mark_bases(
     // passes the origin covers bases at both ends of the record (D052, 8l1 §4 rule
     // 8); which of them this block holds is the loop's question.
     let size: u64 = state.record().sequence.length();
+    // 9d §4 rule 6: the selection is a plain half-open range, never a pair of
+    // runs, so only the part of it that this block holds gets marked.
+    let selection: Option<(u64, u64)> = state.selection();
     for position in start..end {
         let underlined: bool = marks
             .codon
@@ -494,7 +499,9 @@ fn mark_bases(
                 }),
             None => (false, false),
         };
-        if !underlined && !top_mark && !bottom_mark && position != marks.cursor {
+        let selected: bool =
+            selection.is_some_and(|(first, last)| position >= first && position < last);
+        if !underlined && !top_mark && !bottom_mark && !selected && position != marks.cursor {
             continue;
         }
         let column: u16 =
@@ -524,6 +531,27 @@ fn mark_bases(
                     Modifier::BOLD | Modifier::UNDERLINED;
             }
         }
+        if selected {
+            // 9d §6: every selected base's cell, on the bases row and on the row
+            // of its complements, goes blue behind the letter's own colour. The
+            // background is written after the hit's yellow, so the selection wins
+            // where the two overlap; the cursor's reversal and the codon's
+            // underline are modifiers, so they still go on top of it.
+            if state.colours() {
+                frame.buffer_mut()[(column, rows.top)].bg = Color::Blue;
+                if let Some(bottom) = rows.bottom {
+                    frame.buffer_mut()[(column, bottom)].bg = Color::Blue;
+                }
+            } else {
+                // M8-34 rule 5: with no colours the mark is bold on both rows, as
+                // a hit's is, and the two are told apart by the cursor and codon
+                // marks the hit does not carry.
+                frame.buffer_mut()[(column, rows.top)].modifier |= Modifier::BOLD;
+                if let Some(bottom) = rows.bottom {
+                    frame.buffer_mut()[(column, bottom)].modifier |= Modifier::BOLD;
+                }
+            }
+        }
         if underlined {
             // The cell's own modifiers are kept: the underline goes on top of
             // whatever `layout` styled the base with, and the cursor's cell
@@ -541,6 +569,174 @@ fn mark_bases(
             // letter and colours stay under the mark, and the mark is there with
             // the colours on and off alike (M8-32 §4 rule 3).
             frame.buffer_mut()[(column, residues)].modifier |= Modifier::REVERSED | Modifier::BOLD;
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::sequence_view::state::Action;
+    use crate::sequence_view::state::Key;
+    use luria_core::identity::Identifier;
+    use luria_core::view_record::open_record;
+    use luria_core::view_record::ViewRecord;
+    use ratatui::backend::TestBackend;
+    use ratatui::buffer::Cell;
+    use ratatui::Terminal;
+    use std::fs;
+    use std::path::Path;
+
+    /// The size every other sequence-view test draws at: 80 columns, 24 rows.
+    const W: u16 = 80;
+    const H: u16 = 24;
+
+    /// pBR322: 4361 bp, circular, two usable CDSs, so M8-11 selects none and the
+    /// view opens in `Off` mode.
+    fn pbr() -> ViewRecord {
+        let path: &str = "../../tests/fixtures/genbank/raw/J01749.1.gb";
+        let text: String = fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join(path))
+            .unwrap_or_else(|error| panic!("read {path}: {error}"));
+        open_record(Identifier::create("SYNPBR322".to_string()).unwrap(), text)
+            .unwrap_or_else(|error| panic!("open {path}: {error:?}"))
+    }
+
+    /// The cells of the drawn screen, row by row — the `tests/sequence_view.rs`
+    /// reading of a `ratatui` test backend.
+    fn drawn(state: &ViewState) -> Vec<Vec<Cell>> {
+        let mut terminal: Terminal<TestBackend> = Terminal::new(TestBackend::new(W, H)).unwrap();
+        terminal.draw(|frame| draw(frame, state)).unwrap();
+        let buffer: &ratatui::buffer::Buffer = terminal.backend().buffer();
+        let width: usize = usize::from(buffer.area.width);
+        buffer
+            .content
+            .chunks(width)
+            .map(|row: &[Cell]| row.to_vec())
+            .collect()
+    }
+
+    /// `key` pressed `times` times, never by setting a field.
+    fn walk(state: &mut ViewState, key: Key, times: usize) {
+        for _ in 0..times {
+            assert_eq!(
+                state.handle(key),
+                Action::Continue,
+                "{key:?} does not leave"
+            );
+        }
+    }
+
+    /// The screen rows the bases and the complements stand on, found by role in
+    /// the lines of the block on top, as `draw_blocks` does: the frame's inner
+    /// area starts at row 1, and pBR322 is long enough to open with the strip
+    /// drawn (8l2 §4 rule 1) so that row holds OVERVIEW_ROWS strip rows.
+    fn base_rows(state: &ViewState) -> (usize, usize) {
+        let block: usize = state.visible().start;
+        let lines: Vec<(LineRole, Line<'static>)> = state.lines(block);
+        let strip: usize = if state.overview() {
+            usize::from(OVERVIEW_ROWS)
+        } else {
+            0
+        };
+        let at: Vec<usize> = [LineRole::Top, LineRole::Bottom]
+            .iter()
+            .map(|role| {
+                lines
+                    .iter()
+                    .position(|(found, _line)| found == role)
+                    .unwrap_or_else(|| panic!("no {role:?} line in block {block}"))
+                    + 1
+                    + strip
+            })
+            .collect();
+        (at[0], at[1])
+    }
+
+    // 9d §4 rule 6: every selected base's cell on the bases row and on the row of
+    // its complements goes blue, over the letter's own colour and over a hit's
+    // yellow, with the cursor's reversal still drawn on top.
+    #[test]
+    fn selection_cells_are_marked() {
+        let mut state: ViewState = ViewState::new(pbr(), W, H);
+        // pBR322 at 80 x 24 lays out 66 bases a block with a 4-column gutter
+        // (`line_moves_keep_the_offset`), so base `p` of the block on top stands
+        // at column `p + 6` of the screen.
+        let built: Layout = state.layout().expect("a layout at 80 wide").clone();
+        assert_eq!((built.gutter, built.line_width), (4, 66));
+        assert_eq!(state.visible().start, 0, "the first block is on top");
+        assert_eq!(built.blocks[0].0, 0, "its first base is base 0");
+
+        // A search whose hits the selection must cover (8l1 §4 rules 1 and 3).
+        assert_eq!(state.handle(Key::Char('/')), Action::Continue);
+        for ch in ['A', 'T', 'G'] {
+            assert_eq!(state.handle(Key::Char(ch)), Action::Continue);
+        }
+        assert_eq!(state.handle(Key::Enter), Action::Continue);
+        let found: bool = state
+            .hits()
+            .expect("ATG has hits in pBR322")
+            .shown()
+            .is_empty();
+        assert!(!found, "the search leaves hits to be covered");
+
+        // `g` 31 `enter`: the go-to prompt places the cursor on zero-based 30
+        // (8k2 §4 rule 3), inside the block that is on screen.
+        assert_eq!(state.handle(Key::Char('g')), Action::Continue);
+        for ch in ['3', '1'] {
+            assert_eq!(state.handle(Key::Char(ch)), Action::Continue);
+        }
+        assert_eq!(state.handle(Key::Enter), Action::Continue);
+        assert_eq!(state.cursor(), 30, "the cursor stands on base 31");
+        assert_eq!(state.handle(Key::Char('v')), Action::Continue);
+        walk(&mut state, Key::Char('l'), 9);
+        let selection: (u64, u64) = state.selection().expect("a selection");
+        assert_eq!(selection, (30, 40), "half-open [30, 40)");
+        assert_eq!(state.cursor(), 39, "the last selected base");
+
+        let size: u64 = state.record().sequence.length();
+        let hits: &[crate::sequence_view::search::Hit] =
+            state.hits().expect("the hits are still there").shown();
+        let under_a_hit: bool = (30..40).any(|base| hits.iter().any(|hit| hit.covers(base, size)));
+        assert!(
+            under_a_hit,
+            "the ATG that begins at base 36 lies inside the selection"
+        );
+
+        let rows: Vec<Vec<Cell>> = drawn(&state);
+        let (top, bottom): (usize, usize) = base_rows(&state);
+        assert_eq!(bottom, top + 1, "the two rows of one block adjoin");
+
+        for column in 30..40u64 {
+            let screen: usize = usize::try_from(column).expect("a column") + 6;
+            assert_eq!(
+                rows[top][screen].bg,
+                Color::Blue,
+                "base {column} on the bases row"
+            );
+            assert_eq!(
+                rows[bottom][screen].bg,
+                Color::Blue,
+                "base {column} on the complements row"
+            );
+        }
+
+        // The cursor's cell stands reversed over the blue (§4 rule 12).
+        assert!(
+            rows[top][45].modifier.contains(Modifier::REVERSED),
+            "the cursor on base 40 keeps its reversal"
+        );
+
+        // Nothing outside the selection is marked: the base before it, the base
+        // after it and both rows of those cells keep their own background.
+        for column in [29, 40] {
+            let screen: usize = column + 6;
+            for row in [top, bottom] {
+                assert_ne!(
+                    rows[row][screen].bg,
+                    Color::Blue,
+                    "base {column} at row {row} column {screen} lies outside the selection"
+                );
+            }
         }
     }
 }

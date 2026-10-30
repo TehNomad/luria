@@ -46,6 +46,9 @@ use luria_core::cds::Cds;
 use luria_core::cds_map::CdsMap;
 use luria_core::cds_map::CodonPlace;
 use luria_core::display_location::DisplayLocation;
+use luria_core::edit_buffer::buffer_for;
+use luria_core::edit_buffer::EditBlocked;
+use luria_core::edit_buffer::EditBuffer;
 use luria_core::name_match::cds_span;
 use luria_core::name_match::match_name;
 use luria_core::name_match::Matched;
@@ -225,6 +228,19 @@ struct Chosen {
     strand: Strand,
 }
 
+/// The mode the keys are read in (M9-2, M9-12): `Normal` moves the cursor and
+/// runs the view's own keys, `Visual` selects from the anchor to the cursor.
+/// 9f adds the two modes that take text.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum EditMode {
+    Normal,
+    /// `v` anchors the selection at the cursor it was pressed on and the
+    /// movement keys extend it to the cursor.
+    Visual {
+        anchor: u64,
+    },
+}
+
 /// The view between keys: the record, the screen's size, the selection, the
 /// lanes, the cursor and the top block.
 pub struct ViewState {
@@ -301,6 +317,12 @@ pub struct ViewState {
     /// the body in place of the blocks, and any key closes it and does nothing
     /// else.
     help: bool,
+    /// Whether the record can be: `buffer_for`'s answer at open (M9-12), the
+    /// buffer 9e edits or the reason every editing key is refused.
+    edit: Result<EditBuffer, EditBlocked>,
+    /// The mode the keys are read in (M9-2): `Normal` at open, `Visual` once `v`
+    /// anchors a selection at the cursor.
+    editing: EditMode,
     /// The selected CDS's map and residues, `None` with no selection.
     chosen: Option<Chosen>,
 }
@@ -319,6 +341,9 @@ impl ViewState {
         // The strip's GC line is counted from the record once here, and again on
         // every new width, and kept for the frames between (8m12 §4 rule 5).
         let gc: String = gc_line(&record, inner_width(width));
+        // M9-12: the record's editability is decided once at open, and every
+        // editing key reads it rather than asking again.
+        let edit: Result<EditBuffer, EditBlocked> = buffer_for(&record);
         let mut state: ViewState = ViewState {
             circular: record.sequence.topology() == SequenceTopology::Circular,
             selected,
@@ -342,6 +367,8 @@ impl ViewState {
             orfs: None,
             colours: true,
             help: false,
+            edit,
+            editing: EditMode::Normal,
             chosen: None,
         };
         state.choose();
@@ -490,6 +517,39 @@ impl ViewState {
             // `?` opens the key list (8m3 §4 rule 2); in a list or at a prompt the
             // branches above make it text instead.
             Key::Char('?') => self.help = true,
+            // `v` opens a selection anchored at the cursor (M9-2, M9-12: the
+            // movement keys extend it, and `v` or `esc` closes it. An uneditable
+            // record is refused as §4 rule 4 says, naming the feature and why.
+            Key::Char('v') => {
+                match self.editing {
+                    EditMode::Normal => match &self.edit {
+                        Ok(_buffer) => {
+                            self.editing = EditMode::Visual {
+                                anchor: self.cursor,
+                            }
+                        }
+                        Err(blocked) => self.message = Some(blocked_words(blocked)),
+                    },
+                    // `v` in `Visual` ends the selection, as `esc` does (M9-2).
+                    EditMode::Visual { .. } => self.editing = EditMode::Normal,
+                }
+                return Action::Continue;
+            }
+            // `esc` that ends a selection closes it alone: the hits the screen
+            // marks stay, so `n` and `N` still walk them (M9-2).
+            Key::Esc if matches!(self.editing, EditMode::Visual { .. }) => {
+                self.editing = EditMode::Normal;
+                return Action::Continue;
+            }
+            // The keys 9e edits with (M9-2, M9-12): 9e fills them in. A record
+            // whose feature 9b2 refuses names that feature and core's reason
+            // instead, and nothing else changes.
+            Key::Char('i' | 'a' | 'r' | 'R' | 'x' | 'd' | 'y' | 'p' | 'P' | 'u' | 's') => {
+                if let Err(blocked) = &self.edit {
+                    self.message = Some(blocked_words(blocked));
+                }
+                return Action::Continue;
+            }
             // `esc` with no list, prompt or key list open clears the hits the
             // screen marks: the marks go, `n` and `N` have nothing to step, and
             // the cursor, the selection, the lanes and the scroll stay as they
@@ -577,6 +637,22 @@ impl ViewState {
     /// what `n` and `N` walk through.
     pub fn hits(&self) -> Option<&Hits> {
         self.hits.as_ref()
+    }
+
+    /// The bases the selection covers, `None` with none (M9-2, M9-6 g): the
+    /// zero-based half-open `[min(anchor, cursor), max(anchor, cursor) + 1)` in
+    /// `Visual`. The range is always plain, so a selection never crosses the
+    /// origin of a circular record: when the cursor wraps past the end the
+    /// selection is the range between the two bases.
+    pub(super) fn selection(&self) -> Option<(u64, u64)> {
+        match self.editing {
+            EditMode::Normal => None,
+            EditMode::Visual { anchor } => {
+                let first: u64 = anchor.min(self.cursor);
+                let last: u64 = anchor.max(self.cursor);
+                Some((first, last.saturating_add(1)))
+            }
+        }
     }
 
     pub fn record(&self) -> &ViewRecord {
@@ -784,6 +860,34 @@ impl ViewState {
     /// says, and a refusal replaces it (8k3 §4 rule 7); while go-to is open it
     /// says what has been typed there (8k2 §4 rule 2).
     pub(super) fn status(&self) -> String {
+        match self.editing {
+            // §4 rule 5 (M9-2): while a selection is open the line names the
+            // mode, the bases it covers and their range, before the usual text.
+            EditMode::Visual { .. } => format!("{} · {}", self.visual_words(), self.status_body()),
+            EditMode::Normal => self.status_body(),
+        }
+    }
+
+    /// The `-- VISUAL --` part of the status line (§4 rule 5): the mode, how
+    /// many bases the selection covers and their 1-based inclusive range.
+    fn visual_words(&self) -> String {
+        let (first, last): (u64, u64) = match self.selection() {
+            Some(range) => range,
+            // The mode is `Visual` only while there is a selection, so this is
+            // unreachable; a short line keeps the status well-formed anyway.
+            None => return "-- VISUAL --".to_string(),
+        };
+        format!(
+            "-- VISUAL -- {} bases, {}..{}",
+            last - first,
+            first + 1,
+            last
+        )
+    }
+
+    /// What the line says otherwise: the cursor, the message, the prompts or the
+    /// hits (§4 rule 13).
+    fn status_body(&self) -> String {
         if let Some(list) = self.list.as_ref() {
             return match &self.message {
                 Some(words) => words.clone(),
@@ -1982,6 +2086,18 @@ impl ViewState {
     }
 }
 
+/// The words an editing key leaves when the record cannot be edited (M9-12,
+/// §4 rule 4): the feature's name, key and file line, then core's own reason.
+fn blocked_words(blocked: &EditBlocked) -> String {
+    format!(
+        "cannot edit {} ({} on line {}): {}",
+        blocked.name,
+        blocked.key,
+        blocked.line,
+        blocked.error.message()
+    )
+}
+
 /// Which CDS M8-11 selects on open (D048): exactly one usable CDS is it; several
 /// usable CDSs select none, and the title says so; none selects nothing.
 fn opened(record: &ViewRecord) -> Option<usize> {
@@ -2264,6 +2380,127 @@ mod tests {
             visible.start <= block && block < visible.end,
             "cursor block {block}, visible {visible:?}"
         );
+    }
+
+    // 9d §4 rule 1 and rule 3 (M9-2): `v` anchors a selection at the cursor, and
+    // the movement keys extend it while the cursor moves.
+    #[test]
+    fn v_selects_from_the_cursor() {
+        let mut state: ViewState = ViewState::new(pbr(), 80, 24);
+        state.cursor = 9;
+        assert_eq!(state.selection(), None, "no selection yet in Normal");
+        assert_eq!(state.handle(Key::Char('v')), Action::Continue);
+        assert_eq!(state.selection(), Some((9, 10)), "the cursor's own base");
+        for _ in 0..3 {
+            assert_eq!(state.handle(Key::Char('l')), Action::Continue);
+        }
+        assert_eq!(state.cursor(), 12);
+        assert_eq!(state.selection(), Some((9, 13)), "half-open [9, 13)");
+        // `h` walks the cursor back through the anchor, and the range stays a
+        // plain one on either side of it (§4 rule 1).
+        for _ in 0..5 {
+            state.handle(Key::Char('h'));
+        }
+        assert_eq!(state.cursor(), 7);
+        assert_eq!(state.selection(), Some((7, 10)), "half-open [7, 10)");
+        for _ in 0..2 {
+            state.handle(Key::Char('h'));
+        }
+        assert_eq!(state.cursor(), 5);
+        assert_eq!(state.selection(), Some((5, 10)), "half-open [5, 10)");
+        assert_eq!(state.handle(Key::Esc), Action::Continue);
+        assert_eq!(state.selection(), None);
+        assert_eq!(
+            state.cursor(),
+            5,
+            "closing selects nothing and moves nothing"
+        );
+    }
+
+    // 9d §4 rule 2 (M9-2): an `esc` that ends a selection is not the `esc` that
+    // clears the hits the screen marks.
+    #[test]
+    fn esc_ending_a_selection_keeps_hits() {
+        let mut state: ViewState = ViewState::new(pbr(), 80, 24);
+        // A search that finds hits (8l1 §4 rules 1 and 3).
+        state.handle(Key::Char('/'));
+        for ch in ['A', 'T', 'G'] {
+            state.handle(Key::Char(ch));
+        }
+        state.handle(Key::Enter);
+        assert!(state.hits().is_some(), "ATG has hits in pBR322");
+        assert_eq!(state.handle(Key::Char('v')), Action::Continue);
+        assert!(state.selection().is_some(), "v selects");
+        assert_eq!(state.handle(Key::Esc), Action::Continue);
+        assert_eq!(state.selection(), None, "the selection has gone");
+        assert!(state.hits().is_some(), "the marks stay for n and N to walk");
+    }
+
+    // 9d §4 rule 3: the keys that move the cursor move it as in Normal, and the
+    // selection follows; opening and closing a list keeps it.
+    #[test]
+    fn selection_survives_goto_and_lists() {
+        let mut state: ViewState = ViewState::new(pbr(), 80, 24);
+        assert_eq!(state.handle(Key::Char('v')), Action::Continue);
+        state.handle(Key::Char('g'));
+        for ch in ['2', '0', '0'] {
+            state.handle(Key::Char(ch));
+        }
+        state.handle(Key::Enter);
+        assert_eq!(state.cursor(), 199, "go-to 200 (8k2 §4 rule 3)");
+        assert_eq!(state.selection(), Some((0, 200)), "half-open [0, 200)");
+        state.handle(Key::Char('f'));
+        assert!(state.list().is_some(), "f opens the feature list");
+        assert_eq!(state.selection(), Some((0, 200)), "while the list is open");
+        state.handle(Key::Esc);
+        assert!(state.list().is_none(), "esc closed the list");
+        assert_eq!(state.selection(), Some((0, 200)), "and kept the selection");
+    }
+
+    // 9d §4 rule 4 and M9-12: a record whose feature 9b2 refuses (synthetic.gb
+    // holds `order(1..6,7..12)` on line 61) leaves every editing key inert.
+    #[test]
+    fn blocked_record_refuses_edit_keys() {
+        let path: &str = "../../tests/fixtures/genbank/synthetic.gb";
+        let mut state: ViewState = ViewState::new(record(path, "synthetic"), 80, 24);
+        for ch in "viarRxdypPus".chars() {
+            assert_eq!(state.handle(Key::Char(ch)), Action::Continue, "{ch}");
+            assert_eq!(state.selection(), None, "{ch} selects nothing");
+        }
+        let message: Option<String> = state.message().map(str::to_string);
+        let message: String = message.expect("the key leaves a message");
+        assert!(message.contains("ord"), "names the feature: {message}");
+        assert!(message.contains("61"), "and its line: {message}");
+    }
+
+    // 9d §4 rule 5: the status line names the mode and counts the selection.
+    #[test]
+    fn status_names_visual() {
+        let mut state: ViewState = ViewState::new(pbr(), 80, 24);
+        state.cursor = 100;
+        assert_eq!(state.handle(Key::Char('v')), Action::Continue);
+        for _ in 0..11 {
+            state.handle(Key::Char('l'));
+        }
+        let line: String = state.status();
+        assert!(line.starts_with("-- VISUAL --"), "line: {line}");
+        assert!(
+            line.contains("12 bases, 101..112"),
+            "count and 1-based range: {line}"
+        );
+        assert!(line.contains("base 112"), "then what it says today: {line}");
+    }
+
+    // 9d §4 rule 1 and M9-6 (g): a selection on a circular record never wraps
+    // over the origin; `End` leaves the plain range from the anchor to the last.
+    #[test]
+    fn circular_end_selects_the_plain_range() {
+        let mut state: ViewState = ViewState::new(pbr(), 80, 24);
+        assert!(state.circular(), "the file states circular (D049 M8-3)");
+        assert_eq!(state.handle(Key::Char('v')), Action::Continue);
+        state.handle(Key::End);
+        assert_eq!(state.cursor(), 4360, "the record's last base");
+        assert_eq!(state.selection(), Some((0, 4361)), "half-open [0, 4361)");
     }
 
     /// 8r3 §5 test 3: not an assertion, only the timings the contract asks for,
