@@ -2217,3 +2217,138 @@ Reversibility:
 
 Reordering milestones needs an explicit scope decision, as D034 and the
 product brief say. Needs approval.
+## D060: Editing in the view (Milestone 9)
+
+Status: recorded by the planner, 2026-10-31, from the owner's answers
+M9-1 to M9-5, M9-8, M9-10, M9-16 and M9-19 (2026-10-29 to 2026-10-31,
+`docs/tasks/milestone-9-editor.md` §5), implemented in contracts 9d to
+9m. Refines D059's milestone 9.
+
+Decision:
+
+* **Edit and save only** (M9-1). Placing Q5 mutations from the view and
+  designing their primers is a later milestone. The messages that
+  promised "milestone 9" say "not supported yet".
+* **Vim's keys, as `docs/cli.md` §13.7 lists them** (M9-2, M9-19): `v`,
+  `i`, `a`, `R`, `r`, `x`, `d`, `y`, `p`, `P`, `u`, `ctrl-r`, and the
+  `:` commands, `ZZ` and `ZQ`. No counts, named registers or `.`. The
+  view's own keys keep their meanings: `c`, `f`, `o`, `O`, `t`, `T`, `F`
+  and `C` are not Vim's here. In `i`, `a` and `R` every printable key is
+  input. In `i` and `a`, `backspace` takes back only bases typed in the
+  current command,
+  and `R` stops at the last base (planner, approved 2026-10-29).
+* **The top strand, 5′ to 3′, in every mode** (M9-3).
+* **The 15 IUPAC codes, either case, stored upper case** (M9-4). A
+  paste drops spaces, line breaks, digits and a FASTA `>` line, and
+  refuses any other character, naming it and its place.
+* **luria's own register** (M9-5), for the session. The terminal's paste
+  works in `i` and `a`. The system clipboard (OSC 52) is later.
+* **One command is one edit** (M9-8, M9-16), for `u` and `ctrl-r` and
+  for the count a save records. Undo reaches the file as opened. A view
+  is dirty when its edits differ in number from those at the last save,
+  so an undo after a save makes it dirty (planner, approved 2026-10-29).
+* **Two tiers for milestone 9 only** (M9-10): full tier for the feature
+  rules, the edit buffer and the GenBank writer; light tier for keys,
+  modes and wording, as D051 had it for milestone 8.
+
+Reason:
+
+The owner works in Vim, and the view already used Vim's movement keys.
+One command per edit is what Vim users expect from `u`.
+
+Reversibility:
+
+Keys can change without changing what an edit does. Needs approval.
+
+## D061: How features follow an edit (Milestone 9)
+
+Status: recorded by the planner, 2026-10-31, from the owner's answers
+M9-6, M9-12 to M9-14, M9-17 and M9-18 and the readings of 9a
+(2026-10-29, `docs/tasks/milestone-9-editor.md` §5,
+`tests/fixtures/editor/README.md`), implemented in contracts 9a, 9b,
+9b2 and 9e.
+
+Decision:
+
+* **The rules of M9-6** (a) to (i), as `docs/cli.md` §13.7 states them
+  and `tests/fixtures/editor/feature-edits.tsv` pins them, one row per
+  rule. A selection may not cross the origin of a circular record.
+* **At the origin of a circular record** (M9-14), the last base and the
+  first are two bases of one interval for a feature that crosses it, so
+  an insertion there grows the feature. On a linear record both ends
+  are edges.
+* **Qualifiers** (M9-13). `/transl_except=(pos:…)` and
+  `/anticodon=(pos:…)` follow as an interval would, and are removed,
+  with a notice, when an edit touches their position. `/codon_start` on
+  a CDS whose 5′ end is trimmed by k bases becomes
+  `((codon_start − 1 − k) mod 3) + 1`; an absent one counts as 1 and is
+  added when the result is not 1 (9a). A CDS whose bases changed loses
+  `/translation`. Every other qualifier stays as written.
+* **A partial mark on a removed end interval** moves to the feature's
+  new end (9a).
+* **The editor's own reading of locations** (M9-17, M9-18): `join(…)`
+  and `complement(join(…))` of ranges, with `<` on the first start and
+  `>` on the last end, and a bare `N` or `complement(N)` as one base.
+  Q5, CDS import and the view's CDS checks still refuse these forms as
+  D009 says. The location writer writes a one-base range as `N`.
+* **Any other form refuses editing** (M9-12): `order(…)`, `^`, remote
+  references and the parser's other refusals. The edit keys do nothing,
+  and the status line names the first such feature and its line.
+* **CDSs are checked again after each edit** with the code that checks
+  them on open (M9-6 i); a selected CDS made unusable is deselected
+  with core's reason.
+
+Reason:
+
+A feature's coordinates are biology: a rule that moved them wrongly
+without a word would give wrong constructs. Each rule has a fixture row
+from an independent reference (D039). A location the editor cannot move
+correctly makes the record read-only, not silently wrong.
+
+Reversibility:
+
+Changing a rule changes saved files. Needs approval and a fixture row.
+
+## D062: Saving an edited record (Milestone 9)
+
+Status: recorded by the planner, 2026-10-31, from the owner's answers
+M9-7, M9-9, M9-11, M9-15, M9-19 and M9-20 (2026-10-29 to 2026-10-31,
+`docs/tasks/milestone-9-editor.md` §5), implemented in contracts 9c1,
+9c2, 9c3, 9h, 9l and 9n. M9-19 replaces M9-7's "the opened file is never
+overwritten" and its `.edited` default name, and M9-9 for `q`.
+
+Decision:
+
+* **GenBank in, GenBank out; FASTA in, FASTA out** (M9-7).
+* **`:w` writes the opened file**, as Vim does (M9-19). Before the first
+  write over it in a session, the original is kept as `FILE~`. `:w NAME`
+  writes elsewhere, and later `:w` writes `NAME`. Any other existing
+  file is replaced only with `!`. An opened symbolic link is not
+  written, and nothing is written through a link.
+* **Quitting** (M9-9, M9-19). `q` and `:q` refuse while edits are
+  unsaved; `:q!` and `ZQ` drop them. `ctrl-c` asks, and `y` or a second
+  `ctrl-c` quits.
+* **The GenBank header** (M9-15). LOCUS keeps the name, molecule type,
+  topology and division, with the new length and today's date in UTC.
+  The header lines are written back as read. ACCESSION is kept; VERSION
+  is dropped, since it names one exact sequence.
+* **The record says luria edited it** (M9-11): the last line of COMMENT,
+  or a new COMMENT just before FEATURES, is `Edited with luria
+  <version>: N edits.` (`1 edit.` for one), N being the edits not undone
+  at the save. If that last line is already such a line, from an
+  earlier save, it is replaced, so a file has one (M9-20). FASTA gets
+  no such line; its header is `>NAME`.
+* **A feature no edit moved keeps its location text** exactly as read;
+  only a moved one is written fresh. `ORIGIN` has no trailing space.
+
+Reason:
+
+The owner found that never writing the opened file stacked names
+(`x.edited.edited.gb`). Vim's rule with one backup per session keeps the
+original once without that. Dropping VERSION keeps a saved file from
+claiming to be the sequence it no longer is.
+
+Reversibility:
+
+The backup and the overwrite rule can change without changing what is
+written. The file format needs approval.

@@ -2332,7 +2332,7 @@ impl ViewState {
             "i a  insert before the cursor, after it; esc ends",
             "R  overtype from the cursor; esc ends",
             "r  replace the base, or every selected base, with the next letter typed",
-            "backspace  in i, a and R: take back the last base typed",
+            "backspace  in i and a: take back the last base typed",
             "x  cut the base under the cursor, or the selection",
             "d  cut the selection",
             "y  copy the selection into luria's register",

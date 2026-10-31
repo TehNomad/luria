@@ -11,7 +11,7 @@ const PAGE: &str = "../../docs/cli.md";
 /// Everything after §13's heading, so a marker below is found in §13 alone.
 fn section_13() -> String {
     let page: String = fs::read_to_string(PAGE).expect("docs/cli.md is readable");
-    page.split("## 13. Looking at a sequence: `luria FILE` and `luria find`")
+    page.split("## 13. Looking at and editing a sequence: `luria FILE` and `luria find`")
         .nth(1)
         .expect("docs/cli.md has §13")
         .to_string()

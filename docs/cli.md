@@ -991,14 +991,15 @@ replaced. `luria q5 interpret --write-request` and `luria review
 --template` still never replace a file. Quitting before you save writes
 nothing.
 
-## 13. Looking at a sequence: `luria FILE` and `luria find`
+## 13. Looking at and editing a sequence: `luria FILE` and `luria find`
 
 `luria FILE` opens a GenBank or FASTA file in a full-screen view of its
 sequence: both strands, the translation, the features, go-to and search.
-It reads the file and writes nothing. `luria find` runs the same search
-without a terminal and prints the hits as a table. The decisions behind
-them are D048 to D058, `docs/tasks/milestone-8-view.md` and
-`docs/tasks/milestone-8m-polish.md`.
+You can edit the sequence and save it (§13.7, §13.8). `luria find` runs
+the same search without a terminal and prints the hits as a table. The
+decisions behind them are D048 to D058 and D060 to D062,
+`docs/tasks/milestone-8-view.md`, `docs/tasks/milestone-8m-polish.md`
+and `docs/tasks/milestone-9-editor.md`.
 
 ```
 luria FILE
@@ -1037,7 +1038,7 @@ drawn, and marked partial in the feature list (D049, D053).
 | Title | The record's name, length and topology, and the selected CDS with its strand and span |
 | Overview strip | The whole record scaled to the width: the longest features as bars; under them the part on screen, the cursor and the search hits; under those the GC content as a sparkline. `o` hides it |
 | Blocks | The sequence in lines of as many bases as fit, rounded down to a multiple of 3: a ruler, the top strand, the bottom strand, the translation and the feature lanes. Positions are 1-based |
-| Status line | The base under the cursor; inside the selected CDS, the residue, its number and its codon as read; the features at the cursor; and the current hit |
+| Status line | The base under the cursor; inside the selected CDS, the residue, its number and its codon as read; the features at the cursor; and the current hit; in an edit mode, the mode first (`-- INSERT --`, `-- OVERTYPE --`, `-- REPLACE --`, `-- VISUAL --` with the bases selected); while a prompt or the `:` line is open, what you have typed |
 | Key line | The keys used most; `?` lists every key |
 
 `t` cycles what the translation shows: the selected CDS, three frames,
@@ -1090,9 +1091,11 @@ colour at all.
 | `g` | Go to a base, a residue or a name (§13.4) |
 | `/` | Search (§13.5) |
 | `n` `N` | The next hit, the one before |
-| `esc` | Close the open list or prompt; with none open, clear the hits |
-| `?` | List every key |
-| `q` | Quit; `ctrl-c` quits from anywhere |
+| `esc` | Close the open list or prompt; in an edit mode, leave it; otherwise, clear the hits |
+| `v` `i` `a` `R` `r` `x` `d` `y` `p` `P` `u` `ctrl-r` | Edit (§13.7) |
+| `:` `ZZ` `ZQ` | Save and quit (§13.8) |
+| `?` | List every key, in sections; `j` and `k` scroll the list, `esc` closes it |
+| `q` | Quit, as `:q` does (§13.8); `ctrl-c` quits from anywhere, asking first when edits are unsaved |
 
 ### 13.4 Go-to
 
@@ -1178,3 +1181,98 @@ command line or an unknown `--cds` name is a usage error, exit 2. A file
 that cannot be read, or is neither GenBank nor FASTA, is exit 4. A CDS
 luria cannot use exits with the code of the reason it gives, as `luria q5
 design` would (§5).
+### 13.7 Editing
+
+You type on the top strand, 5′ to 3′, in every mode. The bottom strand,
+the translation, the features, the ORFs, the hits and the overview
+follow each edit (D060).
+
+| Key | What it does |
+| --- | --- |
+| `v` | Select from the cursor; the movement keys grow the selection, and `esc` ends it. A selection does not cross the origin |
+| `i` `a` | Insert before the cursor, or after it, until `esc` |
+| `R` | Overtype from the cursor until `esc`. It stops at the last base |
+| `r` | Replace the base, or every selected base, with the next letter you type |
+| `backspace` | In `i` and `a`: take back the last base you typed. It never removes a base that was there before |
+| `x` | Cut the base under the cursor, or the selection |
+| `d` | Cut the selection |
+| `y` | Copy the selection |
+| `p` `P` | Paste after the cursor, or before it |
+| `u` `ctrl-r` | Undo one edit, or redo it |
+
+The letters are the 15 IUPAC nucleotide codes, in either case, stored
+upper case. In `i` and `a`, the terminal's paste types its text:
+spaces, line breaks and digits are dropped and so is a FASTA `>` line,
+so a GenBank `ORIGIN` block or a FASTA body pastes as bases. Any other
+character refuses the whole paste and the status line names it. Cut and
+copy go to luria's own register, kept for the session; the system
+clipboard is not used.
+
+One edit is one command: everything typed from `i`, `a` or `R` until
+`esc`, or one `r`, `x`, `d`, `p` or `P`. `u` goes back one edit at a
+time, as far as the file as it was opened. There are no counts (`3x`),
+named registers or `.`.
+
+Features follow the edits (D061):
+- An edit before a feature moves it. An edit after it changes nothing.
+- An insertion strictly inside an interval grows it; one at either edge
+  does not. On a circular record, an insertion at the origin grows a
+  feature that crosses it.
+- A deletion inside an interval shrinks it, and one that covers it
+  removes it. A feature with no interval left is removed, and the status
+  line names it.
+- A deletion over one end trims that end. A `<` or `>` mark stays.
+- A replacement is a deletion and then an insertion. `r` never moves a
+  feature. Each interval of a `join` follows on its own.
+- A CDS whose bases changed loses `/translation`. A `/transl_except` or
+  `/anticodon` position follows as an interval would; an edit that
+  touches it removes the qualifier, and the status line names it. A CDS
+  whose 5′ end is trimmed gets the `/codon_start` that keeps its frame.
+
+After each edit, the CDSs are checked as they are when the file opens.
+A selected CDS that the edit makes unusable, by a frameshift or a lost
+stop, is deselected, and the status line gives the reason.
+
+A record with a feature whose location the editor cannot read
+(`order(…)`, a `^` site, a reference to another record) cannot be
+edited. The edit keys do nothing, and the status line names the feature
+and its line in the file. The view works as before.
+
+Every edit redraws the whole record. On pBR322 an edit takes a few
+milliseconds; on a record of 10 000 000 bases it takes more than a
+second.
+
+### 13.8 Saving and quitting
+
+| Command | What it does |
+| --- | --- |
+| `:w` | Write the opened file. The first write in a session keeps the original as `FILE~` |
+| `:w NAME` | Write to `NAME`. After it, `:w` writes `NAME` |
+| `:w! NAME` | Write to `NAME`, replacing the file there |
+| `:q` | Quit. With unsaved edits it refuses: `edits not saved: :w writes them, :q! discards them` |
+| `:q!` `ZQ` | Quit, dropping unsaved edits |
+| `:wq` | Write, then quit |
+| `:x` `ZZ` | Write if there are unsaved edits, then quit |
+| `:N` | Go to base `N` |
+| `q` | As `:q` |
+| `ctrl-c` | Quit. With unsaved edits it asks first, and `y` or a second `ctrl-c` quits |
+
+`!` after `w`, `wq` or `x` replaces an existing file. Without it, luria
+writes over only the opened file and a file this session has already
+written. A write that fails leaves the view open with the error on the
+status line. If the opened path is a symbolic link, `:w` refuses, and
+`:w NAME` writes elsewhere; luria never writes through a link.
+
+GenBank is saved as GenBank and FASTA as FASTA (D062). A GenBank save
+keeps the LOCUS name, molecule type, topology and division, and writes
+the new length and today's date (UTC). The header lines from DEFINITION
+to the last before FEATURES are written as the file had them, except
+that VERSION is dropped, since it names the sequence before the edits.
+The last line of COMMENT, or a new COMMENT before FEATURES, says
+`Edited with luria VERSION: N edits.`, where N counts the edits not
+undone. A file luria saved before keeps one such line: the new one
+replaces the old. A feature no edit moved keeps its location text as the file had
+it. The bases follow `ORIGIN`, 60 to a line. A FASTA save is the line
+`>NAME` and the bases, 60 to a line. An unedited GenBank save differs
+from the file only in the LOCUS date, the VERSION line, the COMMENT line
+and trailing spaces.

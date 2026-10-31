@@ -357,6 +357,11 @@ Edit the sequence in the view: select, insert, replace, cut, yank and
 paste, with features following the edits, and save the edited construct
 (D059).
 
+Implemented: editing in luria FILE with Vim's keys, features and CDSs
+following each edit, undo and redo, and :w, :q, :wq, :x, ZZ and ZQ;
+GenBank and FASTA saves; docs/cli.md sections 13.7 and 13.8 (D060 to
+D062).
+
 Later: Web interface
 
 Expose the same capabilities through a web interface without duplicating
