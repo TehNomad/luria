@@ -4730,6 +4730,430 @@ mod tests {
     }
 
     // ------------------------------------------------------------------
+    // 9p1 §4: where one edit's time goes. `recompute_profile` asserts nothing
+    // about times: it takes 9p1 §2's steps one at a time and prints the median
+    // of three runs for each, so 9p2 knows which steps cost the 1.65 s that 9e
+    // §10 reported.
+    // ------------------------------------------------------------------
+
+    /// §2's steps, in the order `apply_edit` (state.rs:1478) and `rebuild_view`
+    /// (state.rs:1541) take them. The row marked `*` is not one of §2's: it is
+    /// the work `rebuild_view` does around the rebuild to keep the CDS the view
+    /// had selected (state.rs:1551 and state.rs:1573), which §2 leaves out.
+    /// `total` is not a step either: it is the same edit in one `apply_edit`
+    /// call, which the timed path is checked against, and is what 9e §10's
+    /// figure covers.
+    const PROFILE_STEPS: [&str; 12] = [
+        "1  buffer.clone() of the edit buffer",
+        "2  apply_undoable on the clone",
+        "3  rebuild(&buffer, &opened): to_sequence and the feature, CDS and ceiling checks",
+        "*  the selected CDS's line and name read off the record, and the CDS found again in the rebuilt one",
+        "4  choose(): the held map and residues of the selected CDS",
+        "5  gc_line",
+        "6  compute_orfs, when the ORF lanes are shown",
+        "7  the last search run again, when there is one",
+        "8  relayout and follow",
+        "9  current_group.push, the undo group's step for this edit",
+        "10 the next draw: screen::draw into an 80 x 24 TestBackend",
+        "total the same edit through apply_edit, the draw apart",
+    ];
+
+    /// The runs §4 asks for; the number printed for a step is the median of
+    /// these.
+    const PROFILE_RUNS: usize = 3;
+
+    /// One run's times, one per `PROFILE_STEPS` entry, `None` for a step
+    /// `rebuild_view` does not take on that view (printed as `-`).
+    type ProfileRow = [Option<std::time::Duration>; PROFILE_STEPS.len()];
+
+    /// §4's A and B: `MAX_RECORD_BASES - 1` bases of `ACGT` repeated, which is
+    /// one under the ceiling (D048). §4 names 10 000 000 bases, but at exactly
+    /// `MAX_RECORD_BASES` the one-base insert of §4 is refused by `check_ceiling`
+    /// (view_record.rs:453) and steps 3 to 9 never happen, so the record sits
+    /// one under, as 9e §10's 1.65 s figure does too.
+    fn big_fasta() -> ViewRecord {
+        use luria_core::view_record::MAX_RECORD_BASES;
+
+        let bases: String = "ACGT".repeat((MAX_RECORD_BASES as usize - 3) / 4) + "ACG";
+        open_record(
+            Identifier::create("big".to_string()).unwrap(),
+            format!(">big\n{bases}\n"),
+        )
+        .unwrap_or_else(|error| panic!("{} bases refused: {:?}", bases.len(), error.code()))
+    }
+
+    /// A fresh view opened as §4's A, B or C is opened: 80 by 24, `cds` selected
+    /// if given, the ORF lanes shown if `orfs`, and `search` searched last if
+    /// given. Every run opens one of these afresh, so each edit is applied to the
+    /// same bases and the same state.
+    fn open_profile(
+        record: &ViewRecord,
+        cds: Option<usize>,
+        orfs: bool,
+        search: Option<&str>,
+    ) -> ViewState {
+        let mut state: ViewState = ViewState::new(record.clone(), 80, 24);
+        if let Some(index) = cds {
+            assert!(state.select_cds(Some(index)), "CDS {index} is usable");
+        }
+        if orfs {
+            state.handle(Key::Char('O'));
+            assert!(state.orfs.is_some(), "the ORF lanes are shown");
+        }
+        if let Some(pattern) = search {
+            state.run_search(SearchMode::Dna, pattern);
+            assert_eq!(
+                state.last_search.as_ref().map(|(_, kept)| kept.as_str()),
+                Some(pattern),
+                "the last search is kept for every later edit"
+            );
+        }
+        state
+    }
+
+    /// One edit, taken one step at a time in the order `apply_edit` and
+    /// `rebuild_view` take them, each timed into `took`. The view is left as
+    /// `apply_edit` would leave it — the caller checks that against a real
+    /// `apply_edit` — and the only parts left untimed are §2 does not list and
+    /// take no measurable work: the names the message names what the edit removed
+    /// by (`apply_edit`, state.rs:1504), the cursor clamp (state.rs:1627) and the
+    /// message itself (state.rs:1653).
+    fn timed_edit(state: &mut ViewState, edit: &Edit, took: &mut ProfileRow) {
+        use std::time::{Duration, Instant};
+
+        // §2 1: the copy the edit is tried on, so a refusal leaves the buffer the
+        // view edits alone (state.rs:1486).
+        let started: Instant = Instant::now();
+        let mut candidate: EditBuffer = state.edit.as_ref().expect("an editable record").clone();
+        took[0] = Some(started.elapsed());
+
+        // §2 2: the edit on that copy (`EditBuffer::apply_undoable`,
+        // edit_buffer.rs:645).
+        let started: Instant = Instant::now();
+        let (outcome, undo): (EditOutcome, Undo) = candidate
+            .apply_undoable(edit)
+            .unwrap_or_else(|error| panic!("the insert is refused: {}", error.code()));
+        took[1] = Some(started.elapsed());
+
+        // The names of what the edit left with no range and of the qualifiers it
+        // dropped, read off the record as it was before the edit (state.rs:1504).
+        // Untimed, and empty for every view §4 names.
+        let removed: Vec<String> = outcome
+            .removed
+            .iter()
+            .map(|feature| feature_name(&state.record, feature))
+            .collect();
+        let dropped: Vec<String> = outcome
+            .dropped
+            .iter()
+            .map(|(index, qualifier)| {
+                let name: String = match candidate.features().get(*index) {
+                    Some(feature) => feature_name(&state.record, feature),
+                    None => qualifier.clone(),
+                };
+                format!("/{qualifier} dropped from {name}")
+            })
+            .collect();
+
+        // The row §2 leaves out: the selected CDS's file line and display name,
+        // read off the record before the rebuild (state.rs:1551) and the same CDS
+        // found again in the rebuilt one (state.rs:1573). Both halves are timed
+        // into one row, and only when a CDS is selected: with none, as on A and
+        // B, `rebuild_view` takes none of that work.
+        let had_selection: bool = state.selected.is_some();
+        let mut lookup: Duration = Duration::ZERO;
+
+        let started: Instant = Instant::now();
+        let selected_line: Option<u64> = state
+            .selected
+            .and_then(|index| state.record.cdss.get(index))
+            .and_then(|cds| state.record.features.get(cds.feature))
+            .map(|feature| feature.line);
+        let selected_name: Option<String> = state
+            .selected
+            .map(|index| display_name(&state.record, index));
+        lookup += started.elapsed();
+
+        // §2 3: the record the buffer answers with. Inside `rebuild` are
+        // `buffer.to_sequence()` and the same feature, CDS and ceiling checks an
+        // open makes (view_record.rs:555). The old record and the old buffer are
+        // dropped here, as they are in `rebuild_view` (state.rs:1566).
+        let started: Instant = Instant::now();
+        let rebuilt: ViewRecord = rebuild(&candidate, &state.opened)
+            .unwrap_or_else(|error| panic!("rebuild refused the edit: {}", error.code()));
+        state.record = rebuilt;
+        state.edit = Ok(candidate);
+        took[2] = Some(started.elapsed());
+
+        // The second half of the row above: the selection followed by its
+        // feature's file line exactly as `rebuild_view` does (state.rs:1573).
+        let mut words: Vec<String> = Vec::new();
+        let started: Instant = Instant::now();
+        let found: Option<usize> = selected_line.and_then(|line| {
+            let feature: usize = state
+                .record
+                .features
+                .iter()
+                .position(|feature| feature.line == line)?;
+            state
+                .record
+                .cdss
+                .iter()
+                .position(|cds| cds.feature == feature)
+        });
+        if selected_line.is_some() {
+            match found.filter(|index| usable(&state.record, *index).is_some()) {
+                Some(index) => {
+                    let previous: Option<usize> = state.selected;
+                    state.selected = Some(index);
+                    if let LaneMode::Cds(old) = state.mode {
+                        if previous == Some(old) {
+                            state.mode = LaneMode::Cds(index);
+                        }
+                    }
+                }
+                None => {
+                    let name: String = selected_name.unwrap_or_default();
+                    let refusal: Option<String> = found
+                        .and_then(|index| state.record.cdss.get(index))
+                        .and_then(|cds| match &cds.status {
+                            CdsStatus::Unusable(error) => Some(error.message()),
+                            CdsStatus::Usable(_cds) => None,
+                        });
+                    words.push(match refusal {
+                        Some(reason) => format!("CDS {name} is no longer usable: {reason}"),
+                        None => format!("CDS {name} was removed by the edit"),
+                    });
+                    state.selected = None;
+                    state.mode = LaneMode::Off;
+                }
+            }
+        }
+        lookup += started.elapsed();
+        if had_selection {
+            took[3] = Some(lookup);
+        }
+
+        // §2 4: the map and residues held for the selected CDS (state.rs:1613).
+        // With no CDS selected `choose` answers `None` and takes nothing, so the
+        // row prints `-`.
+        let started: Instant = Instant::now();
+        state.choose();
+        if state.selected.is_some() {
+            took[4] = Some(started.elapsed());
+        }
+
+        // §2 5: the strip's third line, counted over the bases the width shows
+        // and so over every base of the record (overview.rs:176).
+        let started: Instant = Instant::now();
+        state.gc = gc_line(&state.record, inner_width(state.width));
+        took[5] = Some(started.elapsed());
+
+        // §2 6: the ORFs scanned again for the new bases, only where they are
+        // shown (state.rs:1621).
+        if state.orfs.is_some() {
+            let started: Instant = Instant::now();
+            state.orfs = None;
+            state.compute_orfs();
+            took[6] = Some(started.elapsed());
+        }
+
+        // A record shortened by the edit cannot hold such a cursor
+        // (state.rs:1627): two comparisons, untimed.
+        let length: u64 = state.record.sequence.length();
+        if length > 0 && state.cursor >= length {
+            state.cursor = length - 1;
+        }
+
+        // §2 7: the last search run over the record as edited (state.rs:1637).
+        // Only view C has one; the hits are re-marked, the cursor does not move.
+        if let Some((mode, pattern)) = state.last_search.clone() {
+            let started: Instant = Instant::now();
+            let cds: Option<&Cds> = state
+                .selected
+                .and_then(|index| usable(&state.record, index));
+            match search_record(
+                &state.record,
+                cds,
+                state.circular,
+                mode,
+                &pattern,
+                state.cursor,
+            ) {
+                Outcome::Found(hits) => state.hits = Some(hits),
+                Outcome::Empty | Outcome::Refused(_) => state.hits = None,
+            }
+            took[7] = Some(started.elapsed());
+        }
+
+        // What the message says, built the way `rebuild_view` builds it
+        // (state.rs:1653); untimed, and empty for every view §4 names.
+        if !removed.is_empty() {
+            words.push(format!("removed: {}", removed.join(", ")));
+        }
+        words.extend(dropped);
+        if !words.is_empty() {
+            state.message = Some(words.join(" · "));
+        }
+
+        // §2 8: the record laid out again for the width and mode, anchored on the
+        // cursor's block, which is also where `follow` puts the scroll
+        // (state.rs:1662).
+        let started: Instant = Instant::now();
+        state.relayout(true);
+        took[8] = Some(started.elapsed());
+
+        // 9e's dirty counter, which `apply_edit` raises after the rebuild
+        // (state.rs:1525).
+        state.change_count += 1;
+
+        // §2 9: the step that puts this edit back, onto the group the command now
+        // being carried collects (state.rs:1531). `apply_edit` moves the `Edit`
+        // in; this view is timed with the same edit applied twice, so the entry
+        // is cloned, which for a one-base insert is nothing.
+        let started: Instant = Instant::now();
+        state.current_group.push((edit.clone(), undo));
+        took[9] = Some(started.elapsed());
+    }
+
+    /// The three runs §4 asks for on one view: each opens the view afresh, takes
+    /// the steps one at a time, draws once into the 80 by 24 test backend (§2 10)
+    /// and then applies the same edit to a second view opened the same way with
+    /// `apply_edit` itself, which is the path the timed steps have to match.
+    fn profile_rows(
+        record: &ViewRecord,
+        cds: Option<usize>,
+        orfs: bool,
+        search: Option<&str>,
+    ) -> Vec<ProfileRow> {
+        use ratatui::backend::TestBackend;
+        use ratatui::Terminal;
+        use std::time::Instant;
+
+        use crate::sequence_view::screen::draw;
+
+        // §4: one one-base insert at the middle of the record.
+        let edit: Edit = Edit::Insert {
+            at: record.sequence.length() / 2,
+            bases: vec!['A'],
+        };
+        let mut runs: Vec<ProfileRow> = Vec::new();
+        for run in 0..PROFILE_RUNS {
+            let mut state: ViewState = open_profile(record, cds, orfs, search);
+            let mut took: ProfileRow = [None; PROFILE_STEPS.len()];
+            timed_edit(&mut state, &edit, &mut took);
+
+            // §2 10: the draw the edit is followed by. The backend itself is not
+            // timed, only `screen::draw` filling it.
+            let mut terminal: Terminal<TestBackend> =
+                Terminal::new(TestBackend::new(80, 24)).unwrap();
+            let started: Instant = Instant::now();
+            terminal.draw(|frame| draw(frame, &state)).unwrap();
+            took[10] = Some(started.elapsed());
+
+            // The same edit through `apply_edit`, on a view opened the same way:
+            // §4 asks that the timed path leave the same sequence and the same
+            // cursor, so that the table times the path the view really takes.
+            let mut whole: ViewState = open_profile(record, cds, orfs, search);
+            let started: Instant = Instant::now();
+            whole
+                .apply_edit(edit.clone())
+                .expect("the one-base insert is accepted");
+            took[11] = Some(started.elapsed());
+            assert!(
+                state.record().sequence.letters() == whole.record().sequence.letters(),
+                "run {run}: the timed steps left a different sequence"
+            );
+            assert_eq!(
+                state.cursor(),
+                whole.cursor(),
+                "run {run}: the timed steps left a different cursor"
+            );
+            assert_eq!(
+                state.selected(),
+                whole.selected(),
+                "run {run}: the timed steps left a different selection"
+            );
+            assert_eq!(
+                state.mode(),
+                whole.mode(),
+                "run {run}: the timed steps left different lanes"
+            );
+            assert_eq!(
+                state.message(),
+                whole.message(),
+                "run {run}: the timed steps left a different message"
+            );
+            assert_eq!(
+                state.hits().map(|hits| hits.shown().len()),
+                whole.hits().map(|hits| hits.shown().len()),
+                "run {run}: the timed steps left different hits"
+            );
+            runs.push(took);
+        }
+        runs
+    }
+
+    /// One view's rows: the median milliseconds of the three runs for each of
+    /// §2's steps, `-` for a step the view does not take.
+    fn print_profile(label: &str, note: &str, runs: &[ProfileRow]) {
+        println!("view {label}: {note}");
+        for (step, name) in PROFILE_STEPS.iter().enumerate() {
+            let mut times: Vec<f64> = runs
+                .iter()
+                .filter_map(|row| row[step])
+                .map(|took| took.as_secs_f64() * 1000.0)
+                .collect();
+            if times.is_empty() {
+                println!("{label:<5} {name:<100} {:>8}", "-");
+            } else {
+                times.sort_by(f64::total_cmp);
+                println!("{label:<5} {name:<100} {:>8.1}", times[times.len() / 2]);
+            }
+        }
+    }
+
+    /// Contract 9p1 §4: the steps of one edit, timed one at a time on §4's three
+    /// views, printed as the median of three runs in milliseconds. It asserts
+    /// nothing about the times; it does check that the steps taken one at a time
+    /// leave the same sequence and the same cursor as `apply_edit` does.
+    ///
+    /// ```text
+    /// cargo test -p luria-cli --release --lib recompute_profile -- --ignored --nocapture
+    /// ```
+    #[test]
+    #[ignore = "timing; run with --release --ignored --nocapture"]
+    fn recompute_profile() {
+        let big: ViewRecord = big_fasta();
+
+        println!(
+            "one one-base Insert at the middle of each record, its aftermath taken one step at a \
+             time; one row per step, the median of {PROFILE_RUNS} runs in milliseconds; `-` is a \
+             step that view does not take"
+        );
+        println!("{:<5} {:<100} {:>8}", "view", "step", "ms");
+        print_profile(
+            "A",
+            &format!(
+                "{} bp FASTA, no features, ORF lanes hidden, no last search, insert at base {}",
+                big.sequence.length(),
+                big.sequence.length() / 2
+            ),
+            &profile_rows(&big, None, false, None),
+        );
+        print_profile(
+            "B",
+            "the same record with the ORF lanes shown",
+            &profile_rows(&big, None, true, None),
+        );
+        print_profile(
+            "C",
+            "pBR322, tet selected, ORF lanes shown, the last search CTGCAG",
+            &profile_rows(&pbr(), Some(0), true, Some("CTGCAG")),
+        );
+    }
+
+    // ------------------------------------------------------------------
     // 9l §5 tests 1 to 10: the `:` command line, what it runs, `ZZ` and `ZQ`,
     // `q` refusing while dirty, and `s` unbound. 9h's tests 4 to 6 (`ctrl-c` and
     // the count a save records) stay below; 9h's test 3, the text a write hands
