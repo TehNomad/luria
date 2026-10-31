@@ -144,7 +144,9 @@ fn split_molecule(molecule: Option<&str>) -> (&str, &str) {
 /// The header lines as read, in order, except that the `VERSION` line and
 /// its continuation lines are left out (M9-15), and the save's own comment
 /// line is added after the last line of the last COMMENT block, or as a new
-/// COMMENT section when the header has none (M9-11).
+/// COMMENT section when the header has none (M9-11). One stamp per file
+/// (M9-20): when that last line is already a luria stamp, the save writes
+/// its own stamp over it, keeping the lead that line had, and adds nothing.
 fn header_lines(opened: &GenBankRecord, stamp: &SaveStamp) -> Vec<String> {
     let read: Vec<String> = opened.header_lines();
     let mut out: Vec<String> = Vec::with_capacity(read.len() + 1);
@@ -160,14 +162,60 @@ fn header_lines(opened: &GenBankRecord, stamp: &SaveStamp) -> Vec<String> {
         skipping = false;
         out.push(line);
     }
+    let edited: String = comment(stamp);
     match last_of_comment_block(&out) {
-        Some(end) => {
-            let edited: String = comment(stamp);
-            out.insert(end + 1, format!("{}{}", " ".repeat(12), edited));
+        Some(end) if is_stamp_line(&out[end]) => {
+            let lead: &str = if out[end].starts_with("COMMENT") {
+                "COMMENT     "
+            } else {
+                "            "
+            };
+            out[end] = format!("{lead}{edited}");
         }
-        None => out.push(format!("COMMENT     {}", comment(stamp))),
+        Some(end) => out.insert(end + 1, format!("{}{}", " ".repeat(12), edited)),
+        None => out.push(format!("COMMENT     {edited}")),
     }
     out
+}
+
+/// Whether a header line is a luria save stamp, so the save recognises its
+/// own earlier stamp and writes over it instead of adding a second one
+/// (M9-20): `COMMENT` and 5 spaces, or 12 spaces, then the stamp text and
+/// nothing after it. The stamp text is `Edited with luria `, a version of
+/// one or more characters none of which is a space or `:`, `: `, one or
+/// more ASCII digits, and ` edit.` or ` edits.`.
+fn is_stamp_line(line: &str) -> bool {
+    let text: &str = match line.strip_prefix("COMMENT     ") {
+        Some(rest) => rest,
+        None => match line.strip_prefix("            ") {
+            Some(rest) => rest,
+            None => return false,
+        },
+    };
+    let after: &str = match text.strip_prefix("Edited with luria ") {
+        Some(rest) => rest,
+        None => return false,
+    };
+    // The version runs to the first `: `. It holds dots, as `0.1.0` does,
+    // but no space and no colon: a second `: ` means the line is not a
+    // stamp.
+    let (version, count): (&str, &str) = match after.split_once(": ") {
+        Some(parts) => parts,
+        None => return false,
+    };
+    if version.is_empty() || version.contains([' ', ':']) {
+        return false;
+    }
+    // The count is ASCII digits, then the word the save wrote, then the end
+    // of the line: `and more` after the full stop is not a stamp.
+    let digits: usize = count
+        .bytes()
+        .take_while(|byte| byte.is_ascii_digit())
+        .count();
+    match digits {
+        0 => false,
+        _ => matches!(&count[digits..], " edit." | " edits."),
+    }
 }
 
 /// The index, in a record's header lines, of the last line of the last
@@ -596,6 +644,153 @@ mod tests {
                 indented.as_str(),
                 "SOURCE      synthetic",
                 "  ORGANISM  synthetic",
+            ]
+        );
+    }
+
+    /// The stamp a unit-test save writes: version `9.9.9`, one edit.
+    fn one_edit_stamp() -> SaveStamp {
+        SaveStamp {
+            date: "29-OCT-2026".to_string(),
+            version: "9.9.9".to_string(),
+            edits: 1,
+        }
+    }
+
+    /// §5 test 1: when the last line of the last COMMENT block is already a
+    /// luria stamp, the save writes its own stamp over that line and adds no
+    /// line of its own, so the file keeps one stamp (M9-20).
+    #[test]
+    fn an_earlier_stamp_is_replaced() {
+        let stamp: SaveStamp = one_edit_stamp();
+        let read: [&str; 5] = [
+            "DEFINITION  a COMMENT block that ends in a luria stamp.",
+            "COMMENT     first",
+            "            Edited with luria 0.1.0: 3 edits.",
+            "VERSION     ENDED.1",
+            "KEYWORDS    .",
+        ];
+        let header: Vec<String> = header_lines(&record(&read), &stamp);
+        assert_eq!(
+            header,
+            [
+                "DEFINITION  a COMMENT block that ends in a luria stamp.",
+                "COMMENT     first",
+                "            Edited with luria 9.9.9: 1 edit.",
+                "KEYWORDS    .",
+            ]
+        );
+        // The stamp line is replaced in place and nothing is inserted: only
+        // the VERSION line is gone.
+        assert_eq!(header.len(), read.len() - 1, "no stamp line is added");
+    }
+
+    /// §5 test 2: when the header's only COMMENT section is a luria stamp,
+    /// the save writes its own stamp over that section's line, keeping the
+    /// `COMMENT     ` lead, and adds no second COMMENT (M9-20).
+    #[test]
+    fn a_stamp_section_is_replaced() {
+        let stamp: SaveStamp = one_edit_stamp();
+        let header: Vec<String> = header_lines(
+            &record(&[
+                "DEFINITION  the header's only COMMENT is a luria stamp.",
+                "COMMENT     Edited with luria 0.1.0: 0 edits.",
+                "VERSION     STAMPED.1",
+                "KEYWORDS    .",
+            ]),
+            &stamp,
+        );
+        assert_eq!(
+            header,
+            [
+                "DEFINITION  the header's only COMMENT is a luria stamp.",
+                "COMMENT     Edited with luria 9.9.9: 1 edit.",
+                "KEYWORDS    .",
+            ]
+        );
+        // One COMMENT section, as the file had: the new stamp does not start
+        // a second one.
+        let comments: usize = header
+            .iter()
+            .filter(|line| line.starts_with("COMMENT"))
+            .count();
+        assert_eq!(comments, 1, "the save adds no COMMENT section");
+    }
+
+    /// §5 test 3: only the last line of the last COMMENT block is ever
+    /// replaced. A stamp higher up the block, and a line that looks like a
+    /// stamp but is not one, stay as the file wrote them and the new stamp is
+    /// added after the block, as today (M9-20).
+    #[test]
+    fn near_misses_are_kept() {
+        let stamp: SaveStamp = one_edit_stamp();
+        let indented: String = format!("            {}", comment(&stamp));
+
+        // (a) The stamp is the block's first line and `more text` follows it:
+        // it is not the block's last line, so it is left alone.
+        let first_line: Vec<String> = header_lines(
+            &record(&[
+                "DEFINITION  a COMMENT block that starts with a luria stamp.",
+                "COMMENT     Edited with luria 0.1.0: 3 edits.",
+                "            more text",
+                "VERSION     FIRSTLINE.1",
+                "KEYWORDS    .",
+            ]),
+            &stamp,
+        );
+        assert_eq!(
+            first_line,
+            [
+                "DEFINITION  a COMMENT block that starts with a luria stamp.",
+                "COMMENT     Edited with luria 0.1.0: 3 edits.",
+                "            more text",
+                indented.as_str(),
+                "KEYWORDS    .",
+            ]
+        );
+
+        // (b) `Edited with luria:` carries no version, so it is not a stamp.
+        let no_version: Vec<String> = header_lines(
+            &record(&[
+                "DEFINITION  a COMMENT block ending in a line like a stamp.",
+                "COMMENT     first",
+                "            Edited with luria: 3 edits.",
+                "VERSION     NOVERSION.1",
+                "KEYWORDS    .",
+            ]),
+            &stamp,
+        );
+        assert_eq!(
+            no_version,
+            [
+                "DEFINITION  a COMMENT block ending in a line like a stamp.",
+                "COMMENT     first",
+                "            Edited with luria: 3 edits.",
+                indented.as_str(),
+                "KEYWORDS    .",
+            ]
+        );
+
+        // (c) The line runs on past the stamp's full stop, so the stamp does
+        // not end the line and it is not a stamp.
+        let runs_on: Vec<String> = header_lines(
+            &record(&[
+                "DEFINITION  a COMMENT block ending in a line like a stamp.",
+                "COMMENT     first",
+                "            Edited with luria 0.1.0: 3 edits. and more",
+                "VERSION     RUNSON.1",
+                "KEYWORDS    .",
+            ]),
+            &stamp,
+        );
+        assert_eq!(
+            runs_on,
+            [
+                "DEFINITION  a COMMENT block ending in a line like a stamp.",
+                "COMMENT     first",
+                "            Edited with luria 0.1.0: 3 edits. and more",
+                indented.as_str(),
+                "KEYWORDS    .",
             ]
         );
     }

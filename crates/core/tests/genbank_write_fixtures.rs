@@ -417,3 +417,36 @@ fn locus_line_forms() {
         "LOCUS       ABCDEFGHIJKLMNOP1234          12 bp    DNA     linear   SYN 29-OCT-2026"
     );
 }
+
+/// Contract 9n §5 test 4: a file luria has already saved saves to itself.
+/// `pbr322-saved.gb` ends its last COMMENT block with the stamp test 1 wrote,
+/// so an unedited save with that same stamp replaces that one line with the
+/// identical line and adds no second stamp: the text comes back byte for byte
+/// (M9-20).
+#[test]
+fn a_saved_file_saves_to_itself() {
+    let expected: String = read_input(EDITOR, SAVED_FILE);
+    let record: ViewRecord = opened(EDITOR, SAVED_FILE);
+    let genbank: GenBankRecord = record
+        .genbank
+        .clone()
+        .expect("a GenBank record opened from GenBank text");
+    let buffer: EditBuffer = buffer_for(&record).unwrap_or_else(|blocked| {
+        panic!(
+            "{} cannot be edited, blocked at feature {} {} at line {}: {}",
+            SAVED_FILE,
+            blocked.feature,
+            blocked.key,
+            blocked.line,
+            blocked.error.code()
+        )
+    });
+    let written: String = saved(&buffer, &genbank, 0);
+    if written != expected {
+        panic!(
+            "saving {} again without edits writes the same file:\n{}",
+            SAVED_FILE,
+            first_difference(&expected, &written)
+        );
+    }
+}
