@@ -1239,8 +1239,8 @@ edited. The edit keys do nothing, and the status line names the feature
 and its line in the file. The view works as before.
 
 Every edit redraws the whole record. On pBR322 an edit takes a few
-milliseconds; on a record of 10 000 000 bases it takes more than a
-second.
+milliseconds; on a record of 10 000 000 bases, about a tenth of a
+second, or a third of a second with the ORF lanes shown.
 
 ### 13.8 Saving and quitting
 

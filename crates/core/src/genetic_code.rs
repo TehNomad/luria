@@ -177,38 +177,73 @@ pub fn residue_for_symbol(symbol: char) -> Option<Residue> {
     }
 }
 
+/// Look a codon up in the standard genetic code, three letters at a time and
+/// allocating nothing.
+///
+/// The place of each letter in `TRIPLET_BASES` is taken straight from the
+/// letter instead of through `base_place`, which collects a `Vec` of that
+/// order on every call: a 10 000 000-base record walks 3.3 million codons and
+/// would ask for 10 million of those vectors. The answer is the same one
+/// `base_place` gives, in the same base order, and the table is indexed
+/// through its own bytes rather than a `Vec` of its characters.
+///
+/// Every letter is checked against the alphabet before any place is used, as
+/// `lookup` does: a codon holding a letter outside `DNA_ALPHABET` is
+/// `Invalid` even when another position of it is ambiguous.
+pub fn lookup_letters(codon: [char; 3]) -> CodonOutcome {
+    // `TRIPLET_BASES.len()` as a place means an IUPAC letter that stands for
+    // more than one base; nothing outside the alphabet reaches a place.
+    let mut places: [usize; 3] = [0; 3];
+    let mut step: usize = 0;
+    while step < 3 {
+        places[step] = match codon[step] {
+            'T' => 0,
+            'C' => 1,
+            'A' => 2,
+            'G' => 3,
+            // An IUPAC letter that is not a plain base: `is_dna_letter` stays
+            // the authority for which letters those are.
+            _ if is_dna_letter(codon[step]) => TRIPLET_BASES.len(),
+            _ => return CodonOutcome::Invalid,
+        };
+        step += 1;
+    }
+
+    let mut index: usize = 0;
+    step = 0;
+    while step < 3 {
+        if places[step] >= TRIPLET_BASES.len() {
+            return CodonOutcome::Ambiguous;
+        }
+        index = index * 4 + places[step];
+        step += 1;
+    }
+
+    let symbol: char = STANDARD_GENETIC_CODE.as_bytes()[index] as char;
+    if symbol == '*' {
+        return CodonOutcome::Stop;
+    }
+    match residue_for_symbol(symbol) {
+        Some(residue) => CodonOutcome::Residue(residue),
+        None => CodonOutcome::Invalid,
+    }
+}
+
 /// Look a codon up in the standard genetic code.
+///
+/// A three-character string is looked up as three letters; any other length is
+/// `Invalid`, as before `lookup_letters`. The length is checked in bytes, so a
+/// three-byte string holding fewer than three characters is `Invalid` too.
 pub fn lookup(codon: String) -> CodonOutcome {
     if codon.len() != 3 {
         return CodonOutcome::Invalid;
     }
 
     let letters: Vec<char> = codon.chars().collect();
-    for ch in letters.iter() {
-        if !is_dna_letter(*ch) {
-            return CodonOutcome::Invalid;
-        }
-    }
-
-    let mut index: usize = 0;
-    for ch in letters.iter() {
-        let place: usize = base_place(*ch);
-        if place >= TRIPLET_BASES.len() {
-            return CodonOutcome::Ambiguous;
-        }
-        index = index * 4 + place;
-    }
-
-    let table: Vec<char> = STANDARD_GENETIC_CODE.chars().collect();
-    let symbol: char = table[index];
-    if symbol == '*' {
-        return CodonOutcome::Stop;
-    }
-    let found: Option<Residue> = residue_for_symbol(symbol);
-    if found.is_none() {
+    if letters.len() != 3 {
         return CodonOutcome::Invalid;
     }
-    CodonOutcome::Residue(found.unwrap())
+    lookup_letters([letters[0], letters[1], letters[2]])
 }
 
 /// True when the named genetic code is one this milestone supports.
@@ -276,6 +311,75 @@ mod tests {
         assert!(lookup("A#A".to_string()) == CodonOutcome::Invalid);
         assert!(lookup("TTF".to_string()) == CodonOutcome::Invalid);
         assert!(lookup("GG".to_string()) == CodonOutcome::Invalid);
+    }
+
+    /// 9p2 §7 test 2's control: `lookup`'s body exactly as it was before
+    /// `lookup_letters`, kept here so every triple is checked against the code
+    /// that used to run, not against the code that runs now.
+    fn reference_lookup(codon: String) -> CodonOutcome {
+        if codon.len() != 3 {
+            return CodonOutcome::Invalid;
+        }
+
+        let letters: Vec<char> = codon.chars().collect();
+        for ch in letters.iter() {
+            if !is_dna_letter(*ch) {
+                return CodonOutcome::Invalid;
+            }
+        }
+
+        let mut index: usize = 0;
+        for ch in letters.iter() {
+            let place: usize = base_place(*ch);
+            if place >= TRIPLET_BASES.len() {
+                return CodonOutcome::Ambiguous;
+            }
+            index = index * 4 + place;
+        }
+
+        let table: Vec<char> = STANDARD_GENETIC_CODE.chars().collect();
+        let symbol: char = table[index];
+        if symbol == '*' {
+            return CodonOutcome::Stop;
+        }
+        let found: Option<Residue> = residue_for_symbol(symbol);
+        if found.is_none() {
+            return CodonOutcome::Invalid;
+        }
+        CodonOutcome::Residue(found.unwrap())
+    }
+
+    // 9p2 §5 test 3: the 15 IUPAC letters plus `X` (not a DNA letter) and `a`
+    // (a DNA letter only when folded), so the triples cover every residue,
+    // every stop, both ways of being refused, and refusals that outrank
+    // ambiguity. 17^3 = 4913 triples.
+    #[test]
+    fn lookup_letters_matches_the_old_lookup() {
+        let mut letters: Vec<char> = DNA_ALPHABET.chars().collect();
+        letters.push('X');
+        letters.push('a');
+        assert!(letters.len() == 17);
+
+        for first in letters.iter() {
+            for second in letters.iter() {
+                for third in letters.iter() {
+                    let codon: [char; 3] = [*first, *second, *third];
+                    let text: String = codon.iter().collect();
+                    assert_eq!(
+                        lookup_letters(codon),
+                        reference_lookup(text.clone()),
+                        "{} is looked up differently",
+                        text
+                    );
+                    assert_eq!(
+                        lookup(text.clone()),
+                        reference_lookup(text.clone()),
+                        "{} is refused differently",
+                        text
+                    );
+                }
+            }
+        }
     }
 
     // There is no residue for an ambiguous or invalid codon: the residue

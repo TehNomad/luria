@@ -46,7 +46,7 @@
 
 use std::collections::VecDeque;
 
-use crate::genetic_code::lookup;
+use crate::genetic_code::lookup_letters;
 use crate::genetic_code::CodonOutcome;
 use crate::genetic_code::Residue;
 use crate::sequence::complement_letter;
@@ -133,21 +133,23 @@ fn reading_of(sequence: &Sequence, strand: Strand) -> Vec<char> {
 
 /// The codon whose first base stands at `position` of the coordinate line being
 /// scanned, in reading order: the bases of `reading`, wrapping at the origin when
-/// the record is circular.
-fn codon_text(reading: &[char], position: usize, circular: bool) -> String {
+/// the record is circular. The three letters are returned in an array, not as a
+/// `String`: the walk builds one codon per base it steps over, and a `String`
+/// per codon is three allocations per base for nothing.
+fn codon_text(reading: &[char], position: usize, circular: bool) -> [char; 3] {
     let length: usize = reading.len();
-    let mut text: String = String::new();
+    let mut codon: [char; 3] = ['N'; 3];
     let mut step: usize = 0;
     while step < 3 {
         let offset: usize = position + step;
-        text.push(if circular {
+        codon[step] = if circular {
             reading[offset % length]
         } else {
             reading[offset]
-        });
+        };
         step += 1;
     }
-    text
+    codon
 }
 
 /// Half-open reference intervals of a span starting at `start`, in D036 order:
@@ -208,7 +210,7 @@ fn scan_reading(reading: &[char], circular: bool, min_residues: u64) -> Vec<(usi
     let mut position: usize = 0;
     while position + 3 <= limit {
         let phase: usize = position % 3;
-        let outcome: CodonOutcome = lookup(codon_text(reading, position, circular));
+        let outcome: CodonOutcome = lookup_letters(codon_text(reading, position, circular));
         if outcome == CodonOutcome::Residue(Residue::M) {
             runs[phase].push_back(position);
         } else if outcome.is_stop() {

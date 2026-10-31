@@ -30,7 +30,6 @@ use crate::error::FeatureWithoutIntervalsProblem;
 use crate::error::InvalidSequenceCharactersProblem;
 use crate::identity::Identifier;
 use crate::sequence::is_dna_letter;
-use crate::sequence::normalize;
 use crate::sequence::Sequence;
 use crate::sequence::SequenceTopology;
 use crate::strand::Strand;
@@ -766,10 +765,21 @@ impl EditBuffer {
     }
 
     /// The bases as a `Sequence` with this name and topology, through
-    /// `normalize`. Not called by `apply`: hashing is on demand.
+    /// `Sequence::from_canonical`. Not called by `apply`: hashing is on demand.
+    ///
+    /// `from_canonical` takes the letters `normalize` would re-check and re-fold,
+    /// and on a 10 000 000-base record that second pass is the bulk of one edit.
+    /// Skipping it is safe because a buffer never holds a letter that
+    /// `normalize` would accept differently: its letters come from the opened
+    /// record, which `normalize` produced (M9-2/M9-4), and every edit stores only
+    /// upper-case IUPAC letters, which `check_letters` refuses anything else to
+    /// insert.
     pub fn to_sequence(&self) -> Result<Sequence, DomainError> {
-        let text: String = self.letters.iter().collect();
-        normalize(self.name.clone(), text, self.topology.clone())
+        Sequence::from_canonical(
+            self.name.clone(),
+            self.letters.clone(),
+            self.topology.clone(),
+        )
     }
 
     /// The edit as it may be applied to this buffer, in the buffer's
@@ -914,6 +924,7 @@ mod tests {
     use super::*;
     use crate::error::GenBankLocationRule;
     use crate::error::UnusableGenBankLocationProblem;
+    use crate::sequence::normalize;
     use crate::view_record::open_record;
 
     fn bases(count: usize) -> Vec<char> {
