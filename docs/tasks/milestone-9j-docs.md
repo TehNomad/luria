@@ -16,7 +16,6 @@ that every key, message and number in the text matches the code.
 2. `docs/decisions.md`: append D060, D061 and D062 after D059. This
    contract allows the edit (AGENTS.md).
 3. `docs/product-brief.md`: the "Milestone 9" paragraph only.
-
 4. `crates/cli/tests/documented_view.rs`: only the literal §13 heading it
    splits `docs/cli.md` on, changed to §4.1's new title.
 5. `crates/cli/src/sequence_view/state.rs`: only the `?` list's
@@ -324,6 +323,6 @@ D062).
 
 ## 9. Do not
 
-- Change any file under `crates/` or `tests/` beyond §2 items 2 and 3.
+- Change any file under `crates/` or `tests/` beyond §2 items 4 and 5.
 - Reword the text of §4 to §7. Report a mismatch instead (§3).
 - Change any other section of the three documents.
