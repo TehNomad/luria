@@ -1084,15 +1084,16 @@ impl ViewState {
                     self.message = Some("overtype stops at the end of the record".to_string());
                     return;
                 }
-                // 9o §4 rule 2: what stands under the cursor goes onto the list
-                // `backspace` takes back from, before the substitution that
+                // 9o §4 rule 2: what stands under the cursor is what `backspace`
+                // brings back, so it is read here, before the substitution that
                 // overwrites it — the last base included. The cursor always
                 // stands on a base of the record, so the letter is there; a
                 // letter refused above, at the end, puts down nothing.
                 let base: u64 = self.cursor;
-                if let Ok(before) = self.record.sequence.letter_at(base) {
-                    self.overtype_taken.push((base, before));
-                }
+                // 9q §3.3: but only a substitution that happened has a letter to
+                // take back, so the pair goes onto the list once `apply_edit`
+                // succeeds rather than before it.
+                let before: Option<char> = self.record.sequence.letter_at(base).ok();
                 if self
                     .apply_edit(Edit::Substitute {
                         start: base,
@@ -1100,8 +1101,12 @@ impl ViewState {
                     })
                     .is_err()
                 {
-                    // `apply_edit` has said why nothing was substituted.
+                    // `apply_edit` has said why nothing was substituted, and
+                    // nothing goes onto the list `backspace` takes back from.
                     return;
+                }
+                if let Some(before) = before {
+                    self.overtype_taken.push((base, before));
                 }
                 let last: u64 = self.record.sequence.length().saturating_sub(1);
                 if self.cursor >= last {
@@ -1329,7 +1334,8 @@ impl ViewState {
     /// order straight onto the buffer, and the view is recomputed once for the
     /// whole group. The group goes onto the redo stack for `ctrl-r` to bring
     /// back, and the cursor lands on the first base of the group's first edit,
-    /// clamped. With nothing on the undo stack, the line says so.
+    /// clamped. A `Visual` selection, if one is open, ends with the undo (9q
+    /// §3.1). With nothing on the undo stack, the line says so.
     fn undo_group(&mut self) {
         let Some(group) = self.undo_groups.pop() else {
             self.message = Some("nothing to undo".to_string());
@@ -1360,6 +1366,11 @@ impl ViewState {
         // 9h §4.6: an undo is a change of its own, so it bumps the counter too;
         // undoing back to the saved state still counts, which §4.6 allows.
         self.change_count += 1;
+        // 9q §3.1: an undo is the end of a `Visual` selection, as `esc` is. The
+        // record the selection was made on is not the record the undo leaves,
+        // so its anchor and cursor may well sit past the last base, and `x` or
+        // `y` would read bases the record no longer holds.
+        self.editing = EditMode::Normal;
         // §4 rule 7: the cursor goes to the group's first edit, clamped.
         let last: u64 = self.record.sequence.length().saturating_sub(1);
         self.cursor = start.min(last);
@@ -1369,8 +1380,9 @@ impl ViewState {
     /// `ctrl-r` (9g §4 rule 8, M9-8): the last group `u` undid is applied
     /// again, in the order its steps were first applied, and each step's fresh
     /// `Undo` takes the old one's place. The group goes back onto the undo
-    /// stack, and the view is recomputed once. With nothing on the redo stack,
-    /// the line says so.
+    /// stack, and the view is recomputed once. A `Visual` selection, if one is
+    /// open, ends with the redo (9q §3.1). With nothing on the redo stack, the
+    /// line says so.
     fn redo_group(&mut self) {
         let Some(group) = self.redo_groups.pop() else {
             self.message = Some("nothing to redo".to_string());
@@ -1414,6 +1426,9 @@ impl ViewState {
         // 9h §4.6: a redo is a change of its own as well, so the counter moves
         // again and the view is dirty whatever a save did before it.
         self.change_count += 1;
+        // 9q §3.1: a redo ends a `Visual` selection exactly as an undo does -
+        // the bases the selection covered are not the bases the record holds.
+        self.editing = EditMode::Normal;
         let last: u64 = self.record.sequence.length().saturating_sub(1);
         self.cursor = start.min(last);
         self.follow();
@@ -1911,14 +1926,23 @@ impl ViewState {
 
     /// The bases the selection covers, `None` with none (M9-2, M9-6 g): the
     /// zero-based half-open `[min(anchor, cursor), max(anchor, cursor) + 1)` in
-    /// `Visual`. The range is always plain, so a selection never crosses the
-    /// origin of a circular record: when the cursor wraps past the end the
-    /// selection is the range between the two bases.
+    /// `Visual`, held inside the record's own bases and `None` when the record
+    /// has none (9q §3.1). The range is always plain, so a selection never
+    /// crosses the origin of a circular record: when the cursor wraps past the
+    /// end the selection is the range between the two bases.
     pub(super) fn selection(&self) -> Option<(u64, u64)> {
         match self.editing {
             EditMode::Visual { anchor } => {
-                let first: u64 = anchor.min(self.cursor);
-                let last: u64 = anchor.max(self.cursor);
+                // 9q §3.1: the range never runs past the record's last base, and
+                // an empty record has no base to select. `u` and `ctrl-r` are
+                // what can leave an anchor or the cursor past the end, by making
+                // the record shorter than the selection was.
+                let length: u64 = self.record.sequence.length();
+                if length == 0 {
+                    return None;
+                }
+                let first: u64 = anchor.min(self.cursor).min(length - 1);
+                let last: u64 = anchor.max(self.cursor).min(length - 1);
                 Some((first, last.saturating_add(1)))
             }
             // `Normal` has no selection; the typing modes keep their bases aside
@@ -4598,6 +4622,67 @@ mod tests {
         );
     }
 
+    // 9q §5 test 1: `u` ends a `Visual` selection. The insert spell is one
+    // group; `End` and `v` put the cursor and the anchor on the record's last
+    // base, and the undo leaves a record five bases shorter. The selection would
+    // then run past the end, and `x` would read bases the record does not hold.
+    #[test]
+    fn undo_in_visual_ends_the_selection() {
+        let opened: ViewRecord = pbr();
+        let mut state: ViewState = ViewState::new(opened.clone(), 80, 24);
+        state.handle(Key::Char('i'));
+        for _ in 0..5 {
+            state.handle(Key::Char('a'));
+        }
+        state.handle(Key::Esc);
+        assert_eq!(
+            state.record().sequence.length(),
+            opened.sequence.length() + 5,
+            "the five bases typed are in the record"
+        );
+        state.handle(Key::End);
+        state.handle(Key::Char('v'));
+        assert!(
+            matches!(state.editing, EditMode::Visual { .. }),
+            "`v` opens a selection"
+        );
+        assert!(state.selection().is_some(), "and the selection has bases");
+        state.handle(Key::Char('u'));
+        assert_eq!(state.editing, EditMode::Normal, "`u` ends the selection");
+        assert!(state.selection().is_none(), "and leaves no selection");
+        state.handle(Key::Char('x'));
+        assert_eq!(
+            state.record().sequence.length(),
+            opened.sequence.length() - 1,
+            "`x` cuts one base, 4360 of pBR322's 4361, and does not read past the end"
+        );
+    }
+
+    // 9q §5 test 2: the range `selection` hands its callers stays inside the
+    // record. The anchor is set past the end here, since no key leaves one: what
+    // is pinned is that no caller is given a range of bases the record never
+    // had, whatever the anchor says.
+    #[test]
+    fn selection_never_runs_past_the_end() {
+        let opened: ViewRecord = pbr();
+        let length: u64 = opened.sequence.length();
+        let mut state: ViewState = ViewState::new(opened, 80, 24);
+        state.handle(Key::End);
+        assert_eq!(state.cursor(), length - 1, "`End` stands on the last base");
+        state.editing = EditMode::Visual { anchor: length + 7 };
+        let (start, end): (u64, u64) = state.selection().expect("the selection is read");
+        assert_eq!(end, length, "the range ends at the record's length");
+        assert_eq!(start, length - 1, "and starts on the cursor's base");
+        // `x` is the caller the review found: it slices that range out of the
+        // buffer, and a range past the end panics there.
+        state.handle(Key::Char('x'));
+        assert_eq!(
+            state.record().sequence.length(),
+            length - 1,
+            "so `x` cuts the last base and nothing else"
+        );
+    }
+
     // 9g §5 test 8 (§4 rules 3 and 4): `d` and `y` with no selection do nothing
     // and say the selection is made with `v`.
     #[test]
@@ -6161,6 +6246,40 @@ mod tests {
                 .is_some_and(|words| words.contains("nothing to undo")),
             "the second `u` finds nothing more to undo: {:?}",
             state.message()
+        );
+    }
+
+    // 9q §5 test 5: an overtype letter that `apply_edit` refuses puts nothing on
+    // the list `backspace` takes back from (9q §3.3). No test reaches that
+    // refusal through the keys: `R` opens only on a record that edits (9f §4
+    // rule 7), the view never goes back to a blocked record once it holds an
+    // editable one, the cursor always stands on a base of the record so the
+    // `Substitute` is in that record's range, and a DNA letter written over a
+    // base is something `rebuild_view` takes. What is pinned instead is the
+    // order 9q §3.3 asks for: the letter under the cursor is read before the
+    // edit, and the pair reaches the list only once the edit has happened.
+    #[test]
+    fn a_refused_overtype_leaves_nothing_to_take_back() {
+        let opened: ViewRecord = pbr();
+        let before: char = opened
+            .sequence
+            .letter_at(0)
+            .expect("the record's first base");
+        assert_ne!(before, 'G', "so the letter typed changes that base");
+        let mut state: ViewState = ViewState::new(opened, 80, 24);
+        state.handle(Key::Char('R'));
+        state.handle(Key::Char('g'));
+        assert_eq!(state.overtype_taken.len(), 1, "one letter overtyped");
+        let (base, remembered): (u64, char) = state.overtype_taken[0];
+        assert_eq!(base, 0, "the entry names the cursor's base");
+        assert_eq!(
+            remembered, before,
+            "and holds the letter that stood there before the edit"
+        );
+        assert_eq!(
+            state.record().sequence.letter_at(0),
+            Ok('G'),
+            "the edit that made the entry is the one that happened"
         );
     }
 

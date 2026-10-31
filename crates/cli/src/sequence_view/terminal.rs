@@ -126,7 +126,11 @@ fn today_days() -> u64 {
 ///
 /// An empty target refuses. A target that is the opened file - the two paths
 /// canonicalize to the same file, and compare as they were given otherwise - is
-/// written through [`write_opened`]. Any other existing name refuses unless
+/// written through [`write_opened`], and 9q §3.4 says which path that writes:
+/// the target when a regular file sits at its own name, and the opened path for
+/// anything else, so a link at the opened path's name is not made into a file
+/// while the regular file it leads to is written as itself. The link refusal and
+/// the backup follow the path written. Any other existing name refuses unless
 /// `replace` is true. A name nothing holds yet is written with `replace: false`,
 /// as 9h had it. The returned `Option` is the backup this call made, `None` when
 /// it made none. Every write is `write_text`'s, the one writer: the backup too,
@@ -147,7 +151,17 @@ pub fn save_step(
         _ => opened == target,
     };
     if same {
-        return write_opened(opened, text, backed_up);
+        // 9q §3.4: a regular file at the target's own name is the file to write,
+        // even when the opened path is a link that leads to it - `:w REAL` names
+        // REAL, and REAL is a file. With a link, or nothing, at the target's
+        // name, the opened path is the one the write and its backup belong to,
+        // and `write_opened` refuses it if that too is a link.
+        let own_file: bool = match fs::symlink_metadata(target) {
+            Ok(found) => found.is_file(),
+            Err(_problem) => false,
+        };
+        let written: &Path = if own_file { target } else { opened };
+        return write_opened(written, text, backed_up);
     }
     // Steps 3 and 4: an existing name needs `replace` to be written again, and a
     // name nothing holds yet is written as a new one, `replace: false` whatever
@@ -161,8 +175,9 @@ pub fn save_step(
     Ok(None)
 }
 
-/// The opened file itself being written (9l §4.7 step 2): its original is kept
-/// once a session as `<opened>~`, and then the opened path is written as itself.
+/// The opened file itself being written, or the name 9q §3.4 says is that file
+/// and nothing else (9l §4.7 step 2): its original is kept once a session as
+/// `<path>~`, and then that path is written as itself.
 /// The path is looked at with `symlink_metadata` first, because a name holding a
 /// link is not the file to write: C-1 holds on the opened side as it does
 /// elsewhere. The returned `Option` is the backup this call made, `None` when an

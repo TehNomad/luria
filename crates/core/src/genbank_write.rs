@@ -363,46 +363,83 @@ fn qualifier_lines(name: &str, value: Option<&str>) -> Vec<String> {
     }
 }
 
+/// The character indices of the spaces a quoted value may break at: a space
+/// with a non-space character on each side (9q §3.2). The reader trims each of
+/// a value's lines and joins them with one space, so only such a space is
+/// dropped and put back; a space next to another space, or one at either end
+/// of the value, cannot be recovered and is never a break.
+fn breakable_spaces(chars: &[char]) -> Vec<usize> {
+    chars
+        .iter()
+        .enumerate()
+        .filter(|(at, ch)| {
+            **ch == ' '
+                && *at > 0
+                && *at + 1 < chars.len()
+                && chars[at - 1] != ' '
+                && chars[at + 1] != ' '
+        })
+        .map(|(at, _ch)| at)
+        .collect()
+}
+
 /// The lines of a quoted qualifier: the value's `"` are doubled, one opening
 /// `"` follows `/name=` on the first line, and one closing `"` ends the last
 /// line; continuation lines are the indent then the text, with no quotes of
-/// either kind. A line past 79 characters breaks at the last space that fits,
-/// which is
-/// dropped, as the reader joins the lines with one space. A run with no
-/// space breaks at 79 characters (§4.3).
+/// either kind. A line breaks only at a space with a non-space character on
+/// each side (9q §3.2), and it is the last such space that fits that breaks;
+/// the space is dropped, as the reader joins the lines with one. A run with no
+/// such space stays on one line, however wide it is, and so does a run whose
+/// first such space sits past column 79. The closing `"` ends the value's last
+/// line, after at least one character of the value - or straight after the
+/// opening `"` for an empty value - and is never alone on a line (§4.3).
 fn quoted_lines(name: &str, value: &str, indent: &str) -> Vec<String> {
     let mut lines: Vec<String> = Vec::new();
-    let quoted: String = value.replace('"', "\"\"");
-    let mut rest: &str = quoted.as_str();
+    let quoted: Vec<char> = value.replace('"', "\"\"").chars().collect();
+    // The breakable spaces of the whole value, as character indices into
+    // `quoted`. Each line starts at a character of the value, so a break that
+    // fits the line is one of these, and so is the first one past its end.
+    let breaks: Vec<usize> = breakable_spaces(quoted.as_slice());
     let head: String = format!("{indent}/{name}=\"", indent = indent, name = name);
     let cont: String = indent.to_string();
     let mut first: bool = true;
+    // The value's next character that is not written yet.
+    let mut rest: usize = 0;
     loop {
         let start: &str = if first { head.as_str() } else { cont.as_str() };
-        // Every line but the last keeps a column free for the closing
-        // quote, so its last character can sit at column 79.
-        let room: usize = MAX_WIDTH - start.chars().count();
-        let fill: usize = take_prefix(rest, room);
-        let end: usize = take_prefix(rest, room.saturating_sub(1));
-        if end >= rest.len() {
-            lines.push(format!("{start}{rest}\""));
-            break;
-        }
-        // A space sitting right past the last character that fits is itself
-        // usable as a break: it is dropped, so the line still ends at column
-        // 79. Hence the search covers one character more than the fill.
-        let up_to: usize = take_prefix(rest, room + 1);
-        match rest[..up_to].rfind(' ') {
-            // The space is dropped, as the reader joins the lines with one.
-            Some(at) if at > 0 => {
-                lines.push(format!("{start}{}", &rest[..at]));
-                rest = &rest[at + 1..];
+        let start_len: usize = start.chars().count();
+        // A line that holds the rest of the value keeps a column for the
+        // closing quote; one that does not can use column 79 itself.
+        let last_room: usize = MAX_WIDTH.saturating_sub(start_len + 1);
+        let line_room: usize = MAX_WIDTH.saturating_sub(start_len);
+        // The break this line takes: the last breakable space it can carry,
+        // with at least one character of the value before it. Nothing fits,
+        // but a breakable space sits further on, so the value's whole run up
+        // to that space goes on this line, wider than 79 if it must. Nothing
+        // is left to break at, so the rest of the value ends this line and the
+        // closing quote with it, or - for an empty value - sits right after
+        // the opening quote (9q §3.2).
+        let at: Option<usize> = if quoted.len() - rest <= last_room {
+            None
+        } else {
+            breaks
+                .iter()
+                .rev()
+                .find(|at| **at > rest && **at <= rest + line_room)
+                .or_else(|| breaks.iter().find(|at| **at > rest))
+                .copied()
+        };
+        match at {
+            Some(at) => {
+                let piece: String = quoted[rest..at].iter().collect();
+                lines.push(format!("{start}{piece}"));
+                // The break's space is dropped, as the reader puts one back.
+                rest = at + 1;
             }
-            // A leading space would write an empty continuation line, which
-            // is never what the reader sees: break at the fill instead.
-            _ => {
-                lines.push(format!("{start}{}", &rest[..fill]));
-                rest = &rest[fill..];
+            None => {
+                let tail: String = quoted[rest..].iter().collect();
+                lines.push(format!("{start}{tail}\""));
+                break;
             }
         }
         first = false;
@@ -494,18 +531,22 @@ mod tests {
             assert!(!line.contains('"'), "no quote mid-value: {line}");
         }
 
-        // A 100-character word has no space, so it breaks at 79 characters:
-        // 51 letters on the opening line, the other 49 and the closing quote
-        // on the next.
+        // A 100-character word has no space a line may break at, so the whole
+        // word stays on the opening line, past column 79 (9q §3.2): breaking it
+        // anywhere would add a space the reader cannot take back. The closing
+        // quote still ends the value's only line.
         let one_word: String = "abcdefghij".repeat(10);
         assert_eq!(one_word.chars().count(), 100);
         let hard: Vec<String> = qualifier_lines("note", Some(&one_word));
         assert_eq!(
-            hard,
-            [
-                "                     /note=\"abcdefghijabcdefghijabcdefghijabcdefghijabcdefghija",
-                "                     bcdefghijabcdefghijabcdefghijabcdefghijabcdefghij\"",
-            ]
+            hard.len(),
+            1,
+            "one line, since there is nothing to break at"
+        );
+        assert_eq!(
+            hard[0],
+            format!("{INDENT_TEXT}/note=\"{one_word}\""),
+            "the word carries the opening and the closing quote on one line"
         );
 
         // A 51-character run of `a`, a space, then `bbb`: the space sits right
@@ -537,11 +578,163 @@ mod tests {
         );
 
         within_width(&wrapped);
-        within_width(&hard);
         within_width(&edge);
         within_width(&flag);
         within_width(&unquoted);
         within_width(&quoted);
+    }
+
+    /// A record with no feature table at all: `record`'s header and its ORIGIN
+    /// block, with no `FEATURES` line. Every feature such a buffer holds is
+    /// written fresh, because the opened file has no feature to copy (§4.3).
+    fn no_features() -> GenBankRecord {
+        read_genbank(
+            Identifier::create("test1".to_string()).unwrap(),
+            "LOCUS       test1                     10 bp    DNA     linear UNK \
+             17-OCT-2026\nORIGIN\n        1 atgcatgcat\n//\n"
+                .to_string(),
+        )
+        .expect("the record with no feature table is read")
+    }
+
+    /// The one `/note` of a save, as the save writes it and as the reader sees
+    /// it: a buffer holding one `misc_feature` with `/note="<value>"` goes
+    /// through `write_genbank`, and the text it wrote goes back through
+    /// `read_genbank`. The pair returned is the note the read record carries and
+    /// the lines the save wrote (9q §5 tests 3 and 4).
+    fn note_written_back(value: &str) -> (Option<String>, Vec<String>) {
+        use crate::edit_buffer::EditLocation;
+        use crate::sequence::SequenceTopology;
+        use crate::strand::Strand;
+
+        let buffer: EditBuffer = EditBuffer::new(
+            Identifier::create("test1".to_string()).unwrap(),
+            SequenceTopology::Linear,
+            "ATGCATGCAT".chars().collect(),
+            vec![EditFeature {
+                key: "misc_feature".to_string(),
+                location: EditLocation {
+                    strand: Strand::Plus,
+                    ranges: vec![(0, 5)],
+                    open_start: false,
+                    open_end: false,
+                },
+                qualifiers: vec![("note".to_string(), Some(value.to_string()))],
+                location_text: None,
+                line: 0,
+            }],
+        )
+        .expect("the buffer holding one misc_feature");
+        let written: String = write_genbank(&buffer, &no_features(), &one_edit_stamp());
+        let read: GenBankRecord = read_genbank(
+            Identifier::create("test2".to_string()).unwrap(),
+            written.clone(),
+        )
+        .unwrap_or_else(|problem| {
+            panic!(
+                "the save is refused as {}: {}\n{written}",
+                problem.code(),
+                problem.message()
+            )
+        });
+        let mut notes: Vec<Option<String>> = Vec::new();
+        for feature in read.features() {
+            if feature.key() != "misc_feature" {
+                continue;
+            }
+            for qualifier in feature.qualifiers() {
+                if qualifier.name() == "note" {
+                    notes.push(qualifier.value());
+                }
+            }
+        }
+        let note: Option<String> = match notes.as_slice() {
+            [only] => only.clone(),
+            found => panic!(
+                "the save holds {} /note qualifiers, not one:\n{written}",
+                found.len()
+            ),
+        };
+        (note, written.lines().map(String::from).collect())
+    }
+
+    /// 9q §5 test 3 (e): prose of single-spaced words, 200 characters — the
+    /// same 200 `qualifiers_wrap_at_79` wraps.
+    fn prose_200() -> String {
+        let mut words: Vec<&str> = vec!["word"; 39];
+        words.push("words");
+        let text: String = words.join(" ");
+        assert_eq!(text.chars().count(), 200, "the prose is 200 characters");
+        text
+    }
+
+    /// 9q §5 test 3 (d): `alpha  beta` with its double space, repeated to 200
+    /// characters. The unit carries the single space after `beta`, so the value
+    /// holds a double space inside each unit and a breakable single one
+    /// between the units.
+    fn double_spaces_200() -> String {
+        let mut text: String = String::new();
+        while text.chars().count() < 200 {
+            text.push_str("alpha  beta ");
+        }
+        text.truncate(200);
+        assert_eq!(text.chars().count(), 200, "the value is 200 characters");
+        assert!(text.contains("  "), "and holds a double space: {text}");
+        text
+    }
+
+    /// 9q §5 test 3: every one of these values comes back from a save exactly as
+    /// it went in, and no line of the save holds nothing but the closing quote.
+    /// The expectations are the values themselves, not the writer's lines.
+    #[test]
+    fn quoted_values_read_back_exactly() {
+        let mut values: Vec<String> = Vec::new();
+        // (a) A 120-character run of `a`, wider than any line holds: no space
+        // the writer could break at.
+        values.push("a".repeat(120));
+        // (b) The same run at the first line's room, and one either side of it:
+        // the room is the 79 columns less the 28 the indent, `/note=` and the
+        // opening quote take, so 51 characters, with 50 and 52 around it.
+        for room in [50, 51, 52] {
+            values.push("a".repeat(room));
+        }
+        // (c) 70 `a`, a quote of the value's own — written doubled — and 70 `b`,
+        // with no space anywhere: a break may not fall inside the pair, nor
+        // anywhere in the run.
+        values.push(format!("{}\"{}", "a".repeat(70), "b".repeat(70)));
+        // (d) `alpha  beta` to 200 characters, whose double spaces are no
+        // breaks, and (e) prose of the same length, whose spaces are.
+        values.push(double_spaces_200());
+        values.push(prose_200());
+        // (f) A value with nothing in it.
+        values.push(String::new());
+        for value in &values {
+            let (note, lines): (Option<String>, Vec<String>) = note_written_back(value);
+            assert_eq!(
+                note.as_deref(),
+                Some(value.as_str()),
+                "the note does not read back as written: {value:?}"
+            );
+            for line in &lines {
+                assert_ne!(
+                    *line,
+                    format!("{INDENT_TEXT}\""),
+                    "a line holds only the closing quote:\n{}",
+                    lines.join("\n")
+                );
+            }
+        }
+    }
+
+    /// 9q §5 test 4: a value with spaces it may break at keeps every line of the
+    /// save within 79 columns. The rule of 9q §3.2 leaves the limit in place for
+    /// the lines that can break; only a run with no break at all passes it.
+    #[test]
+    fn breakable_lines_stay_within_79() {
+        for value in [double_spaces_200(), prose_200()] {
+            let (_note, lines): (Option<String>, Vec<String>) = note_written_back(&value);
+            within_width(&lines);
+        }
     }
 
     /// A hand-written record for the header rules: `extra` holds the lines

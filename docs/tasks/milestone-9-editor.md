@@ -147,6 +147,8 @@ removed end interval moves to the feature's new end, and an absent
 | 9n | core: a save replaces luria's own earlier stamp (M9-20) | full |
 | 9o | cli: `backspace` in `R` brings the overtyped base back (owner, 2026-10-31) | light |
 | 9p | cli, core: a faster recompute after an edit, measured first (owner, 2026-10-31) | light |
+| 9q | core, cli: the review's correctness fixes; quoted values break only at a safe space (owner, 2026-10-31) | full |
+| 9r | core, cli: the review's memory and speed fixes (owner, 2026-10-31) | light |
 | 9i | the owner's hand test, then a polish set | — |
 | 9k | cli: the messages that promise milestone 9 reworded (M9-1) | light |
 | 9j | docs: `docs/cli.md` §13, the decisions, the brief | — |

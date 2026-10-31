@@ -14,7 +14,9 @@
 //! other file when `replace` is false" in `an_existing_other_file_needs_replace`.
 //! The link tests pin §4.7's other half: a link that leads to the opened file
 //! writes the opened file (test 12), and an opened path that is itself a link
-//! writes nothing at all (test 13).
+//! writes nothing at all (test 13). 9q's test sits between the two: an opened
+//! link and the regular file it leads to are the same file, and the regular file
+//! is the one the write writes (9q §3.4).
 
 use luria_cli::sequence_view::terminal::save_step;
 use std::ffi::OsString;
@@ -208,6 +210,95 @@ fn an_opened_link_is_not_written() {
         backups(&dir)
     );
     assert!(!backed_up, "nor does the session think one is kept");
+}
+
+/// 9q §5 test 6: the regular file an opened link leads to is the file the write
+/// writes. The view opened `link.gb`, so that name is not a file of its own, but
+/// the name the command settled on is: it is written as itself, its original is
+/// kept under its own `~`, and the link stays a link leading to it. A write to
+/// the link's own name is refused just as 9l's test 13 has it (9q §3.4).
+#[cfg(unix)]
+#[test]
+fn the_target_of_an_opened_link_is_written() {
+    use std::os::unix::fs::symlink;
+
+    let dir: PathBuf = workspace("opened_link_target");
+    let real: PathBuf = dir.join("real.gb");
+    fs::write(&real, ORIGINAL).unwrap();
+    let link: PathBuf = dir.join("link.gb");
+    symlink(&real, &link).unwrap();
+
+    let mut backed_up: bool = false;
+    let outcome: Result<Option<PathBuf>, String> =
+        save_step(&link, &real, TEXT, false, &mut backed_up);
+    assert_eq!(
+        outcome,
+        Ok(Some(backup_of(&real))),
+        "the target is written, and its own name is what the backup is named for"
+    );
+    assert_eq!(
+        fs::read_to_string(&real).unwrap(),
+        TEXT,
+        "the regular file the command named holds the text"
+    );
+    assert_eq!(
+        fs::read_to_string(backup_of(&real)).unwrap(),
+        ORIGINAL,
+        "and its original is kept at `real.gb~`"
+    );
+    assert!(
+        fs::symlink_metadata(&link)
+            .expect("the link is still there")
+            .file_type()
+            .is_symlink(),
+        "the opened link is still a link"
+    );
+    assert_eq!(
+        fs::read_link(&link).unwrap(),
+        real,
+        "and it still leads to the file that was written"
+    );
+    assert_eq!(
+        fs::read_to_string(&link).unwrap(),
+        TEXT,
+        "so the link reads the text the write left"
+    );
+    assert!(backed_up, "the session's flag says the original is kept");
+
+    // The other half of the rule, which 9l's test 13 pins as firmly as before:
+    // the link's own name is not a file, so writing it is refused and nothing at
+    // all is written through it.
+    let mut second: bool = false;
+    let refused: Result<Option<PathBuf>, String> =
+        save_step(&link, &link, TEXT2, false, &mut second);
+    let message: String = refused.expect_err("an opened link is still refused");
+    assert_eq!(
+        message,
+        format!(
+            "{} is a link, not a file: :w NAME writes elsewhere",
+            link.display()
+        ),
+        "the words name the link and say where to write instead"
+    );
+    assert_eq!(
+        fs::read_to_string(&real).unwrap(),
+        TEXT,
+        "the file the link leads to keeps what the first write left"
+    );
+    assert!(
+        fs::symlink_metadata(&link)
+            .expect("the link is still there")
+            .file_type()
+            .is_symlink(),
+        "and the link is still a link"
+    );
+    assert_eq!(
+        backups(&dir),
+        vec![backup_of(&real).file_name().unwrap().to_os_string()],
+        "the refused write adds no backup: {:?}",
+        backups(&dir)
+    );
+    assert!(!second, "and the refused write thinks no backup is kept");
 }
 
 /// 9l §5 test 14: a backup that cannot be written stops the write, and the opened
