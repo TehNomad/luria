@@ -44,30 +44,63 @@ const BODY_WITH_STRIP: std::ops::Range<usize> = 3..21;
 /// (8m3 §4 rule 2): the frame's inner rows less the status line's one.
 const BODY_WITHOUT: std::ops::Range<usize> = 1..21;
 
-/// The keys of the open view, in the order the key list has them (8m3 §4 rule 2),
-/// as each row's own text. `T` is not one of them here because pBR322 states its
-/// own topology, and `ctrl-d`, `ctrl-u` and `esc` are the two half-screen keys,
-/// the key that clears the hits and the key that shows the open reading frames
-/// (8m15 §3 item 2, M8-38, M8-37, M8-40).
-const KEYS: [&str; 18] = [
+/// The keys of the open view, in the order the key list has them (9m §4 rule 1),
+/// as each row's own leading text: the five section headings and the keys under
+/// them. `T` is not one of them here because pBR322 states its own topology, and
+/// `ctrl-d`, `ctrl-u` and `esc` are the two half-screen keys, the key that clears
+/// the hits and the key that shows the open reading frames (8m15 §3 item 2, M8-38,
+/// M8-37, M8-40).
+const KEYS: [&str; 39] = [
+    "Moving",
     "hjkl",
     "PgUp PgDn",
     "ctrl-d ctrl-u",
     "Home End",
     "w b",
+    "g",
+    "Viewing",
     "t",
     "F",
     "C",
     "f",
     "c",
-    "g",
+    "o",
+    "O",
+    "Searching",
     "/",
     "n N",
     "esc",
-    "o",
-    "O",
+    "Editing",
+    "v",
+    "i a",
+    "R",
+    "r",
+    "backspace",
+    "x",
+    "d",
+    "y",
+    "p P",
+    "u ctrl-r",
+    "Saving and quitting",
+    ":w",
+    ":w NAME",
+    ":q :q!",
+    ":wq :x ZZ",
+    "ZQ",
+    ":N",
+    "q",
     "?",
-    ":w :q :wq :x",
+];
+
+/// The section headings, which are rows of their own (9m §4 rule 1): a heading's
+/// drawn row is the heading word alone, where every other row is its key text, two
+/// spaces and a description.
+const HEADINGS: [&str; 5] = [
+    "Moving",
+    "Viewing",
+    "Searching",
+    "Editing",
+    "Saving and quitting",
 ];
 
 /// pBR322: 4361 bp, circular by its own declaration, three CDSs of which two are
@@ -241,52 +274,121 @@ fn t_is_listed_only_for_an_assumed_topology() {
     );
 }
 
+/// Whether the drawn rows are `entries`, one row per entry and in order (9m §4
+/// rule 1): a heading's row is the heading word alone, and every other row is its
+/// key text, two spaces and a description that is not empty.
+fn rows_match(drawn: &[String], entries: &[&str]) {
+    assert_eq!(
+        drawn.len(),
+        entries.len(),
+        "one row per entry and nothing else: {drawn:?}"
+    );
+    for (row, entry) in drawn.iter().zip(entries) {
+        if HEADINGS.contains(entry) {
+            assert_eq!(row, entry, "a heading row is the heading word alone: {row}");
+        } else {
+            let prefix: String = format!("{entry}  ");
+            assert!(
+                row.starts_with(&prefix) && row.chars().count() > prefix.chars().count(),
+                "the row for {entry} is its key text, two spaces and a description: {row}"
+            );
+        }
+    }
+}
+
 /// `?` opens the key list, which takes the body and keeps the status line and the
-/// key line (§5 test 3): one row per key, in order, each row the key's own text,
-/// two spaces and a description of what the key does. Any key closes the list and
-/// does nothing else, `q` included, and the key line then reads as §4 rule 3.
+/// key line (9m §5 test 1): the list's rows, grouped under their headings, show a
+/// window at a time from the top, `j` `k` `PgUp` `PgDn` `Home` `End` scroll that
+/// window and are clamped at both ends, and the status line says which rows show
+/// and how many the list has. `q` closes the list and does not quit, and the key
+/// line then reads as §4 rule 3.
 #[test]
 fn question_mark_lists_every_key() {
+    /// The rows the body has at this size, which is the window the list shows
+    /// (9m §4 rule 2).
+    const WINDOW: usize = 20;
     let mut state: ViewState = ViewState::new(pbr(), W, H);
     press(&mut state, Key::Char('?'));
-    assert!(state.help(), "? opens the key list");
-    let listed: Vec<String> = body_rows(&state, BODY_WITHOUT.clone());
+    assert!(state.help(), "? opens the key list at the top");
     assert_eq!(
-        listed.len(),
-        KEYS.len(),
-        "one row per key and nothing else: {listed:?}"
+        body_row(&state, 21),
+        format!("keys 1-{WINDOW} of {}", KEYS.len()),
+        "the status line names the rows drawn and the whole list (9m §4 rule 4)"
     );
-    for (row, key) in listed.iter().zip(KEYS) {
-        let prefix: String = format!("{key}  ");
-        assert!(
-            row.starts_with(&prefix) && row.chars().count() > prefix.chars().count(),
-            "the row for {key} is its own text, two spaces and a description: {row}"
-        );
-    }
+    let top: Vec<String> = body_rows(&state, BODY_WITHOUT.clone());
+    assert_eq!(
+        top.len(),
+        WINDOW,
+        "the body holds the window and nothing else: {top:?}"
+    );
+    rows_match(&top, &KEYS[..WINDOW]);
     assert!(
         !tet_drawn(&state, BODY_WITHOUT.clone()),
         "the list takes the body, so no block is drawn and no lane line is"
     );
     assert!(
-        !body_row(&state, 21).is_empty(),
-        "the status line stays: {}",
-        body_row(&state, 21)
-    );
-    assert!(
-        rows(&state)[23].contains("any key closes"),
-        "the key line says what closes the list: {}",
+        rows(&state)[23].contains("jk PgUp PgDn Home End  scroll  esc ? q  close"),
+        "the key line names what scrolls the list and what closes it: {}",
         rows(&state)[23].trim_end()
     );
 
-    press(&mut state, Key::Char('j'));
-    assert!(!state.help(), "any key closes the list");
+    // `End` is the last full window, whose last row is the list's last row, and
+    // every clamp that follows keeps it there (9m §4 rule 3).
+    press(&mut state, Key::End);
+    assert!(state.help(), "`End` scrolls the list, it does not close it");
+    let end: Vec<String> = body_rows(&state, BODY_WITHOUT.clone());
+    assert_eq!(end.len(), WINDOW, "the last window is a full one: {end:?}");
+    rows_match(&end, &KEYS[KEYS.len() - WINDOW..]);
     assert_eq!(
-        state.cursor(),
-        0,
-        "the `j` that closed the list did nothing else"
+        body_row(&state, 21),
+        format!(
+            "keys {}-{} of {}",
+            KEYS.len() - WINDOW + 1,
+            KEYS.len(),
+            KEYS.len()
+        ),
+        "`End` shows the last full window, where the list's last row is the body's"
+    );
+    press(&mut state, Key::Char('j'));
+    assert_eq!(
+        body_rows(&state, BODY_WITHOUT.clone()),
+        end,
+        "`j` at the end of the list scrolls nothing"
+    );
+    assert_eq!(
+        body_row(&state, 21),
+        format!(
+            "keys {}-{} of {}",
+            KEYS.len() - WINDOW + 1,
+            KEYS.len(),
+            KEYS.len()
+        ),
+        "and the status line stays with it"
+    );
+    press(&mut state, Key::Home);
+    assert_eq!(
+        body_rows(&state, BODY_WITHOUT.clone()),
+        top,
+        "`Home` goes back to the top"
+    );
+    assert_eq!(
+        body_row(&state, 21),
+        format!("keys 1-{WINDOW} of {}", KEYS.len()),
+        "and the status line goes with the rows it shows"
     );
 
+    // `?` closes the list, and opens it at the top again even though it closed at
+    // the last window (9m §4 rules 2 and 3).
+    press(&mut state, Key::End);
     press(&mut state, Key::Char('?'));
+    assert!(!state.help(), "`?` closes the list");
+    press(&mut state, Key::Char('?'));
+    assert!(state.help(), "`?` opens it again");
+    assert_eq!(
+        body_row(&state, 21),
+        format!("keys 1-{WINDOW} of {}", KEYS.len()),
+        "and opens it at the top, though it closed at the end (9m §4 rule 2)"
+    );
     assert_eq!(
         state.handle(Key::Char('q')),
         Action::Continue,

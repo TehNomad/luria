@@ -356,10 +356,15 @@ pub struct ViewState {
     /// otherwise (8m5 §4 rule 5), and while a list or a prompt is open `C` is
     /// text and the flag is kept.
     colours: bool,
-    /// Whether the key list is open (8m3 §4 rule 2): `?` opens it, its rows take
-    /// the body in place of the blocks, and any key closes it and does nothing
-    /// else.
+    /// Whether the key list is open (8m3 §4 rule 2, 9m §4 rule 1): `?` opens it,
+    /// its rows take the body in place of the blocks, `esc`, `q` and `?` close it
+    /// and the scrolling keys move its window (9m §4 rule 3).
     help: bool,
+    /// The key list's first row, counted from the top of the whole list (9m §4
+    /// rule 2): `?` opens the list at 0, the scrolling keys move it, and it is
+    /// clamped to the last full window wherever it is read (9m §4 rule 3), which
+    /// is what keeps a resize valid.
+    help_scroll: usize,
     /// Whether the record can be: `buffer_for`'s answer at open (M9-12), the
     /// buffer 9e edits or the reason every editing key is refused.
     edit: Result<EditBuffer, EditBlocked>,
@@ -508,6 +513,7 @@ impl ViewState {
             orfs: None,
             colours: true,
             help: false,
+            help_scroll: 0,
             edit,
             editing: EditMode::Normal,
             replace_selection: None,
@@ -595,8 +601,8 @@ impl ViewState {
             || self.prompt.is_some()
             || self.search.is_some()
             || self.command.is_some()
-            // 8m3's key list takes `q` itself: any key closes it and does nothing
-            // else, and only `ctrl-c` leaves (8m3 §4 rule 2).
+            // 8m3's key list takes `q` itself: `q` closes the list and does not
+            // quit, and only `ctrl-c` leaves (8m3 §4 rule 2, 9m §4 rule 3).
             || self.help;
         // The three modes that take text read every printable key as text first
         // (M9-2, 9f §4), so `q` there is a letter those modes refuse, not quit.
@@ -627,10 +633,12 @@ impl ViewState {
         if tiny {
             return Action::Continue;
         }
-        // Any key closes the key list and does nothing else, `q` and `F` and `?`
-        // included (8m3 §4 rule 2). `ctrl-c` left above and `q` did not quit there.
+        // While the key list is open its own keys decide what happens: the
+        // scrolling keys move its window, `esc`, `q` and `?` close it, and every
+        // other key does nothing (9m §4 rule 3). This supersedes 8m3 §4 rule 2's
+        // "any key closes". `ctrl-c` left above and `q` did not quit there.
         if self.help {
-            self.help = false;
+            self.help_key(key);
             return Action::Continue;
         }
         if self.list.is_some() {
@@ -748,9 +756,12 @@ impl ViewState {
             // prompt is open they are text, which the branch above handles.
             Key::Char('n') => return self.step_hit(true),
             Key::Char('N') => return self.step_hit(false),
-            // `?` opens the key list (8m3 §4 rule 2); in a list or at a prompt the
-            // branches above make it text instead.
-            Key::Char('?') => self.help = true,
+            // `?` opens the key list at its top (8m3 §4 rule 2, 9m §4 rule 2);
+            // in a list or at a prompt the branches above make it text instead.
+            Key::Char('?') => {
+                self.help = true;
+                self.help_scroll = 0;
+            }
             // `:` opens the command line with nothing typed (9l §4.1). It opens in
             // every view that is in `Normal`, editable or not and opened from a file
             // or not; what a write needs is answered when it runs (§4.5). The list,
@@ -2160,6 +2171,17 @@ impl ViewState {
                 _ => format!(":{line}"),
             };
         }
+        // While the key list is open the line names the window it shows and how
+        // many rows the whole list has, headings included (9m §4 rule 4).
+        if self.help {
+            let (first, window): (usize, usize) = (self.help_first(), self.help_window());
+            return format!(
+                "keys {}-{} of {}",
+                first + 1,
+                first + window,
+                self.help_total()
+            );
+        }
         let mut parts: Vec<String> = vec![format!("base {}", self.cursor + 1)];
         if let Some(codon) = self.cursor_codon() {
             let residue: String = match (codon.letter, codon.number) {
@@ -2234,9 +2256,9 @@ impl ViewState {
             // (8k2 §4 rule 2): `enter` runs what is typed, `esc` closes with
             // nothing run, and every other printable key types into the line.
             None if self.command.is_some() => "type  backspace  enter run  esc close".to_string(),
-            // The key list has no keys to offer, because what it offers is the keys
-            // (8m3 §4 rule 2).
-            None if self.help => "any key closes".to_string(),
+            // The key list's own keys (9m §4 rule 4): what scrolls the list's
+            // window and what closes it, and nothing else.
+            None if self.help => "jk PgUp PgDn Home End  scroll  esc ? q  close".to_string(),
             // The row is the screen's width and no more: 72 columns at `MIN_WIDTH`
             // by `MIN_HEIGHT`, inside the 80 that
             // `the_key_line_fits_eighty_columns` measures (8m3 §4 rule 3, M8-26).
@@ -2271,24 +2293,24 @@ impl ViewState {
         }
     }
 
-    /// The key list's rows, one per key the open screen has and in the order the
-    /// list shows them (8m3 §4 rule 2): the key's own text, two spaces, then what
-    /// the key does — each row written from the arm of `handle` that key reaches,
-    /// so the `t` row starts `cycle`, the `F` row starts `cycle` as well, the
-    /// `T` row `switch`. `T` has a row only where the topology was assumed, which
-    /// is the only case in which it changes
-    /// anything (M8-25). Empty unless the list is open: the body has 20 rows at
-    /// `MIN_WIDTH` by `MIN_HEIGHT`, more than the 18 the longest list needs.
-    pub(super) fn help_rows(&self) -> Vec<String> {
-        if !self.help {
-            return Vec::new();
-        }
+    /// Every row of the key list, headings included, in the order the list shows
+    /// them (9m §4 rule 1). A heading row is the heading's own word alone; every
+    /// other row is the key's own text, two spaces, then what the key does — each
+    /// row written from the arm of `handle` that key reaches, so the `t` row
+    /// starts `cycle`, the `F` row starts `cycle` as well, the `T` row `switch`.
+    /// `T` has a row only where the topology was assumed, which is the only case
+    /// in which it changes anything (M8-25). pBR322 gives the 34 key rows and the
+    /// 5 headings, 39 rows; an assumed record gives one more for `T`.
+    fn help_list(&self) -> Vec<String> {
         let mut rows: Vec<&str> = vec![
+            "Moving",
             "hjkl  move the cursor one base left or right, one line up or down",
             "PgUp PgDn  move the cursor a screen up or down",
             "ctrl-d ctrl-u  move the cursor half a screen down or up",
             "Home End  move the cursor to the record's first base and last base",
             "w b  move the cursor to the next codon and the codon before it",
+            "g  go to a base, a residue or a name",
+            "Viewing",
             "t  cycle what the lanes show: the CDS, three frames, six frames, off",
             "F  cycle the feature lanes: all, CDSs only, none",
             "C  colour the residues and the features, and back",
@@ -2299,16 +2321,120 @@ impl ViewState {
         rows.extend_from_slice(&[
             "f  list the record's features",
             "c  list the CDSs and select one of them",
-            "g  go to a base, a residue or a name",
+            "o  hide the overview strip and show it again",
+            "O  show the open reading frames and hide them",
+            "Searching",
             "/  search the record for bases or a protein",
             "n N  step through the hits the screen marks",
             "esc  clear the hits the screen marks",
-            "o  hide the overview strip and show it again",
-            "O  show the open reading frames and hide them",
+            "Editing",
+            "v  select from the cursor; esc ends the selection",
+            "i a  insert before the cursor, after it; esc ends",
+            "R  overtype from the cursor; esc ends",
+            "r  replace the base, or every selected base, with the next letter typed",
+            "backspace  in i, a and R: take back the last base typed",
+            "x  cut the base under the cursor, or the selection",
+            "d  cut the selection",
+            "y  copy the selection into luria's register",
+            "p P  paste the register after the cursor, before it",
+            "u ctrl-r  undo one edit, redo it",
+            "Saving and quitting",
+            ":w  write the opened file; the first write keeps the original as file~",
+            ":w NAME  write to NAME; :w! NAME replaces a file that exists",
+            ":q :q!  quit; :q refuses while edits are unsaved, :q! drops them",
+            ":wq :x ZZ  write and quit; :x and ZZ write only when there are edits",
+            "ZQ  quit without writing",
+            ":N  go to base N",
+            "q  quit, as :q",
             "?  this list of every key the screen has",
-            ":w :q :wq :x  write, quit, both (! forces)  ZZ ZQ  q quits",
         ]);
         rows.into_iter().map(str::to_string).collect()
+    }
+
+    /// How many rows the whole list has, headings included (9m §4 rule 4).
+    fn help_total(&self) -> usize {
+        self.help_list().len()
+    }
+
+    /// The height of the window the list draws: the body's rows, which is how the
+    /// feature list measures its own window, or the whole list when the list has
+    /// fewer rows than the body — the case where no key scrolls it (9m §4 rule 3).
+    fn help_window(&self) -> usize {
+        body_rows(self.height).min(self.help_total())
+    }
+
+    /// The last first row a window can start at and still hold the list's last row
+    /// (9m §4 rule 3): `End` goes here, and no scroll or resize passes it.
+    fn help_last(&self) -> usize {
+        self.help_total().saturating_sub(self.help_window())
+    }
+
+    /// The row the drawn window starts at: `help_scroll` clamped to `help_last`, so
+    /// the position is valid wherever it is read, a resize included (9m §4 rule 3).
+    fn help_first(&self) -> usize {
+        self.help_scroll.min(self.help_last())
+    }
+
+    /// `rows` as a signed count, for the two scroll directions.
+    fn count(rows: usize) -> i64 {
+        i64::try_from(rows).unwrap_or(i64::MAX)
+    }
+
+    /// Moves the list's first row by `rows`, clamped to `0..=help_last` (9m §4
+    /// rule 3): `j` at the end and `k` at the top change nothing, and neither does
+    /// any key while the whole list fits the body.
+    fn scroll_help(&mut self, rows: i64) {
+        let next: i64 =
+            (Self::count(self.help_first()) + rows).clamp(0, Self::count(self.help_last()));
+        self.help_scroll = usize::try_from(next).unwrap_or(self.help_last());
+    }
+
+    /// A key pressed while the key list is open (9m §4 rule 3): `j` and `down`
+    /// scroll one row, `k` and `up` scroll back one, `PgDn` and `PgUp` scroll a
+    /// whole window, `Home` and `End` go to the top and to the last full window,
+    /// and `esc`, `q` and `?` close the list. Every other press does nothing,
+    /// `ctrl-c` having left in `handle`.
+    fn help_key(&mut self, key: Key) {
+        match key {
+            Key::Esc | Key::Char('q') | Key::Char('?') => self.help = false,
+            Key::Char('j') | Key::Down => self.scroll_help(1),
+            Key::Char('k') | Key::Up => self.scroll_help(-1),
+            // A page is the window `help_rows` draws, the same body `list_key`
+            // measures its page with (9m §4 rule 3, 8k3 §4 rule 3).
+            Key::PageDown => self.scroll_help(Self::count(self.help_window())),
+            Key::PageUp => self.scroll_help(-Self::count(self.help_window())),
+            Key::Home => self.help_scroll = 0,
+            Key::End => self.help_scroll = self.help_last(),
+            // `h`, `l`, `ctrl-d`, `ctrl-u` and every other press have no rule while
+            // the list is open, so they change nothing.
+            Key::Char(_)
+            | Key::Left
+            | Key::Right
+            | Key::Enter
+            | Key::Backspace
+            | Key::Tab
+            | Key::CtrlC
+            | Key::CtrlD
+            | Key::CtrlU
+            | Key::CtrlR
+            | Key::Other => {}
+        }
+    }
+
+    /// The rows of the open key list that `super::screen` draws: the window that
+    /// fits the body, from the clamped position down (9m §4 rule 2). Empty unless
+    /// the list is open; `handle` never opens it below `MIN_WIDTH` by `MIN_HEIGHT`,
+    /// where the body has no rows.
+    pub(super) fn help_rows(&self) -> Vec<String> {
+        if !self.help {
+            return Vec::new();
+        }
+        let (first, window): (usize, usize) = (self.help_first(), self.help_window());
+        self.help_list()
+            .into_iter()
+            .skip(first)
+            .take(window)
+            .collect()
     }
 
     /// Where the cursor stands in the selected CDS, `None` when no CDS is
@@ -5219,5 +5345,128 @@ mod tests {
             Action::Quit,
             "so `q` leaves at once (§4.5)"
         );
+    }
+
+    // 9m §5 test 2: the key list's window scrolls one row at a time and one window
+    // at a time, and it is clamped at both ends (9m §4 rule 3). pBR322 states its
+    // own topology, so its list is the 34 key rows and the 5 headings: 39 rows, and
+    // the body at 80 x 24 shows 20 of them.
+    #[test]
+    fn the_key_list_scrolls_and_clamps() {
+        let mut state: ViewState = ViewState::new(pbr(), 80, 24);
+        assert_eq!(
+            state.handle(Key::Char('?')),
+            Action::Continue,
+            "`?` does not quit"
+        );
+        assert!(state.help(), "`?` opens the key list");
+        assert_eq!(
+            state.status(),
+            "keys 1-20 of 39",
+            "`?` opens the list at the top (§4 rule 2)"
+        );
+        for _ in 0..3 {
+            assert_eq!(
+                state.handle(Key::Char('j')),
+                Action::Continue,
+                "`j` does not quit"
+            );
+        }
+        assert_eq!(
+            state.status(),
+            "keys 4-23 of 39",
+            "three `j`s scroll three rows (§4 rule 3)"
+        );
+        for _ in 0..5 {
+            assert_eq!(
+                state.handle(Key::Char('k')),
+                Action::Continue,
+                "`k` does not quit"
+            );
+        }
+        assert_eq!(
+            state.status(),
+            "keys 1-20 of 39",
+            "five `k`s go back to the top and stop there"
+        );
+        assert_eq!(
+            state.handle(Key::PageDown),
+            Action::Continue,
+            "`PgDn` does not quit"
+        );
+        assert_eq!(
+            state.status(),
+            "keys 20-39 of 39",
+            "a window down clamps to the last full window, not 21-40"
+        );
+        assert_eq!(
+            state.handle(Key::PageUp),
+            Action::Continue,
+            "`PgUp` does not quit"
+        );
+        assert_eq!(
+            state.status(),
+            "keys 1-20 of 39",
+            "a window up clamps to the top, not -1"
+        );
+    }
+
+    // 9m §5 test 3: a key that is not the list's own leaves the list open and does
+    // nothing at all — no edit, no mode, no command line (9m §4 rule 3).
+    #[test]
+    fn other_keys_leave_the_list_open() {
+        let mut state: ViewState = ViewState::new(pbr(), 80, 24);
+        assert_eq!(
+            state.handle(Key::Char('?')),
+            Action::Continue,
+            "`?` does not quit"
+        );
+        assert!(state.help(), "`?` opens the key list");
+        for key in [Key::Char('x'), Key::Char(':'), Key::Char('i')] {
+            assert_eq!(state.handle(key), Action::Continue, "{key:?} does not quit");
+            assert!(state.help(), "{key:?} leaves the list open");
+        }
+        assert!(!state.dirty(), "none of the three keys edited anything");
+        assert!(state.command.is_none(), "`:` opened no command line");
+        assert!(state.list().is_none(), "no list opened");
+        assert!(state.prompt().is_none(), "no go-to prompt opened");
+        assert!(state.search().is_none(), "no search prompt opened");
+        assert!(
+            matches!(state.editing, EditMode::Normal),
+            "the mode is still Normal: {:?}",
+            state.editing
+        );
+        assert_eq!(
+            state.handle(Key::Esc),
+            Action::Continue,
+            "`esc` does not quit"
+        );
+        assert!(!state.help(), "`esc` closes the list (§4 rule 3)");
+    }
+
+    // 9m §5 test 4: when the whole list fits the body there is no window to move,
+    // so no scrolling key changes the position (9m §4 rule 3).
+    #[test]
+    fn a_list_that_fits_does_not_scroll() {
+        // The body is `height - 4` rows, so 43 rows give the 39 the list has.
+        let mut state: ViewState = ViewState::new(pbr(), 80, 43);
+        assert_eq!(
+            state.handle(Key::Char('?')),
+            Action::Continue,
+            "`?` does not quit"
+        );
+        assert_eq!(
+            state.status(),
+            "keys 1-39 of 39",
+            "a body as tall as the list shows every row of it"
+        );
+        for key in [Key::Char('j'), Key::PageDown] {
+            assert_eq!(state.handle(key), Action::Continue, "{key:?} does not quit");
+            assert_eq!(
+                state.status(),
+                "keys 1-39 of 39",
+                "{key:?} scrolls nothing while the whole list fits"
+            );
+        }
     }
 }
