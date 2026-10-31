@@ -1977,6 +1977,20 @@ impl ViewState {
                 _ => format!("search {} {}", prompt.mode().badge(), prompt.text()),
             };
         }
+        if let Some(name) = self.save_prompt.as_ref() {
+            return match &self.message {
+                // The overwrite question is asked while the prompt is still open
+                // (`terminal.rs` 9h §4.3), so the message is what the line has to
+                // show (9h2 §4 rule 1).
+                Some(words) => words.clone(),
+                // The name typed at the save prompt is shown as typed; with
+                // nothing typed yet the line says what the prompt is for instead
+                // of leaving it blank, in the shape go-to's prompt has (8k2 §4
+                // rule 2, 9h2 §4 rule 1).
+                _ if name.is_empty() => "save as".to_string(),
+                _ => format!("save as {name}"),
+            };
+        }
         let mut parts: Vec<String> = vec![format!("base {}", self.cursor + 1)];
         if let Some(codon) = self.cursor_codon() {
             let residue: String = match (codon.letter, codon.number) {
@@ -2049,6 +2063,12 @@ impl ViewState {
             }
             // The key list has no keys to offer, because what it offers is the keys
             // (8m3 §4 rule 2).
+            // The save prompt's keys (9h2 §4 rule 2), in the shape go-to's prompt
+            // has (8k2 §4 rule 2): `enter` asks for the write, `esc` closes with
+            // nothing written, and every other printable key types into the name.
+            None if self.save_prompt.is_some() => {
+                "type  backspace  enter save  esc close".to_string()
+            }
             None if self.help => "any key closes".to_string(),
             // The row is the screen's width and no more: 72 columns at `MIN_WIDTH`
             // by `MIN_HEIGHT`, inside the 80 that
@@ -4438,6 +4458,111 @@ mod tests {
                 env!("CARGO_PKG_VERSION")
             )),
             "nothing changed, so the stamp names no edits"
+        );
+    }
+
+    /// 9h2 §5 test 1: while the save prompt is open the status line says the
+    /// prompt and the name typed into it, and the key line offers the prompt's
+    /// keys (§4 rules 1 and 2).
+    #[test]
+    fn the_save_prompt_is_on_the_status_line() {
+        let mut state: ViewState =
+            ViewState::new_for_file(pbr(), 80, 24, Path::new(PBR_PATH), 20_755);
+        state.handle(Key::Char('s'));
+        assert_eq!(
+            state.status(),
+            format!("save as {PBR_SAVE_PATH}"),
+            "the default name `s` typed in is on the line (9h2 §4 rule 1)"
+        );
+        assert_eq!(
+            state.keys(),
+            "type  backspace  enter save  esc close",
+            "the key line offers the prompt's keys and no others (9h2 §4 rule 2)"
+        );
+
+        // Every printable key is text at the prompt (9h §4.2), so `x` extends the
+        // name and the line follows it.
+        state.handle(Key::Char('x'));
+        assert!(
+            state.status().ends_with(".edited.gbx"),
+            "the typed name is on the line as typed: {}",
+            state.status()
+        );
+        state.handle(Key::Backspace);
+        assert_eq!(
+            state.status(),
+            format!("save as {PBR_SAVE_PATH}"),
+            "`backspace` drops the name's last character, so the line is what `s` gave"
+        );
+    }
+
+    /// 9h2 §5 test 2: the overwrite question is asked while the prompt is still
+    /// open, and the message is what the status line shows (§4 rule 1).
+    #[test]
+    fn the_overwrite_question_shows_over_the_prompt() {
+        let mut state: ViewState =
+            ViewState::new_for_file(pbr(), 80, 24, Path::new(PBR_PATH), 20_755);
+        state.handle(Key::Char('s'));
+        // The words `terminal.rs` sets at its overwrite question (9h §4.3).
+        let question: String =
+            format!("{PBR_SAVE_PATH} exists: y replaces it, any other key keeps it");
+        state.set_message(question.clone());
+        assert_eq!(
+            state.status(),
+            question,
+            "the question reaches the screen instead of the half-typed name"
+        );
+    }
+
+    /// 9h2 §5 test 3: `esc` closes the prompt, and both lines go back to what
+    /// the view shows with nothing open (§4 rule 3).
+    #[test]
+    fn esc_takes_the_save_prompt_off_the_line() {
+        let mut state: ViewState =
+            ViewState::new_for_file(pbr(), 80, 24, Path::new(PBR_PATH), 20_755);
+        state.handle(Key::Char('s'));
+        assert_eq!(
+            state.handle(Key::Esc),
+            Action::Continue,
+            "`esc` closes the prompt, it writes nothing"
+        );
+        assert!(
+            state.status().starts_with("base 1"),
+            "the line is the cursor text again: {}",
+            state.status()
+        );
+        assert_eq!(
+            state.keys(),
+            "hjkl PgUp PgDn Home End  t frames  F lanes  f c g  / n N  ? keys  q quit",
+            "and the key line is Normal's again"
+        );
+    }
+
+    /// 9h2 §5 test 4: with the name emptied back to nothing the line says what
+    /// the prompt is for and nothing more — `save as`, no trailing space (§4
+    /// rule 1).
+    #[test]
+    fn an_emptied_name_says_save_as() {
+        let mut state: ViewState =
+            ViewState::new_for_file(pbr(), 80, 24, Path::new(PBR_PATH), 20_755);
+        state.handle(Key::Char('s'));
+        let typed: usize = state
+            .save_prompt()
+            .expect("`s` types the default name in")
+            .chars()
+            .count();
+        for _ in 0..typed {
+            state.handle(Key::Backspace);
+        }
+        assert_eq!(
+            state.save_prompt(),
+            Some(""),
+            "the prompt is still open, only its name is empty"
+        );
+        assert_eq!(
+            state.status(),
+            "save as",
+            "an empty name adds nothing to the line"
         );
     }
 
