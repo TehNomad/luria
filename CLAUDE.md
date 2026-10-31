@@ -76,11 +76,11 @@ Claude tokens on judgment, and send bulk work to a pi worker.
   (a weak assertion can pass with the rule removed).
 
 ## Running workers
-Workers are pi on `strata/qwen3.8-flash-next`, one herdr tab per contract,
-driven with `scripts/pi-worker`. The script runs pi under
+Workers are pi on the local model set in `scripts/pi-worker`, one herdr tab
+per contract, driven with `scripts/pi-worker`. The script runs pi under
 `nono wrap --profile luria-worker`. The worker gets no Claude config and no
-network except the model server on port 8080, and `--no-context-files`
-keeps this file out of its prompt.
+network except the local model server (`LLM_PORT` in the script), and
+`--no-context-files` keeps this file out of its prompt.
 
 The local model server serves one request stream at a time, so run **one
 worker at a time**. Do not start a second worker, or send a second `prompt`,
