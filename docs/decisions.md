@@ -2234,9 +2234,9 @@ Decision:
   `:` commands, `ZZ` and `ZQ`. No counts, named registers or `.`. The
   view's own keys keep their meanings: `c`, `f`, `o`, `O`, `t`, `T`, `F`
   and `C` are not Vim's here. In `i`, `a` and `R` every printable key is
-  input. In `i` and `a`, `backspace` takes back only bases typed in the
-  current command,
-  and `R` stops at the last base (planner, approved 2026-10-29).
+  input. `backspace` takes back only bases typed in the current command;
+  in `R` the overtyped base comes back (contract 9o), and `R` stops at
+  the last base (planner, approved 2026-10-29).
 * **The top strand, 5′ to 3′, in every mode** (M9-3).
 * **The 15 IUPAC codes, either case, stored upper case** (M9-4). A
   paste drops spaces, line breaks, digits and a FASTA `>` line, and

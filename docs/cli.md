@@ -1193,7 +1193,7 @@ follow each edit (D060).
 | `i` `a` | Insert before the cursor, or after it, until `esc` |
 | `R` | Overtype from the cursor until `esc`. It stops at the last base |
 | `r` | Replace the base, or every selected base, with the next letter you type |
-| `backspace` | In `i` and `a`: take back the last base you typed. It never removes a base that was there before |
+| `backspace` | In `i`, `a` and `R`: take back the last base you typed. It never removes a base that was there before; in `R` the base that was there comes back |
 | `x` | Cut the base under the cursor, or the selection |
 | `d` | Cut the selection |
 | `y` | Copy the selection |

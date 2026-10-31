@@ -379,6 +379,12 @@ pub struct ViewState {
     /// first letter there still substitutes and stays, and the next one says
     /// overtype stops at the end of the record.
     overtype_stopped: bool,
+    /// What this `R` has overtyped, in the order it was overtyped (9o §4 rule
+    /// 1): each entry is the base and the letter that stood on it before the
+    /// substitution, which is what `backspace` in `R` puts back. The list
+    /// belongs to this `R` alone: it is cleared when `R` opens and when `esc`
+    /// leaves it.
+    overtype_taken: Vec<(u64, char)>,
     /// The last search that ran (8l1 §4 rules 3 to 5): its mode and pattern, kept
     /// so `apply_edit` marks the same hits again after every edit (contract 9e
     /// §4 rule 6, M9-6 i). `None` until the first `enter` at the search prompt;
@@ -518,6 +524,7 @@ impl ViewState {
             editing: EditMode::Normal,
             replace_selection: None,
             overtype_stopped: false,
+            overtype_taken: Vec::new(),
             last_search: None,
             chosen: None,
             register: Vec::new(),
@@ -904,12 +911,14 @@ impl ViewState {
 
     /// `R` (9f §4 rule 3): overtype overwrites from the cursor on and never
     /// lengthens the record. A record 9d refuses answers with 9d's own words
-    /// (9f §4 rule 7).
+    /// (9f §4 rule 7). The memory `backspace` takes back from belongs to this
+    /// `R` alone, so it starts empty (9o §4 rule 1).
     fn open_overtype(&mut self) {
         match &self.edit {
             Ok(_buffer) => {
                 self.editing = EditMode::Overtype;
                 self.overtype_stopped = false;
+                self.overtype_taken.clear();
             }
             Err(blocked) => self.message = Some(blocked_words(blocked)),
         }
@@ -1029,23 +1038,64 @@ impl ViewState {
     /// says overtype stops at the record's end — overtype never lengthens the
     /// record. Any other printable key changes nothing and says only bases can be
     /// typed; `esc` leaves the mode and any other press changes nothing.
+    /// `backspace` (9o §4 rule 3) takes back the last base this `R` overtyped:
+    /// the letter that stood there before comes back and the cursor moves onto
+    /// it, and with nothing overtyped in this `R` it changes nothing.
     fn overtype_key(&mut self, key: Key) {
         match key {
             Key::Esc => {
                 self.editing = EditMode::Normal;
                 self.overtype_stopped = false;
+                // 9o §4 rule 1: the memory belongs to this `R`, and this `R` is
+                // over.
+                self.overtype_taken.clear();
                 // 9g §4 rule 6: every overtype letter up to here is one group.
                 self.close_group();
                 self.follow();
+            }
+            Key::Backspace => {
+                // With nothing overtyped in this `R`, nothing changes at all: no
+                // edit, no cursor move, no message (9o §4 rule 3).
+                let Some((base, before)) = self.overtype_taken.pop() else {
+                    return;
+                };
+                // The letter that was there before comes back as one more
+                // `Substitute`, and `apply_edit` adds it to the group this `R`
+                // is collecting, so `esc` then `u` still undoes the whole `R` in
+                // one step (9o §4 rule 3).
+                if self
+                    .apply_edit(Edit::Substitute {
+                        start: base,
+                        bases: vec![before],
+                    })
+                    .is_err()
+                {
+                    // `apply_edit` has said why nothing was put back.
+                    return;
+                }
+                // The cursor stands on the base that came back. `R` never changes
+                // the record's length, so `base` is still a base of it.
+                self.cursor = base;
+                self.follow();
+                self.overtype_stopped = false;
             }
             Key::Char(letter) if is_dna_letter(letter.to_ascii_uppercase()) => {
                 if self.overtype_stopped {
                     self.message = Some("overtype stops at the end of the record".to_string());
                     return;
                 }
+                // 9o §4 rule 2: what stands under the cursor goes onto the list
+                // `backspace` takes back from, before the substitution that
+                // overwrites it — the last base included. The cursor always
+                // stands on a base of the record, so the letter is there; a
+                // letter refused above, at the end, puts down nothing.
+                let base: u64 = self.cursor;
+                if let Ok(before) = self.record.sequence.letter_at(base) {
+                    self.overtype_taken.push((base, before));
+                }
                 if self
                     .apply_edit(Edit::Substitute {
-                        start: self.cursor,
+                        start: base,
                         bases: vec![letter.to_ascii_uppercase()],
                     })
                     .is_err()
@@ -2332,7 +2382,7 @@ impl ViewState {
             "i a  insert before the cursor, after it; esc ends",
             "R  overtype from the cursor; esc ends",
             "r  replace the base, or every selected base, with the next letter typed",
-            "backspace  in i and a: take back the last base typed",
+            "backspace  in i, a and R: take back the last base typed",
             "x  cut the base under the cursor, or the selection",
             "d  cut the selection",
             "y  copy the selection into luria's register",
@@ -5468,5 +5518,242 @@ mod tests {
                 "{key:?} scrolls nothing while the whole list fits"
             );
         }
+    }
+
+    // 9o §5 test 1: in `R`, `backspace` takes back the last base overtyped in
+    // this `R`, and the letter that stood there before comes back. The cursor
+    // moves onto the base that came back.
+    #[test]
+    fn backspace_in_overtype_restores() {
+        let opened: ViewRecord = pbr();
+        let before: Vec<char> = opened.sequence.letters();
+        // The three bases `R` overtypes are zero-based 10, 11 and 12; the opened
+        // record has `t`, `g` and `A` there, so the two `backspace`s checked
+        // below put back a letter different from the one typed, and the third
+        // base typed stands on `A` of its own.
+        assert_ne!(
+            before[10], 'A',
+            "the 11th base of the opened record is not the base typed, so the substitution and its restore bite"
+        );
+        assert_ne!(before[11], 'A', "and the 12th base likewise");
+        assert_eq!(
+            before[12], 'A',
+            "while the 13th base already carries the letter typed over it"
+        );
+        let mut state: ViewState = ViewState::new(opened.clone(), 80, 24);
+        state.cursor = 10;
+        assert_eq!(
+            state.handle(Key::Char('R')),
+            Action::Continue,
+            "`R` does not quit"
+        );
+        for _ in 0..3 {
+            state.handle(Key::Char('a'));
+        }
+        for index in 10..13usize {
+            assert_eq!(
+                state.record().sequence.letter_at(index as u64),
+                Ok('A'),
+                "base {} is overtyped",
+                index + 1
+            );
+        }
+        state.handle(Key::Backspace);
+        state.handle(Key::Backspace);
+        assert_eq!(
+            state.record().sequence.letter_at(10),
+            Ok('A'),
+            "the first base overtyped keeps its letter: the two `backspace`s took back the two letters typed after it"
+        );
+        for (position, letter) in (11u64..13).zip(before[11..13].iter()) {
+            assert_eq!(
+                state.record().sequence.letter_at(position),
+                Ok(*letter),
+                "base {} has the letter the opened record had there",
+                position + 1
+            );
+        }
+        assert_eq!(
+            state.cursor(),
+            11,
+            "the cursor stands on the base the last `backspace` put back"
+        );
+        assert_eq!(
+            state.record().sequence.length(),
+            opened.sequence.length(),
+            "`R` and `backspace` together leave the length alone"
+        );
+    }
+
+    // 9o §5 test 2: a `backspace` with nothing overtyped in this `R` changes
+    // nothing at all — no edit, no cursor move, no message (9o §4 rule 3).
+    #[test]
+    fn backspace_with_nothing_overtyped_does_nothing() {
+        let opened: ViewRecord = pbr();
+        let mut state: ViewState = ViewState::new(opened.clone(), 80, 24);
+        state.cursor = 9;
+        assert_eq!(
+            state.handle(Key::Char('R')),
+            Action::Continue,
+            "`R` does not quit"
+        );
+        assert!(
+            matches!(state.editing, EditMode::Overtype),
+            "`R` opened overtype: {:?}",
+            state.editing
+        );
+        assert_eq!(
+            state.handle(Key::Backspace),
+            Action::Continue,
+            "`backspace` does not quit"
+        );
+        assert_eq!(
+            state.record().sequence.letters(),
+            opened.sequence.letters(),
+            "the record is unchanged"
+        );
+        assert_eq!(state.cursor(), 9, "the cursor stays where `R` opened");
+        assert!(!state.dirty(), "and the view is not dirty");
+        assert!(
+            state.message().is_none(),
+            "and nothing is said: {:?}",
+            state.message()
+        );
+        assert!(
+            matches!(state.editing, EditMode::Overtype),
+            "still in overtype: {:?}",
+            state.editing
+        );
+    }
+
+    // 9o §5 test 3: the substitution at the record's last base is remembered
+    // too, so `backspace` takes it back and a letter typed after the `backspace`
+    // overtypes again instead of being refused with the stop message. The
+    // record's last base is `A` in the opened pBR322, so the letter typed there
+    // first is its own and it is the `C` that follows that shows the memory and
+    // the cleared stop.
+    #[test]
+    fn backspace_after_the_end_stop() {
+        let opened: ViewRecord = pbr();
+        let last: u64 = opened.sequence.length() - 1;
+        let before: char = opened
+            .sequence
+            .letter_at(last)
+            .expect("the last base has a letter");
+        assert_ne!(
+            before, 'C',
+            "the last base of the opened record is not the letter typed after the `backspace`, so that substitution bites"
+        );
+        let mut state: ViewState = ViewState::new(opened.clone(), 80, 24);
+        state.handle(Key::End);
+        assert_eq!(state.cursor(), last, "`End` on the record's last base");
+        assert_eq!(
+            state.handle(Key::Char('R')),
+            Action::Continue,
+            "`R` does not quit"
+        );
+        state.handle(Key::Char('a'));
+        assert_eq!(
+            state.record().sequence.letter_at(last),
+            Ok('A'),
+            "the last base is substituted"
+        );
+        assert_eq!(state.cursor(), last, "and the cursor stays on it");
+        assert_eq!(
+            state.record().sequence.length(),
+            opened.sequence.length(),
+            "overtype never makes the record longer"
+        );
+        state.handle(Key::Backspace);
+        assert_eq!(
+            state.record().sequence.letter_at(last),
+            Ok(before),
+            "the last base has the letter the opened record had there"
+        );
+        assert_eq!(state.cursor(), last, "the cursor stands on it");
+        assert!(
+            matches!(state.editing, EditMode::Overtype),
+            "`backspace` stays in overtype: {:?}",
+            state.editing
+        );
+        state.handle(Key::Char('c'));
+        assert_eq!(
+            state.record().sequence.letter_at(last),
+            Ok('C'),
+            "the letter typed after the `backspace` overtypes the last base again"
+        );
+        assert!(
+            !state.message().is_some_and(|words| words.contains("stops")),
+            "and is not refused with the stop message: {:?}",
+            state.message()
+        );
+    }
+
+    // 9o §5 test 4: the base `backspace` puts back is one more step of the same
+    // command, so the whole `R` — its `backspace` included — is one group on the
+    // undo stack and one `u` reaches the record as it was opened (9o §4 rule 3).
+    #[test]
+    fn one_overtype_is_one_undo() {
+        let opened: ViewRecord = pbr();
+        let before: Vec<char> = opened.sequence.letters();
+        for (index, letter) in ['A', 'C', 'G'].into_iter().enumerate() {
+            assert_ne!(
+                before[index],
+                letter,
+                "base {} of the opened record is not the base typed there",
+                index + 1
+            );
+        }
+        let mut state: ViewState = ViewState::new(opened.clone(), 80, 24);
+        assert_eq!(
+            state.handle(Key::Char('R')),
+            Action::Continue,
+            "`R` does not quit"
+        );
+        for letter in ['a', 'c', 'g'] {
+            state.handle(Key::Char(letter));
+        }
+        state.handle(Key::Backspace);
+        assert_eq!(
+            state.record().sequence.letter_at(2),
+            Ok(before[2]),
+            "the `backspace` put the third base back"
+        );
+        state.handle(Key::Esc);
+        assert_eq!(
+            state.handle(Key::Char('u')),
+            Action::Continue,
+            "`u` does not quit"
+        );
+        assert_eq!(
+            state.record().sequence.letters(),
+            before,
+            "one `u` undoes the whole `R`: the three letters typed and the base taken back"
+        );
+        state.handle(Key::Char('u'));
+        assert!(
+            state
+                .message()
+                .is_some_and(|words| words.contains("nothing to undo")),
+            "the second `u` finds nothing more to undo: {:?}",
+            state.message()
+        );
+    }
+
+    // 9o §5 test 5: the `?` key list says `backspace` works in `R` as well (9o
+    // §4 rule 4).
+    #[test]
+    fn the_key_list_says_r() {
+        let state: ViewState = ViewState::new(pbr(), 80, 24);
+        let rows: Vec<String> = state.help_list();
+        let row: &str = rows
+            .iter()
+            .find(|row| row.starts_with("backspace"))
+            .expect("the key list has a `backspace` row")
+            .as_str();
+        assert_eq!(
+            row,
+            "backspace  in i, a and R: take back the last base typed"
+        );
     }
 }
