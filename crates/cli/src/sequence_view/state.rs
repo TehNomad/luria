@@ -128,11 +128,16 @@ pub enum Key {
 pub enum Action {
     Continue,
     Quit,
-    /// A successful `s`: the terminal owns the file system, so the state asks
-    /// for the write instead of making it (§4.2). `run` reads the path and text with
+    /// A `:w` on the command line: the terminal owns the file system, so the
+    /// state asks for the write instead of making it (9l §4.4, §4.5). `run` reads
+    /// the target, the text and whether an existing file may be replaced with
     /// [`ViewState::save_request`], attempts the write, and reports the outcome
-    /// back with [`ViewState::report_save`] (§4.5).
+    /// back with [`ViewState::report_save`] (§4.6).
     Save,
+    /// A `:wq`, a `:x` or `ZZ`: the write first, and the session leaves only if
+    /// the terminal reports it as written (9l §4.4, §4.6). A failure stays, with
+    /// the error as the message.
+    SaveAndQuit,
 }
 
 /// How far `w` and `b` look for the next codon's first base (M8-35, 8m13 §4
@@ -392,18 +397,31 @@ pub struct ViewState {
     /// into `undo_groups`.
     current_group: Vec<(Edit, Undo)>,
     /// The file the record was opened from, `None` when the view has no file
-    /// behind (the tests and `new` build one): 9h's save prompt writes beside
-    /// it, and `super::terminal::run` gives it the real path.
+    /// behind (the tests and `new` build one): a `:w` with no name typed writes
+    /// it (9l §4.5), and `super::terminal::run` gives it the real path.
     opened_path: Option<PathBuf>,
     /// Today's day count (days since 1970-01-01) for the stamp a save writes
     /// (§4.9, M9-15): `terminal` reads the clock, the state never does.
     today_days: u64,
-    /// The name typed at the `s` prompt, `None` while it (9h §4.2): `s` opens
-    /// it with the default name already typed, every printable key edits it,
-    /// `enter` asks for the write and `esc` closes it writing nothing.
-    save_prompt: Option<String>,
-    /// Whether the "edits not saved" question is open (9h §4.7, §4.8): `q` and
-    /// `ctrl-c` open it when the view is dirty, and the next key answers it.
+    /// The text typed at the open command line, `None` while it is closed (9l
+    /// §4.1, §4.2): `:` opens it with nothing typed, every printable key adds to
+    /// it, `backspace` drops the last character and on an empty line closes it,
+    /// `enter` runs what has been typed and `esc` closes it running nothing.
+    command: Option<String>,
+    /// The name the last write the terminal reported as written went to (9l
+    /// §4.6): a later write with no name typed goes there (§4.5). `None` until
+    /// this session's first write.
+    last_saved: Option<PathBuf>,
+    /// The write `handle` settled on, kept for `run` to ask for (9l §4.5): the
+    /// target, the text, and whether an existing file may be replaced. `None`
+    /// while no write is owed.
+    requested_save: Option<(PathBuf, String, bool)>,
+    /// Whether `Z` in `Normal` waits for one more key (9l §4.8): `Z` answers it
+    /// as `:x` and `Q` as `:q!`; any other key cancels the wait and does nothing.
+    pending_z: bool,
+    /// Whether the "edits not saved" question is open (9h §4.7, §4.8, 9l §4.8):
+    /// `ctrl-c` opens it when the view is dirty, and the next key answers it. `q`
+    /// no longer opens it: it refuses as `:q` does.
     quit_question: bool,
     /// Every edit, undo and redo bumps it (§4.6), so a save can say whether
     /// anything happened since the last write.
@@ -415,17 +433,18 @@ pub struct ViewState {
 
 impl ViewState {
     /// The view as it opens on a record alone: the file the record was opened
-    /// from is unknown, so that view cannot save. The view's own tests and
+    /// from is unknown, so that view cannot write. The view's own tests and
     /// `super::screen` build one this way; `super::terminal` names the real
-    /// file through `new_for_file`. `s` in a view built with `new` says so in
-    /// the status line (§4.1).
+    /// file through `new_for_file`. A `:w` in a view built with `new` says so in
+    /// the status line (9l §4.5).
     pub fn new(record: ViewRecord, width: u16, height: u16) -> ViewState {
         Self::build(record, width, height, None, 0)
     }
 
-    /// The view as `super::terminal::run` opens it, on a file (`9h` §4.1, §4.9):
-    /// `opened_path` is the path that was opened, which the save prompt writes
-    /// beside, and `today_days` is today as days since 1970-01-01, which the
+    /// The view as `super::terminal::run` opens it, on a file (9l §4.5, 9h §4.9):
+    /// `opened_path` is the path that was opened, which a `:w` with no name typed
+    /// writes after keeping the original once a session (§4.6), and `today_days`
+    /// is today as days since 1970-01-01, which the
     /// stamp of a save writes — the state reads no clock of its own (D003).
     pub fn new_for_file(
         record: ViewRecord,
@@ -501,7 +520,10 @@ impl ViewState {
             current_group: Vec::new(),
             opened_path,
             today_days,
-            save_prompt: None,
+            command: None,
+            last_saved: None,
+            requested_save: None,
+            pending_z: false,
             quit_question: false,
             change_count: 0,
             saved_count: 0,
@@ -530,9 +552,29 @@ impl ViewState {
     /// nothing else does anything (§4 rule 10). While a list is open the keys go
     /// to it instead, and only `ctrl-c` leaves (8k3 §4 rule 3); while the go-to
     /// prompt is open the keys go to it, and again only `ctrl-c` leaves (8k2 §4
-    /// rule 2); and while the search prompt is open its keys are the prompt's, with
-    /// the same rule for `ctrl-c` and `q` (8l1 §4 rules 1 and 2).
+    /// rule 2); and while the search prompt or the command line is open its keys
+    /// are its own, with the same rule for `ctrl-c` and `q` (8l1 §4 rules 1 and 2,
+    /// 9l §4.2). `q` leaves only when the view owes no write (9l §4.4, §4.8), and
+    /// `ctrl-c` asks for the second one when it does (9h §4.8).
     pub fn handle(&mut self, key: Key) -> Action {
+        // 9l §4.8: after `Z` in `Normal` the next key decides the pair: `Z` acts
+        // as `:x`, `Q` as `:q!`, and any other key cancels the wait and is
+        // dropped — it does nothing, not even what it does alone, `q` included.
+        // That is why this check comes before the quit keys. `ctrl-c` is the one
+        // exception: 9h §4.7 and 9l §4.8 leave it quitting from anywhere, so it
+        // only cancels the wait and falls through to what it always does.
+        if self.pending_z {
+            self.pending_z = false;
+            if key == Key::Char('Z') {
+                return self.x_command(false, None);
+            }
+            if key == Key::Char('Q') {
+                return self.quit_command(true);
+            }
+            if key != Key::CtrlC {
+                return Action::Continue;
+            }
+        }
         // 9h §4.7, §4.8: while the "edits not saved" question is open the next
         // key answers it: `y` or a second `ctrl-c` leaves, and any other key stays,
         // closing the question and leaving the view's edits behind.
@@ -552,7 +594,7 @@ impl ViewState {
         let typing: bool = self.list.is_some()
             || self.prompt.is_some()
             || self.search.is_some()
-            || self.save_prompt.is_some()
+            || self.command.is_some()
             // 8m3's key list takes `q` itself: any key closes it and does nothing
             // else, and only `ctrl-c` leaves (8m3 §4 rule 2).
             || self.help;
@@ -563,9 +605,9 @@ impl ViewState {
             self.editing,
             EditMode::Insert { .. } | EditMode::Overtype | EditMode::ReplaceOne
         );
-        if key == Key::CtrlC || (key == Key::Char('q') && (!typing || tiny) && !typing_text) {
-            // 9h §4.6, §4.7, §4.8: an edit, undo or redo since the last save makes
-            // the view dirty, so a quit first asks; the next key answers it.
+        if key == Key::CtrlC {
+            // 9h §4.8: an edit, undo or redo since the last save makes the view
+            // dirty, so the first `ctrl-c` asks; the next key answers it.
             if self.dirty() {
                 self.quit_question = true;
                 self.message = Some(String::from(
@@ -574,6 +616,12 @@ impl ViewState {
                 return Action::Continue;
             }
             return Action::Quit;
+        }
+        // 9l §4.8: `q` is `:q`, and the quit question no longer opens for it: a
+        // clean view leaves, a dirty one stays and names the two keys that answer
+        // what is owed (§4.4).
+        if key == Key::Char('q') && (!typing || tiny) && !typing_text {
+            return self.quit_command(false);
         }
         self.message = None;
         if tiny {
@@ -601,14 +649,12 @@ impl ViewState {
             self.search_key(key);
             return Action::Continue;
         }
-        // While the save prompt is open its keys are the prompt's: every
-        // printable key is text, `enter` asks the terminal for the write and `esc`
-        // closes it with nothing written (9h §4.2).
-        if self.save_prompt.is_some() {
-            if self.save_prompt_key(key) {
-                return Action::Save;
-            }
-            return Action::Continue;
+        // While the command line is open its keys are the line's: every printable
+        // key adds to it, `backspace` shortens it and closes it once empty, `esc`
+        // closes it running nothing, and `enter` closes it and runs what is typed
+        // (9l §4.2).
+        if self.command.is_some() {
+            return self.command_key(key);
         }
         // The three modes that take text own their keys, so the view's own keys
         // are text there and not commands (M9-2, 9f §4 rules 2, 3 and 4).
@@ -705,6 +751,24 @@ impl ViewState {
             // `?` opens the key list (8m3 §4 rule 2); in a list or at a prompt the
             // branches above make it text instead.
             Key::Char('?') => self.help = true,
+            // `:` opens the command line with nothing typed (9l §4.1). It opens in
+            // every view that is in `Normal`, editable or not and opened from a file
+            // or not; what a write needs is answered when it runs (§4.5). The list,
+            // the prompts, the command line and the three modes that take text read
+            // `:` as text in the branches above, and in `Visual` it is one of the
+            // keys that do nothing.
+            Key::Char(':') if matches!(self.editing, EditMode::Normal) => {
+                self.command = Some(String::new());
+                return Action::Continue;
+            }
+            // `Z` waits for one more key, which `ZZ` and `ZQ` answer (9l §4.8). A
+            // key that is neither goes back to `handle`'s check above, which drops
+            // it. `Normal` owns the pair (§4.8); in `Visual` `Z` is a key that does
+            // nothing, as it was.
+            Key::Char('Z') if matches!(self.editing, EditMode::Normal) => {
+                self.pending_z = true;
+                return Action::Continue;
+            }
             // `v` opens a selection anchored at the cursor (M9-2, M9-12: the
             // movement keys extend it, and `v` or `esc` closes it. An uneditable
             // record is refused as §4 rule 4 says, naming the feature and why.
@@ -765,7 +829,8 @@ impl ViewState {
             // The keys 9e edits with (M9-2, M9-12), now carrying 9g's cut,
             // yank, paste and the undo of M9-8: as 9d says, a record whose feature
             // 9b2 refuses names that feature and core's reason instead, and
-            // nothing else happens. `s`, the save prompt, is 9h's.
+            // nothing else happens. 9l unbinds `s`: saving is the command line's,
+            // so `s` changes nothing here.
             Key::Char('x') => {
                 self.cut();
                 return Action::Continue;
@@ -792,33 +857,6 @@ impl ViewState {
             }
             Key::CtrlR => {
                 self.redo_group();
-                return Action::Continue;
-            }
-            // `s` in Normal and editable: the save prompt (9h §4.1, §4.2). The
-            // default name typed in is the opened file's directory, the opened
-            // file's stem, `.edited`, and the format's extension. A record that
-            // 9b2 refuses is answered as the editing keys above are; a view built
-            // with `new` has no file: `s` names the refusal in the status line.
-            Key::Char('s') => {
-                if let Err(blocked) = &self.edit {
-                    self.message = Some(blocked_words(blocked));
-                    return Action::Continue;
-                }
-                match self.opened_path.as_deref() {
-                    // §4.1: the default name keeps the opened file's directory.
-                    Some(path) => {
-                        let name: PathBuf = save::default_name(path, self.opened.format);
-                        self.save_prompt = Some(name.display().to_string());
-                    }
-                    // A view built with `new` has no file, so there is no
-                    // default name to type in: `s` names the refusal in the
-                    // status line (§4.1).
-                    None => {
-                        self.message = Some(String::from(
-                            "save needs the record to have been opened from a file",
-                        ));
-                    }
-                }
                 return Action::Continue;
             }
             // `esc` with no list, prompt or key list open clears the hits the
@@ -1589,13 +1627,6 @@ impl ViewState {
     pub fn prompt(&self) -> Option<&str> {
         self.prompt.as_deref()
     }
-    /// The name typed at the save prompt, `None` while it is closed (9h §4.2):
-    /// `s` opens it with the default name typed in, `enter` asks for the write
-    /// and `esc` closes it with nothing written.
-    pub fn save_prompt(&self) -> Option<&str> {
-        self.save_prompt.as_deref()
-    }
-
     /// Whether the view holds edits that no save has written (9h §4.6):
     /// every edit, undo and redo bumps `change_count`, a save records it, and
     /// the two counters differ whenever a save is owed.
@@ -1603,62 +1634,200 @@ impl ViewState {
         self.change_count != self.saved_count
     }
 
-    /// One key while the save prompt is open (9h §4.2), read as go-to's prompt
-    /// is: every printable key extends the name, `backspace` drops the last one,
-    /// and `enter` says the name is complete — `true` means the terminal owes
-    /// the write; `esc` closes the prompt and nothing is written.
-    fn save_prompt_key(&mut self, key: Key) -> bool {
+    /// One key while the command line is open (9l §4.2), read as go-to's prompt
+    /// is: every printable key adds to the line, `q` included, `backspace` drops
+    /// the last character and on an empty line closes the line, `esc` closes it
+    /// and runs nothing, and `enter` closes it and runs the trimmed text. Every
+    /// other key changes nothing and the line stays open.
+    fn command_key(&mut self, key: Key) -> Action {
         match key {
             Key::Char(ch) => {
-                if let Some(name) = &mut self.save_prompt {
-                    name.push(ch);
+                if let Some(line) = &mut self.command {
+                    line.push(ch);
                 }
-                false
+                Action::Continue
             }
             Key::Backspace => {
-                if let Some(name) = &mut self.save_prompt {
-                    name.pop();
+                // An empty line has no character to drop: `backspace` closes the
+                // command line, as Vim does (9l §4.2).
+                let close: bool = match &mut self.command {
+                    Some(line) => line.pop().is_none(),
+                    None => false,
+                };
+                if close {
+                    self.command = None;
                 }
-                false
+                Action::Continue
             }
-            Key::Enter => true,
             Key::Esc => {
-                self.save_prompt = None;
-                false
+                self.command = None;
+                Action::Continue
             }
-            _ => false,
+            Key::Enter => {
+                let line: String = self.command.take().unwrap_or_default();
+                self.run_command(&line)
+            }
+            _ => Action::Continue,
         }
     }
 
-    /// What the terminal is asked to write (§4.2): the path typed at the save
-    /// prompt, the text for that path (§4.4), and whether an existing file may
-    /// be replaced. Only the terminal's own answer at its overwrite question
-    /// makes that `true` (§4.3), so this says `false`; the terminal owns the
-    /// refusals of §4.3, because a file is where `state.rs` does not look
-    /// (D003).
-    pub fn save_request(&self) -> (PathBuf, String, bool) {
-        let name: String = self.save_prompt.clone().unwrap_or_default();
-        let path: PathBuf = PathBuf::from(name.trim());
+    /// What a typed command line runs (9l §4.4). The text run is the trimmed
+    /// line: nothing typed runs nothing, digits alone go to that 1-based base,
+    /// and a command is one of the words `q`, `w`, `wq` and `x`, an optional `!`
+    /// straight after it, and for the three write commands an optional name after
+    /// whitespace, the name being the rest of the line trimmed. Anything else —
+    /// `q` with a name included, and `q!` with one — is named in the status line
+    /// as no command.
+    fn run_command(&mut self, line: &str) -> Action {
+        let text: &str = line.trim();
+        if text.is_empty() {
+            return Action::Continue;
+        }
+        if text.bytes().all(|byte| byte.is_ascii_digit()) {
+            return match text.parse::<u64>() {
+                Ok(number) => {
+                    self.goto_base(number);
+                    Action::Continue
+                }
+                // A number no record has a base at: no command, and the words name
+                // what was typed (§4.4).
+                Err(_problem) => self.not_a_command(text),
+            };
+        }
+        // The word, then the name if the line has one: the rest of the line after
+        // the word's first whitespace, trimmed, and no name at all when the line is
+        // just the word.
+        let (word, rest): (&str, &str) = match text.find(char::is_whitespace) {
+            Some(at) => (&text[..at], text[at..].trim()),
+            None => (text, ""),
+        };
+        let name: Option<&str> = if rest.is_empty() { None } else { Some(rest) };
+        // The `!` belongs to the word, straight after it (§4.4).
+        let (bare, bang): (&str, bool) = match word.strip_suffix('!') {
+            Some(without) => (without, true),
+            None => (word, false),
+        };
+        match bare {
+            // `q` and `q!` take no name: one typed after them makes the whole line
+            // no command (§4.4).
+            "q" if name.is_none() => self.quit_command(bang),
+            // `w` stays and `wq` leaves once the write is reported as written.
+            "w" | "wq" => self.begin_write(bang, name, bare == "wq"),
+            "x" => self.x_command(bang, name),
+            _ => self.not_a_command(text),
+        }
+    }
+
+    /// The words that name what was typed as no command (9l §4.4), and nothing
+    /// else: the command line is already closed, `enter` having run it.
+    fn not_a_command(&mut self, text: &str) -> Action {
+        self.message = Some(format!("not a command: :{text}"));
+        Action::Continue
+    }
+
+    /// What `:q`, `:q!` and a plain `q` do (9l §4.4, §4.8): a clean view leaves,
+    /// and so does `:q!` whatever is owed. A dirty view stays and names the two
+    /// commands that answer what is owed; the quit question, which only `ctrl-c`
+    /// opens now, is not part of `q`'s answer.
+    fn quit_command(&mut self, bang: bool) -> Action {
+        if bang || !self.dirty() {
+            return Action::Quit;
+        }
+        self.message = Some(String::from(
+            "edits not saved: :w writes them, :q! discards them",
+        ));
+        Action::Continue
+    }
+
+    /// What `:w`, `:w!`, `:w NAME` and their `wq` spells settle (9l §4.5): the
+    /// target, the text and whether an existing file may be replaced, kept for
+    /// `run` to ask for with `save_request`. `quit_after` is what makes it `:wq`
+    /// rather than `:w`.
+    ///
+    /// A write needs an editable record opened from a file, and a view that has
+    /// neither answers with the refusal `s` gave and asks nothing of the terminal.
+    /// The target is the name typed, or the session's last written name, or the
+    /// opened path as it was given. `replace` is true when `!` was typed, when the
+    /// target is the last written name, or when it is the opened path as given: a
+    /// file this session opened or wrote may be written again without `!`.
+    fn begin_write(&mut self, bang: bool, name: Option<&str>, quit_after: bool) -> Action {
+        if let Err(blocked) = &self.edit {
+            self.message = Some(blocked_words(blocked));
+            return Action::Continue;
+        }
+        let opened: PathBuf = match self.opened_path.clone() {
+            Some(path) => path,
+            None => {
+                self.message = Some(String::from(
+                    "save needs the record to have been opened from a file",
+                ));
+                return Action::Continue;
+            }
+        };
+        let target: PathBuf = match name {
+            Some(text) => PathBuf::from(text),
+            None => self.last_saved.clone().unwrap_or_else(|| opened.clone()),
+        };
+        let replace: bool = bang
+            || self
+                .last_saved
+                .as_ref()
+                .is_some_and(|written| *written == target)
+            || target == opened;
+        let text: String = self.stamped_text();
+        self.requested_save = Some((target, text, replace));
+        if quit_after {
+            return Action::SaveAndQuit;
+        }
+        Action::Save
+    }
+
+    /// What `:x`, `:x!` and `ZZ` do (9l §4.4): when the view is dirty they are
+    /// `:wq`, and when it is clean they leave without writing. `:Z`'s `Q` is `:q!`
+    /// and goes through `quit_command`.
+    fn x_command(&mut self, bang: bool, name: Option<&str>) -> Action {
+        if self.dirty() {
+            return self.begin_write(bang, name, true);
+        }
+        Action::Quit
+    }
+
+    /// The whole text a write hands the terminal (9h §4.4): the buffer through the
+    /// writer that fits the opened record's own format, stamped with the day the
+    /// view was given and the edits made since it was read.
+    fn stamped_text(&self) -> String {
         let buffer: &EditBuffer = self
             .edit
             .as_ref()
-            .expect("a save prompt opens only on an editable record");
+            .expect("a write is only asked for on an editable record");
         let stamp: SaveStamp = SaveStamp {
             date: save::date_from_days(self.today_days),
             version: String::from(env!("CARGO_PKG_VERSION")),
             edits: self.edits(),
         };
-        (path, save::save_text(buffer, &self.opened, &stamp), false)
+        save::save_text(buffer, &self.opened, &stamp)
     }
 
-    /// The terminal's report of what its write did (§4.5): a success names the
-    /// file and makes the view clean; a failure names the error and leaves the
-    /// view dirty for a quit to warn about. The prompt closes either way.
+    /// What the terminal is asked to write (9l §4.5): the target, the text for it
+    /// and whether an existing file may be replaced, all three settled by
+    /// `begin_write` when the command ran and kept here between `handle` and the
+    /// terminal's ask. A view with no write owed answers with an empty target,
+    /// which `save_step` refuses.
+    pub fn save_request(&self) -> (PathBuf, String, bool) {
+        self.requested_save.clone().unwrap_or_default()
+    }
+
+    /// The terminal's report of what its write did (9h §4.5, 9l §4.6): a success
+    /// names the file, makes the view clean, and stores the name as the session's
+    /// last written one, which a later write with no name typed goes to. A failure
+    /// names the error and leaves the view dirty for `q` and `:q` to refuse about.
+    /// The write request goes either way: it has been asked for.
     pub fn report_save(&mut self, path: &Path, result: Result<(), String>) {
-        self.save_prompt = None;
+        self.requested_save = None;
         match result {
             Ok(()) => {
                 self.saved_count = self.change_count;
+                self.last_saved = Some(path.to_path_buf());
                 self.message = Some(format!("saved {}", path.display()));
             }
             Err(error) => self.message = Some(error),
@@ -1879,9 +2048,10 @@ impl ViewState {
         self.message.as_deref()
     }
 
-    /// A message set by the terminal (9h §4.3): the overwrite question and the
-    /// refusals about existing files are the terminal's, because files are what
-    /// this state does not see. `report_save` replaces it either way.
+    /// A message set by the terminal (9h §4.3, 9l §4.6): what a write did to a
+    /// file, the original kept as `<file>~`, is the terminal's to say, because a
+    /// file is where this state does not look (D003). `report_save` replaces it
+    /// either way.
     pub fn set_message(&mut self, words: String) {
         self.message = Some(words);
     }
@@ -1910,7 +2080,8 @@ impl ViewState {
     /// CDS's codons, and the names of the drawn features that hold it — or the
     /// message, when one is set. While a list is open its filter is what the line
     /// says, and a refusal replaces it (8k3 §4 rule 7); while go-to is open it
-    /// says what has been typed there (8k2 §4 rule 2).
+    /// says what has been typed there (8k2 §4 rule 2), and while the command line
+    /// is open it is `:` and what has been typed there (9l §4.3).
     pub(super) fn status(&self) -> String {
         match self.editing {
             // §4 rule 5 (M9-2): while a selection is open the line names the
@@ -1977,18 +2148,16 @@ impl ViewState {
                 _ => format!("search {} {}", prompt.mode().badge(), prompt.text()),
             };
         }
-        if let Some(name) = self.save_prompt.as_ref() {
+        if let Some(line) = self.command.as_ref() {
             return match &self.message {
-                // The overwrite question is asked while the prompt is still open
-                // (`terminal.rs` 9h §4.3), so the message is what the line has to
-                // show (9h2 §4 rule 1).
+                // A message set while the command line is open shows instead, as
+                // it does in the other prompts: the command's own refusal and what
+                // the terminal has to say about a write are what the line has to
+                // show (9l §4.3, 9h2 §4 rule 1).
                 Some(words) => words.clone(),
-                // The name typed at the save prompt is shown as typed; with
-                // nothing typed yet the line says what the prompt is for instead
-                // of leaving it blank, in the shape go-to's prompt has (8k2 §4
-                // rule 2, 9h2 §4 rule 1).
-                _ if name.is_empty() => "save as".to_string(),
-                _ => format!("save as {name}"),
+                // The line is `:` and what has been typed, exactly as typed, so an
+                // empty line is the `:` on its own (§4.3).
+                _ => format!(":{line}"),
             };
         }
         let mut parts: Vec<String> = vec![format!("base {}", self.cursor + 1)];
@@ -2061,14 +2230,12 @@ impl ViewState {
             None if self.search.is_some() => {
                 "type  tab mode  backspace  enter search  esc close".to_string()
             }
+            // The command line's keys (9l §4.3), in the shape go-to's prompt has
+            // (8k2 §4 rule 2): `enter` runs what is typed, `esc` closes with
+            // nothing run, and every other printable key types into the line.
+            None if self.command.is_some() => "type  backspace  enter run  esc close".to_string(),
             // The key list has no keys to offer, because what it offers is the keys
             // (8m3 §4 rule 2).
-            // The save prompt's keys (9h2 §4 rule 2), in the shape go-to's prompt
-            // has (8k2 §4 rule 2): `enter` asks for the write, `esc` closes with
-            // nothing written, and every other printable key types into the name.
-            None if self.save_prompt.is_some() => {
-                "type  backspace  enter save  esc close".to_string()
-            }
             None if self.help => "any key closes".to_string(),
             // The row is the screen's width and no more: 72 columns at `MIN_WIDTH`
             // by `MIN_HEIGHT`, inside the 80 that
@@ -2139,7 +2306,7 @@ impl ViewState {
             "o  hide the overview strip and show it again",
             "O  show the open reading frames and hide them",
             "?  this list of every key the screen has",
-            "q  quit",
+            ":w :q :wq :x  write, quit, both (! forces)  ZZ ZQ  q quits",
         ]);
         rows.into_iter().map(str::to_string).collect()
     }
@@ -3573,7 +3740,9 @@ mod tests {
     fn blocked_record_refuses_edit_keys() {
         let path: &str = "../../tests/fixtures/genbank/synthetic.gb";
         let mut state: ViewState = ViewState::new(record(path, "synthetic"), 80, 24);
-        for ch in "viarRxdypPus".chars() {
+        // 9l §4.9 unbinds `s`, so it is not one of the editing keys and not in
+        // this list: it changes nothing, message included.
+        for ch in "viarRxdyuP".chars() {
             assert_eq!(state.handle(Key::Char(ch)), Action::Continue, "{ch}");
             assert_eq!(state.selection(), None, "{ch} selects nothing");
         }
@@ -4385,53 +4554,161 @@ mod tests {
     }
 
     // ------------------------------------------------------------------
-    // 9h §5 tests 3 to 6: the save prompt, the count a save records, and the
-    // questions `q` and `ctrl-c` ask when a save is owed.
+    // 9l §5 tests 1 to 10: the `:` command line, what it runs, `ZZ` and `ZQ`,
+    // `q` refusing while dirty, and `s` unbound. 9h's tests 4 to 6 (`ctrl-c` and
+    // the count a save records) stay below; 9h's test 3, the text a write hands
+    // the terminal, is kept inside test 2.
     // ------------------------------------------------------------------
 
-    /// The fixture record's own file, which the save tests open a view from. The
-    /// state reads no file (D003); the name is only what `s` bases its default
-    /// name on (§4.1).
+    /// The fixture record's own file, which these views are opened from. The state
+    /// writes no file (D003), so nothing in these tests touches the fixture: the
+    /// name is only what a `:w` with no name typed is asked for (9l §4.5).
     const PBR_PATH: &str = "../../tests/fixtures/genbank/raw/J01749.1.gb";
     const PBR_SAVE_PATH: &str = "../../tests/fixtures/genbank/raw/J01749.1.edited.gb";
 
-    /// 9h §5 test 3: `s` fills the default name in and `enter` asks for the
-    /// write, giving `Action::Save`; `save_request()` answers with the default
-    /// path, the text a save writes, and `replace` false.
+    /// A view on the fixture opened from its own file at 80 by 24, which is what 9l
+    /// §5 writes its tests on.
+    fn pbr_view() -> ViewState {
+        ViewState::new_for_file(pbr(), 80, 24, Path::new(PBR_PATH), 20_755)
+    }
+
+    /// Types `text` on a fresh command line, `:` first, and leaves the line open:
+    /// §5's `:w` without its `⏎`.
+    fn type_command(state: &mut ViewState, text: &str) {
+        assert_eq!(
+            state.handle(Key::Char(':')),
+            Action::Continue,
+            "`:` opens the command line and runs nothing (§4.1)"
+        );
+        for ch in text.chars() {
+            assert_eq!(
+                state.handle(Key::Char(ch)),
+                Action::Continue,
+                "`{ch}` adds to the line (§4.2)"
+            );
+        }
+    }
+
+    /// The line typed and run by `enter`, which is §5's `:w⏎`. What comes back is
+    /// `enter`'s action, every key before it having given `Action::Continue`.
+    fn run_command(state: &mut ViewState, text: &str) -> Action {
+        type_command(state, text);
+        state.handle(Key::Enter)
+    }
+
+    /// What §5 calls dirty: one `x`, which cuts the cursor's base (M9-2).
+    fn cut_one_base(state: &mut ViewState) {
+        state.handle(Key::Char('x'));
+        assert!(state.dirty(), "one cut base makes the view dirty");
+    }
+
+    /// 9l §5 test 1: `:` opens the command line on the status line with nothing
+    /// typed, the text typed follows it, `backspace` shortens it and closes it once
+    /// empty, and `esc` closes it running nothing (§4.1, §4.2, §4.3).
     #[test]
-    fn s_opens_the_prompt_and_enter_asks_to_save() {
-        let mut state: ViewState =
-            ViewState::new_for_file(pbr(), 80, 24, Path::new(PBR_PATH), 20_755);
+    fn colon_opens_the_command_line() {
+        let mut state: ViewState = pbr_view();
+        assert_eq!(
+            state.handle(Key::Char(':')),
+            Action::Continue,
+            "`:` opens the line, it runs nothing (§4.1)"
+        );
+        assert_eq!(
+            state.status(),
+            ":",
+            "nothing typed yet, so the line is the `:` on its own (§4.3)"
+        );
+        assert_eq!(
+            state.keys(),
+            "type  backspace  enter run  esc close",
+            "the key line offers the command line's keys and no others (§4.3)"
+        );
+        // Every printable key adds to the line, and the line shows the text exactly
+        // as typed (§4.2, §4.3).
+        assert_eq!(
+            state.handle(Key::Char('w')),
+            Action::Continue,
+            "`w` is text here"
+        );
+        assert_eq!(state.status(), ":w", "the text typed is on the line (§4.3)");
+        // `backspace` drops the last character, and on an empty line closes the
+        // line, which brings the view's own two lines back (§4.2, §4.3).
+        assert_eq!(state.handle(Key::Backspace), Action::Continue);
+        assert_eq!(
+            state.status(),
+            ":",
+            "one character down and the `:` is alone"
+        );
+        assert_eq!(state.handle(Key::Backspace), Action::Continue);
+        assert!(
+            state.status().starts_with("base 1"),
+            "a `backspace` on an empty line closes it: {}",
+            state.status()
+        );
+        assert_eq!(
+            state.keys(),
+            "hjkl PgUp PgDn Home End  t frames  F lanes  f c g  / n N  ? keys  q quit",
+            "and the key line is Normal's again"
+        );
+        // `esc` closes the line and runs nothing. Every key of the `:` `w` `esc`
+        // line gave `Action::Continue` (§4.2).
+        assert_eq!(state.handle(Key::Char(':')), Action::Continue);
+        assert_eq!(state.handle(Key::Char('w')), Action::Continue);
+        assert_eq!(
+            state.handle(Key::Esc),
+            Action::Continue,
+            "`esc` closes the line and runs nothing (§4.2)"
+        );
+        assert!(
+            state.status().starts_with("base 1"),
+            "nothing was run, so the line is the view's own: {}",
+            state.status()
+        );
+        // A message set while the line is open shows instead of it, as it does in
+        // the other prompts (§4.3): this is how what the terminal has to say about
+        // a write reaches the screen.
+        state.handle(Key::Char(':'));
+        state.handle(Key::Char('w'));
+        state.set_message(String::from("out.gb exists: :w! replaces it"));
+        assert_eq!(
+            state.status(),
+            "out.gb exists: :w! replaces it",
+            "the message shows over the text typed (§4.3)"
+        );
+    }
+
+    /// 9l §5 test 2, keeping 9h §5 test 3's text: `:w` asks the terminal for the
+    /// write and stays, and with no name typed the target is the opened path, which
+    /// this session may write without `!`. A name typed is the target instead; a
+    /// reported write makes the view clean, names the file on the line and stores
+    /// the name as the session's last written one; and the next nameless `:w` goes
+    /// to that name (§4.4, §4.5, §4.6).
+    #[test]
+    fn colon_w_writes_the_opened_file_then_the_last() {
+        let mut state: ViewState = pbr_view();
         assert!(!state.dirty(), "a view that has seen no keys is clean");
         assert_eq!(
-            state.handle(Key::Char('s')),
-            Action::Continue,
-            "`s` opens the prompt, it does not write"
-        );
-        assert_eq!(
-            state.save_prompt(),
-            Some("../../tests/fixtures/genbank/raw/J01749.1.edited.gb"),
-            "the opened file's directory, its stem, then `.edited.gb` (§4.1)"
-        );
-        assert_eq!(
-            state.handle(Key::Enter),
+            run_command(&mut state, "w"),
             Action::Save,
-            "`enter` asks the terminal for the write"
+            "`:w` asks the terminal for the write and stays (§4.4)"
         );
-
         let (path, text, replace): (PathBuf, String, bool) = state.save_request();
         assert_eq!(
             path,
-            PathBuf::from(PBR_SAVE_PATH),
-            "the name as `s` typed it"
+            PathBuf::from(PBR_PATH),
+            "with no name typed, the opened path (§4.5)"
         );
-        assert!(!replace, "the state never offers a replace (§4.3)");
+        assert!(
+            replace,
+            "a file this session opened may be written again without `!` (§4.5)"
+        );
 
-        // The text is the whole record through 9c3's writer. `pbr322-saved.gb`
-        // is the fixture of an unedited save that `saved.py` builds from NCBI's
-        // own file and that `genbank_write_fixtures` pins byte for byte; its
-        // stamp names `9.9.9` as the version, so the one swap this test makes is
-        // the version word, which the state takes from the crate it builds in.
+        // 9h §5 test 3's text, kept: the whole record through 9c3's writer.
+        // `pbr322-saved.gb` is the fixture of an unedited save that `saved.py`
+        // builds from NCBI's own file and that `genbank_write_fixtures` pins byte
+        // for byte; its stamp names `9.9.9` as the version, so the one swap this
+        // test makes is the version word, which the state takes from the crate it
+        // builds in.
         let fixture: String = fs::read_to_string(
             Path::new(env!("CARGO_MANIFEST_DIR"))
                 .join("../../tests/fixtures/editor/pbr322-saved.gb"),
@@ -4444,7 +4721,8 @@ mod tests {
         assert_eq!(text, expected, "the buffer as read, written as a save");
 
         // The LOCUS line's date is the day count the view was handed (20755 =
-        // 29-OCT-2026, §4.9), and the edit count names no edit yet.
+        // 29-OCT-2026, 9h §4.9), and nothing has been edited, so the stamp names no
+        // edits.
         assert!(
             text.starts_with(
                 "LOCUS       SYNPBR322               4361 bp    DNA     circular SYN 29-OCT-2026\n"
@@ -4459,160 +4737,442 @@ mod tests {
             )),
             "nothing changed, so the stamp names no edits"
         );
-    }
 
-    /// 9h2 §5 test 1: while the save prompt is open the status line says the
-    /// prompt and the name typed into it, and the key line offers the prompt's
-    /// keys (§4 rules 1 and 2).
-    #[test]
-    fn the_save_prompt_is_on_the_status_line() {
-        let mut state: ViewState =
-            ViewState::new_for_file(pbr(), 80, 24, Path::new(PBR_PATH), 20_755);
-        state.handle(Key::Char('s'));
+        // A name typed after the command is the target, and a name no write of this
+        // session has made yet is offered with `replace` false (§4.4, §4.5).
         assert_eq!(
-            state.status(),
-            format!("save as {PBR_SAVE_PATH}"),
-            "the default name `s` typed in is on the line (9h2 §4 rule 1)"
+            run_command(&mut state, "w out.gb"),
+            Action::Save,
+            "`:w NAME` writes and stays (§4.4)"
         );
-        assert_eq!(
-            state.keys(),
-            "type  backspace  enter save  esc close",
-            "the key line offers the prompt's keys and no others (9h2 §4 rule 2)"
-        );
-
-        // Every printable key is text at the prompt (9h §4.2), so `x` extends the
-        // name and the line follows it.
-        state.handle(Key::Char('x'));
+        let (named, _, replace): (PathBuf, String, bool) = state.save_request();
+        assert_eq!(named, PathBuf::from("out.gb"), "the name as typed (§4.4)");
         assert!(
-            state.status().ends_with(".edited.gbx"),
-            "the typed name is on the line as typed: {}",
-            state.status()
+            !replace,
+            "nothing has been written under that name yet (§4.5)"
         );
-        state.handle(Key::Backspace);
-        assert_eq!(
-            state.status(),
-            format!("save as {PBR_SAVE_PATH}"),
-            "`backspace` drops the name's last character, so the line is what `s` gave"
-        );
-    }
 
-    /// 9h2 §5 test 2: the overwrite question is asked while the prompt is still
-    /// open, and the message is what the status line shows (§4 rule 1).
-    #[test]
-    fn the_overwrite_question_shows_over_the_prompt() {
-        let mut state: ViewState =
-            ViewState::new_for_file(pbr(), 80, 24, Path::new(PBR_PATH), 20_755);
-        state.handle(Key::Char('s'));
-        // The words `terminal.rs` sets at its overwrite question (9h §4.3).
-        let question: String =
-            format!("{PBR_SAVE_PATH} exists: y replaces it, any other key keeps it");
-        state.set_message(question.clone());
-        assert_eq!(
-            state.status(),
-            question,
-            "the question reaches the screen instead of the half-typed name"
+        // The terminal reports the write: the view is clean, the line names the
+        // file, and the name is this session's last written one (§4.6).
+        state.report_save(Path::new("out.gb"), Ok(()));
+        assert!(
+            !state.dirty(),
+            "a reported write leaves the view clean (§4.6)"
         );
-    }
-
-    /// 9h2 §5 test 3: `esc` closes the prompt, and both lines go back to what
-    /// the view shows with nothing open (§4 rule 3).
-    #[test]
-    fn esc_takes_the_save_prompt_off_the_line() {
-        let mut state: ViewState =
-            ViewState::new_for_file(pbr(), 80, 24, Path::new(PBR_PATH), 20_755);
-        state.handle(Key::Char('s'));
         assert_eq!(
-            state.handle(Key::Esc),
-            Action::Continue,
-            "`esc` closes the prompt, it writes nothing"
+            state.message(),
+            Some("saved out.gb"),
+            "the file is named (§4.6)"
+        );
+
+        // Dirty again, and a nameless `:w` goes to that last written name, which
+        // this session wrote and may therefore write again without `!` (§4.5).
+        cut_one_base(&mut state);
+        assert_eq!(run_command(&mut state, "w"), Action::Save);
+        let (path, text, replace): (PathBuf, String, bool) = state.save_request();
+        assert_eq!(
+            path,
+            PathBuf::from("out.gb"),
+            "the session's last written name (§4.5)"
+        );
+        assert!(replace, "a file this session wrote needs no `!` (§4.5)");
+        // The text follows the buffer, so the stamp names the one edit made since
+        // the record was read, on the day the view was given (§4.4 of 9h).
+        assert!(
+            text.contains(&format!(
+                "Edited with luria {}: 1 edit.",
+                env!("CARGO_PKG_VERSION")
+            )),
+            "the cut base is in the text the write asks for"
         );
         assert!(
-            state.status().starts_with("base 1"),
-            "the line is the cursor text again: {}",
-            state.status()
-        );
-        assert_eq!(
-            state.keys(),
-            "hjkl PgUp PgDn Home End  t frames  F lanes  f c g  / n N  ? keys  q quit",
-            "and the key line is Normal's again"
+            text.contains("29-OCT-2026"),
+            "the day count the view was given is the date it stamps: {}",
+            text.lines().next().unwrap_or_default()
         );
     }
 
-    /// 9h2 §5 test 4: with the name emptied back to nothing the line says what
-    /// the prompt is for and nothing more — `save as`, no trailing space (§4
-    /// rule 1).
+    /// 9l §5 test 3: the name after a write command is the target, and the `!`
+    /// straight after the word is what makes an existing file be replaced (§4.4,
+    /// §4.5).
     #[test]
-    fn an_emptied_name_says_save_as() {
-        let mut state: ViewState =
-            ViewState::new_for_file(pbr(), 80, 24, Path::new(PBR_PATH), 20_755);
-        state.handle(Key::Char('s'));
-        let typed: usize = state
-            .save_prompt()
-            .expect("`s` types the default name in")
-            .chars()
-            .count();
-        for _ in 0..typed {
-            state.handle(Key::Backspace);
-        }
+    fn a_name_and_a_bang() {
+        let mut state: ViewState = pbr_view();
         assert_eq!(
-            state.save_prompt(),
-            Some(""),
-            "the prompt is still open, only its name is empty"
+            run_command(&mut state, "w other.gb"),
+            Action::Save,
+            "`:w NAME` writes and stays (§4.4)"
         );
+        let (path, _, replace): (PathBuf, String, bool) = state.save_request();
         assert_eq!(
-            state.status(),
-            "save as",
-            "an empty name adds nothing to the line"
+            path,
+            PathBuf::from("other.gb"),
+            "the name is the rest of the line (§4.4)"
+        );
+        assert!(
+            !replace,
+            "no `!` typed, and no name this session wrote (§4.5)"
+        );
+
+        assert_eq!(
+            run_command(&mut state, "w! other.gb"),
+            Action::Save,
+            "`:w! NAME` writes and stays (§4.4)"
+        );
+        let (path, _, replace): (PathBuf, String, bool) = state.save_request();
+        assert_eq!(
+            path,
+            PathBuf::from("other.gb"),
+            "the same target, the `!` cut off the word (§4.4)"
+        );
+        assert!(
+            replace,
+            "the `!` typed straight after the word forces it (§4.5)"
         );
     }
 
-    /// 9h §5 test 4: a clean view answers `q` by leaving at once. After one
-    /// `x` the `q` asks; any other key stays and closes the question, so `q`
-    /// opens it again and the `y` that follows answers by leaving.
+    /// 9l §5 test 4: `q` is `:q`. Clean, both leave at once. Dirty, both stay and
+    /// name the two commands that answer what is owed, and the quit question stays
+    /// `ctrl-c`'s alone (§4.4, §4.8).
     #[test]
-    fn quit_asks_when_dirty() {
-        let opened: ViewRecord = pbr();
-        // §4.7: clean means no question, so `q` leaves as it does today.
-        let mut state: ViewState = ViewState::new(opened.clone(), 80, 24);
-        assert!(!state.dirty());
+    fn q_refuses_while_dirty() {
+        let mut state: ViewState = pbr_view();
         assert_eq!(
             state.handle(Key::Char('q')),
             Action::Quit,
-            "clean: `q` leaves at once"
+            "clean: `q` leaves at once (§4.8)"
+        );
+        let mut state: ViewState = pbr_view();
+        assert_eq!(
+            run_command(&mut state, "q"),
+            Action::Quit,
+            "clean: `:q` leaves at once (§4.4)"
         );
 
-        // One cut base leaves the view dirty, so `q` asks rather than leaves.
-        let mut state: ViewState = ViewState::new(opened, 80, 24);
-        state.handle(Key::Char('x'));
-        assert!(state.dirty(), "one cut base makes the view dirty");
+        cut_one_base(&mut state);
         assert_eq!(
             state.handle(Key::Char('q')),
             Action::Continue,
-            "dirty: `q` does not leave, it asks"
+            "dirty: `q` stays (§4.8)"
+        );
+        assert_eq!(
+            state.message(),
+            Some("edits not saved: :w writes them, :q! discards them"),
+            "the line names what to type (§4.4)"
+        );
+        // The quit question does not open for `q`: another `q` refuses again rather
+        // than being answered, and a `y` is the yank key and not an answer (§4.8).
+        assert_eq!(
+            state.handle(Key::Char('q')),
+            Action::Continue,
+            "another `q` refuses again"
+        );
+        assert_eq!(
+            state.handle(Key::Char('y')),
+            Action::Continue,
+            "`y` is the yank key here"
+        );
+        assert!(state.dirty(), "and the edits are still there");
+        assert_eq!(
+            run_command(&mut state, "q"),
+            Action::Continue,
+            "dirty: `:q` stays (§4.4)"
+        );
+        assert_eq!(
+            state.message(),
+            Some("edits not saved: :w writes them, :q! discards them"),
+            "the same words (§4.4)"
+        );
+        assert_eq!(
+            run_command(&mut state, "q!"),
+            Action::Quit,
+            "`:q!` leaves (§4.4)"
+        );
+        assert!(
+            state.dirty(),
+            "leaving discards the edits, it does not undo them"
+        );
+    }
+
+    /// 9l §5 test 5: dirty, `:wq` and `:x` both ask for the write, and the session
+    /// leaves only once the terminal reports it written. Clean, `:x` leaves without
+    /// writing and `:wq` asks for the write anyway (§4.4, §4.6).
+    #[test]
+    fn wq_and_x() {
+        let mut state: ViewState = pbr_view();
+        cut_one_base(&mut state);
+        assert_eq!(
+            run_command(&mut state, "wq"),
+            Action::SaveAndQuit,
+            "`:wq` asks for the write and leaves once it is written (§4.4)"
+        );
+        let (path, _, replace): (PathBuf, String, bool) = state.save_request();
+        assert_eq!(
+            path,
+            PathBuf::from(PBR_PATH),
+            "the write `:wq` asks for is `:w`'s (§4.5)"
+        );
+        assert!(replace, "which is the opened file here (§4.5)");
+        assert!(
+            state.dirty(),
+            "the ask is not the write: only `report_save` makes the view clean (§4.6)"
+        );
+
+        let mut state: ViewState = pbr_view();
+        cut_one_base(&mut state);
+        assert_eq!(
+            run_command(&mut state, "x"),
+            Action::SaveAndQuit,
+            "a dirty `:x` is `:wq` (§4.4)"
+        );
+
+        // Clean: `:x` leaves and asks the terminal for nothing, while `:wq` writes
+        // whatever the state of the edits is (§4.4).
+        let mut state: ViewState = pbr_view();
+        assert_eq!(
+            run_command(&mut state, "x"),
+            Action::Quit,
+            "a clean `:x` writes nothing (§4.4)"
+        );
+        assert_eq!(
+            state.save_request(),
+            (PathBuf::new(), String::new(), false),
+            "nothing is asked of the terminal (§4.5)"
+        );
+        assert_eq!(
+            run_command(&mut state, "wq"),
+            Action::SaveAndQuit,
+            "`:wq` writes even a clean view (§4.4)"
+        );
+    }
+
+    /// 9l §5 test 6: `ZZ` is `:x` and `ZQ` is `:q!`, and any other key after `Z`
+    /// cancels the wait and does nothing, not even what it does alone (§4.8).
+    /// `ctrl-c` is the exception 9h §4.7 keeps: it clears the wait and asks or
+    /// leaves as it always does (9l §4.8).
+    #[test]
+    fn zz_and_zq() {
+        let mut state: ViewState = pbr_view();
+        cut_one_base(&mut state);
+        state.handle(Key::Char('Z'));
+        assert_eq!(
+            state.handle(Key::Char('Z')),
+            Action::SaveAndQuit,
+            "dirty `ZZ` is a dirty `:x`, which is `:wq` (§4.4, §4.8)"
+        );
+        let mut state: ViewState = pbr_view();
+        cut_one_base(&mut state);
+        state.handle(Key::Char('Z'));
+        assert_eq!(
+            state.handle(Key::Char('Q')),
+            Action::Quit,
+            "`ZQ` is `:q!` and leaves whatever is owed (§4.4, §4.8)"
+        );
+        assert!(
+            state.dirty(),
+            "leaving discards the edits, it does not undo them"
+        );
+
+        // Clean: `ZZ` leaves and asks for no write (§4.4).
+        let mut state: ViewState = pbr_view();
+        state.handle(Key::Char('Z'));
+        assert_eq!(
+            state.handle(Key::Char('Z')),
+            Action::Quit,
+            "clean `ZZ` is a clean `:x` (§4.4)"
+        );
+        assert_eq!(
+            state.save_request(),
+            (PathBuf::new(), String::new(), false),
+            "and the terminal is asked for nothing (§4.5)"
+        );
+
+        // `j` on its own moves the cursor down a line, which is what makes the next
+        // part a test: after `Z` the key is dropped, and the cursor is where it was
+        // (§4.8).
+        let mut moved: ViewState = pbr_view();
+        moved.handle(Key::Char('j'));
+        assert!(
+            !moved.status().starts_with("base 1 "),
+            "`j` alone moves the cursor down: {}",
+            moved.status()
+        );
+        let mut state: ViewState = pbr_view();
+        state.handle(Key::Char('Z'));
+        assert_eq!(
+            state.handle(Key::Char('j')),
+            Action::Continue,
+            "a key that is neither `Z` nor `Q` cancels the wait (§4.8)"
+        );
+        assert_eq!(
+            state.cursor(),
+            0,
+            "and is dropped: the cursor is where it was"
+        );
+        state.handle(Key::Char('Z'));
+        assert_eq!(
+            state.handle(Key::Char('q')),
+            Action::Continue,
+            "a dropped key does not quit either, not even what it does alone (§4.8)"
+        );
+
+        // `ctrl-c` is not swallowed by the wait: it clears it and then does what it
+        // always does, so clean it leaves (9h §4.7, 9l §4.8).
+        let mut state: ViewState = pbr_view();
+        state.handle(Key::Char('Z'));
+        assert_eq!(
+            state.handle(Key::CtrlC),
+            Action::Quit,
+            "clean: `Z` then `ctrl-c` leaves (§4.8)"
+        );
+
+        // Dirty, the first `ctrl-c` opens the "edits not saved" question, and the
+        // second one leaves — the same two keys as without any `Z` (9h §4.8).
+        let mut state: ViewState = pbr_view();
+        cut_one_base(&mut state);
+        state.handle(Key::Char('Z'));
+        assert_eq!(
+            state.handle(Key::CtrlC),
+            Action::Continue,
+            "dirty: `Z` then `ctrl-c` does not quit (§4.8)"
+        );
+        assert!(
+            state.quit_question,
+            "the question is open, which the wait did not swallow (9h §4.8)"
         );
         assert!(
             state
                 .message()
                 .is_some_and(|message| message.contains("edits not saved")),
-            "the question names what is at stake: {:?}",
+            "and the line says so: {:?}",
             state.message()
         );
         assert_eq!(
-            state.handle(Key::Char('n')),
-            Action::Continue,
-            "any key that is not `y` stays"
+            state.handle(Key::CtrlC),
+            Action::Quit,
+            "a second `ctrl-c` leaves (9h §4.8)"
         );
-        assert!(state.dirty(), "staying leaves the edits alone");
-        // The question closed, so `q` asks again and the `y` now answers it.
+    }
+
+    /// 9l §5 test 7: digits alone on the command line are a base, and `goto_base`
+    /// answers as it does at the go-to prompt (8k2 §4 rule 3, D057).
+    #[test]
+    fn colon_number_goes_to_base() {
+        let mut state: ViewState = pbr_view();
         assert_eq!(
-            state.handle(Key::Char('q')),
+            run_command(&mut state, "123"),
             Action::Continue,
-            "`q` asks the question again"
+            "a number moves the cursor and stays (§4.4)"
         );
-        assert_eq!(state.handle(Key::Char('y')), Action::Quit, "`y` leaves");
+        assert_eq!(
+            state.cursor(),
+            122,
+            "123 is the 1-based base, zero-based 122 (§4.4)"
+        );
         assert!(
-            state.dirty(),
-            "leaving throws the edits away, it does not undo"
+            state.status().starts_with("base 123"),
+            "the status line counts from 1: {}",
+            state.status()
+        );
+        assert_eq!(
+            state.keys(),
+            "hjkl PgUp PgDn Home End  t frames  F lanes  f c g  / n N  ? keys  q quit",
+            "and the command line is closed"
+        );
+    }
+
+    /// 9l §5 test 8: a command is an exact word, so anything else is named on the
+    /// line as no command — and `q` with a name typed after it is no command, since
+    /// `q` takes no name (§4.4).
+    #[test]
+    fn unknown_commands_are_named() {
+        let mut state: ViewState = pbr_view();
+        assert_eq!(
+            run_command(&mut state, "foo"),
+            Action::Continue,
+            "no command moves nothing (§4.4)"
+        );
+        assert_eq!(
+            state.message(),
+            Some("not a command: :foo"),
+            "the words name what was typed (§4.4)"
+        );
+        assert_eq!(
+            run_command(&mut state, "q now"),
+            Action::Continue,
+            "`q` takes no name (§4.4)"
+        );
+        assert_eq!(
+            state.message(),
+            Some("not a command: :q now"),
+            "the whole line is named, the name included (§4.4)"
+        );
+        assert_eq!(
+            run_command(&mut state, "q! now"),
+            Action::Continue,
+            "`q!` takes no name either (§4.4)"
+        );
+        assert_eq!(
+            state.message(),
+            Some("not a command: :q! now"),
+            "the `!` is named with it (§4.4)"
+        );
+    }
+
+    /// 9l §5 test 9: `s` is unbound in `Normal` (9l §4.9). It edits nothing, asks
+    /// for no write, and leaves the two lines as they were.
+    #[test]
+    fn s_is_unbound() {
+        let mut state: ViewState = pbr_view();
+        let before: String = state.status();
+        assert_eq!(
+            state.handle(Key::Char('s')),
+            Action::Continue,
+            "`s` does nothing (§4.9)"
+        );
+        assert!(!state.dirty(), "and no edit was made");
+        assert_eq!(
+            state.save_request(),
+            (PathBuf::new(), String::new(), false),
+            "and no write is asked for"
+        );
+        assert_eq!(
+            state.status(),
+            before,
+            "the status line is what it was before the key"
+        );
+        assert_eq!(
+            state.keys(),
+            "hjkl PgUp PgDn Home End  t frames  F lanes  f c g  / n N  ? keys  q quit",
+            "and the key line offers no save prompt"
+        );
+    }
+
+    /// 9l §5 test 10: a view with no file behind it opens the command line like any
+    /// other, and a write says what it needs instead of asking the terminal for one
+    /// (§4.1, §4.5). `:q` leaves from that view as it does from any other (§4.4).
+    #[test]
+    fn a_write_needs_a_file() {
+        let mut state: ViewState = ViewState::new(pbr(), 80, 24);
+        assert_eq!(
+            run_command(&mut state, "w"),
+            Action::Continue,
+            "a view with no file behind it asks the terminal for nothing (§4.5)"
+        );
+        assert_eq!(
+            state.message(),
+            Some("save needs the record to have been opened from a file"),
+            "the refusal `s` used to give is the message (§4.5)"
+        );
+        assert_eq!(
+            state.save_request(),
+            (PathBuf::new(), String::new(), false),
+            "and nothing is owed (§4.5)"
+        );
+        assert_eq!(
+            run_command(&mut state, "q"),
+            Action::Quit,
+            "`:q` leaves from it (§4.4)"
         );
     }
 

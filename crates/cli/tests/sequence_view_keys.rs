@@ -67,7 +67,7 @@ const KEYS: [&str; 18] = [
     "o",
     "O",
     "?",
-    "q",
+    ":w :q :wq :x",
 ];
 
 /// pBR322: 4361 bp, circular by its own declaration, three CDSs of which two are

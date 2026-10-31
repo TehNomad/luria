@@ -1,12 +1,11 @@
-//! The three pure parts of a save (contract 9h §4.1, §4.4, §4.9; plan M9-7,
-//! M9-11, M9-15, M9-16): the default name the `s` prompt starts with, the date
-//! the saved file stamps, and the text the save writes.
+//! The two pure parts of a save (contract 9h §4.4, §4.9; plan M9-11, M9-15,
+//! M9-16): the date the saved file stamps, and the text the save writes.
 //!
-//! Nothing here touches a filesystem: `super::state` asks for a write through
-//! `save_request`, `super::terminal` performs it with `crate::write::write_text`,
-//! and the opened path and today's day count come from there (D003). What this
-//! module answers is the name and the text, so the state can fill in a prompt
-//! without ever reading a directory.
+//! Nothing here touches a filesystem: `super::state` settles on a target and a
+//! text through `save_request`, `super::terminal` performs the write with
+//! `crate::write::write_text`, and the opened path and today's day count come
+//! from there (D003). What this module answers is the text, so the state can say
+//! what a write holds without ever reading a directory.
 //!
 //! The date is computed from a day count rather than read from a clock: §4.9
 //! asks for a pure `DD-MMM-YYYY` conversion, and a test that fixes the day gets
@@ -20,34 +19,6 @@ use luria_core::genbank_write::write_genbank;
 use luria_core::genbank_write::SaveStamp;
 use luria_core::view_record::RecordFormat;
 use luria_core::view_record::ViewRecord;
-use std::path::Path;
-use std::path::PathBuf;
-
-/// The name a save writes to by default (§4.1): `<stem>.edited.gb` for a
-/// GenBank record and `<stem>.edited.fa` for a FASTA one, in the opened file's
-/// own directory. The stem is the opened file's name cut at its last
-/// extension, which is `Path::file_stem`'s answer: `a.b.gb` stems to `a.b`.
-///
-/// The answer keeps the opened path's own directory and spelling, so what the
-/// prompt shows is a name relative to the opened path as it was typed.
-pub fn default_name(opened: &Path, format: RecordFormat) -> PathBuf {
-    // A path the reader hands this function always has a file stem: `None` is
-    // only `..` and the empty path, and `open_record` refuses both. The
-    // fallback makes the function total rather than leaving the caller to
-    // invent a name of its own.
-    let stem: String = opened.file_stem().map_or_else(
-        || String::from("record"),
-        |raw| raw.to_string_lossy().into_owned(),
-    );
-    let suffix: &str = match format {
-        RecordFormat::GenBank => ".edited.gb",
-        RecordFormat::Fasta => ".edited.fa",
-    };
-    opened
-        .parent()
-        .unwrap_or_else(|| Path::new(""))
-        .join(format!("{stem}{suffix}"))
-}
 
 /// The months by the three-letter uppercase name the LOCUS line writes them
 /// with (M9-15), index 0 being January, so a month number is the index minus
@@ -124,10 +95,10 @@ fn civil_from_days(days: u64) -> (i64, usize, u64) {
 /// FASTA file, through `render_fasta` of the buffer's name and bases.
 ///
 /// The two failures each arm could in principle meet are answered with an
-/// `expect` naming its own invariant, because the view can only open a save
-/// prompt on a record it already read: a GenBank record keeps the header it was
-/// read with (the format is the reader's sniff), and `to_sequence` re-normalizes
-/// bases the editor only ever took from the DNA alphabet.
+/// `expect` naming its own invariant, because the view can only write a record it
+/// already read: a GenBank record keeps the header it was read with (the format is
+/// the reader's sniff), and `to_sequence` re-normalizes bases the editor only ever
+/// took from the DNA alphabet.
 pub fn save_text(buffer: &EditBuffer, opened: &ViewRecord, stamp: &SaveStamp) -> String {
     match opened.format {
         RecordFormat::GenBank => {
@@ -149,9 +120,6 @@ pub fn save_text(buffer: &EditBuffer, opened: &ViewRecord, stamp: &SaveStamp) ->
 #[cfg(test)]
 mod tests {
     use super::date_from_days;
-    use super::default_name;
-    use luria_core::view_record::RecordFormat;
-    use std::path::Path;
 
     /// §5 test 1: the four days the conversion is pinned to, with the leap day
     /// in a century that keeps it, the day before a year boundary, and the
@@ -166,28 +134,5 @@ mod tests {
         );
         assert_eq!(date_from_days(10956), "31-DEC-1999", "the last day of 1999");
         assert_eq!(date_from_days(0), "01-JAN-1970", "day zero is the epoch");
-    }
-
-    /// §5 test 2: the stem is the opened file's name cut at its last extension,
-    /// and the directory is the opened path's own.
-    #[test]
-    fn default_names_cut_at_the_last_extension_and_keep_the_directory() {
-        assert_eq!(
-            default_name(Path::new("dir/pbr322.gb"), RecordFormat::GenBank),
-            Path::new("dir/pbr322.edited.gb"),
-            "GenBank in, GenBank out beside it"
-        );
-        // A FASTA file takes the shorter suffix, and a bare name stays bare: no
-        // directory is invented for a file that was opened with none.
-        assert_eq!(
-            default_name(Path::new("x.fasta"), RecordFormat::Fasta),
-            Path::new("x.edited.fa")
-        );
-        // Only the last extension comes off, so a name with two dots keeps the
-        // first of them.
-        assert_eq!(
-            default_name(Path::new("a.b.gb"), RecordFormat::GenBank),
-            Path::new("a.b.edited.gb")
-        );
     }
 }

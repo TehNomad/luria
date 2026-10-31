@@ -15,10 +15,11 @@
 //! dispatch, not this module's, and 8h is the caller this signature is written
 //! for.
 //!
-//! The one thing here that writes is 9h's save, and it writes only through
-//! `crate::write::write_text`, the single writer (§8). Nothing here decides what a
-//! key means: `super::state::ViewState::handle` does, and this module only names
-//! the key that was pressed and passes the answer on. Bracketed paste is
+//! The one thing here that writes is the view's save (9h, 9l), and every write
+//! it makes - the backup of the opened file's original included - goes through
+//! `crate::write::write_text`, the single writer (§8, C-1). Nothing here decides
+//! what a key means: `super::state::ViewState::handle` does, and this module only
+//! names the key that was pressed and passes the answer on. Bracketed paste is
 //! switched on and off here as well (9f §3 item 2), since only the terminal knows
 //! a paste is one; what a paste means stays `state::paste_text`'s rule.
 
@@ -39,6 +40,7 @@ use crossterm::execute;
 use luria_core::view_record::ViewRecord;
 use ratatui::layout::Size;
 use std::ffi::OsStr;
+use std::ffi::OsString;
 use std::fs;
 use std::io::stdout;
 use std::path::Path;
@@ -114,22 +116,28 @@ fn today_days() -> u64 {
     }
 }
 
-/// The whole save step (§4.3), split from the key loop so a test can reach it
+/// The whole write step (9l §4.7), split from the key loop so a test can reach it
 /// without a terminal (9h §5 test 7): `opened` names the file the view opened,
-/// `target` the name typed at the prompt, and `text` is the text to write.
+/// `target` the name the command settled on, and `text` is the text to write.
+/// `replace` says whether an existing name other than the opened file may be
+/// written again, and `backed_up` says whether this session has kept the opened
+/// file's original yet - the session owns that flag, so the original is kept once
+/// however many writes follow (§4.6).
 ///
-/// An empty name refuses. A name that is the opened file refuses: the two paths
-/// are canonicalized when both exist, which catches a symlink to the opened
-/// file, and compared as they were given otherwise. Any other existing name is
-/// asked about through `ask_overwrite`, whose `y` answer is `true` — that write
-/// goes with `replace`; any other key keeps the file. A name no file yet has is
-/// written with `replace: false`. Every write is `write_text`'s, the one writer.
+/// An empty target refuses. A target that is the opened file - the two paths
+/// canonicalize to the same file, and compare as they were given otherwise - is
+/// written through [`write_opened`]. Any other existing name refuses unless
+/// `replace` is true. A name nothing holds yet is written with `replace: false`,
+/// as 9h had it. The returned `Option` is the backup this call made, `None` when
+/// it made none. Every write is `write_text`'s, the one writer: the backup too,
+/// since `fs::copy` would write through a link sitting at the backup's name.
 pub fn save_step(
     opened: &Path,
     target: &Path,
     text: &str,
-    ask_overwrite: &mut dyn FnMut() -> bool,
-) -> Result<(), String> {
+    replace: bool,
+    backed_up: &mut bool,
+) -> Result<Option<PathBuf>, String> {
     if target.as_os_str().is_empty() {
         return Err(String::from("save: an empty name writes nothing"));
     }
@@ -139,20 +147,89 @@ pub fn save_step(
         _ => opened == target,
     };
     if same {
-        return Err(String::from("luria never writes over the file it opened"));
+        return write_opened(opened, text, backed_up);
     }
-    let replace: bool = if target.exists() {
-        if !ask_overwrite() {
+    // Steps 3 and 4: an existing name needs `replace` to be written again, and a
+    // name nothing holds yet is written as a new one, `replace: false` whatever
+    // the command typed.
+    let exists: bool = target.exists();
+    if exists && !replace {
+        return Err(format!("{} exists: :w! replaces it", target.display()));
+    }
+    write_text(target, text, exists && replace)
+        .map_err(|problem| format!("{}: {problem}", target.display()))?;
+    Ok(None)
+}
+
+/// The opened file itself being written (9l §4.7 step 2): its original is kept
+/// once a session as `<opened>~`, and then the opened path is written as itself.
+/// The path is looked at with `symlink_metadata` first, because a name holding a
+/// link is not the file to write: C-1 holds on the opened side as it does
+/// elsewhere. The returned `Option` is the backup this call made, `None` when an
+/// earlier write of this session made it.
+fn write_opened(
+    opened: &Path,
+    text: &str,
+    backed_up: &mut bool,
+) -> Result<Option<PathBuf>, String> {
+    match fs::symlink_metadata(opened) {
+        // The opened path holds a regular file: that file is the one to write.
+        Ok(found) if found.is_file() => {}
+        // A link, or a name holding nothing at all: writing it would write through
+        // the link or make the link into a file, so nothing is written and the
+        // words say where to write instead.
+        _ => {
             return Err(format!(
-                "{} exists: kept, nothing written",
-                target.display()
+                "{} is a link, not a file: :w NAME writes elsewhere",
+                opened.display()
             ));
         }
-        true
-    } else {
-        false
-    };
-    write_text(target, text, replace).map_err(|problem| format!("{}: {problem}", target.display()))
+    }
+    let backup: PathBuf = backup_name(opened);
+    let mut made: Option<PathBuf> = None;
+    if !*backed_up {
+        // The copy of the original: read from the file the view opened, and
+        // written as a name that may be replaced if something already holds it. A
+        // failure of either half refuses naming the backup, and writes nothing.
+        match fs::read_to_string(opened) {
+            Ok(original) => {
+                if let Err(problem) = write_text(&backup, &original, true) {
+                    return Err(format!("{}: {problem}; nothing written", backup.display()));
+                }
+                *backed_up = true;
+                made = Some(backup.clone());
+            }
+            Err(problem) => {
+                return Err(format!("{}: {problem}; nothing written", backup.display()));
+            }
+        }
+    }
+    // The opened path itself, written as itself: `replace` is true because the
+    // name is taken, and `write_text` still looks at the path itself, so nothing
+    // goes through a link that leads here.
+    write_text(opened, text, true).map_err(|problem| format!("{}: {problem}", opened.display()))?;
+    Ok(made)
+}
+
+/// The name the opened file's original is kept under (9l §4.6, §4.7): the opened
+/// path's own file name with `~` appended, in the opened path's own directory, so
+/// `dir/a.gb` keeps its original at `dir/a.gb~`.
+fn backup_name(opened: &Path) -> PathBuf {
+    match opened.file_name() {
+        Some(raw) => {
+            let mut name: OsString = raw.to_os_string();
+            name.push("~");
+            opened.with_file_name(name)
+        }
+        // A path with no file name of its own - `/`, `..`, the empty path: the `~`
+        // goes on the end of what was given instead. `open_record` refuses such a
+        // path, so this arm only keeps the function total.
+        None => {
+            let mut name: OsString = opened.as_os_str().to_os_string();
+            name.push("~");
+            PathBuf::from(name)
+        }
+    }
 }
 
 /// Open the view on `record`, draw it until the view asks to leave, and restore
@@ -163,8 +240,9 @@ pub fn save_step(
 /// and re-laid out at every `Event::Resize` (§4 rule 14), which is the only way a
 /// size change reaches it: no key asks for a size. The record is moved into the
 /// view, so a session holds no reference to a caller's borrow. `opened` is the
-/// path the record was read from: the view names its save prompt after it
-/// (9h §4.1), and the terminal never writes it.
+/// path the record was read from: the view names its writes after it (9l §4.5),
+/// and this session writes that path only after keeping its original as
+/// `<opened>~` once a session (§4.6).
 pub fn run(record: ViewRecord, opened: &Path) -> std::io::Result<()> {
     let mut terminal = match ratatui::try_init() {
         Ok(opened) => opened,
@@ -217,6 +295,11 @@ pub fn run(record: ViewRecord, opened: &Path) -> std::io::Result<()> {
     // (8m5 §4 rule 5), which is decided before the first draw: no key asks.
     state.set_colours(!no_color(std::env::var_os("NO_COLOR").as_deref()));
 
+    // Whether this session has kept the opened file's original yet (9l §4.6,
+    // §4.7): the flag lives as long as the session, so the copy is made once and
+    // no later write replaces it with what has been edited since.
+    let mut backed_up: bool = false;
+
     let mut looped: std::io::Result<()> = Ok(());
     loop {
         if let Err(problem) = terminal.draw(|frame| screen::draw(frame, &state)) {
@@ -236,42 +319,32 @@ pub fn run(record: ViewRecord, opened: &Path) -> std::io::Result<()> {
                 if action == Action::Quit {
                     break;
                 }
-                // 9h §4.2, §4.3, §4.5: the write itself is the terminal's, where
-                // files are; the state only named the name and the text.
-                if action == Action::Save {
-                    let (path, text, _): (PathBuf, String, bool) = state.save_request();
-                    let mut io_problem: Option<std::io::Error> = None;
-                    let mut question = || {
-                        state.set_message(format!(
-                            "{} exists: y replaces it, any other key keeps it",
-                            path.display()
-                        ));
-                        if let Err(problem) = terminal.draw(|frame| screen::draw(frame, &state)) {
-                            io_problem = Some(problem);
-                            return false;
-                        }
-                        match read() {
-                            Ok(Event::Key(answer)) if answer.kind == KeyEventKind::Press => {
-                                key_of(answer) == Key::Char('y')
+                // 9l §4.6: the write itself is the terminal's, where files are;
+                // the state only settled on the target, the text and whether an
+                // existing name may be replaced. `SaveAndQuit` leaves the session
+                // once the write is reported as written, as `Quit` does; a failure
+                // stays, the error being the message `report_save` set.
+                if action == Action::Save || action == Action::SaveAndQuit {
+                    let (path, text, replace): (PathBuf, String, bool) = state.save_request();
+                    let outcome: Result<Option<PathBuf>, String> =
+                        save_step(opened, &path, &text, replace, &mut backed_up);
+                    match outcome {
+                        Ok(backup) => {
+                            state.report_save(&path, Ok(()));
+                            // The write that kept the original says where the copy
+                            // went, over the line `report_save` wrote (§4.6).
+                            if let Some(kept) = backup {
+                                state.set_message(format!(
+                                    "saved {}, the original kept as {}",
+                                    path.display(),
+                                    kept.display()
+                                ));
                             }
-                            Ok(Event::Key(_)) => false,
-                            Ok(_event) => false,
-                            Err(problem) => {
-                                io_problem = Some(problem);
-                                false
+                            if action == Action::SaveAndQuit {
+                                break;
                             }
                         }
-                    };
-                    let outcome: Result<(), String> =
-                        save_step(opened, &path, &text, &mut question);
-                    state.report_save(&path, outcome);
-                    if let Some(problem) = io_problem.take() {
-                        // A draw or a `read` failed while the overwrite question
-                        // was being asked: the session cannot carry on, and the
-                        // error goes back to `main` rather than being dropped
-                        // (9h §4.5's message is already on the screen).
-                        looped = Err(problem);
-                        break;
+                        Err(problem) => state.report_save(&path, Err(problem)),
                     }
                 }
             }
