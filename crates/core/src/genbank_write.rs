@@ -14,7 +14,10 @@
 use crate::edit_buffer::EditBuffer;
 use crate::edit_buffer::EditFeature;
 use crate::edit_location::write_edit_location;
+use crate::genbank::GenBankFeature;
+use crate::genbank::GenBankQualifier;
 use crate::genbank::GenBankRecord;
+use std::collections::HashMap;
 
 /// The molecule type the LOCUS line falls back to when the opened record
 /// carries none and has a bp count and topology (M9-15).
@@ -233,11 +236,21 @@ fn last_of_comment_block(lines: &[String]) -> Option<usize> {
 /// The FEATURES line, then one block per buffer feature, in buffer order.
 /// `used` marks the opened features already taken by a buffer feature, so a
 /// feature the buffer has already consumed is not matched again (§4.3).
+///
+/// A buffer feature is matched with the opened feature its key line was read
+/// from, by the line it stood on: one map from line to index in the opened
+/// table, built once for the save. It used to search every opened feature that
+/// was still unused for each buffer feature, which on a record with thousands
+/// of features is a quadratic scan of the table per save (contract 9r §3.5).
 fn feature_lines(buffer: &EditBuffer, opened: &GenBankRecord) -> Vec<String> {
     let mut out: Vec<String> = vec![FEATURES_LINE.to_string()];
+    let mut by_line: HashMap<u64, usize> = HashMap::new();
+    for (index, found) in opened.feature_slice().iter().enumerate() {
+        by_line.insert(found.line(), index);
+    }
     let mut used: Vec<bool> = vec![false; opened.feature_slice().len()];
     for feature in buffer.features() {
-        match unchanged_feature(feature, opened, &mut used) {
+        match unchanged_feature(feature, opened, &by_line, &mut used) {
             Some(lines) => out.extend(lines),
             None => out.extend(new_feature_lines(feature)),
         }
@@ -245,37 +258,33 @@ fn feature_lines(buffer: &EditBuffer, opened: &GenBankRecord) -> Vec<String> {
     out
 }
 
-/// The first opened feature that is not yet used, that the buffer feature
-/// was read from and that no edit has changed (M9-7): the same key, a
-/// `location()` equal to the buffer's kept `location_text`, and the same
-/// `(name, value)` qualifiers in the same order. The opened one taken is
-/// marked in `used`, and its `lines()` are written verbatim; `None` says the
-/// buffer feature is changed and has to be written fresh.
+/// The opened feature the buffer feature was read from, if no edit has changed
+/// it (M9-7): the one the file's table has on the buffer's own key line, with
+/// the same key, a `location()` equal to the buffer's kept `location_text`, and
+/// the same `(name, value)` qualifiers in the same order. The opened one taken
+/// is marked in `used`, and its `lines()` are written verbatim; `None` says the
+/// buffer feature is changed, or stands on a line no opened feature does, and
+/// has to be written fresh.
 fn unchanged_feature(
     feature: &EditFeature,
     opened: &GenBankRecord,
+    by_line: &HashMap<u64, usize>,
     used: &mut [bool],
 ) -> Option<Vec<String>> {
     let text: &str = feature.location_text.as_deref()?;
-    let at: usize = opened
-        .feature_slice()
-        .iter()
-        .zip(used.iter())
-        .position(|(found, used)| {
-            !*used
-                && found.key() == feature.key
-                && found.location() == text
-                && found
-                    .qualifiers()
-                    .iter()
-                    .map(|qualifier| (qualifier.name(), qualifier.value()))
-                    .eq(feature
-                        .qualifiers
-                        .iter()
-                        .map(|(name, value)| (name.clone(), value.clone())))
-        })?;
+    let at: usize = *by_line.get(&feature.line)?;
+    if used[at] {
+        return None;
+    }
+    let found: &GenBankFeature = &opened.feature_slice()[at];
+    if found.key() != feature.key
+        || found.location() != text
+        || !same_qualifiers(found, feature.qualifiers.as_slice())
+    {
+        return None;
+    }
     used[at] = true;
-    let lines: Vec<String> = opened.feature_slice()[at].lines();
+    let lines: Vec<String> = found.lines();
     if lines.is_empty() {
         // An opened feature with no lines is not written verbatim; write
         // the buffer feature fresh instead.
@@ -283,6 +292,17 @@ fn unchanged_feature(
     } else {
         Some(lines)
     }
+}
+
+/// The opened feature's qualifiers and the buffer's, the same `(name, value)`
+/// pairs in the same order (M9-7). The buffer's side is read by reference.
+fn same_qualifiers(found: &GenBankFeature, qualifiers: &[(String, Option<String>)]) -> bool {
+    let read: Vec<GenBankQualifier> = found.qualifiers();
+    read.len() == qualifiers.len()
+        && read
+            .iter()
+            .zip(qualifiers.iter())
+            .all(|(read, (name, value))| read.name() == *name && read.value() == *value)
 }
 
 /// A changed feature written fresh: its key line, then each of the buffer's

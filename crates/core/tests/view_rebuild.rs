@@ -187,6 +187,10 @@ fn an_unedited_rebuild_is_the_opened_record() {
             rebuilt.sequence, opened.sequence,
             "{label}: the sequence changed"
         );
+        assert!(
+            rebuilt.genbank.is_none(),
+            "{label}: a rebuilt record keeps a GenBank record nothing reads"
+        );
         check_features_unchanged(&opened, &rebuilt, &label);
         check_cdss_unchanged(&opened, &rebuilt, &label);
     }

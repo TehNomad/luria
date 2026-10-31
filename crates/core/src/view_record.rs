@@ -466,11 +466,15 @@ fn check_ceiling(sequence: &Sequence, identifier: &str) -> Result<(), DomainErro
 /// rebuilt after an edit is listed and judged by the exact same code the view
 /// ran on open (M9-6 i): no CDS rule is applied twice, and none is re-done
 /// with the editor's rules.
+///
+/// `sequence` is `record`'s own sequence, taken by the caller rather than read
+/// off the record, and handed back on the way out: a caller that owns one copy
+/// keeps it instead of making a second one for the `ViewRecord` (contract 9r).
 fn genbank_view(
     record: &GenBankRecord,
+    sequence: Sequence,
     identifier: &str,
 ) -> Result<(Sequence, Vec<ViewFeature>, Vec<ViewCds>), DomainError> {
-    let sequence: Sequence = record.sequence();
     // Step 3, before steps 5 and 6 parse a feature or import a CDS (D048).
     check_ceiling(&sequence, identifier)?;
     let features: Vec<ViewFeature> = view_features(record, sequence.length(), sequence.topology());
@@ -518,7 +522,11 @@ pub fn open_record(name: Identifier, text: String) -> Result<ViewRecord, DomainE
         // A GenBank record's topology came from its LOCUS line (D036, D041).
         RecordFormat::GenBank => {
             let record: GenBankRecord = read_genbank(name, text)?;
-            let (sequence, features, cdss) = genbank_view(&record, &identifier)?;
+            // The record opened keeps the sequence it read, and the view is
+            // given a copy of it, as it always was (contract 9r §3.4 names only
+            // the copy a rebuild makes as the one nothing reads).
+            let sequence: Sequence = record.sequence();
+            let (sequence, features, cdss) = genbank_view(&record, sequence, &identifier)?;
             (
                 sequence,
                 TopologySource::Stated,
@@ -545,7 +553,9 @@ pub fn open_record(name: Identifier, text: String) -> Result<ViewRecord, DomainE
 /// per buffer feature (key; `location_text` or else `write_edit_location`; its
 /// qualifiers; its `line`); then the same features, CDSs and ceiling
 /// `open_record` gives. For FASTA, the sequence and no features. `genbank` is
-/// the built record.
+/// `None` for every record: nothing reads a second copy of the bases once the
+/// checks are done (contract 9r §3.4), and a save reads the record as opened,
+/// `opened.genbank`, which an edit never touches.
 ///
 /// The last clause is the point (M9-6 i): the rebuilt record goes through
 /// `view_features`, `view_cdss` and `check_ceiling` exactly as an opened one
@@ -602,18 +612,21 @@ pub fn rebuild(buffer: &EditBuffer, opened: &ViewRecord) -> Result<ViewRecord, D
         opened_record.locus_name(),
         opened_record.accession(),
         opened_record.version(),
-        sequence,
+        // The copy the built record holds while its features and CDSs are
+        // listed. It goes when the record does: the `ViewRecord` below is given
+        // the sequence this call made, by move (contract 9r §3.4).
+        sequence.clone(),
         features,
     );
 
-    let (sequence, features, cdss) = genbank_view(&record, &identifier)?;
+    let (sequence, features, cdss) = genbank_view(&record, sequence, &identifier)?;
     Ok(ViewRecord {
         format: opened.format,
         topology: opened.topology,
         sequence,
         features,
         cdss,
-        genbank: Some(record),
+        genbank: None,
     })
 }
 

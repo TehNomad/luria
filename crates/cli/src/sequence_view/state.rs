@@ -346,10 +346,12 @@ pub struct ViewState {
     /// `block_lines` as `orfs`.
     orf_lanes: bool,
     /// The ORFs the shown lines draw (contract 8m18 §4 rule 6): `find_orfs` once,
-    /// on the first `O` for the topology then shown, kept across every toggle and
-    /// dropped by `T` when it flips the topology. `None` says they have not been
-    /// computed for the topology the view reads, which holds at open and while
-    /// `O` hides them, since §9 asks that nothing is computed before the first `O`.
+    /// on the first `O` for the topology then shown, kept while the lines are
+    /// shown, and dropped by the `O` that hides them (contract 9r §3.1) and by `T`
+    /// when it flips the topology. `None` says none are held for the reading the
+    /// view takes, which holds at open, while `O` hides the lanes, and after `T`
+    /// until they are shown again: §9 asks that nothing is computed before the
+    /// first `O`, and 9r §3.1 that no edit scans them while they are hidden.
     orfs: Option<Vec<Orf>>,
     /// Whether the residue lines draw the Zappo backgrounds (8m5 §4 rule 4): `C`
     /// turns them off and on, they are on at open unless `NO_COLOR` says
@@ -1341,24 +1343,48 @@ impl ViewState {
             self.message = Some("nothing to undo".to_string());
             return;
         };
-        let mut buffer: EditBuffer = match &self.edit {
-            Ok(buffer) => buffer.clone(),
+        // 9r §3.2: a group keeps one snapshot of its features, its first step's.
+        // The steps go back newest first, so the group's first step is put back
+        // last, and it is the one that restores the features as they stood
+        // before the group.
+        debug_assert!(
+            group
+                .first()
+                .is_some_and(|(_edit, undo)| undo.holds_features()),
+            "a group's first undo holds the features its later steps leave alone"
+        );
+        // 9r §3.3: the undos go onto the buffer `self.edit` holds, in place: a
+        // copy of the whole buffer per undo is megabytes per step.
+        match self.edit.as_mut() {
+            Ok(buffer) => {
+                // §4 rule 7: the undo of the last step goes first, so every step
+                // is put back on the record the steps before it left.
+                for (_edit, undo) in group.iter().rev() {
+                    buffer.undo(undo.clone());
+                }
+            }
             Err(blocked) => {
                 self.undo_groups.push(group);
                 self.message = Some(blocked_words(blocked));
                 return;
             }
-        };
-        // §4 rule 7: the undo of the last step goes first, so every step is put
-        // back on the record the steps before it left.
-        for (_edit, undo) in group.iter().rev() {
-            buffer.undo(undo.clone());
         }
         let start: u64 = group
             .first()
             .map_or(self.cursor, |(edit, _undo)| edit_start(edit));
-        if self.rebuild_view(buffer, Vec::new(), Vec::new()).is_err() {
-            // `rebuild_view` has said why; the group goes back where it was.
+        if self.rebuild_view(Vec::new(), Vec::new()).is_err() {
+            // `rebuild_view` has said why; the group goes back where it was, and
+            // so do the bases and features its undos took off: the group's own
+            // steps, put on again in the order they were first applied, retrace
+            // them exactly (9r §3.3). They cannot refuse: they went onto this
+            // very buffer state when the group was carried out.
+            if let Ok(buffer) = self.edit.as_mut() {
+                for (edit, _undo) in group.iter() {
+                    if let Err(error) = buffer.apply(edit) {
+                        self.message = Some(error.message());
+                    }
+                }
+            }
             self.undo_groups.push(group);
             return;
         }
@@ -1377,6 +1403,18 @@ impl ViewState {
         self.follow();
     }
 
+    /// The steps of a redo that did go onto the buffer come back off it, newest
+    /// first, so a redo the view cannot finish leaves the buffer as it found it
+    /// (9r §3.3). Their own `Undo`s are what put them back: the group's undos
+    /// belong to the edits they redo, which are still to be applied.
+    fn undo_steps_on_buffer(&mut self, steps: &[(Edit, Undo)]) {
+        if let Ok(buffer) = self.edit.as_mut() {
+            for (_edit, undo) in steps.iter().rev() {
+                buffer.undo(undo.clone());
+            }
+        }
+    }
+
     /// `ctrl-r` (9g §4 rule 8, M9-8): the last group `u` undid is applied
     /// again, in the order its steps were first applied, and each step's fresh
     /// `Undo` takes the old one's place. The group goes back onto the undo
@@ -1388,28 +1426,41 @@ impl ViewState {
             self.message = Some("nothing to redo".to_string());
             return;
         };
-        let mut buffer: EditBuffer = match &self.edit {
-            Ok(buffer) => buffer.clone(),
+        // 9r §3.3: the edits go onto the buffer `self.edit` holds, in place.
+        // §4 rule 8: they go on again in their original order, and each one's
+        // fresh undo takes the old one's place; 9r §3.2: only the first of them
+        // keeps its copy of the features, as in `apply_edit`.
+        let mut fresh: Vec<(Edit, Undo)> = Vec::new();
+        let refused: Option<DomainError> = match self.edit.as_mut() {
+            Ok(buffer) => {
+                let mut refused: Option<DomainError> = None;
+                for (edit, _undo) in group.iter() {
+                    match buffer.apply_undoable(edit) {
+                        Ok((_outcome, undo)) => {
+                            let undo: Undo = if fresh.is_empty() {
+                                undo
+                            } else {
+                                undo.without_features()
+                            };
+                            fresh.push((edit.clone(), undo));
+                        }
+                        Err(error) => {
+                            refused = Some(error);
+                            break;
+                        }
+                    }
+                }
+                refused
+            }
             Err(blocked) => {
                 self.redo_groups.push(group);
                 self.message = Some(blocked_words(blocked));
                 return;
             }
         };
-        // §4 rule 8: the edits go on again in their original order, and each
-        // one's fresh undo goes onto the group in the old one's place.
-        let mut fresh: Vec<(Edit, Undo)> = Vec::new();
-        let mut refused: Option<DomainError> = None;
-        for (edit, _undo) in group.iter() {
-            match buffer.apply_undoable(edit) {
-                Ok((_outcome, undo)) => fresh.push((edit.clone(), undo)),
-                Err(error) => {
-                    refused = Some(error);
-                    break;
-                }
-            }
-        }
         if let Some(error) = refused {
+            // The steps that did go on come back off the buffer, newest first.
+            self.undo_steps_on_buffer(fresh.as_slice());
             self.redo_groups.push(group);
             self.message = Some(error.message());
             return;
@@ -1417,8 +1468,10 @@ impl ViewState {
         let start: u64 = fresh
             .first()
             .map_or(self.cursor, |(edit, _undo)| edit_start(edit));
-        if self.rebuild_view(buffer, Vec::new(), Vec::new()).is_err() {
-            // `rebuild_view` has said why; the group goes back where it was.
+        if self.rebuild_view(Vec::new(), Vec::new()).is_err() {
+            // `rebuild_view` has said why; the group goes back where it was, and
+            // the steps it applied come back off the buffer (9r §3.3).
+            self.undo_steps_on_buffer(fresh.as_slice());
             self.redo_groups.push(group);
             return;
         }
@@ -1483,6 +1536,17 @@ impl ViewState {
         true
     }
 
+    /// The buffer the view edits. Every edit path has said `self.edit` holds it
+    /// before it reads this: a record 9d refuses gets no edit keys at all, and
+    /// `apply_edit`, `u` and `ctrl-r` each take the refusal's own words and
+    /// return before they get here.
+    fn edited(&self) -> &EditBuffer {
+        match &self.edit {
+            Ok(buffer) => buffer,
+            Err(blocked) => unreachable!("{} is edited only while its buffer is held", blocked.key),
+        }
+    }
+
     /// One edit, and the view after it (contract 9e §4): `EditBuffer::apply`,
     /// `rebuild`, then everything that reads the record again — the selection and
     /// its `Chosen` map, the strip's GC line, the ORFs, the last search's hits,
@@ -1491,23 +1555,23 @@ impl ViewState {
     // The edit keys 9f and 9g are wired through this; the tests in this module
     // also call it directly.
     pub(super) fn apply_edit(&mut self, edit: Edit) -> Result<EditOutcome, DomainError> {
-        // The edit goes onto a copy of the buffer, so that a refusal from `apply`
-        // or from `rebuild` below leaves the buffer the view edits untouched.
-        let edited: Result<(EditBuffer, EditOutcome, Undo), DomainError> = match self.edit.as_ref()
-        {
+        // 9r §3.3: the edit goes onto the buffer `self.edit` holds, in place. It
+        // used to go onto a copy of the whole buffer, which on a genome-sized
+        // record is a copy of every base per typed base; the `undo` below takes
+        // the edit back off the buffer if the rebuild refuses what it did, so a
+        // refusal still leaves the view exactly as it was.
+        let (outcome, undo): (EditOutcome, Undo) = match self.edit.as_mut() {
             // A record 9d and every later edit key refuses before it gets at
             // the first place; core's own reason is what says so here.
-            Ok(buffer) => {
-                let mut candidate: EditBuffer = buffer.clone();
-                candidate
-                    .apply_undoable(&edit)
-                    .map(|(outcome, undo)| (candidate, outcome, undo))
-            }
-            Err(blocked) => Err(blocked.error.clone()),
-        };
-        let (buffer, outcome, undo) = match edited {
-            Ok((buffer, outcome, undo)) => (buffer, outcome, undo),
-            Err(error) => {
+            Ok(buffer) => match buffer.apply_undoable(&edit) {
+                Ok((outcome, undo)) => (outcome, undo),
+                Err(error) => {
+                    self.message = Some(error.message());
+                    return Err(error);
+                }
+            },
+            Err(blocked) => {
+                let error: DomainError = blocked.error.clone();
                 self.message = Some(error.message());
                 return Err(error);
             }
@@ -1525,7 +1589,7 @@ impl ViewState {
             .dropped
             .iter()
             .map(|(index, qualifier)| {
-                let name: String = match buffer.features().get(*index) {
+                let name: String = match self.edited().features().get(*index) {
                     Some(feature) => feature_name(&self.record, feature),
                     None => qualifier.clone(),
                 };
@@ -1533,7 +1597,15 @@ impl ViewState {
             })
             .collect();
 
-        self.rebuild_view(buffer, removed, dropped)?;
+        if let Err(error) = self.rebuild_view(removed, dropped) {
+            // 9r §3.3: the edit goes back off the buffer, which the view keeps as
+            // the edit found it; `rebuild_view` has said why, and nothing else
+            // here has been touched.
+            if let Ok(buffer) = self.edit.as_mut() {
+                buffer.undo(undo);
+            }
+            return Err(error);
+        }
         // 9h §4.6: the whole edit stands, so it counts toward the dirty
         // state. A refused edit returns above and never reaches here, so a
         // refusal leaves the counter (and so the view's cleanness) alone.
@@ -1543,19 +1615,29 @@ impl ViewState {
         // carried collects, and the command's last key closes the group. The
         // step goes on only once `rebuild_view` has said the whole edit stands:
         // a record the rebuild refuses keeps no group as it kept the buffer.
+        // 9r §3.2: a group holds one copy of its features, its first step's.
+        // Every step after it keeps its letters alone, and `u` puts the group's
+        // steps back newest first, so the first step - the one that holds the
+        // features - is put back last, as the whole group is coming apart.
+        let undo: Undo = if self.current_group.is_empty() {
+            undo
+        } else {
+            undo.without_features()
+        };
         self.current_group.push((edit, undo));
         Ok(outcome)
     }
 
     /// The steps an edit's aftermath takes, shared by `apply_edit`, `undo` and
-    /// `redo` (9g §4 rule 7): `rebuild` gives the record the buffer's bases
-    /// and features, and everything after it reads the record again — the
-    /// selection and its `Chosen` map, the strip's GC line, the ORFs, the last
-    /// search's hits, the cursor and the layout. `removed` and `dropped` hold
-    /// the names the message is to name them by, and are empty for an undo.
+    /// `redo` (9g §4 rule 7): `rebuild` gives the record the bases and features
+    /// of the buffer the view edits, and everything after it reads the record
+    /// again — the selection and its `Chosen` map, the strip's GC line, the ORFs,
+    /// the last search's hits, the cursor and the layout. `removed` and `dropped`
+    /// hold the names the message is to name them by, and are empty for an undo.
+    /// The buffer is read where it lies (9r §3.3): the caller has already put its
+    /// steps on it, and takes them back off if this refuses.
     fn rebuild_view(
         &mut self,
-        buffer: EditBuffer,
         removed: Vec<String>,
         dropped: Vec<String>,
     ) -> Result<(), DomainError> {
@@ -1571,7 +1653,7 @@ impl ViewState {
         let selected_name: Option<String> =
             self.selected.map(|index| display_name(&self.record, index));
 
-        let rebuilt: ViewRecord = match rebuild(&buffer, &self.opened) {
+        let rebuilt: ViewRecord = match rebuild(self.edited(), &self.opened) {
             Ok(record) => record,
             Err(error) => {
                 self.message = Some(error.message());
@@ -1579,7 +1661,6 @@ impl ViewState {
             }
         };
         self.record = rebuilt;
-        self.edit = Ok(buffer);
 
         // §4 rule 2: the CDS the view selected is found again by its feature's
         // line and checked again exactly as on open (M9-6 i) — kept if it is
@@ -1632,7 +1713,9 @@ impl ViewState {
         self.gc = gc_line(&self.record, inner_width(self.width));
 
         // §4 rule 5: ORFs scanned once for the record's old bases are scanned
-        // again for its new ones; `None` says they were never scanned and stays.
+        // again for its new ones. `None` says the lanes are hidden or `O` has
+        // never shown them, and an edit scans nothing for lines that are not
+        // drawn (9r §3.1).
         if self.orfs.is_some() {
             self.orfs = None;
             self.compute_orfs();
@@ -2965,12 +3048,17 @@ impl ViewState {
 
     /// `O` (M8-40, contract 8m18 §4 rule 6): show the ORF lines and hide them
     /// again, with the status line naming which the key did. The first `O` that
-    /// shows them asks the record for its ORFs and keeps them, and every toggle
-    /// after that draws what is kept, so one scan serves any number of presses.
+    /// shows them asks the record for its ORFs and keeps them while the lines are
+    /// shown, so one scan serves any number of presses; the `O` that hides them
+    /// drops them, since nothing reads them while they are hidden and every edit
+    /// would otherwise scan the record again for lines that are not drawn (9r
+    /// §3.1). The next `O` that shows them scans the record again.
     fn toggle_orf_lanes(&mut self) {
         self.orf_lanes = !self.orf_lanes;
         if self.orf_lanes {
             self.compute_orfs();
+        } else {
+            self.orfs = None;
         }
         self.message = Some(orfs_words(
             self.orf_lanes,
@@ -2978,11 +3066,12 @@ impl ViewState {
         ));
     }
 
-    /// The ORFs for the topology the view reads, scanned once and kept (contract
-    /// 8m18 §4 rule 6): `find_orfs` at `ORF_MIN_RESIDUES`, on the record's own
-    /// text and the topology `T` has set. This is the only point at which the
-    /// sequence is scanned — nothing runs here when the lines are hidden, when
-    /// they are opened, or while a block is drawn.
+    /// The ORFs for the topology the view reads, scanned once and kept while the
+    /// lines are shown (contract 8m18 §4 rule 6): `find_orfs` at
+    /// `ORF_MIN_RESIDUES`, on the record's own text and the topology `T` has set.
+    /// This is the only point at which the sequence is scanned: `O` runs it when
+    /// it shows the lanes and drops what it found when it hides them (9r §3.1),
+    /// and nothing runs it while the lines are hidden or while a block is drawn.
     fn compute_orfs(&mut self) {
         if self.orfs.is_none() {
             self.orfs = Some(find_orfs(
@@ -4704,6 +4793,103 @@ mod tests {
         assert_eq!(state.edits(), 0, "nothing was edited");
     }
 
+    // 9r §4 test 1 (finding 1): the `O` that hides the ORF lanes drops what it
+    // found, an edit with the lanes hidden leaves it dropped, and the next `O`
+    // scans the record the edit left - the same ORFs a fresh view of that record
+    // computes.
+    #[test]
+    fn hidden_orfs_are_not_recomputed() {
+        let opened: ViewRecord = pbr();
+        let mut state: ViewState = ViewState::new(opened.clone(), 80, 24);
+        assert!(
+            state.orfs().is_none(),
+            "nothing is scanned before the first O"
+        );
+
+        state.handle(Key::Char('O'));
+        assert!(state.orf_lanes(), "the first O shows the lanes");
+        assert!(state.orfs().is_some(), "and scans the record for them");
+
+        state.handle(Key::Char('O'));
+        assert!(!state.orf_lanes(), "the second O hides the lanes");
+        assert!(state.orfs().is_none(), "and drops what it found with them");
+
+        state.cursor = 20;
+        state.handle(Key::Char('x'));
+        assert_eq!(
+            state.record().sequence.length(),
+            opened.sequence.length() - 1,
+            "the cut base is out of the record"
+        );
+        assert!(
+            state.orfs().is_none(),
+            "an edit with the lanes hidden scans them no more"
+        );
+
+        state.handle(Key::Char('O'));
+        let shown: Vec<Orf> = state
+            .orfs()
+            .expect("the third O shows the lanes and scans again")
+            .to_vec();
+        let fresh: Vec<Orf> = find_orfs(&state.record().sequence, state.circular, ORF_MIN_RESIDUES);
+        assert_eq!(shown, fresh, "scanned for the record the edit left");
+    }
+
+    // 9r §4 test 2 (finding 2): a group keeps one copy of its features. An insert
+    // spell of three typed bases is three steps; only the group's first holds the
+    // features as the spell found them, one `u` puts bases and features back, and
+    // `ctrl-r` takes them away again.
+    #[test]
+    fn a_group_keeps_one_feature_snapshot() {
+        let opened: ViewRecord = pbr();
+        let mut state: ViewState = ViewState::new(opened.clone(), 80, 24);
+        let before: Vec<EditFeature> = state
+            .edit
+            .as_ref()
+            .expect("an editable record")
+            .features()
+            .to_vec();
+        state.handle(Key::Char('i'));
+        for key in [Key::Char('a'), Key::Char('c'), Key::Char('g')] {
+            state.handle(key);
+        }
+        state.handle(Key::Esc);
+        assert_eq!(state.edits(), 1, "the spell is one group");
+        let group: &[(Edit, Undo)] = state.undo_groups.last().expect("the closed group");
+        assert_eq!(group.len(), 3, "three typed bases, three steps");
+        assert!(
+            group[0].1.holds_features(),
+            "the group's first step holds the features"
+        );
+        for (index, (_edit, undo)) in group.iter().enumerate().skip(1) {
+            assert!(
+                !undo.holds_features(),
+                "step {} of the group holds no copy of them",
+                index + 1
+            );
+        }
+        let spell: ViewRecord = state.record().clone();
+        state.handle(Key::Char('u'));
+        assert_eq!(
+            state.record().sequence.letters(),
+            opened.sequence.letters(),
+            "one u puts the whole spell back"
+        );
+        assert_eq!(
+            state.record().features,
+            opened.features,
+            "with every feature the file gave it"
+        );
+        let buffer: &EditBuffer = state.edit.as_ref().expect("an editable record");
+        assert_eq!(
+            buffer.features(),
+            before.as_slice(),
+            "key, location and qualifiers alike"
+        );
+        state.handle(Key::CtrlR);
+        assert_eq!(state.record(), &spell, "and ctrl-r gives back the view");
+    }
+
     // 9e §5 test 8 (M9-6 d): an edit on pBR322 with the ORF lanes shown, in a
     // debug build, is far under one second. The 10 000 000-base case is not
     // asserted but its timing is printed, so the cost of one edit against the
@@ -4829,8 +5015,8 @@ mod tests {
     /// call, which the timed path is checked against, and is what 9e §10's
     /// figure covers.
     const PROFILE_STEPS: [&str; 12] = [
-        "1  buffer.clone() of the edit buffer",
-        "2  apply_undoable on the clone",
+        "1  the copy of the edit buffer the edit was tried on, no longer made (9r §3.3)",
+        "2  apply_undoable on the buffer the view holds",
         "3  rebuild(&buffer, &opened): to_sequence and the feature, CDS and ceiling checks",
         "*  the selected CDS's line and name read off the record, and the CDS found again in the rebuilt one",
         "4  choose(): the held map and residues of the selected CDS",
@@ -4906,16 +5092,19 @@ mod tests {
     fn timed_edit(state: &mut ViewState, edit: &Edit, took: &mut ProfileRow) {
         use std::time::{Duration, Instant};
 
-        // §2 1: the copy the edit is tried on, so a refusal leaves the buffer the
-        // view edits alone (state.rs:1486).
-        let started: Instant = Instant::now();
-        let mut candidate: EditBuffer = state.edit.as_ref().expect("an editable record").clone();
-        took[0] = Some(started.elapsed());
+        // §2 1: the copy the edit used to be tried on, so that a refusal left the
+        // buffer the view edits alone. `apply_edit` makes it no longer: the edit
+        // goes onto the buffer the view holds, and its `undo` takes the edit back
+        // off if the rebuild refuses (9r §3.3). This is a step no view takes.
+        took[0] = None;
 
-        // §2 2: the edit on that copy (`EditBuffer::apply_undoable`,
+        // §2 2: the edit on the buffer the view edits (`EditBuffer::apply_undoable`,
         // edit_buffer.rs:645).
         let started: Instant = Instant::now();
-        let (outcome, undo): (EditOutcome, Undo) = candidate
+        let (outcome, undo): (EditOutcome, Undo) = state
+            .edit
+            .as_mut()
+            .expect("an editable record")
             .apply_undoable(edit)
             .unwrap_or_else(|error| panic!("the insert is refused: {}", error.code()));
         took[1] = Some(started.elapsed());
@@ -4932,7 +5121,13 @@ mod tests {
             .dropped
             .iter()
             .map(|(index, qualifier)| {
-                let name: String = match candidate.features().get(*index) {
+                let name: String = match state
+                    .edit
+                    .as_ref()
+                    .expect("an editable record")
+                    .features()
+                    .get(*index)
+                {
                     Some(feature) => feature_name(&state.record, feature),
                     None => qualifier.clone(),
                 };
@@ -4964,10 +5159,12 @@ mod tests {
         // open makes (view_record.rs:555). The old record and the old buffer are
         // dropped here, as they are in `rebuild_view` (state.rs:1566).
         let started: Instant = Instant::now();
-        let rebuilt: ViewRecord = rebuild(&candidate, &state.opened)
-            .unwrap_or_else(|error| panic!("rebuild refused the edit: {}", error.code()));
+        let rebuilt: ViewRecord = rebuild(
+            state.edit.as_ref().expect("an editable record"),
+            &state.opened,
+        )
+        .unwrap_or_else(|error| panic!("rebuild refused the edit: {}", error.code()));
         state.record = rebuilt;
-        state.edit = Ok(candidate);
         took[2] = Some(started.elapsed());
 
         // The second half of the row above: the selection followed by its

@@ -127,12 +127,32 @@ pub struct EditOutcome {
 /// the edit, so `undo` knows what to take back out; `removed` holds the
 /// letters that stood in the span before the edit, and `features` every
 /// feature exactly as it was: ranges, partial marks, qualifiers and location
-/// text included.
+/// text included, or `None` once `without_features` has dropped them (contract
+/// 9r: a whole copy of every feature per edit is megabytes per typed base on a
+/// genome-sized record).
 #[derive(Clone, Debug, PartialEq)]
 pub struct Undo {
     wrote: (u64, u64),
     removed: Vec<char>,
-    features: Vec<EditFeature>,
+    features: Option<Vec<EditFeature>>,
+}
+
+impl Undo {
+    /// The same undo with its copy of every feature dropped (contract 9r): the
+    /// letters still come back, the features stay where the edit left them.
+    pub fn without_features(self) -> Undo {
+        Undo {
+            wrote: self.wrote,
+            removed: self.removed,
+            features: None,
+        }
+    }
+
+    /// Whether this undo still holds its copy of the features, which only its
+    /// `undo` and `without_features` change.
+    pub fn holds_features(&self) -> bool {
+        self.features.is_some()
+    }
 }
 
 /// A record being edited: its name, topology, bases and features.
@@ -659,7 +679,7 @@ impl EditBuffer {
         let undo: Undo = Undo {
             wrote: (span.0, span.0 + written.len() as u64),
             removed: self.letters[span.0 as usize..span.1 as usize].to_vec(),
-            features: self.features.clone(),
+            features: Some(self.features.clone()),
         };
 
         // The bases: one splice, which moves the tail of the record once.
@@ -750,10 +770,10 @@ impl EditBuffer {
         Ok((outcome, undo))
     }
 
-    /// Puts back the letters and features `undo` holds (contract 9g). It
-    /// must be the undo of the last edit applied and not yet undone: the
-    /// view's `u` and `ctrl-r` keep that order. Anything else is a
-    /// programming error, and the debug build says so.
+    /// Puts back the letters and, unless `without_features` dropped them, the
+    /// features `undo` holds (contract 9g). It must be the undo of the last edit
+    /// applied and not yet undone: the view's `u` and `ctrl-r` keep that order.
+    /// Anything else is a programming error, and the debug build says so.
     pub fn undo(&mut self, undo: Undo) {
         debug_assert!(
             undo.wrote.1 as usize <= self.letters.len(),
@@ -761,7 +781,9 @@ impl EditBuffer {
         );
         let range: std::ops::Range<usize> = (undo.wrote.0 as usize)..(undo.wrote.1 as usize);
         self.letters.splice(range, undo.removed.iter().copied());
-        self.features = undo.features;
+        if let Some(features) = undo.features {
+            self.features = features;
+        }
     }
 
     /// The bases as a `Sequence` with this name and topology, through
@@ -1728,6 +1750,59 @@ mod tests {
             );
             assert_eq!(buffer, before, "{id}: the whole record");
         }
+    }
+
+    /// Contract 9r §4 test 4: `without_features` drops the copy of the features,
+    /// and `undo` with it puts the letters back and leaves the features where the
+    /// edit left them. An undo that still holds them puts both back.
+    #[test]
+    fn undo_without_features_keeps_the_features() {
+        let opened: EditBuffer = record(
+            SequenceTopology::Linear,
+            letters("ACGTTACGT").as_slice(),
+            &[feature(
+                "misc_feature",
+                location(Strand::Plus, &[(5, 9)]),
+                &[("gene", Some("g"))],
+            )],
+        );
+        let mut edited: EditBuffer = opened.clone();
+        let (_outcome, undo): (EditOutcome, Undo) = edited
+            .apply_undoable(&Edit::Insert {
+                at: 1,
+                bases: vec!['C'],
+            })
+            .unwrap_or_else(|error| {
+                panic!("the insert before the feature is held: {}", error.message())
+            });
+        assert_eq!(
+            edited.features()[0].location.ranges,
+            vec![(6, 10)],
+            "the insert before the feature moves it right"
+        );
+        assert!(
+            edited.features()[0].location_text.is_none(),
+            "and a feature the edit moved loses the location text it was read from"
+        );
+
+        // Letters only: the bases the edit wrote go back, the feature stays put.
+        let mut letters_only: EditBuffer = edited.clone();
+        letters_only.undo(undo.clone().without_features());
+        assert_eq!(
+            text(&letters_only),
+            text(&opened),
+            "the letters the insert wrote are back"
+        );
+        assert_eq!(
+            letters_only.features(),
+            edited.features(),
+            "the feature is where the edit left it"
+        );
+
+        // With the snapshot: letters and features alike.
+        let mut both: EditBuffer = edited;
+        both.undo(undo);
+        assert_eq!(both, opened, "the whole record is back as it was");
     }
 
     /// §5 test 2: three edits on pBR322's buffer, undone last first, give
