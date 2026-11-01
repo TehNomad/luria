@@ -1,3 +1,9 @@
+---
+type: Task Contract
+title: "Review fix C5, C13: minus-strand and origin-wrapping coverage"
+description: "No test checks that a residue edit on a reverse CDS is the same DNA edit and produces the same pair, and nothing tests an insertion at point 0 or n on a circular sequence."
+status: deprecated
+---
 # Review fix C5, C13: minus-strand and origin-wrapping coverage
 
 Status: **Implemented 2026-10-16** by the local worker; accepted on planner review. Every expectation held on first run; no non-test code changed.

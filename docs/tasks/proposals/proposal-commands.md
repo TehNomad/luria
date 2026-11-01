@@ -1,3 +1,9 @@
+---
+type: Proposal
+title: "Proposal: luria's commands for the sequence-first workflow"
+description: "The new workflow has two kinds of user and one file between them: the bench, scripting, and the design file that connects them."
+status: draft
+---
 # Proposal: luria's commands for the sequence-first workflow
 
 Status: **Draft for the owner, 2026-10-23. Not approved and not a task

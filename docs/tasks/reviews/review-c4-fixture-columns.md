@@ -1,3 +1,9 @@
+---
+type: Task Contract
+title: "Review fix C4, C6, C9: read every column of cases.tsv and the NEBaseChanger files"
+description: "Every expectation below is a consistency check between files that already exist, or a check of luria against external NEBaseChanger output."
+status: deprecated
+---
 # Review fix C4, C6, C9: read every column of `cases.tsv` and the NEBaseChanger files
 
 Status: **Implemented 2026-10-16** by the local worker; accepted on planner review. `cases.tsv` has 14 columns, not 13 as §1 says; all 14 are read and 11 tested. No fixture mismatch was found.

@@ -1,3 +1,9 @@
+---
+type: Task Contract
+title: "Review A4: refuse circular features split away from the origin (D036)"
+description: "A feature or CDS on a circular sequence is one interval, or exactly two intervals that cross the origin: [a, n) followed by [0, b)."
+status: deprecated
+---
 # Review A4: refuse circular features split away from the origin (D036)
 
 Status: **Implemented 2026-10-16** by the local worker; accepted on planner review.

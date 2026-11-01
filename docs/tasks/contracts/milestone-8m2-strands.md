@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 8m2 — cli: a hit is marked on its strand (M8-24)"
+description: "Today a search marks every hit's bases yellow on the top strand only."
+status: deprecated
+tags: [milestone-8]
+---
 # Contract 8m2 — cli: a hit is marked on its strand (M8-24)
 
 Planner: Claude. Status: **Implemented 2026-10-27** by worker `w-8m2` in two

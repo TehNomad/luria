@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 7k2: building a request from the form's values"
+description: "luria new's form collects a template, mutation lines, a codon choice and an overlap."
+status: deprecated
+tags: [milestone-7]
+---
 # Milestone 7k2: building a request from the form's values
 
 Status: **Implemented 2026-10-21.** Proofs 1-3 failed as required. A

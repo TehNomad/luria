@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 9f — cli: insert, overtype, replace and the terminal's paste"
+description: "Typing bases: i and a insert, R overtypes, and r replaces one base, or every base of a selection."
+status: deprecated
+tags: [milestone-9]
+---
 # Contract 9f — cli: insert, overtype, replace and the terminal's paste
 
 Planner: Claude. Status: implemented. Tier: light (plan M9-10).

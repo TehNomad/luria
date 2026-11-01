@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 6b: mutation notation and the residue-name table"
+description: "The model reports each mutation as a token such as A42G (plan §5.2)."
+status: deprecated
+tags: [milestone-6]
+---
 # Milestone 6b: mutation notation and the residue-name table
 
 Status: **Implemented 2026-10-19** by the local worker, accepted after one

@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 9e — core and cli: the view after an edit"
+description: "After an edit, the view shows the edited record: its features, CDSs, frames, ORFs, search hits and the overview strip."
+status: deprecated
+tags: [milestone-9]
+---
 # Contract 9e — core and cli: the view after an edit
 
 Planner: Claude. Status: implemented. Tier: light, with M9-6 (i) full (plan

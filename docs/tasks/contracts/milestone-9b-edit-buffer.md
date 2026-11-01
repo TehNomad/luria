@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 9b — core: the edit buffer"
+description: "A new core module, edit_buffer, that holds a record's bases and its features while the user edits them."
+status: deprecated
+tags: [milestone-9]
+---
 # Contract 9b — core: the edit buffer
 
 Planner: Claude. Status: **implemented 2026-10-29** (w-9b, two rounds:

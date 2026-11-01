@@ -1,3 +1,9 @@
+---
+type: Proposal
+title: "Proposal: triage of the decisions and working rules"
+description: "Every rule falls into one of three groups: keep (scientific invariants), soften (refusals that could be defaults) or relax (process rules)."
+status: draft
+---
 # Proposal: triage of the decisions and working rules
 
 Status: **Draft for the owner, 2026-10-23. Not approved and not a task

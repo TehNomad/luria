@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 9g — core and cli: cut, yank, paste, undo and redo"
+description: "x and d cut and y yanks, into one register kept for the session."
+status: deprecated
+tags: [milestone-9]
+---
 # Contract 9g — core and cli: cut, yank, paste, undo and redo
 
 Planner: Claude. Status: implemented. Tier: light, with the core undo full

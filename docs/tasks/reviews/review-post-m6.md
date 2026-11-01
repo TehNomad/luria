@@ -1,3 +1,10 @@
+---
+type: Review
+title: "Post-Milestone-6 code review: findings"
+description: "After Phase 2 (f6e67c8): cargo fmt --check clean, 905 tests pass and 1 is ignored (the opt-in live test), cargo clippy -D warnings clean, python -I tests/fixtures/verify.py 13 of 13 pass."
+status: deprecated
+tags: [milestone-6]
+---
 # Post-Milestone-6 code review: findings
 
 Status: Phase 1 (read-only review) and Phase 2 (fixes) complete,

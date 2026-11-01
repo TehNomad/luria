@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 3d task contract: melting temperature, and Tm-driven primer length"
+description: "luria emits primer pairs whose geometry satisfies D029 and whose melting temperature nobody has computed."
+status: deprecated
+tags: [milestone-3]
+---
 # Milestone 3d task contract: melting temperature, and Tm-driven primer length
 
 Status: Implemented 2026-10-14. Phases 1–2 in §8, Phase 3 (D030) in §9.

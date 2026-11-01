@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 5h: the CLI's documentation"
+description: "Scope, as the owner set it on 2026-10-18: docs/specs/cli.md holds the worked example, the luria version document and short reference tables."
+status: deprecated
+tags: [milestone-5]
+---
 # Milestone 5h: the CLI's documentation
 
 Status: **Ready for the worker, 2026-10-18.** Planner: Claude. Parent:

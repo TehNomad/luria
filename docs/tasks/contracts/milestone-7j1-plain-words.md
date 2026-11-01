@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 7j1: the screens in plain words"
+description: "The owner found the screens still cluttered and in programmer's notation."
+status: deprecated
+tags: [milestone-7]
+---
 # Milestone 7j1: the screens in plain words
 
 Status: **Implemented 2026-10-21** by w7j1 (ran out of context) and

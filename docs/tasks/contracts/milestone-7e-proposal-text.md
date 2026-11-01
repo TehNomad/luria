@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 7e: the text of the proposal screen"
+description: "luria review --template … --text … (M7-1) first shows what luria q5 interpret proposed, so the user can judge it before anything runs."
+status: deprecated
+tags: [milestone-7]
+---
 # Milestone 7e: the text of the proposal screen
 
 Status: **Implemented 2026-10-21** by the local worker; accepted after one

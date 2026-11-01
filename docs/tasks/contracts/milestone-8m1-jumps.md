@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 8m1 — cli: where the cursor lands after a pick (M8-21, M8-22)"
+description: "Three changes to where the cursor goes: a CDS picked from the c list moves the cursor to its start codon, and f + enter on a minus-strand feature goes to its 5′ end."
+status: deprecated
+tags: [milestone-8]
+---
 # Contract 8m1 — cli: where the cursor lands after a pick (M8-21, M8-22)
 
 Planner: Claude. Status: **Implemented 2026-10-27** by worker `w-8m1`,

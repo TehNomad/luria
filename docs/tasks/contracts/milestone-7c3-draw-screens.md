@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 7c3: drawing the result screens, with scrolling"
+description: "7c1 and 7c2 build each screen's lines; 7b says which screen is open."
+status: deprecated
+tags: [milestone-7]
+---
 # Milestone 7c3: drawing the result screens, with scrolling
 
 Status: **Implemented 2026-10-21** by the local worker; accepted after one

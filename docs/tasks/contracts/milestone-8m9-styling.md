@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 8m9 — cli: dimming, title badge, rule between blocks, ambiguous bases, colours off means none (M8-33, M8-34)"
+description: "Drawing only: no line, row, column or text of a block changes, except the blank row between two blocks and the title."
+status: deprecated
+tags: [milestone-8]
+---
 # Contract 8m9 — cli: dimming, title badge, rule between blocks, ambiguous bases, colours off means none (M8-33, M8-34)
 
 Planner: Claude. Status: **Implemented 2026-10-28** by worker `w-8m9` in

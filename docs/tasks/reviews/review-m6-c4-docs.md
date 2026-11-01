@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Review M6 C-4, C-5, C-9: exit codes and a fixture note"
+description: "C-4: docs/specs/cli.md §5 says exit 0 is \"verified, and every member designed\" and exit 1 is a failed write of stdout or --write-edited; §10.7 says interpret's codes are \"those of §5, plus 8\"."
+status: deprecated
+tags: [milestone-6]
+---
 # Review M6 C-4, C-5, C-9: exit codes and a fixture note
 
 Status: **Implemented 2026-10-21** by the local worker; accepted on planner

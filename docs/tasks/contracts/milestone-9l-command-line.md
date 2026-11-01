@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 9l — cli: the : command line, ZZ and ZQ"
+description: "Saving and quitting work as in Vim (plan M9-19, approved by the owner, 2026-10-31): : opens a command line on the status line, ZZ and ZQ work,."
+status: deprecated
+tags: [milestone-9]
+---
 # Contract 9l — cli: the `:` command line, `ZZ` and `ZQ`
 
 Planner: Claude. Status: implemented. Tier: light.

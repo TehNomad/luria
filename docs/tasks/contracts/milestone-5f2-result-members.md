@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 5f2: targets, mutation results, warnings and clarifications"
+description: "5f1 declared CdsView, OperationWarning and MemberView as empty placeholders."
+status: deprecated
+tags: [milestone-5]
+---
 # Milestone 5f2: targets, mutation results, warnings and clarifications
 
 Status: **Implemented 2026-10-17** by the local worker; accepted on review.

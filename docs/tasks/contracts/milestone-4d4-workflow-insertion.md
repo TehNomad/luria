@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 4d-4 task contract: insertions in the Q5 workflow"
+description: "A Q5 request can ask for an insertion."
+status: deprecated
+tags: [milestone-4]
+---
 # Milestone 4d-4 task contract: insertions in the Q5 workflow
 
 Status: **Implemented 2026-10-15** by the local worker; accepted on planner review (§7).

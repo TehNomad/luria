@@ -1,3 +1,9 @@
+---
+type: Template
+title: "Contract template"
+description: "Template for task contracts, not a contract."
+status: stable
+---
 # Contract template
 
 Template for task contracts, not a contract. Copy it to

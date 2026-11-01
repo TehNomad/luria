@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 9d — cli: edit modes, the selection, and the blocked record"
+description: "The view learns two things in this contract: whether its record can be edited, and Visual mode."
+status: deprecated
+tags: [milestone-9]
+---
 # Contract 9d — cli: edit modes, the selection, and the blocked record
 
 Planner: Claude. Status: implemented. Tier: light (plan M9-10), behaviour tested,

@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 6h1: interpret, its document and exit status 8"
+description: "Everything luria q5 interpret does except reading its command line and choosing a backend."
+status: deprecated
+tags: [milestone-6]
+---
 # Milestone 6h1: `interpret`, its document and exit status 8
 
 Status: **Implemented 2026-10-19** by the local worker, accepted after one

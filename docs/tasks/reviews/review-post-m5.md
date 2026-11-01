@@ -1,3 +1,10 @@
+---
+type: Review
+title: "Post-Milestone-5 code review: findings"
+description: "After Phase 2: cargo fmt --check clean, 753 tests pass, cargo clippy -D warnings clean, python -I tests/fixtures/verify.py 12 of 12 pass."
+status: deprecated
+tags: [milestone-5]
+---
 # Post-Milestone-5 code review: findings
 
 Status: Phase 1 (read-only review) and Phase 2 (fixes) complete,

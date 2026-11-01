@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 5 plan: the luria CLI and machine-readable output"
+description: "Every scientific capability so far is a Rust library call."
+status: deprecated
+tags: [milestone-5]
+---
 # Milestone 5 plan: the `luria` CLI and machine-readable output
 
 Status: **Plan approved by the owner, 2026-10-16. Owner decisions recorded as

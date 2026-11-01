@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 5f3: primer designs and design failures in the result"
+description: "5f2 left DesignView empty and every member's design and designFailure null."
+status: deprecated
+tags: [milestone-5]
+---
 # Milestone 5f3: primer designs and design failures in the result
 
 Status: **Implemented 2026-10-17** by the local worker; accepted on review.

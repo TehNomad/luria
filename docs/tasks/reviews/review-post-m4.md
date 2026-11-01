@@ -1,3 +1,10 @@
+---
+type: Review
+title: "Post-Milestone-4 code review: findings"
+description: "Baseline at review start: cargo fmt --check clean, 462 tests pass, cargo clippy -D warnings clean."
+status: deprecated
+tags: [milestone-4]
+---
 # Post-Milestone-4 code review: findings
 
 Status: Phase 1 (read-only review) complete, 2026-10-16. No code changed.

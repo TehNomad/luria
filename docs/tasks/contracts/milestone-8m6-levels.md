@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 8m6 — cli: F cycles all features, CDSs only, none (M8-30)"
+description: "F now cycles through three feature levels, opening on the first: all features (as today), CDSs only, and none."
+status: deprecated
+tags: [milestone-8]
+---
 # Contract 8m6 — cli: `F` cycles all features, CDSs only, none (M8-30)
 
 Planner: Claude. Status: **Implemented 2026-10-27** by worker `w-8m6` in

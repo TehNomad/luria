@@ -1,3 +1,9 @@
+---
+type: Task Contract
+title: "Review refactor E3: one copy of each interval-containment predicate"
+description: "Three containment tests over a CDS's intervals are written out by hand in several places."
+status: deprecated
+---
 # Review refactor E3: one copy of each interval-containment predicate
 
 Status: **Implemented 2026-10-16** by the local worker; accepted on planner review.

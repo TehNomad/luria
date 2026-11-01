@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 9c2 — core: writing a location back as GenBank text"
+description: "A function that writes an EditLocation (9b) as GenBank location text."
+status: deprecated
+tags: [milestone-9]
+---
 # Contract 9c2 — core: writing a location back as GenBank text
 
 Planner: Claude. Status: implemented. Tier: full.

@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 8k2 — cli: go-to (§5.3)"
+description: "g opens a one-line prompt on the status line."
+status: deprecated
+tags: [milestone-8]
+---
 # Contract 8k2 — cli: go-to (§5.3)
 
 Planner: Claude. Status: **Implemented 2026-10-26** by worker `w-8k2` in one

@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 7i4: the redesigned member screen, its keys, and the trimmed overview"
+description: "The owner found the review screens too full."
+status: deprecated
+tags: [milestone-7]
+---
 # Milestone 7i4: the redesigned member screen, its keys, and the trimmed overview
 
 Status: **Implemented 2026-10-21.** Three worker runs: w7i4 and w7i4b

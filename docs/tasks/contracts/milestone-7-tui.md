@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 7 plan: the review-oriented terminal interface"
+description: "Milestones 5 and 6 produce two JSON documents: the proposal of luria q5 interpret (luria.q5-interpretation/1) and the result of luria q5 design (luria.q5-result/1)."
+status: deprecated
+tags: [milestone-7]
+---
 # Milestone 7 plan: the review-oriented terminal interface
 
 Status: **Approved by the owner, 2026-10-20.** Planner: Claude. Decision:

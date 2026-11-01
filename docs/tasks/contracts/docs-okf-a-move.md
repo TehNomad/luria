@@ -1,6 +1,13 @@
+---
+type: Task Contract
+title: "Contract okf-a — docs: move files into the OKF layout and split the decisions"
+description: "docs/ becomes the bundle root."
+status: deprecated
+tags: [okf]
+---
 # Contract okf-a — docs: move files into the OKF layout and split the decisions
 
-Planner: Claude. Status: draft. Tier: presentation (no biology changes).
+Planner: Claude. Status: **Implemented 2026-10-31**. Tier: presentation (no biology changes).
 Plan: reorganize `docs/` as an Open Knowledge Format (OKF) v0.2 bundle.
 This contract is step 1 of 3 (okf-a moves, okf-b links, okf-c frontmatter
 and index files). Do not do the work of okf-b or okf-c here.

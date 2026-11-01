@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 7m5: a filtered file list under File"
+description: "M7-50: a filtered list under File: .fa .fasta .fna .gb .gbk .genbank files and folders in the directory being typed, filtered as you type, ↑/↓ to pick, enter to choose."
+status: deprecated
+tags: [milestone-7]
+---
 # Milestone 7m5: a filtered file list under `File`
 
 Status: **Implemented, 2026-10-22.** Planner: Claude. Parent:

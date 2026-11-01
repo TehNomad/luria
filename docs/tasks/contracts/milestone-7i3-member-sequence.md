@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 7i3: the text of the redesigned member screen's sequence block"
+description: "Opening a member will show its sequence: the forward primer above the top strand, the mutant protein between the strands, the bottom strand, the reverse primer below."
+status: deprecated
+tags: [milestone-7]
+---
 # Milestone 7i3: the text of the redesigned member screen's sequence block
 
 Status: **Implemented 2026-10-21.** All nine fixtures match byte for

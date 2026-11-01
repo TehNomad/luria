@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Review M5 A-3: a refused CDS location names its CDS"
+description: "import_cds passes parse_genbank_location's UnusableGenBankLocation through unchanged."
+status: deprecated
+tags: [milestone-5]
+---
 # Review M5 A-3: a refused CDS location names its CDS
 
 Status: **Implemented 2026-10-18** by the local worker; accepted on planner review. Planner: Claude. Parent:

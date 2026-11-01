@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Review M6 A-1, A-3: a reply is an object, and its error is one line"
+description: "A-1: parse_extraction accepts a JSON array where an object is required, because serde's derived struct deserializer also reads a sequence."
+status: deprecated
+tags: [milestone-6]
+---
 # Review M6 A-1, A-3: a reply is an object, and its error is one line
 
 Status: **Implemented 2026-10-20** by the local worker; accepted on planner review. Planner: Claude. Parent:

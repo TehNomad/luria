@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 7k5: the luria new command"
+description: "The form opens (7k3/7k4)."
+status: deprecated
+tags: [milestone-7]
+---
 # Milestone 7k5: the `luria new` command
 
 Status: **Implemented 2026-10-22.** Proofs 2 and 3 failed as required;

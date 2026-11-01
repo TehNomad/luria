@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 7k9: words use the form's values; pasted line ends; a waiting line"
+description: "M7-41: with words, the form's values are the design; the form now gives interpret a profile built from what it shows."
+status: deprecated
+tags: [milestone-7]
+---
 # Milestone 7k9: words use the form's values; pasted line ends; a waiting line
 
 Status: **Implemented, 2026-10-22.** Planner: Claude. Follows

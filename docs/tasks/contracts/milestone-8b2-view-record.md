@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 8b2 — core: ViewRecord and open_record (§4.1)"
+description: "crates/core/src/view_record.rs: open_record(name, text), the one core entry point the view and luria find use to read a file."
+status: deprecated
+tags: [milestone-8]
+---
 # Contract 8b2 — core: `ViewRecord` and `open_record` (§4.1)
 
 Planner: Claude. Status: **Implemented 2026-10-26** by worker `w-8b2` in

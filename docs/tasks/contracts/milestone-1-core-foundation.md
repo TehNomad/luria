@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 1 task record: core sequence foundation"
+description: "This file records the concrete semantic choices made while implementing Milestone 1."
+status: deprecated
+tags: [milestone-1]
+---
 # Milestone 1 task record: core sequence foundation
 
 Status: Implemented in `crates/core`

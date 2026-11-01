@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Review M5 C-3, C-7, C-8, C-13: CLI test gaps"
+description: "§6 requires residue edits including minus strand and origin-crossing through the executable, and no CLI test reads mutation/cases.tsv."
+status: deprecated
+tags: [milestone-5]
+---
 # Review M5 C-3, C-7, C-8, C-13: CLI test gaps
 
 Status: **Implemented 2026-10-18** by the local worker; accepted after one round (the `pair_summary` amendment in §2.3). Planner: Claude. Parent:

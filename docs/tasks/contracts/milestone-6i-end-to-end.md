@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 6i: the corpus end to end"
+description: "This contract adds tests only."
+status: deprecated
+tags: [milestone-6]
+---
 # Milestone 6i: the corpus end to end
 
 Status: **Implemented 2026-10-19** by the local worker; accepted on the first

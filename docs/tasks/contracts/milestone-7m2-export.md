@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 7m2: export names constructs by template, and asks before replacing"
+description: "M7-57: constructs are <template id>_<member>.fa, e.g."
+status: deprecated
+tags: [milestone-7]
+---
 # Milestone 7m2: export names constructs by template, and asks before replacing
 
 Status: **Implemented, 2026-10-22.** Planner:

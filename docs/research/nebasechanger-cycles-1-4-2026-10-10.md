@@ -1,3 +1,9 @@
+---
+type: Research Note
+title: "NEBaseChanger research — cycles 1–4 (2026-10-10)"
+description: "Covers the four priority questions: runtime Tm-model selection, ct units, the maxTm field, and thermodynamic-table differences."
+status: stable
+---
 # NEBaseChanger research — cycles 1–4 (2026-10-10)
 
 Covers the four priority questions: runtime Tm-model selection, `ct` units,

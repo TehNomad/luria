@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Review M5 C-6, C-9, C-12: run invariants, the I/O exit, imported CDS locations"
+description: "run.rs:153 calls execution.mutation().unwrap(), so a broken core invariant panics instead of giving an Internal document."
+status: deprecated
+tags: [milestone-5]
+---
 # Review M5 C-6, C-9, C-12: run invariants, the I/O exit, imported CDS locations
 
 Status: **Implemented 2026-10-18** by the local worker; accepted on planner review. Planner: Claude. Parent:

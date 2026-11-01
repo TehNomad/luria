@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 7k1: the mutation shorthand parser"
+description: "luria new takes mutations as one line each, in a shorthand luria reads itself, with no model."
+status: deprecated
+tags: [milestone-7]
+---
 # Milestone 7k1: the mutation shorthand parser
 
 Status: **Implemented 2026-10-21.** Proofs 1-3 failed as required. Positions are ASCII digits only; w7k1 found the reference script accepted other Unicode digits (and crashed on `²`), now fixed there with no change to the table. Planner: Claude. Parent:

@@ -1,3 +1,9 @@
+---
+type: Task Contract
+title: "Review fix B5: tail-path replacements are described as deletions and insertions"
+description: "D033's tail path designs a replacement of [s, e) with the two annealing portions at the region's edges, like a deletion, and the text in the tails, like an insertion."
+status: deprecated
+---
 # Review fix B5: tail-path replacements are described as deletions and insertions
 
 Status: **Implemented 2026-10-16** by the local worker; accepted on planner review. Three further single-case doc comments (`PrimerPartRole`, `abuts`/`boundary`, the `changed_positions` comment) are left for the §D doc-trimming contract.

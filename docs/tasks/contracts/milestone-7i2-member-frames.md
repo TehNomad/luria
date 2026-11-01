@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 7i2: each member's mutant protein, for the review"
+description: "The redesigned member screen shows the mutant protein."
+status: deprecated
+tags: [milestone-7]
+---
 # Milestone 7i2: each member's mutant protein, for the review
 
 Status: **Implemented 2026-10-21.** Proofs 1-3 failed as required (proof 2 through the added test 8 and fixture row `syn-ins-minus`). Rules 2, 3, 5 and the empty-coordinates case are implemented but untested. Planner: Claude. Parent:

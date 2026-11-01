@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 7i1: the mutant reading frame, in luria-core"
+description: "The redesigned context screen shows the mutant protein between the two strands, each residue letter over the middle base of its codon."
+status: deprecated
+tags: [milestone-7]
+---
 # Milestone 7i1: the mutant reading frame, in luria-core
 
 Status: **Implemented 2026-10-21.** Proofs 1-4 failed as required. Refusals: split CDS `UnsupportedFeatureStructure`; first base in the edit `MutationVerificationFailure`; reversed edit or window `ReversedInterval`. The `?` rule is implemented but no fixture row exercises it. Planner: Claude. Parent:

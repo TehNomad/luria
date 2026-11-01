@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 8m16 — cli: the feature list coloured, and filtered by key too (M8-39)"
+description: "Each row of the f list is drawn in its feature's lane colour (8m7's feature_colour: the file's ApE colour, else the key's), as the row's foreground, with the colours on."
+status: deprecated
+tags: [milestone-8]
+---
 # Contract 8m16 — cli: the feature list coloured, and filtered by key too (M8-39)
 
 Planner: Claude. Status: **Implemented 2026-10-28** by worker `w-8m16` in

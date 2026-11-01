@@ -1,3 +1,9 @@
+---
+type: Task Contract
+title: "Review refactor E2: one tail-rebuild check and one set of claim readers"
+description: "In crates/core/src/primer.rs, assemble_pair has two copies of the tail-rebuild check, one in the insertion branch and one in the D033 replacement tail branch."
+status: deprecated
+---
 # Review refactor E2: one tail-rebuild check and one set of claim readers
 
 Status: **Implemented 2026-10-16** by the local worker; accepted on planner review.

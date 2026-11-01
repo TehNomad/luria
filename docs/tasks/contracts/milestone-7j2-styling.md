@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 7j2: borders, the title badge, colour and the help pop-up"
+description: "The owner asked for the screens to look like popular ratatui apps."
+status: deprecated
+tags: [milestone-7]
+---
 # Milestone 7j2: borders, the title badge, colour and the help pop-up
 
 Status: **Implemented 2026-10-21** by w7j2 (ran out of context before

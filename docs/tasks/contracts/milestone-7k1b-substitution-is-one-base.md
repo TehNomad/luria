@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 7k1b: a range is a replacement"
+description: "7k1 read a same-length range such as 1210-1212 GAT>AAC as a Substitution; a request's substitution is one base only, as q5 design refuses it."
+status: deprecated
+tags: [milestone-7]
+---
 # Milestone 7k1b: a range is a replacement
 
 Status: **Implemented 2026-10-21.** The old rule failed `every_shorthand_row_matches` on `1210-1212 GAT>AAC`, as required. Planner: Claude. Corrects

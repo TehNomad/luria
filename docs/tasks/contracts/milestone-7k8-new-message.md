@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 7k8: luria new's unknown-option message names every option"
+description: "parse_new's refusal of an unknown word in crates/cli/src/args.rs: the message now names every option it takes, and nothing else in parse_new changes."
+status: deprecated
+tags: [milestone-7]
+---
 # Milestone 7k8: `luria new`'s unknown-option message names every option
 
 Status: **Implemented, 2026-10-22.** Planner: Claude. Follows

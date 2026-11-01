@@ -1,3 +1,9 @@
+---
+type: Task Contract
+title: "Review refactor E4 and fix B11: the apply_* scope check, and verify without unreachable!"
+description: "crates/core/src/mutation.rs: apply_nucleotide, apply_deletion and apply_replacement each contain the same block."
+status: deprecated
+---
 # Review refactor E4 and fix B11: the `apply_*` scope check, and `verify` without `unreachable!`
 
 Status: **Implemented 2026-10-16** by the local worker; accepted on planner review.

@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 4e-4b task contract: degenerate replacement requests"
+description: "A caller can ask for a replacement containing IUPAC ambiguity codes."
+status: deprecated
+tags: [milestone-4]
+---
 # Milestone 4e-4b task contract: degenerate replacement requests
 
 Status: **Implemented 2026-10-15** by the local worker; accepted on planner review (§8).

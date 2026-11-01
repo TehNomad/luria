@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 9h — cli: saving the edited record, and quitting with edits unsaved"
+description: "s opens a \"save as\" prompt with a name filled in."
+status: deprecated
+tags: [milestone-9]
+---
 # Contract 9h — cli: saving the edited record, and quitting with edits unsaved
 
 Planner: Claude. Status: implemented. Tier: light (plan M9-10).

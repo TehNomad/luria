@@ -1,3 +1,9 @@
+---
+type: Proposal
+title: "Later: naming a residue by an annotated site"
+description: "\"Mutate the histidine in the catalytic triad to an alanine.\" The user names the residue by its role, not its number."
+status: draft
+---
 # Later: naming a residue by an annotated site
 
 Status: **Deferred by the owner, 2026-10-19. Not scheduled and not a task

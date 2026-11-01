@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 9c1 — core: the GenBank reader keeps what a save writes back"
+description: "The GenBank reader starts keeping what the writer (9c3) needs to write a record back."
+status: deprecated
+tags: [milestone-9]
+---
 # Contract 9c1 — core: the GenBank reader keeps what a save writes back
 
 Planner: Claude. Status: implemented. Tier: full.

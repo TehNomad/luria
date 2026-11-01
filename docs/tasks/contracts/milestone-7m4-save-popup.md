@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 7m4: one pop-up to save and run, asking before it replaces"
+description: "M7-48: a pop-up on the form asks for the request's file name and shows the pasted FASTA's name."
+status: deprecated
+tags: [milestone-7]
+---
 # Milestone 7m4: one pop-up to save and run, asking before it replaces
 
 Status: **Implemented, 2026-10-22.** Planner: Claude. Parent:

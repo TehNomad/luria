@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Review M6 B-5: the composition is read from the text by Rust (D045)"
+description: "composition is one of the schema's fixed values, so it is never grounded."
+status: deprecated
+tags: [milestone-6]
+---
 # Review M6 B-5: the composition is read from the text by Rust (D045)
 
 Status: **Implemented 2026-10-20** by the local worker; accepted on planner

@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Review M5 docs: the CLI page, the GenBank fixture notes and D030's evidence"
+description: "docs/specs/cli.md says template.sha256 is checked against the file's digest; it is checked against the SHA-256 of the normalized sequence."
+status: deprecated
+tags: [milestone-5]
+---
 # Review M5 docs: the CLI page, the GenBank fixture notes and D030's evidence
 
 Status: **Implemented 2026-10-18** by the local worker; accepted after two small review rounds (the CLI codes' `details`, the verify script comment). Planner: Claude. Parent:

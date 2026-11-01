@@ -1,3 +1,9 @@
+---
+type: Task Contract
+title: "Review fix C2: make the Watson–Crick parameter check rerunnable"
+description: "tests/fixtures/tm/README.md says the Watson–Crick table was verified against published ΔG°37 values."
+status: deprecated
+---
 # Review fix C2: make the Watson–Crick parameter check rerunnable
 
 Status: **Implemented 2026-10-16** by the local worker; accepted on planner review. Worst deviation 0.0147 kcal/mol (GA/CT).

@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 7d2: the reverse tail's context, tested"
+description: "This contract adds the test that compares 7d's output with the planner's context-ins-04.txt, and proves 7d's reverse-tail rule."
+status: deprecated
+tags: [milestone-7]
+---
 # Milestone 7d2: the reverse tail's context, tested
 
 Status: **Implemented 2026-10-21** by the local worker; accepted after one

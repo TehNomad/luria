@@ -1,3 +1,9 @@
+---
+type: Proposal
+title: "Later: HTTPS endpoints and the Anthropic backend"
+description: "Owner answer M6-1 asked for two backends: a local OpenAI-compatible endpoint and the Anthropic API."
+status: draft
+---
 # Later: HTTPS endpoints and the Anthropic backend
 
 Status: **Deferred by the owner, 2026-10-19 (M6-18). Not scheduled and not a

@@ -1,3 +1,9 @@
+---
+type: Task Contract
+title: "Review A6: accept ConfineToTail where it changes nothing (D038)"
+description: "A luriaNative request with placement ConfineToTail is designed exactly as the same request with Inline when the edit is an insertion (D032), or a replacement with max(w, m) > 6 (D033)."
+status: deprecated
+---
 # Review A6: accept `ConfineToTail` where it changes nothing (D038)
 
 Status: **Implemented 2026-10-16** by the local worker; accepted on planner review.

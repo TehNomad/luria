@@ -1,3 +1,9 @@
+---
+type: Task Contract
+title: "Review fix B15: degenerate expansion overflows before it can warn"
+description: "multiplies the per-position set sizes with an unchecked stride *= sets[set_index].len()."
+status: deprecated
+---
 # Review fix B15: degenerate expansion overflows before it can warn
 
 Status: **Implemented 2026-10-16** by the local worker; accepted on planner review.

@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 6d: the design profile"
+description: "Prose rarely states a primer-design policy, a buffer or a codon, and D028 forbids luria defaulting them."
+status: deprecated
+tags: [milestone-6]
+---
 # Milestone 6d: the design profile
 
 Status: **Implemented 2026-10-19** by the local worker; accepted on the first

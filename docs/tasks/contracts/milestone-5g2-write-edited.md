@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 5g2: --write-edited"
+description: "q5 design prints its result but writes no sequence text: plan §3.5 keeps the edited construct out of the JSON so a 64-member expansion of a plasmid does not produce a multi-megabyte document."
+status: deprecated
+tags: [milestone-5]
+---
 # Milestone 5g2: `--write-edited`
 
 Status: **Implemented 2026-10-17** by the local worker, across two rounds.

@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 6e2: from an extraction to a request or questions"
+description: "This is the trust boundary of plan §3, as one pure function."
+status: deprecated
+tags: [milestone-6]
+---
 # Milestone 6e2: from an extraction to a request or questions
 
 Status: **Implemented 2026-10-19** by the local worker, accepted after one

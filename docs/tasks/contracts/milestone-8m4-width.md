@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 8m4 — cli: lines fill the width in steps of 3 (M8-28)"
+description: "A line holds as many bases as fit beside the base numbers, rounded down to a multiple of 3, in every mode (today: a multiple of 10, or 30 with a translation)."
+status: deprecated
+tags: [milestone-8]
+---
 # Contract 8m4 — cli: lines fill the width in steps of 3 (M8-28)
 
 Planner: Claude. Status: **Implemented 2026-10-27** by worker `w-8m4` in

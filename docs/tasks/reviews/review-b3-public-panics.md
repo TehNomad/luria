@@ -1,3 +1,9 @@
+---
+type: Task Contract
+title: "Review fix B3: public functions that panic or check too little"
+description: "mutation::codon_positions is pub and computes 3 * (number - 1) + offset and total_length - 1 - read unchecked."
+status: deprecated
+---
 # Review fix B3: public functions that panic or check too little
 
 Status: **Implemented 2026-10-16** by the local worker; accepted on planner review.

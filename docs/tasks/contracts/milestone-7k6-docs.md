@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 7k6: the documentation of luria new, and D047"
+description: "Replace is §11 (D046). (the end of the opening paragraph's sentence about luria review) with is §11 (D046)."
+status: deprecated
+tags: [milestone-7]
+---
 # Milestone 7k6: the documentation of `luria new`, and D047
 
 Status: **Implemented, 2026-10-22.** Planner: Claude. Parent:

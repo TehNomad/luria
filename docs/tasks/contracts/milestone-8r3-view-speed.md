@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 8r3 — cli: the view builds each block once, and reuses the CDS it holds"
+description: "Three changes to crates/cli/src/sequence_view/."
+status: deprecated
+tags: [milestone-8]
+---
 # Contract 8r3 — cli: the view builds each block once, and reuses the CDS it holds
 
 Planner: Claude. Status: **Implemented 2026-10-29** by worker `w-8r3` in

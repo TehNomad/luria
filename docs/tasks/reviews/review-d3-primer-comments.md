@@ -1,3 +1,9 @@
+---
+type: Task Contract
+title: "Review cleanup D3: comments in primer.rs and primer_design.rs"
+description: "Follow §2 of docs/tasks/reviews/review-d1-q5-comments.md exactly; its 11 rules apply here unchanged."
+status: deprecated
+---
 # Review cleanup D3: comments in `primer.rs` and `primer_design.rs`
 
 Status: **Implemented 2026-10-16** by the local worker; accepted on planner review. The worker found that D035 misdescribed the code (circular templates are refused, not designed as linear); corrected in docs separately.

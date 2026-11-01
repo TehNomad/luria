@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 4 task contract: insertions and deletions"
+description: "luria designs primers for substitutions of 1–3 bases."
+status: deprecated
+tags: [milestone-4]
+---
 # Milestone 4 task contract: insertions and deletions
 
 Status: **All owner decisions recorded (§4.7); the 4.4 reading was confirmed

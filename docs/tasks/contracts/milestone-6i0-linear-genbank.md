@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 6i0: the linear GenBank fixture"
+description: "Every GenBank fixture so far is circular, and luria designs primers on linear templates only (D035, D041 G10)."
+status: deprecated
+tags: [milestone-6]
+---
 # Milestone 6i0: the linear GenBank fixture
 
 Status: **Implemented 2026-10-19.** Fixture written and verified by the

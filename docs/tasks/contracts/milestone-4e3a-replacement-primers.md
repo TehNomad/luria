@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 4e-3a task contract: replacement primers and pairs in primer.rs"
+description: "primer.rs accepts a replacement result: untailed primers on the inline path, tailed primers and the pair invariant on the tail path."
+status: deprecated
+tags: [milestone-4]
+---
 # Milestone 4e-3a task contract: replacement primers and pairs in `primer.rs`
 
 Status: **Implemented 2026-10-15** by the local worker; accepted on planner review (§9).

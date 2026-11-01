@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 6j: the documentation, and D044"
+description: "Milestone 6's behaviour is built and tested; this contract writes it down where users and future contributors look."
+status: deprecated
+tags: [milestone-6]
+---
 # Milestone 6j: the documentation, and D044
 
 Status: **Implemented 2026-10-19** by the local worker; accepted on the first

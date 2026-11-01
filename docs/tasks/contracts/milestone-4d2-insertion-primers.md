@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 4d-2 task contract: 5′ tails and insertion pairs in primer.rs"
+description: "primer.rs can represent a primer with a non-annealing 5′ tail, and can check an insertion pair."
+status: deprecated
+tags: [milestone-4]
+---
 # Milestone 4d-2 task contract: 5′ tails and insertion pairs in `primer.rs`
 
 Status: **Implemented 2026-10-15** by the local worker; accepted on planner review (§9).

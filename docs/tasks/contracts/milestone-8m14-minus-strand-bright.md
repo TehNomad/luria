@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 8m14 — cli: a minus-strand CDS's strand drawn bright (M8-36)"
+description: "While the lanes show a minus-strand CDS (LaneMode::Cds(i) where CDS i is on the minus strand), the strand that CDS reads is the one drawn as primary."
+status: deprecated
+tags: [milestone-8]
+---
 # Contract 8m14 — cli: a minus-strand CDS's strand drawn bright (M8-36)
 
 Planner: Claude. Status: **Implemented 2026-10-28** by worker `w-8m14` in

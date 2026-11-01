@@ -1,3 +1,9 @@
+---
+type: Task Contract
+title: "Review fix B2: overflow in the primer-design feasibility sums"
+description: "crates/core/src/primer_design.rs computes smallest_pair with unchecked u64 arithmetic in three places: design_inline, design_deletion and design_tailed."
+status: deprecated
+---
 # Review fix B2: overflow in the primer-design feasibility sums
 
 Status: **Implemented 2026-10-16** by the local worker; accepted on planner review with one amendment (§7).

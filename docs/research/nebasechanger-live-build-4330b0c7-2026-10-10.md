@@ -1,3 +1,9 @@
+---
+type: Research Note
+title: "NEBaseChanger live build index.4330b0c7.js — v2.11.0 (2026-10-10)"
+description: "Research only: the live build index.4330b0c7.js is v2.11.0, captured 2026-10-10."
+status: stable
+---
 # NEBaseChanger live build `index.4330b0c7.js` — **v2.11.0** (2026-10-10)
 
 Research only. No Luria production code, no Milestone 3 code.

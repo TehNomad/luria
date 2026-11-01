@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Review M5 C-1, C-2: --write-edited never overwrites, never writes elsewhere"
+description: "write_edited checks path.try_exists() and then calls fs::write, which truncates an existing file and follows symlinks."
+status: deprecated
+tags: [milestone-5]
+---
 # Review M5 C-1, C-2: `--write-edited` never overwrites, never writes elsewhere
 
 Status: **Implemented 2026-10-18** by the local worker; accepted on planner review. Planner: Claude. Parent:

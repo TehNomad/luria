@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 8m5 — cli: residues coloured by Zappo group, C toggles (M8-29)"
+description: "In every residue line (the selected CDS's line and each frame's line), each residue's codon gets a background colour by Zappo group across all three of its bases."
+status: deprecated
+tags: [milestone-8]
+---
 # Contract 8m5 — cli: residues coloured by Zappo group, `C` toggles (M8-29)
 
 Planner: Claude. Status: **Implemented 2026-10-27** by worker `w-8m5` in

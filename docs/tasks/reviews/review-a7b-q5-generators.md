@@ -1,3 +1,9 @@
+---
+type: Task Contract
+title: "Review A7b: --check for the q5-primer generators; track the unit-test driver (D039, C1)"
+description: "The five generators in tests/fixtures/q5-primer/reference/ overwrite their tracked output, and none has a check-only mode."
+status: deprecated
+---
 # Review A7b: `--check` for the q5-primer generators; track the unit-test driver (D039, C1)
 
 Status: **Implemented 2026-10-16** by the local worker; the worker was stopped while matching values (§2 item 3), and the planner finished that check and the deliberate-failure demonstration during review.

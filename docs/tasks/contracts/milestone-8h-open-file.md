@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 8h — cli: opening a bare file (§5.6)"
+description: "luria FILE opens the sequence view (8k1) on any existing path that is not a subcommand word."
+status: deprecated
+tags: [milestone-8]
+---
 # Contract 8h — cli: opening a bare file (§5.6)
 
 Planner: Claude. Status: **Implemented 2026-10-26** by worker `w-8h` in two

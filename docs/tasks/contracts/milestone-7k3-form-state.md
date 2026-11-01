@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 7k3: the luria new form's state"
+description: "The form holds what the user has typed and chosen, moves focus, and on [ Review ] turns itself into a new::Form and calls new::build."
+status: deprecated
+tags: [milestone-7]
+---
 # Milestone 7k3: the `luria new` form's state
 
 Status: **Implemented 2026-10-22** by w7k3 (ran out of context before reporting) and w7k3b (proofs and checks). Proofs 1-3 failed as required; proof 2 was run by adding a preview cache refreshed only on typing, since previews are computed on demand. Planner: Claude. Parent:

@@ -1,3 +1,9 @@
+---
+type: Task Contract
+title: "Review fix C12: the reference generator hard-codes one machine's path"
+description: "tests/fixtures/q5-primer/reference/neb-q5-sdm-reference.py, line 40, sets FIXTURES = \"/home/timw/Projects/luria/tests/fixtures\"."
+status: deprecated
+---
 # Review fix C12: the reference generator hard-codes one machine's path
 
 Status: **Implemented 2026-10-16** by the local worker; accepted on planner review. Regenerated designs.json differs only in the three `reportedBy` strings.

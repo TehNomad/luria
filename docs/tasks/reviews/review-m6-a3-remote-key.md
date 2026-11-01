@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Review M6: no API key to a remote endpoint over plain HTTP (D045)"
+description: "With --allow-remote, LURIA_OPENAI_API_KEY is sent as a bearer token, unencrypted, to a host that is not this machine: this build has no TLS (M6-18)."
+status: deprecated
+tags: [milestone-6]
+---
 # Review M6: no API key to a remote endpoint over plain HTTP (D045)
 
 Status: **Implemented 2026-10-21** by the local worker; accepted on planner

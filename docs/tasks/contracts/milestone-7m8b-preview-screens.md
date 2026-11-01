@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 7m8b: the words preview on the variant screens"
+description: "M7-60: when the model's reading can be approved, luria new runs the design in memory and shows the variant screens as a preview, before anything is saved."
+status: deprecated
+tags: [milestone-7]
+---
 # Milestone 7m8b: the words preview on the variant screens
 
 Status: **Implemented, 2026-10-22.** Planner: Claude. Parent:

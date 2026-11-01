@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 9b2 — core: the editor's reading of a location, and the buffer from a record"
+description: "The editor's own reading of a GenBank location text into 9b's EditLocation."
+status: deprecated
+tags: [milestone-9]
+---
 # Contract 9b2 — core: the editor's reading of a location, and the buffer from a record
 
 Planner: Claude. Status: implemented. Tier: full.

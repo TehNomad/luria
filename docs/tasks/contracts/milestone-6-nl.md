@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 6 plan: natural-language interpretation"
+description: "Milestone 5 made the Q5 workflow runnable from a typed request file, luria.q5-request/1."
+status: deprecated
+tags: [milestone-6]
+---
 # Milestone 6 plan: natural-language interpretation
 
 Status: **Implemented 2026-10-19.** Plan approved by the owner the same day;

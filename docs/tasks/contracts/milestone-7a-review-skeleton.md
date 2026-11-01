@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 7a: luria review REQUEST.json, the skeleton"
+description: "The first runnable piece of the TUI: luria review REQUEST.json runs the request exactly as luria q5 design does, then opens a full-screen terminal view of the result."
+status: deprecated
+tags: [milestone-7]
+---
 # Milestone 7a: `luria review REQUEST.json`, the skeleton
 
 Status: **Implemented 2026-10-20** by the local worker; accepted on the

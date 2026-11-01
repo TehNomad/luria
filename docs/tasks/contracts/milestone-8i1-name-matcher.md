@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 8i1 — core: matching a name to a CDS (M8-15)"
+description: "crates/core/src/name_match.rs: one matcher that turns a value the user typed into one item, several candidates, or none, by D049's rules."
+status: deprecated
+tags: [milestone-8]
+---
 # Contract 8i1 — core: matching a name to a CDS (M8-15)
 
 Planner: Claude. Status: **Implemented 2026-10-26** by worker `w-8i1` in one

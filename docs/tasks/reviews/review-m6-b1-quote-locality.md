@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Review M6 B-1, B-2: one number per quote, in order (D045)"
+description: "evidence (evidence.rs:209) accepts a token when its number, original and target each appear somewhere in the quote, the original before the target."
+status: deprecated
+tags: [milestone-6]
+---
 # Review M6 B-1, B-2: one number per quote, in order (D045)
 
 Status: **Implemented 2026-10-20** by the local worker; accepted on planner review (`aeb5add`). Planner: Claude. Parent:

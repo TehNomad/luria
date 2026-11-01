@@ -1,3 +1,9 @@
+---
+type: Task Contract
+title: "Review fix C7, C10: unasserted error variants and weak assertions"
+description: "Three primer error variants raised in crates/core/src/primer.rs are asserted by no test outside the exhaustive name maps."
+status: deprecated
+---
 # Review fix C7, C10: unasserted error variants and weak assertions
 
 Status: **Implemented 2026-10-16** by the local worker; accepted on planner review. All three C7 variants are unreachable through the public API and are now documented as defensive checks.

@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 9h2 — cli: the save prompt is drawn"
+description: "Contract 9h's s opens the save prompt (ViewState::save_prompt), but nothing draws it."
+status: deprecated
+tags: [milestone-9]
+---
 # Contract 9h2 — cli: the save prompt is drawn
 
 Planner: Claude. Status: implemented. Tier: light.

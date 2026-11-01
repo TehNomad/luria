@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 7m7: words in luria new use the form's CDS"
+description: "In the owner's backend hand test, luria new with synthetic-linear.gb and the words change alanine 42 to glycine gave a proposal with the one question cds_unnamed."
+status: deprecated
+tags: [milestone-7]
+---
 # Milestone 7m7: words in `luria new` use the form's CDS
 
 Status: **Implemented, 2026-10-22.** Planner: Claude. Parent:

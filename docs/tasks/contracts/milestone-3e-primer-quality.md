@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 3e task record: primer-quality warnings"
+description: "A design that breaks a guideline is still emitted, with the guideline it broke recorded against the primer."
+status: deprecated
+tags: [milestone-3]
+---
 # Milestone 3e task record: primer-quality warnings
 
 Status: Implemented 2026-10-14 (sequence-only checks).

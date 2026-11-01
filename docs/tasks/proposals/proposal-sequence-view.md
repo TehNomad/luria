@@ -1,3 +1,9 @@
+---
+type: Proposal
+title: "Proposal: the sequence view"
+description: "A design sketch for the sequence view, drafted for the owner on 2026-10-23 and not yet a task contract."
+status: draft
+---
 # Proposal: the sequence view
 
 Status: **Draft for the owner, 2026-10-23. Not approved and not a task

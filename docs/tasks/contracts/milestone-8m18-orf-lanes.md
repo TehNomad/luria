@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 8m18 — cli: ORF lanes, shown and hidden with O (M8-40)"
+description: "O shows and hides lanes for the open reading frames 8m17's find_orfs finds (at least ORF_MIN_RESIDUES residues)."
+status: deprecated
+tags: [milestone-8]
+---
 # Contract 8m18 — cli: ORF lanes, shown and hidden with `O` (M8-40)
 
 Planner: Claude. Status: **Implemented 2026-10-28** by worker `w-8m18` in

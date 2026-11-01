@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 7h: the documentation, and D046"
+description: "Milestone 7's behaviour is built and tested."
+status: deprecated
+tags: [milestone-7]
+---
 # Milestone 7h: the documentation, and D046
 
 Status: **Implemented 2026-10-21.** Proof failed as required. (The owner confirmed the

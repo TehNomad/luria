@@ -1,3 +1,9 @@
+---
+type: Task Contract
+title: "Review cleanup D2: comments in mutation.rs, q5_design.rs, q5_expand.rs"
+description: "Follow §2 of docs/tasks/reviews/review-d1-q5-comments.md exactly; its 11 rules apply here unchanged."
+status: deprecated
+---
 # Review cleanup D2: comments in `mutation.rs`, `q5_design.rs`, `q5_expand.rs`
 
 Status: **Implemented 2026-10-16** by the local worker; accepted after one review round (two false claims and a vague citation fixed).

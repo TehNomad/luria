@@ -1,3 +1,9 @@
+---
+type: Research Note
+title: "NEBaseChanger HAR capture and archived-build comparison (2026-10-10)"
+description: "A read-only investigation of fixture data: the HAR capture and the archived builds, dated 2026-10-10."
+status: stable
+---
 # NEBaseChanger HAR capture and archived-build comparison (2026-10-10)
 
 Status: research report. Read-only investigation of fixture data. No Luria

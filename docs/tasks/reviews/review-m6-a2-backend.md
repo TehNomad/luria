@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Review M6 A-2, A-4 to A-8: the HTTP backend and the endpoint"
+description: "A-2: .proxy(None) in agent_of (openai.rs) is what stops HTTP_PROXY / ALL_PROXY from sending the prompt and the key to a host the loopback gate never checked."
+status: deprecated
+tags: [milestone-6]
+---
 # Review M6 A-2, A-4 to A-8: the HTTP backend and the endpoint
 
 Status: **Implemented 2026-10-20** by the local worker, in two runs (the

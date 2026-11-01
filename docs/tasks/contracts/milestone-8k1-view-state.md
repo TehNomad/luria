@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 8k1 — cli: the view's state, cursor and status line (§5.1, §5.2)"
+description: "The view as a screen: a pure state that moves a cursor over 8j's blocks, scrolls them, cycles the translation lanes and picks the CDS on open."
+status: deprecated
+tags: [milestone-8]
+---
 # Contract 8k1 — cli: the view's state, cursor and status line (§5.1, §5.2)
 
 Planner: Claude. Status: **Implemented 2026-10-26** by worker `w-8k1` in two

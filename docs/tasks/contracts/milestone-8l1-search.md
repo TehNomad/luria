@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 8l1 — cli: the view's search prompt (§5.4)"
+description: "/ opens a search prompt with a DNA/AA mode badge."
+status: deprecated
+tags: [milestone-8]
+---
 # Contract 8l1 — cli: the view's search prompt (§5.4)
 
 Planner: Claude. Status: **Implemented 2026-10-27** by worker `w-8l1` in three

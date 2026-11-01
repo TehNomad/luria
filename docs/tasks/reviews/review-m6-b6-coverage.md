@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Review M6 B-6, B-8: nothing dropped, nothing repeated (D045)"
+description: "B-6: text \"Using synA, design Q5 SDM primers for A42G and W87A as separate variants."
+status: deprecated
+tags: [milestone-6]
+---
 # Review M6 B-6, B-8: nothing dropped, nothing repeated (D045)
 
 Status: **Implemented 2026-10-20** by the local worker; accepted on planner

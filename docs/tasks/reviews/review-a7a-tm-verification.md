@@ -1,3 +1,9 @@
+---
+type: Task Contract
+title: "Review A7a: track the Tm verification scripts, with --check (D039)"
+description: "Every script that produced or verified a fixture expectation is tracked next to the fixture it serves, under that fixture's reference/ directory."
+status: deprecated
+---
 # Review A7a: track the Tm verification scripts, with `--check` (D039)
 
 Status: **Implemented 2026-10-16** by the local worker; accepted on planner review. All three checks pass; one label in crosscheck.py was aligned with tm_crosscheck.rs.

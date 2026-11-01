@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 7g2: the IDT order table"
+description: "The owner orders primers from IDT by pasting a table into its Bulk Input."
+status: deprecated
+tags: [milestone-7]
+---
 # Milestone 7g2: the IDT order table
 
 Status: **Implemented 2026-10-21** by the local worker; accepted on the

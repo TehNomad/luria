@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 4c-2 task contract: deletion runs reach a primer pair"
+description: "Prove, in tests, that a deletion requested through the Q5 workflow reaches a D031 primer pair through design_run and design_set."
+status: deprecated
+tags: [milestone-4]
+---
 # Milestone 4c-2 task contract: deletion runs reach a primer pair
 
 Status: **Implemented 2026-10-15** by the local worker; accepted on planner review (§7).

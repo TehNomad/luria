@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 5f4: the details of each error"
+description: "5f1 gave ErrorView everything but details; this contract adds details, the payload fields of a failed result's error."
+status: deprecated
+tags: [milestone-5]
+---
 # Milestone 5f4: the details of each error
 
 Status: **Implemented 2026-10-17** by the local worker; accepted on review.

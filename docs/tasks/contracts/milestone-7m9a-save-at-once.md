@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 7m9a: [ Save and run ] writes and runs at once"
+description: "M7-62: a words reading with no questions is written and run at once, under the form's file name."
+status: deprecated
+tags: [milestone-7]
+---
 # Milestone 7m9a: `[ Save and run ]` writes and runs at once
 
 Status: **Implemented, 2026-10-23.** Planner: Claude. Parent:

@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 6g1: the OpenAI-compatible backend, over plain HTTP"
+description: "This is the first code that sends anything off the process: the prompt, to a model served behind an OpenAI-compatible /chat/completions endpoint (llama.cpp, Ollama, vLLM and others)."
+status: deprecated
+tags: [milestone-6]
+---
 # Milestone 6g1: the OpenAI-compatible backend, over plain HTTP
 
 Status: **Implemented 2026-10-19** by the local worker; accepted on the first

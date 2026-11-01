@@ -1,3 +1,9 @@
+---
+type: Proposal
+title: "Proposal: product direction (sequence first)"
+description: "A biologist who wants a point mutation or an indel today."
+status: draft
+---
 # Proposal: product direction (sequence first)
 
 Status: **Draft for the owner, 2026-10-23. Not approved and not a task

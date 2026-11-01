@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 5e1: the strict request document"
+description: "The request file is the typed surface that luria q5 design reads, and that the Milestone 6 adapter will write (D004, D016)."
+status: deprecated
+tags: [milestone-5]
+---
 # Milestone 5e1: the strict request document
 
 Status: **Implemented 2026-10-17** by the local worker, across two runs (the first hit the turn limit with `json.rs` done and the readers unwritten); accepted on review.

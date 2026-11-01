@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 6a: the luria-nl crate and the extraction parser"
+description: "Milestone 6 turns a user's prose into a typed request."
+status: deprecated
+tags: [milestone-6]
+---
 # Milestone 6a: the `luria-nl` crate and the extraction parser
 
 Status: **Ready for the worker, 2026-10-19.**

@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 4e-3b task contract: design a replacement (D033)"
+description: "design_primers designs a verified replacement instead of refusing it, and matches all 15 rows of tests/fixtures/q5-primer/native-replacement.tsv."
+status: deprecated
+tags: [milestone-4]
+---
 # Milestone 4e-3b task contract: design a replacement (D033)
 
 Status: **Implemented 2026-10-15** by two local workers; accepted on planner review (§10).

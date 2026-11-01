@@ -1,3 +1,9 @@
+---
+type: Task Contract
+title: "Review F1: the Q5 annealing temperature is the rounded lower Tm plus 1"
+description: "D030 reports the annealing temperature as the lower Tm plus 3 °C, capped at 72 °C."
+status: deprecated
+---
 # Review F1: the Q5 annealing temperature is the rounded lower Tm plus 1
 
 Status: **Implemented 2026-10-18** by the local worker. Planner: Claude. Owner

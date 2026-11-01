@@ -1,3 +1,9 @@
+---
+type: Agent Instructions
+title: "Worker instructions"
+description: "You are the default implementer for this project."
+status: stable
+---
 # Worker instructions
 
 You are the default implementer for this project. A planner has given you

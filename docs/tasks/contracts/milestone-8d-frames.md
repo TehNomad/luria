@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 8d — core: frame translation (§4.3)"
+description: "crates/core/src/frames.rs: the six reading frames of a record — three per strand — as the residues a frame produces, in the frame's own numbering, each with the position of its codon's middle base."
+status: deprecated
+tags: [milestone-8]
+---
 # Contract 8d — core: frame translation (§4.3)
 
 Planner: Claude.

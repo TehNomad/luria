@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 4d-3b task contract: insertion fixture tests and the 100-nt warning"
+description: "Check every row of tests/fixtures/q5-primer/native-insertion.tsv against luria."
+status: deprecated
+tags: [milestone-4]
+---
 # Milestone 4d-3b task contract: insertion fixture tests and the 100-nt warning
 
 Status: **Implemented 2026-10-15** by the local worker; accepted on planner review (§6).

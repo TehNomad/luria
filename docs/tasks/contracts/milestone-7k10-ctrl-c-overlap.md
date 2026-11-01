@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 7k10: Ctrl-C quits; an overlap too large to read is a blocker"
+description: "M7-43: Ctrl-C quits, writing nothing, on every screen of luria new and luria review."
+status: deprecated
+tags: [milestone-7]
+---
 # Milestone 7k10: Ctrl-C quits; an overlap too large to read is a blocker
 
 Status: **Implemented, 2026-10-22.** Planner: Claude. Owner

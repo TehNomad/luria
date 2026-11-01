@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 5d: the luria-cli crate skeleton"
+description: "This contract adds the second crate and the luria executable, with everything that doesn't need a request: argument parsing, luria version, luria help, usage errors, and the exit-code type."
+status: deprecated
+tags: [milestone-5]
+---
 # Milestone 5d: the `luria-cli` crate skeleton
 
 Status: **Implemented 2026-10-17** by the local worker; accepted after one review round (stdout written with `write_all`, so a failed write exits 1; test added).

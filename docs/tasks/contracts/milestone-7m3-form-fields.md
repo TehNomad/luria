@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 7m3: the form's fields after the owner's hand test"
+description: "M7-45: Overlap is prefilled with 15, shown and editable; a --design profile's value replaces it."
+status: deprecated
+tags: [milestone-7]
+---
 # Milestone 7m3: the form's fields after the owner's hand test
 
 Status: **Implemented, 2026-10-22.** Planner: Claude. Parent: [docs/tasks/contracts/milestone-7m-polish.md](/tasks/contracts/milestone-7m-polish.md),

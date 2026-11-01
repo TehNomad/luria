@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 7d: the sequence-context screen"
+description: "The sequence-context screen lays a designed primer pair out against the template, so a person can see where each primer sits, which bases anneal, and where the edit is."
+status: deprecated
+tags: [milestone-7]
+---
 # Milestone 7d: the sequence-context screen
 
 Status: **Implemented 2026-10-21** by the local worker; accepted on the

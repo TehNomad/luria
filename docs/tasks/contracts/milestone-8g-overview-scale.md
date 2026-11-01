@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 8g — core: the overview scale (§4.6)"
+description: "crates/core/src/overview.rs has two functions."
+status: deprecated
+tags: [milestone-8]
+---
 # Contract 8g — core: the overview scale (§4.6)
 
 Planner: Claude. Status: **Implemented 2026-10-26** by worker `w-8g` in one

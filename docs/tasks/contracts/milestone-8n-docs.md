@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 8n — docs: luria FILE and luria find in the docs, D058, D059"
+description: "Milestone 8's user documentation: docs/specs/cli.md gains §13 and the two commands in §1, and docs/decisions/ records D058 and D059."
+status: deprecated
+tags: [milestone-8]
+---
 # Contract 8n — docs: `luria FILE` and `luria find` in the docs, D058, D059
 
 Planner: Claude. Status: **Implemented 2026-10-28** by worker `w-8n` in

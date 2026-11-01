@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 6f: the prompt and the backend interface"
+description: "Before a model can be called, luria needs two things in luria-nl: the prompt: the exact messages sent, built deterministically from the user's text and a CDS summary and the backend interface."
+status: deprecated
+tags: [milestone-6]
+---
 # Milestone 6f: the prompt and the backend interface
 
 Status: **Implemented 2026-10-19** by the local worker; accepted on the first

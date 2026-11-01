@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 8m13 — cli: go-to and w/b land on a codon's first base (M8-35)"
+description: "A residue typed at go-to (g M1), and every w and b, put the cursor on the first base of the codon in reading direction, where today they put it on the middle base."
+status: deprecated
+tags: [milestone-8]
+---
 # Contract 8m13 — cli: go-to and `w`/`b` land on a codon's first base (M8-35)
 
 Planner: Claude. Status: **Implemented 2026-10-28** by worker `w-8m13` in

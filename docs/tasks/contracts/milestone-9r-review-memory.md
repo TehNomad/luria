@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 9r — core, cli: the review's memory and speed fixes"
+description: "These are findings 6 to 9 of the milestone 9 review (2026-10-31)."
+status: deprecated
+tags: [milestone-9]
+---
 # Contract 9r — core, cli: the review's memory and speed fixes
 
 Planner: Claude. Status: implemented. Tier: light, with rule 2 full (the edit

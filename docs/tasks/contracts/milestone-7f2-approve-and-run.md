@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 7f2: review a proposal, approve it, and run it"
+description: "The second entry point of M7-1: it interprets the text, shows the proposal, and on the user's explicit approval writes the request to --request and designs from that file."
+status: deprecated
+tags: [milestone-7]
+---
 # Milestone 7f2: review a proposal, approve it, and run it
 
 Status: **Implemented 2026-10-21** by two local workers (the first retired

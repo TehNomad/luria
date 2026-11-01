@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 8k3 — cli: the feature list and the CDS picker (§5.2, M8-5)"
+description: "Two lists over the view: f lists every feature, c lists every CDS."
+status: deprecated
+tags: [milestone-8]
+---
 # Contract 8k3 — cli: the feature list and the CDS picker (§5.2, M8-5)
 
 Planner: Claude. Status: **Implemented 2026-10-26** by worker `w-8k3` in two

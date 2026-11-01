@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 7m: the owner's first hand test, as changes"
+description: "The owner's answers of 2026-10-22 on ten points of the luria new form, from the prefilled overlap to the file picker and the colours."
+status: deprecated
+tags: [milestone-7]
+---
 # Milestone 7m: the owner's first hand test, as changes
 
 Status: **Implemented, 2026-10-22** (7m1, 7m1c, 7m2 to 7m6; the terminal session awaits the owner's hand test). Planner: Claude.

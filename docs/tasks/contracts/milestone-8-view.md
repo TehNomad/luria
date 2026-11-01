@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 8 plan: the sequence view (luria FILE) and luria find"
+description: "A read-only view of a construct: both strands, the translation of a chosen CDS or of all six frames, base and residue numbering, features, an overview of the whole sequence, go-to, and search."
+status: deprecated
+tags: [milestone-8]
+---
 # Milestone 8 plan: the sequence view (`luria FILE`) and `luria find`
 
 Status: **Implemented, 2026-10-28.** Every contract in §7 up to 8m18 is committed,

@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 7m8a: run a proposed request without writing it"
+description: "M7-60: when the model's reading can be approved, luria new shows the variant screens before anything is saved."
+status: deprecated
+tags: [milestone-7]
+---
 # Milestone 7m8a: run a proposed request without writing it
 
 Status: **Implemented, 2026-10-22.** Planner: Claude. Parent:

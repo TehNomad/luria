@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 8f — core: protein search (§4.5)"
+description: "crates/core/src/protein_search.rs: find_protein, which finds an amino-acid pattern in one CDS's translation or in the six frames of a record."
+status: deprecated
+tags: [milestone-8]
+---
 # Contract 8f — core: protein search (§4.5)
 
 Planner: Claude. Status: **Implemented 2026-10-26** by worker `w-8f` in two

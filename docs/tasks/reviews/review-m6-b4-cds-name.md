@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Review M6 B-4: a CDS name is grounded as a whole name (D045)"
+description: "The CDS name is grounded with stated_in (build.rs), a bare substring test."
+status: deprecated
+tags: [milestone-6]
+---
 # Review M6 B-4: a CDS name is grounded as a whole name (D045)
 
 Status: **Implemented 2026-10-20** by the local worker; accepted on planner

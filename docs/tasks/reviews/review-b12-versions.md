@@ -1,3 +1,9 @@
+---
+type: Task Contract
+title: "Review B12: bump the algorithm versions whose behavior changed"
+description: "Four version constants weren't bumped after their behavior changed: MUTATION_ALGORITHM_VERSION (mutation.rs), \"0.2.0\"."
+status: deprecated
+---
 # Review B12: bump the algorithm versions whose behavior changed
 
 Status: **Implemented 2026-10-16** by the local worker; accepted after adding the 0.6.0 history entry at the planner's request.

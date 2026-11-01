@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 2 task record: deterministic mutation domain"
+description: "This file records the concrete semantic choices made while implementing Milestone 2, in the same style as milestone-1-core-foundation.md."
+status: deprecated
+tags: [milestone-2]
+---
 # Milestone 2 task record: deterministic mutation domain
 
 Status: Implemented in `crates/core`

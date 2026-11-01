@@ -1,3 +1,9 @@
+---
+type: Task Contract
+title: "Review cleanup D1: comments in q5.rs"
+description: "crates/core/src/q5.rs has 657 comment lines in about 1680 lines of non-test code."
+status: deprecated
+---
 # Review cleanup D1: comments in `q5.rs`
 
 Status: **Implemented 2026-10-16** by the local worker; accepted on planner review. Comment lines 657 → 578; module doc 95 → 53.

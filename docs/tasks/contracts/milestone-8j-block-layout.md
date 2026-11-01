@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 8j — cli: the block layout (§5.1)"
+description: "crates/cli/src/sequence_view/layout.rs: pure functions that split a record into blocks for a width and a translation mode, and turn one block into ratatui lines."
+status: deprecated
+tags: [milestone-8]
+---
 # Contract 8j — cli: the block layout (§5.1)
 
 Planner: Claude. Status: **Implemented 2026-10-26** by worker `w-8j` in two

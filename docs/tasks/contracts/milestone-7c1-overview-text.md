@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 7c1: the text of the overview, problem and provenance screens"
+description: "Each result screen is a list of plain text lines built from the ResultDocument."
+status: deprecated
+tags: [milestone-7]
+---
 # Milestone 7c1: the text of the overview, problem and provenance screens
 
 Status: **Implemented 2026-10-21** by the local worker; accepted on the

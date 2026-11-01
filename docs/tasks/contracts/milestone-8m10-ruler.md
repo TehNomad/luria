@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 8m10 — cli: a ruler line over the top strand (M8-33)"
+description: "Every block gains one line, the ruler, directly above its top strand."
+status: deprecated
+tags: [milestone-8]
+---
 # Contract 8m10 — cli: a ruler line over the top strand (M8-33)
 
 Planner: Claude. Status: **Implemented 2026-10-28** by worker `w-8m10` in

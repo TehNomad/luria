@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 8m8 — cli: the cursor's codon highlighted on the residue line (M8-32)"
+description: "When the cursor stands in a codon of the selected CDS and that CDS's residue line is drawn, the codon's three cells on that line are reversed and bold."
+status: deprecated
+tags: [milestone-8]
+---
 # Contract 8m8 — cli: the cursor's codon highlighted on the residue line (M8-32)
 
 Planner: Claude. Status: **Implemented 2026-10-28** by worker `w-8m8` in

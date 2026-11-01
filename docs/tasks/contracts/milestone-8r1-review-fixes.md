@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 8r1 — cli: three bugs from the milestone 8 code review"
+description: "Three separate fixes, each with a test that fails without it."
+status: deprecated
+tags: [milestone-8]
+---
 # Contract 8r1 — cli: three bugs from the milestone 8 code review
 
 Planner: Claude. Status: **Implemented 2026-10-28** by worker `w-8r1` in

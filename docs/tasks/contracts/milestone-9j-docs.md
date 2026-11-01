@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 9j — docs: the editor in [docs/specs/cli.md](/specs/cli.md), the decisions, the brief"
+description: "It records milestone 9 in three documents."
+status: deprecated
+tags: [milestone-9]
+---
 # Contract 9j — docs: the editor in [docs/specs/cli.md](/specs/cli.md), the decisions, the brief
 
 Planner: Claude. Status: implemented. Tier: light (docs only).

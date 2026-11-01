@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Review M5 A-1, A-2, A-4, A-5, A-6: the readers drop or misread input"
+description: "read_origin_line counts an ORIGIN line's characters before normalize sees them."
+status: deprecated
+tags: [milestone-5]
+---
 # Review M5 A-1, A-2, A-4, A-5, A-6: the readers drop or misread input
 
 Status: **Implemented 2026-10-18** by the local worker; accepted on planner review. Planner: Claude. Parent:

@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 5a1: a stable code for every DomainError"
+description: "The CLI will print every failure as JSON with a code field."
+status: deprecated
+tags: [milestone-5]
+---
 # Milestone 5a1: a stable code for every `DomainError`
 
 Status: **Implemented 2026-10-16** by the local worker; accepted on first review.

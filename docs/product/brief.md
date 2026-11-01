@@ -1,3 +1,9 @@
+---
+type: Product Brief
+title: "Product brief"
+description: "Build a standalone molecular-biology toolbox that combines reliable, reproducible sequence-based tools with a natural-language interface."
+status: stable
+---
 Product brief
 
 Status: Initial draft

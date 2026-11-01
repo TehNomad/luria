@@ -1,3 +1,9 @@
+---
+type: Task Contract
+title: "Review fix B1: the pair validator must catch a tailed primer over the edit"
+description: "primer.rs is the independent check on designs."
+status: deprecated
+---
 # Review fix B1: the pair validator must catch a tailed primer over the edit
 
 Status: **Implemented 2026-10-16** by the local worker; accepted on planner review.

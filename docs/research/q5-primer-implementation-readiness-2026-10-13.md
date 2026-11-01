@@ -1,3 +1,9 @@
+---
+type: Research Note
+title: "Q5 primer split policy revised, and the implementation-readiness audit"
+description: "Two things in one document: the record of the pass that changed the luriaNative primer split rule to a mutation-centered split, and an audit of implementation readiness."
+status: stable
+---
 # Q5 primer split policy revised, and the implementation-readiness audit
 
 **What this is.** Two things, in one document. First, the record of the pass

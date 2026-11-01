@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 5f1: the result document's skeleton, provenance and failures"
+description: "luria q5 design prints one JSON document for success, clarification and failure alike (plan §3.5)."
+status: deprecated
+tags: [milestone-5]
+---
 # Milestone 5f1: the result document's skeleton, provenance and failures
 
 Status: **Implemented 2026-10-17** by the local worker, across two runs (the

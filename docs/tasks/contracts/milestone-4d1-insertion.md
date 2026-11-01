@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 4d-1 task contract: represent, apply and verify an insertion"
+description: "A DNA-level insertion can be requested, applied and independently verified."
+status: deprecated
+tags: [milestone-4]
+---
 # Milestone 4d-1 task contract: represent, apply and verify an insertion
 
 Status: **Implemented 2026-10-15** by the local worker; accepted on planner review (§9).

@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 7b: the review state machine"
+description: "7a's App holds a result document and knows one rule: q and Esc quit."
+status: deprecated
+tags: [milestone-7]
+---
 # Milestone 7b: the review state machine
 
 Status: **Implemented 2026-10-21** by the local worker; accepted on the

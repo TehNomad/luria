@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 9p1 — cli: measure where an edit's time goes"
+description: "One edit on a 10 000 000-base record takes about 1.65 s in a release build (9e §10)."
+status: deprecated
+tags: [milestone-9]
+---
 # Contract 9p1 — cli: measure where an edit's time goes
 
 Planner: Claude. Status: implemented. Tier: light.

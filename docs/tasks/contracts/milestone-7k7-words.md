@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 7k7: luria new's \"In words\" box, through the model"
+description: "M7-40 (owner, 2026-10-22): words and shorthand are either one, not both."
+status: deprecated
+tags: [milestone-7]
+---
 # Milestone 7k7: `luria new`'s "In words" box, through the model
 
 Status: **Implemented, 2026-10-22.** Planner: Claude. Parent:

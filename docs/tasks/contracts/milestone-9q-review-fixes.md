@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 9q — core, cli: the review's five correctness fixes"
+description: "A code review of milestone 9 (2026-10-31) found five bugs."
+status: deprecated
+tags: [milestone-9]
+---
 # Contract 9q — core, cli: the review's five correctness fixes
 
 Planner: Claude. Status: implemented. Tier: full (the GenBank writer, M9-10).

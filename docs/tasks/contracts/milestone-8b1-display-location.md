@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 8b1 — core: the display-only location parser (§4.1, M8-1)"
+description: "crates/core/src/display_location.rs: parse_display_location, which reads a GenBank feature location for drawing only."
+status: deprecated
+tags: [milestone-8]
+---
 # Contract 8b1 — core: the display-only location parser (§4.1, M8-1)
 
 Planner: Claude. Status: **Implemented 2026-10-26** by worker `w-8b1` in two

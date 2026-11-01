@@ -1,3 +1,9 @@
+---
+type: Policy
+title: "Decision record policy"
+description: "Changes to these decisions require explicit human approval."
+status: stable
+---
 # Decisions
 
 Status: Proposed baseline; review before implementation

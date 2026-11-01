@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 5a2: a rule on every InvalidMutationRequest"
+description: "InvalidMutationRequest is raised at 30 sites for 20 different reasons, and the only way to tell them apart is the reason text."
+status: deprecated
+tags: [milestone-5]
+---
 # Milestone 5a2: a `rule` on every `InvalidMutationRequest`
 
 Status: **Implemented 2026-10-16** by the local worker; accepted on first review.

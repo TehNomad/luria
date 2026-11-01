@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 4e-1 task contract: expanding IUPAC ambiguity codes"
+description: "sequence.rs can say which concrete bases an IUPAC code stands for, and can expand a text containing ambiguity codes into every concrete sequence it denotes, in D033's order."
+status: deprecated
+tags: [milestone-4]
+---
 # Milestone 4e-1 task contract: expanding IUPAC ambiguity codes
 
 Status: **Implemented 2026-10-15** by the local worker; accepted on planner review (§8).

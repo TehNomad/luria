@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 4b-2 task contract: deletion primer design (D031)"
+description: "design_primers designs a verified deletion under D031, reusing D030's sizing unchanged."
+status: deprecated
+tags: [milestone-4]
+---
 # Milestone 4b-2 task contract: deletion primer design (D031)
 
 Status: **Implemented 2026-10-15** by the local worker; accepted on planner review (§9).

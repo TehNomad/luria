@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 7k4: the luria new form's text and drawing"
+description: "The form exists as state (7k3)."
+status: deprecated
+tags: [milestone-7]
+---
 # Milestone 7k4: the `luria new` form's text and drawing
 
 Status: **Implemented 2026-10-22** by w7k4f (ran out of context) and w7k4g. Proofs 1-3 failed as required. Test 1 matched the contract's 28 lines with no change to either side. Untested: the style rules §4.2 does not name. Planner: Claude. Parent:

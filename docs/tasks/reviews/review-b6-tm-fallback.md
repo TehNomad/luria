@@ -1,3 +1,9 @@
+---
+type: Task Contract
+title: "Review fix B6: the matched-Tm fallback is broader than D030 allows"
+description: "falls back to the matched duplex on any DomainError::TmParametersUnavailable."
+status: deprecated
+---
 # Review fix B6: the matched-Tm fallback is broader than D030 allows
 
 Status: **Implemented 2026-10-16** by the local worker; accepted on planner review.

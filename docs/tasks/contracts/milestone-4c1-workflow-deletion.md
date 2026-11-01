@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 4c-1 task contract: deletions in the Q5 workflow, with a frameshift warning"
+description: "A Q5 request can ask for a deletion."
+status: deprecated
+tags: [milestone-4]
+---
 # Milestone 4c-1 task contract: deletions in the Q5 workflow, with a frameshift warning
 
 Status: **Implemented 2026-10-15** by the local worker; accepted on planner review (§8).

@@ -1,3 +1,9 @@
+---
+type: Task Contract
+title: "Review B9: the wild-type skip compares against the template, not the request"
+description: "expand_replacement skips a member as wild type when *sequence == expected_original."
+status: deprecated
+---
 # Review B9: the wild-type skip compares against the template, not the request
 
 Status: **Implemented 2026-10-16** by the local worker; accepted after the §8 amendment (the worker stopped on a defect in §2.1).

@@ -1,3 +1,9 @@
+---
+type: Task Contract
+title: "Review B13: print half-open intervals as [start, end)"
+description: "Several messages in primer.rs print a half-open interval with a closing ]."
+status: deprecated
+---
 # Review B13: print half-open intervals as `[start, end)`
 
 Status: **Implemented 2026-10-16** by the local worker; accepted on planner review.

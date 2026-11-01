@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Review M5 B-1, B-7: non-UTF-8 arguments and --"
+description: "B-1: main.rs:80 collects env::args(), which panics on any argument that isn't valid UTF-8; B-7: parse_design treats -- as an unknown option."
+status: deprecated
+tags: [milestone-5]
+---
 # Review M5 B-1, B-7: non-UTF-8 arguments and `--`
 
 Status: **Implemented 2026-10-18** by the local worker; accepted on planner review. Planner: Claude. Parent:

@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Review M5 A-8, A-10: GenBank test gaps"
+description: "The test helper fixture_id skips an id qualifier that has no value and moves on to the next one."
+status: deprecated
+tags: [milestone-5]
+---
 # Review M5 A-8, A-10: GenBank test gaps
 
 Status: **Implemented 2026-10-18** by the local worker; accepted on planner review. Planner: Claude. Parent:

@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 5g3: end-to-end tests"
+description: "Plan §6 is how this milestone establishes that the CLI is right: run the binary, parse its JSON, and compare each scientific field with an independently verified fixture."
+status: deprecated
+tags: [milestone-5]
+---
 # Milestone 5g3: end-to-end tests
 
 Status: **Implemented 2026-10-17** by the local worker, in two runs.

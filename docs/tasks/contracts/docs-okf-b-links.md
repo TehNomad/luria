@@ -1,6 +1,13 @@
+---
+type: Task Contract
+title: "Contract okf-b — docs: turn path references into OKF links"
+description: "Inside the bundle (docs/), a reference to another bundle file becomes a standard markdown link with a bundle-absolute target (OKF v0.2 §6.1."
+status: deprecated
+tags: [okf]
+---
 # Contract okf-b — docs: turn path references into OKF links
 
-Planner: Claude. Status: draft. Tier: presentation (no biology changes).
+Planner: Claude. Status: **Implemented 2026-10-31**. Tier: presentation (no biology changes).
 Step 2 of 3 of the OKF reorganization; okf-a (`docs-okf-a-move.md`) is done.
 
 ## 1. What this contract builds

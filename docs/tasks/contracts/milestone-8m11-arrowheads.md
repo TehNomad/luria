@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 8m11 — cli: a lane's arrowhead at the feature's 3′ end (M8-34)"
+description: "Today every lane run reads name ▸ ═══ (or ◂)."
+status: deprecated
+tags: [milestone-8]
+---
 # Contract 8m11 — cli: a lane's arrowhead at the feature's 3′ end (M8-34)
 
 Planner: Claude. Status: **Implemented 2026-10-28** by worker `w-8m11` in

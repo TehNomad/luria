@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Review M5 A-9: every imported GenBank CDS starts with ATG (D042)"
+description: "§4.2 step 11 checks the first codon only under /transl_table=11."
+status: deprecated
+tags: [milestone-5]
+---
 # Review M5 A-9: every imported GenBank CDS starts with ATG (D042)
 
 Status: **Implemented 2026-10-18** by the local worker; accepted after one review round (the `AlternativeStart` message wording). Planner: Claude. Parent:

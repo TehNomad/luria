@@ -1,3 +1,9 @@
+---
+type: Task Contract
+title: "Review B10: a codon crossing the origin is recorded in feature order (D040)"
+description: "The intervals a residue result records for its codon are listed the way D036 writes a feature."
+status: deprecated
+---
 # Review B10: a codon crossing the origin is recorded in feature order (D040)
 
 Status: **Implemented 2026-10-16** by the local worker; accepted after the §9 amendment (the worker stopped on a test my contract missed). The planner fixed one wrong reverse complement in a test comment.

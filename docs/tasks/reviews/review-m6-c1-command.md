@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Review M6 C-1, C-2, C-3, C-6, C-8: the command's local checks"
+description: "C-1: --write-request new.json/ (or name/.) passes step 4: Path::file_name drops the trailing / or /., and symlink_metadata says not found."
+status: deprecated
+tags: [milestone-6]
+---
 # Review M6 C-1, C-2, C-3, C-6, C-8: the command's local checks
 
 Status: **Implemented 2026-10-21** by the local worker; accepted on planner

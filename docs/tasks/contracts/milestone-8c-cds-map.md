@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 8c: the CDS map (core)"
+description: "The view must answer two questions without doing coordinate arithmetic of its own: which three reference bases encode a numbered residue, and which residue a base the reader points at belongs to."
+status: deprecated
+tags: [milestone-8]
+---
 # Milestone 8c: the CDS map (core)
 
 Status: **Implemented 2026-10-24** by the local worker, across two runs — the

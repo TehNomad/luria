@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 8b3 — core: CDS import without per-CDS copies"
+description: "import_cds (genbank_cds.rs:551) costs time that grows faster than the square of a record's CDS count."
+status: deprecated
+tags: [milestone-8]
+---
 # Contract 8b3 — core: CDS import without per-CDS copies
 
 Planner: Claude. Status: **Implemented 2026-10-26** by worker `w-8b3` in one

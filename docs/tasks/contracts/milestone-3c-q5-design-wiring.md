@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 3c task contract: wiring the Q5 workflow to the design layer"
+description: "Two layers exist and do not meet: crates/core/src/q5.rs runs the Q5 workflow and produces no primers, and crates/core/src/primer_design.rs designs a primer pair."
+status: deprecated
+tags: [milestone-3]
+---
 # Milestone 3c task contract: wiring the Q5 workflow to the design layer
 
 Status: Implemented 2026-10-14. See §10.

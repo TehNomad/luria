@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Review M6 B-3, B-9: the numbering veto reads the user's sentence (D045)"
+description: "numbering_from_cds_start (evidence.rs) applies NUMBERING_VETO to the model's numbering words only."
+status: deprecated
+tags: [milestone-6]
+---
 # Review M6 B-3, B-9: the numbering veto reads the user's sentence (D045)
 
 Status: **Implemented 2026-10-20** by the local worker; accepted on planner review.

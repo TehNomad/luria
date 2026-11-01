@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 7k: luria new, entering a design in the terminal (plan draft)"
+description: "What the user does: luria new [--design PROFILE.json] is one form, then the screens that exist already."
+status: deprecated
+tags: [milestone-7]
+---
 # Milestone 7k: `luria new`, entering a design in the terminal (plan draft)
 
 Status: **Approved plan, 2026-10-21** (M7-31 to M7-38). Planner: Claude. Parent:

@@ -1,3 +1,9 @@
+---
+type: Task Contract
+title: "Review fix B4: residue verification must check the annotation, not just its name"
+description: "verify_residue_claims (crates/core/src/mutation.rs, around line 1858) accepts any Cds whose id() equals the result's cds()."
+status: deprecated
+---
 # Review fix B4: residue verification must check the annotation, not just its name
 
 Status: **Implemented 2026-10-16** by the local worker; accepted on planner review.

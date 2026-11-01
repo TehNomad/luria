@@ -1,6 +1,13 @@
+---
+type: Task Contract
+title: "Contract okf-c — docs: OKF frontmatter, index files and the log"
+description: "Every concept document in docs/ gets an OKF v0.2 frontmatter block (§4.1, §5.4), every directory gets an index.md (§8), and the bundle root gets a log.md (§9)."
+status: deprecated
+tags: [okf]
+---
 # Contract okf-c — docs: OKF frontmatter, index files and the log
 
-Planner: Claude. Status: draft. Tier: presentation (no biology changes).
+Planner: Claude. Status: **Implemented 2026-10-31**. Tier: presentation (no biology changes).
 Step 3 of 3 of the OKF reorganization; okf-a and okf-b are done.
 
 ## 1. What this contract builds

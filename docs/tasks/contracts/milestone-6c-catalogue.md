@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 6c: the CDS catalogue"
+description: "To name a CDS, the model has to know which CDSs the template offers."
+status: deprecated
+tags: [milestone-6]
+---
 # Milestone 6c: the CDS catalogue
 
 Status: **Implemented 2026-10-19** by the local worker; accepted on the first

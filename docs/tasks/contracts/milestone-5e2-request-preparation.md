@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 5e2: preparing a request for the workflow"
+description: "5e1 turns request text into a RequestDocument without touching files or core."
+status: deprecated
+tags: [milestone-5]
+---
 # Milestone 5e2: preparing a request for the workflow
 
 Status: **Implemented 2026-10-17** by the local worker; accepted after two review rounds, both on planner errors the worker reported: the digest test could not add a member, and the types and one test helper were too large or too specific for clippy.

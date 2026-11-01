@@ -1,3 +1,9 @@
+---
+type: Task Contract
+title: "Review refactor E1: share the steps of the three design paths"
+description: "crates/core/src/primer_design.rs has three private design paths."
+status: deprecated
+---
 # Review refactor E1: share the steps of the three design paths
 
 Status: **Implemented 2026-10-16** by the local worker; accepted on planner review. Non-test lines 1374 → 1270.

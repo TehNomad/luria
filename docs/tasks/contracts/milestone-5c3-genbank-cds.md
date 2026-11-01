@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 5c3: importing named CDSs from a GenBank record"
+description: "A request names the CDSs it wants from a GenBank record, by id."
+status: deprecated
+tags: [milestone-5]
+---
 # Milestone 5c3: importing named CDSs from a GenBank record
 
 Status: **Implemented 2026-10-17** by the local worker, across two runs (the first hit the turn limit with the integration test unfinished); accepted on review. Finding: the §4.1 `AmbiguousName` check is redundant, because §4.2 step 3 gives the same error for a named import, so disabling it alone fails no test (§6.5). It is kept as a shortcut.

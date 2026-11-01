@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 4a task contract: represent, apply and verify a deletion"
+description: "A DNA-level deletion of a contiguous region can be requested, applied to a sequence, and independently verified."
+status: deprecated
+tags: [milestone-4]
+---
 # Milestone 4a task contract: represent, apply and verify a deletion
 
 Status: **Implemented 2026-10-15** by the local worker; reviewed by the planner (§9).

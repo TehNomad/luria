@@ -1,3 +1,9 @@
+---
+type: Task Contract
+title: "Review A5: warn when an in-frame DNA edit creates a premature stop (D037)"
+description: "When a substitution, deletion, insertion or replacement lies wholly inside the resolved CDS and keeps its reading frame, the Q5 workflow re-translates that CDS on the edited artifact."
+status: deprecated
+---
 # Review A5: warn when an in-frame DNA edit creates a premature stop (D037)
 
 Status: **Implemented 2026-10-16** by the local worker; accepted after one review round (§7).

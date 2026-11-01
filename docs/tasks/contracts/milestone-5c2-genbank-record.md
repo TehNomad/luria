@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 5c2: the GenBank record reader"
+description: "This contract reads the structure of one GenBank flat-file record."
+status: deprecated
+tags: [milestone-5]
+---
 # Milestone 5c2: the GenBank record reader
 
 Status: **Implemented 2026-10-17** by the local worker; accepted after one review round (§4.6, §4.7 clarified; two tests added).

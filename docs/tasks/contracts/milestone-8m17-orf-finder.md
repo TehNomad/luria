@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 8m17 — core: the ORF finder, with a reference table (M8-40)"
+description: "crates/core/src/orf.rs: one function that finds the open reading frames of a sequence on both strands, as M8-40 defines them, and a reference script and table that pin its output."
+status: deprecated
+tags: [milestone-8]
+---
 # Contract 8m17 — core: the ORF finder, with a reference table (M8-40)
 
 Planner: Claude. Status: **Implemented 2026-10-28** by worker `w-8m17` in

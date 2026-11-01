@@ -1,3 +1,9 @@
+---
+type: Research Note
+title: "Q5 primer policy review — the M3b review-and-decision pass"
+description: "A review of the policy written in docs/specs/q5-primer-design.md §§16–20: the luriaNative candidate policy and the NebaseChangerV2_11_0 compatibility target."
+status: stable
+---
 # Q5 primer policy review — the M3b review-and-decision pass
 
 **What this is.** A review of the policy written in [docs/specs/q5-primer-design.md](/specs/q5-primer-design.md)

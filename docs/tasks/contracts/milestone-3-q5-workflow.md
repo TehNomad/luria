@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 3 task record: Q5 SDM workflow contract"
+description: "This file records the concrete choices made while implementing the Q5 slice, in the style of the Milestone 1 and Milestone 2 records."
+status: deprecated
+tags: [milestone-3]
+---
 # Milestone 3 task record: Q5 SDM workflow contract
 
 Status: Contract written; the accepted input scope, target resolution, and

@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 8m12 — cli: a GC-content sparkline as the strip's third line (M8-34)"
+description: "The overview strip gains a third line under its two (8l2)."
+status: deprecated
+tags: [milestone-8]
+---
 # Contract 8m12 — cli: a GC-content sparkline as the strip's third line (M8-34)
 
 Planner: Claude. Status: **Implemented 2026-10-28** by worker `w-8m12` in

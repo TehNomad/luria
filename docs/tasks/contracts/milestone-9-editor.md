@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 9 plan: a sequence editor in the view"
+description: "M8-27 (owner, 2026-10-27): a general sequence editor in the view."
+status: deprecated
+tags: [milestone-9]
+---
 # Milestone 9 plan: a sequence editor in the view
 
 Status: **Draft for the owner, 2026-10-28, revised 2026-10-29 (M9-12 to

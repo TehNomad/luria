@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 9n — core: a save replaces luria's own earlier stamp"
+description: "Each GenBank save adds the line Edited with luria <version>: N edits. (M9-11)."
+status: deprecated
+tags: [milestone-9]
+---
 # Contract 9n — core: a save replaces luria's own earlier stamp
 
 Planner: Claude. Status: implemented. Tier: full (the GenBank writer, M9-10).

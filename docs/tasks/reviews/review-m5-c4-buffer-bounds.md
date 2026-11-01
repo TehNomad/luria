@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Review M5 C-4: upper limits on the buffer model (D043)"
+description: "BufferModel::create requires only finite, positive values (DMSO ≥ 0)."
+status: deprecated
+tags: [milestone-5]
+---
 # Review M5 C-4: upper limits on the buffer model (D043)
 
 Status: **Implemented 2026-10-18** by the local worker; accepted on planner review. Planner: Claude. Parent:

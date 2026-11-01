@@ -1,3 +1,9 @@
+---
+type: Specification
+title: "The luria command line"
+description: "This page describes luria-cli 0.1.0, which reads requests in schema luria.q5-request/1 and writes results in schema luria.q5-result/1."
+status: stable
+---
 # The `luria` command line
 
 This page describes `luria-cli` 0.1.0, which reads requests in schema

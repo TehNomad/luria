@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Withdrawn: worktree safety and luria commit (this file was labelled 8a2)"
+description: "Withdrawn before a single line of it was committed: worktree safety and luria commit."
+status: deprecated
+tags: [milestone-8]
+---
 # Withdrawn: worktree safety and `luria commit` (this file was labelled 8a2)
 
 Status: **withdrawn 2026-10-24, before a single line of it was committed.**

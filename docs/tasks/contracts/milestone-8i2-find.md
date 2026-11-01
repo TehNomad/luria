@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 8i2 — cli: luria find (§5.5)"
+description: "luria find FILE PATTERN [--aa] [--cds VALUE] [--circular]: read a sequence file the way the view will, search it for a DNA or protein pattern, and print the hits as tab-separated rows."
+status: deprecated
+tags: [milestone-8]
+---
 # Contract 8i2 — cli: `luria find` (§5.5)
 
 Planner: Claude. Status: **Implemented 2026-10-26** by worker `w-8i2` in two

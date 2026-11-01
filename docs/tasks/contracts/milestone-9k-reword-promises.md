@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 9k — cli: the messages that promise milestone 9"
+description: "Two refusals tell the user that something \"comes in milestone 9\"."
+status: deprecated
+tags: [milestone-9]
+---
 # Contract 9k — cli: the messages that promise milestone 9
 
 Planner: Claude. Status: implemented. Tier: light (plan M9-10).

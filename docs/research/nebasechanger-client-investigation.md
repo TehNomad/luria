@@ -1,3 +1,9 @@
+---
+type: Research Note
+title: "NEBaseChanger client-side investigation"
+description: "A read-only investigation of the NEBaseChanger client, dated 2026-10-09."
+status: stable
+---
 # NEBaseChanger client-side investigation
 
 Status: research report. Read-only investigation. No Luria source, fixture,

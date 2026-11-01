@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 9m — cli: the ? key list in sections, scrolled"
+description: "The ? list names every key the view has, edit keys and : commands included."
+status: deprecated
+tags: [milestone-9]
+---
 # Contract 9m — cli: the `?` key list in sections, scrolled
 
 Planner: Claude. Status: implemented. Tier: light.

@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 6e1: what a quote shows"
+description: "The model reports a mutation as a canonical token plus a verbatim quote of the user's words (M6-15)."
+status: deprecated
+tags: [milestone-6]
+---
 # Milestone 6e1: what a quote shows
 
 Status: **Implemented 2026-10-19** by the local worker, accepted after one

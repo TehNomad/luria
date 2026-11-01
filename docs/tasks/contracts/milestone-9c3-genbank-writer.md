@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 9c3 — core: the GenBank writer"
+description: "write_genbank: an edit buffer written back as one GenBank record, next to the record it was opened from."
+status: deprecated
+tags: [milestone-9]
+---
 # Contract 9c3 — core: the GenBank writer
 
 Planner: Claude. Status: implemented. Tier: full.

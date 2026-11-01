@@ -1,3 +1,9 @@
+---
+type: Specification
+title: "Q5 primer design: contract"
+description: "This document fixes the boundary of a future deterministic primer-design layer."
+status: stable
+---
 # Q5 primer design: contract
 
 **Status:** specification. No primer-design algorithm is implemented in

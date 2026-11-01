@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 8m15 — cli: esc clears the hits; ctrl-d/ctrl-u half pages (M8-37, M8-38)"
+description: "esc, with no list, prompt or key list open, clears the search hits: the marks go, n/N have nothing to step, and the cursor stays."
+status: deprecated
+tags: [milestone-8]
+---
 # Contract 8m15 — cli: `esc` clears the hits; `ctrl-d`/`ctrl-u` half pages (M8-37, M8-38)
 
 Planner: Claude. Status: **Implemented 2026-10-28** by worker `w-8m15` in

@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 7f1: the request file's rules, callable on their own"
+description: "In the TUI flow (M7-1), interpret runs without writing the request: only on approval is the request written and designed."
+status: deprecated
+tags: [milestone-7]
+---
 # Milestone 7f1: the request file's rules, callable on their own
 
 Status: **Implemented 2026-10-21** by the local worker; accepted on the

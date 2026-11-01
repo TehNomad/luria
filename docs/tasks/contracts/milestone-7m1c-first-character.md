@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 7m1c: a coloured run's first character takes its colour"
+description: "crates/cli/src/review/view.rs's runs starts with style = Style::default() and changes style only when index > 0."
+status: deprecated
+tags: [milestone-7]
+---
 # Milestone 7m1c: a coloured run's first character takes its colour
 
 Status: **Implemented, 2026-10-22.** Planner: Claude. Found by

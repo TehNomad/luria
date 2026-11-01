@@ -1,3 +1,9 @@
+---
+type: Specification
+title: "Q5 site-directed mutagenesis: the workflow contract"
+description: "This document was written before primer design existed and is kept as the workflow contract."
+status: stable
+---
 # Q5 site-directed mutagenesis: the workflow contract
 
 Status: Contract for the implemented slice; open decisions are marked

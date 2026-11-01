@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 4e-2 task contract: represent, apply and verify a replacement"
+description: "A DNA-level replacement of a region by a text of any length can be requested, applied and independently verified."
+status: deprecated
+tags: [milestone-4]
+---
 # Milestone 4e-2 task contract: represent, apply and verify a replacement
 
 Status: **Implemented 2026-10-15** by the local worker; accepted on planner review (§9).

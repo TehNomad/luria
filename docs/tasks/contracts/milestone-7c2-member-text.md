@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 7c2: the text of the member screen"
+description: "The member screen is where a primer pair is reviewed: the edit, its warnings, and each primer with its parts, Tm and warnings, or the reason no pair was designed."
+status: deprecated
+tags: [milestone-7]
+---
 # Milestone 7c2: the text of the member screen
 
 Status: **Implemented 2026-10-21** by the local worker; accepted on the

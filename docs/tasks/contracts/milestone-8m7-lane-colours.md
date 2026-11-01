@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 8m7 — lanes coloured by key or by the file, the selected CDS bold (M8-31)"
+description: "Each feature lane is drawn in a colour: its name, its arrow and its ═."
+status: deprecated
+tags: [milestone-8]
+---
 # Contract 8m7 — lanes coloured by key or by the file, the selected CDS bold (M8-31)
 
 Planner: Claude. Status: **Implemented 2026-10-27** by worker `w-8m7` in

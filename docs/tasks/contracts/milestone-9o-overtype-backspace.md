@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 9o — cli: backspace in R brings the base back"
+description: "In R (overtype), backspace takes back the last base typed in this R, as Vim does."
+status: deprecated
+tags: [milestone-9]
+---
 # Contract 9o — cli: `backspace` in `R` brings the base back
 
 Planner: Claude. Status: implemented. Tier: light.

@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 8m3 — cli: F, T and the key list (M8-23, M8-25, M8-26)"
+description: "F hides and shows the feature lanes."
+status: deprecated
+tags: [milestone-8]
+---
 # Contract 8m3 — cli: `F`, `T` and the key list (M8-23, M8-25, M8-26)
 
 Planner: Claude. Status: **Implemented 2026-10-27** by worker `w-8m3` in one

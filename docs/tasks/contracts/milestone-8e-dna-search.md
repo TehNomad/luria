@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 8e — core DNA search (plan §4.4)"
+description: "One new module, crates/core/src/search.rs, plus one line in crates/core/src/lib.rs: pub mod search; after pub mod q5_expand; and before pub mod sequence; (module list is alphabetical."
+status: deprecated
+tags: [milestone-8]
+---
 # Contract 8e — core DNA search (plan §4.4)
 
 Planner: Claude.

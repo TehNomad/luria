@@ -1,3 +1,9 @@
+---
+type: Task Contract
+title: "Review B8: apply the symmetry correction only to a symmetric duplex"
+description: "melting_temperature adds SYMMETRY whenever the primer is self-complementary, on either basis."
+status: deprecated
+---
 # Review B8: apply the symmetry correction only to a symmetric duplex
 
 Status: **Implemented 2026-10-16** by the local worker; accepted after one follow-up (the printed selfcomp column and two tm.rs comments, at the planner's request).

@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 8l2 — cli: the overview inset (§4.6, §5.1)"
+description: "A two-line strip under the title: line 1 is the whole record scaled to the width with the longest features as bars; line 2 marks the part on screen, the cursor and the search hits."
+status: deprecated
+tags: [milestone-8]
+---
 # Contract 8l2 — cli: the overview inset (§4.6, §5.1)
 
 Planner: Claude. Status: **Implemented 2026-10-27** by worker `w-8l2` in two

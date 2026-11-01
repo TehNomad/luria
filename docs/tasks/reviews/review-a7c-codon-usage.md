@@ -1,3 +1,9 @@
+---
+type: Task Contract
+title: "Review A7c: a codon-usage fixture from a saved Kazusa page, and one verify command (D039, C11)"
+description: "crates/core/src/codon_usage.rs embeds 64 codon counts transcribed on 2026-10-14 from Kazusa entry 316407 (*E."
+status: deprecated
+---
 # Review A7c: a codon-usage fixture from a saved Kazusa page, and one verify command (D039, C11)
 
 Status: **Implemented 2026-10-16** by the local worker; accepted after one README wording fix.

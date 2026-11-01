@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 4d-3a task contract: insertion primer design (D032)"
+description: "design_primers designs a verified insertion under D032, reusing D030's sizing through the existing size_pair, exactly as design_deletion does."
+status: deprecated
+tags: [milestone-4]
+---
 # Milestone 4d-3a task contract: insertion primer design (D032)
 
 Status: **Implemented 2026-10-15** by the local worker; accepted on planner review (§9).

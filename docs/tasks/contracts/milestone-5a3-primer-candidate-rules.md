@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 5a3: a rule on every InvalidPrimerCandidate"
+description: "InvalidPrimerCandidate is raised at 19 sites in primer.rs for 13 different reasons, told apart only by reason text; this contract adds a typed rule."
+status: deprecated
+tags: [milestone-5]
+---
 # Milestone 5a3: a `rule` on every `InvalidPrimerCandidate`
 
 Status: **Implemented 2026-10-16** by the local worker; accepted on first review.

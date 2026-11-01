@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 7m9b: remove the in-memory run"
+description: "M7-65: 7m8a's in-memory run goes, because nothing uses it any more."
+status: deprecated
+tags: [milestone-7]
+---
 # Milestone 7m9b: remove the in-memory run
 
 Status: **Implemented, 2026-10-23.** Planner: Claude. Parent:

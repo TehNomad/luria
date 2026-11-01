@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 7m1: the review screens after the owner's hand test"
+description: "M7-52: the Provenance screen goes."
+status: deprecated
+tags: [milestone-7]
+---
 # Milestone 7m1: the review screens after the owner's hand test
 
 Status: **Implemented, 2026-10-22.** Planner: Claude. Parent:

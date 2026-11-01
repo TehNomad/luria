@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 6h2: the luria q5 interpret command"
+description: "6h1 made interpret a library call with the backend as a parameter; 6g1 made the real backend."
+status: deprecated
+tags: [milestone-6]
+---
 # Milestone 6h2: the `luria q5 interpret` command
 
 Status: **Implemented 2026-10-19** by the local worker; accepted on the first

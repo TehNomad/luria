@@ -1,3 +1,9 @@
+---
+type: Task Contract
+title: "Review B7 and B16: terminal mismatches and the alphabet error position in tm.rs"
+description: "B16 reports a non-ACGT base at a site index as a primer position, and B7 scores terminal mismatches with MISMATCHED, the table for internal mismatches."
+status: deprecated
+---
 # Review B7 and B16: terminal mismatches and the alphabet error position in `tm.rs`
 
 Status: **Implemented 2026-10-16** by the local worker; accepted on planner review.

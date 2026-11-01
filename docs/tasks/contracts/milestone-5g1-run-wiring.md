@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 5g1: luria q5 design, wired"
+description: "Everything the command needs now exists: prepare turns a request file into core types (5e2), and result.rs turns core's answers into the result document (5f1–5f4)."
+status: deprecated
+tags: [milestone-5]
+---
 # Milestone 5g1: `luria q5 design`, wired
 
 Status: **Implemented 2026-10-17** by the local worker; accepted on review.

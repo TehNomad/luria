@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 7m6: the docs for the owner's hand-test changes"
+description: "request and result files stay zero-based (§3)."
+status: deprecated
+tags: [milestone-7]
+---
 # Milestone 7m6: the docs for the owner's hand-test changes
 
 Status: **Implemented, 2026-10-22.** Planner: Claude. Parent:

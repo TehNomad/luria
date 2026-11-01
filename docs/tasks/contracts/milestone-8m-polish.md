@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 8m: the owner's hand test of the sequence view, as changes"
+description: "The owner's answers of 2026-10-27 on seven points of the view: where a pick lands, go-to with several CDSs, the feature lanes key, the strand of a hit and the topology key."
+status: deprecated
+tags: [milestone-8]
+---
 # Milestone 8m: the owner's hand test of the sequence view, as changes
 
 Status: **Implemented 2026-10-28, and accepted**: the owner called

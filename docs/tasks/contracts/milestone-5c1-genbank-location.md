@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 5c1: the GenBank location parser"
+description: "A GenBank feature location (complement(join(2001..2400,1..150))) has to become luria intervals and a strand before any CDS can be built from it."
+status: deprecated
+tags: [milestone-5]
+---
 # Milestone 5c1: the GenBank location parser
 
 Status: **Implemented 2026-10-17** by the local worker; accepted on first review.

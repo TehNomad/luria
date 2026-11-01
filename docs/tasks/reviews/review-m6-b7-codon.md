@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Review M6 B-7: a codon belongs to its own quote; prompt v3 (D045)"
+description: "A codon is grounded anywhere in the text, as a case-insensitive substring (stated_codon_in, build.rs)."
+status: deprecated
+tags: [milestone-6]
+---
 # Review M6 B-7: a codon belongs to its own quote; prompt v3 (D045)
 
 Status: **Implemented 2026-10-20** by the local worker; accepted on planner

@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 3b — Specify the Q5 primer-design contract"
+description: "the contract for a future deterministic Q5 primer-design layer."
+status: deprecated
+tags: [milestone-3]
+---
 # Milestone 3b — Specify the Q5 primer-design contract
 
 **Task branch:** `feat/milestone-3b` (work continues on `feat/milestone-3`)

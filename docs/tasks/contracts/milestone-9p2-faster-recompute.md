@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 9p2 — core: the two slow steps of an edit, made fast"
+description: "9p1 §8 measured one edit on a 10 000 000-base record: 2.0 s, or 5.4 s with ORFs shown."
+status: deprecated
+tags: [milestone-9]
+---
 # Contract 9p2 — core: the two slow steps of an edit, made fast
 
 Planner: Claude. Status: implemented. Tier: full (core: sequence and genetic

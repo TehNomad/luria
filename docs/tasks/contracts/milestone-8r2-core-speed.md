@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Contract 8r2 — core: frame windows and DNA search without whole-record work"
+description: "Two functions get faster, and neither may change a single output: frames::frame_residues reads only the codons whose middle base is in its window."
+status: deprecated
+tags: [milestone-8]
+---
 # Contract 8r2 — core: frame windows and DNA search without whole-record work
 
 Planner: Claude. Status: **Implemented 2026-10-28** by worker `w-8r2` in

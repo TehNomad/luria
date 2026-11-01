@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 7g1: export from the review screen"
+description: "M7-4: the reviewed result can be exported as the result JSON, the edited constructs as FASTA, and the IDT order table."
+status: deprecated
+tags: [milestone-7]
+---
 # Milestone 7g1: export from the review screen
 
 Status: **Implemented 2026-10-21** by the local worker; accepted on the

@@ -1,3 +1,10 @@
+---
+type: Task Contract
+title: "Milestone 5b: the FASTA reader"
+description: "D007: a sequence artifact records its identifier, normalized text, topology, length, source metadata when available, and a SHA-256 content hash."
+status: deprecated
+tags: [milestone-5]
+---
 # Milestone 5b: the FASTA reader
 
 Status: **Implemented 2026-10-17** by the local worker; accepted after one scope amendment (§5, three `variant_name` arms).
