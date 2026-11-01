@@ -1,6 +1,6 @@
 # Fixture: nearest-neighbour thermodynamic parameters
 
-Status: Phase 1 of `docs/tasks/milestone-3d-tm.md`, complete. The
+Status: Phase 1 of `docs/tasks/contracts/milestone-3d-tm.md`, complete. The
 tandem-mismatch gap below is permanent, and is handled by a documented
 fallback rather than by a missing value.
 Date: 2026-10-14
@@ -76,7 +76,7 @@ and its three non-motif terms against Biopython's `DNA_NN4`, and
 columns in both `nn-mismatch.tsv` and `nn-matched.tsv` let `tm_tables.rs` rerun
 both checks, the Watson–Crick one as
 `every_watson_crick_parameter_still_reproduces_its_published_free_energy`
-(`docs/tasks/review-post-m4.md` C2).
+(`docs/tasks/reviews/review-post-m4.md` C2).
 
 ## Rerunning the verification scripts
 

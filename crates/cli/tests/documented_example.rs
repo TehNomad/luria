@@ -1,4 +1,4 @@
-//! Plan §6: the worked example in `docs/cli.md` is a hand-written
+//! Plan §6: the worked example in `docs/specs/cli.md` is a hand-written
 //! expectation. Run the executable on the page's request block and compare
 //! its document with the page's result block, field by field.
 //!
@@ -21,10 +21,10 @@ fn block(page: &str, marker: &str) -> String {
     lines
         .by_ref()
         .find(|line| line.trim() == marker)
-        .unwrap_or_else(|| panic!("docs/cli.md: marker {} is missing", marker));
+        .unwrap_or_else(|| panic!("docs/specs/cli.md: marker {} is missing", marker));
     match lines.next() {
         Some("```json") => {}
-        _ => panic!("docs/cli.md: no ```json fence follows {}", marker),
+        _ => panic!("docs/specs/cli.md: no ```json fence follows {}", marker),
     }
     let mut body = Vec::new();
     for line in lines {
@@ -36,7 +36,7 @@ fn block(page: &str, marker: &str) -> String {
         body.push(line);
     }
     panic!(
-        "docs/cli.md: the block after {} has no closing fence",
+        "docs/specs/cli.md: the block after {} has no closing fence",
         marker
     )
 }
@@ -122,7 +122,7 @@ fn compare(path: &str, actual: &Json, expected: &Json, differences: &mut Vec<Str
 
 #[test]
 fn the_documented_example_is_what_luria_prints() {
-    let page = fs::read_to_string("../../docs/cli.md").unwrap();
+    let page = fs::read_to_string("../../docs/specs/cli.md").unwrap();
     let request = block(&page, "<!-- luria:request -->");
     let result = block(&page, "<!-- luria:result -->");
 
@@ -152,7 +152,7 @@ fn the_documented_example_is_what_luria_prints() {
     );
     assert!(
         differences.is_empty(),
-        "luria and docs/cli.md disagree:\n{}",
+        "luria and docs/specs/cli.md disagree:\n{}",
         differences.join("\n")
     );
 

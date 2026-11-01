@@ -374,7 +374,7 @@ fn read(relative: &str) -> String {
 
 /// One row of `cases.tsv`, all 14 columns. The three descriptive columns are
 /// carried as `_strand`, `_cds` and `_note`: no test reads them, and the leading
-/// underscore is how the compiler records that (`docs/tasks/review-c4-fixture-columns.md`
+/// underscore is how the compiler records that (`docs/tasks/reviews/review-c4-fixture-columns.md`
 /// §2.1).
 struct CaseRow {
     case_id: String,
@@ -2716,7 +2716,7 @@ fn every_native_design_meets_the_d030_invariants() {
 
 // ---------------------------------------------------------------------------
 // Every column of `cases.tsv`, and the NEBaseChanger files of
-// `tests/fixtures/example-construct/` (`docs/tasks/review-post-m4.md` C4, C6,
+// `tests/fixtures/example-construct/` (`docs/tasks/reviews/review-post-m4.md` C4, C6,
 // C9). Each check below compares two files that already exist, or luria
 // against external NEBaseChanger output; none copies luria's own output.
 // ---------------------------------------------------------------------------
@@ -3023,7 +3023,7 @@ fn every_reference_case_agrees_with_its_design_record() {
 
 #[test]
 fn every_case_names_only_defined_invariants() {
-    // §7 of `docs/q5-primer-design.md` numbers the hard requirements H1-H8;
+    // §7 of `docs/specs/q5-primer-design.md` numbers the hard requirements H1-H8;
     // §14.1 numbers the invariants I-1 to I-13.
     let hard: Vec<String> = (1..=8).map(|n| format!("H{}", n)).collect();
     let soft: Vec<String> = (1..=13).map(|n| format!("I-{}", n)).collect();

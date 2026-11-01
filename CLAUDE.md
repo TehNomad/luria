@@ -43,7 +43,7 @@ Claude tokens are the scarce resource; the local model's are free. Spend
 Claude tokens on judgment, and send bulk work to a pi worker.
 
 - **Send to pi:** reading or searching across many or large files
-  (`docs/decisions.md`, `vendor/`, fixtures, old contracts), surveying how
+  (`docs/decisions/`, `vendor/`, fixtures, old contracts), surveying how
   existing code does something, first-pass reading of external tools'
   behavior, condensing long logs or test output, and drafting boilerplate.
   Use a read-only scout (`s-<topic>`) whose prompt says the task is
@@ -86,8 +86,10 @@ Claude tokens on judgment, and send bulk work to a pi worker.
 - Prefer several small contracts, one function or module each, over one
   large one. Contracts run one after another (one worker at a time), so
   order them so each builds on the last.
-- Give the worker the relevant `docs/decisions.md` entries by D-number, not
+- Give the worker the relevant `docs/decisions/` entries by D-number, not
   "see the docs".
+- New contracts go in `docs/tasks/contracts/` and start with OKF frontmatter
+  (`type: Task Contract`, `title`, `description`, `status: draft`).
 - For each new rule, name the test that must fail if the rule is disabled,
   and have the worker prove it by disabling the rule once and restoring it
   (a weak assertion can pass with the rule removed).

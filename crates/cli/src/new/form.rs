@@ -813,7 +813,7 @@ impl NewForm {
     /// `q5 new`'s own policy, style and buffer; the codon `default` (M7-46, since
     /// the form has no codon field, so a line that states one carries it in the
     /// text); and residues counted from the CDS's first codon, as the shorthand
-    /// path counts them (docs/cli.md §12.2). `[ Review ]` reaches `Interpret` only
+    /// path counts them (docs/specs/cli.md §12.2). `[ Review ]` reaches `Interpret` only
     /// after `form_blocker`, so `Overlap` is written, holds digits only, and is one
     /// `i64` can read (M7-44).
     pub fn words_profile(&self) -> ProfileDocument {

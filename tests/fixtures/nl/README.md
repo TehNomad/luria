@@ -1,6 +1,6 @@
 # Natural-language corpus
 
-Twenty-four cases for Milestone 6 (`docs/tasks/milestone-6-nl.md`): what
+Twenty-four cases for Milestone 6 (`docs/tasks/contracts/milestone-6-nl.md`): what
 `luria q5 interpret` must make of a user's prose and a model's reply. They
 drive contract 6e (building) and 6i (end to end), through the **scripted
 backend**: no test contacts a model or the network.
@@ -58,7 +58,7 @@ interpretation code existed. Nothing here was produced by running
   calls grounded really is a substring of its text, and each quote a case
   calls fabricated really is not — so a typo in a quote could not pass
   unnoticed.
-- **`design_exit`** follows from the exit-code table (`docs/cli.md` §5) and
+- **`design_exit`** follows from the exit-code table (`docs/specs/cli.md` §5) and
   needs no new judgement: `0` where the edit is verified and every member
   designs, and `6` for `variants-combined`, whose `combined_construct` is
   outside the supported workflow (`unsupported_composition`, category

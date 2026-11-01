@@ -16,7 +16,7 @@ sequence", 4361 bp, circular. It was fetched once on 2026-10-17 from
 and saved unchanged (SHA-256
 `7660b0fe95a91d492b102192dc72924508a69fda762988aa0923b3d5cc2073f6`). The
 owner's first choice, pUC19 L09137.2, has no CDS features, so pBR322 was used
-instead (`docs/tasks/milestone-5-cli.md` §4, R1).
+instead (`docs/tasks/contracts/milestone-5-cli.md` §4, R1).
 
 `reference/pbr322.py` reads it with Biopython 1.88 and writes three tables:
 - `pbr322-record.tsv`: LOCUS name, first accession, version, length,
@@ -107,7 +107,7 @@ wrong residue number, and an id given to the CDS that has none.
 ## The linear record
 
 `synthetic-linear.gb` is a 393-base **linear** record written by hand on
-2026-10-19 for the natural-language milestone (`docs/tasks/milestone-6-nl.md`
+2026-10-19 for the natural-language milestone (`docs/tasks/contracts/milestone-6-nl.md`
 M6-13, contract 6i0). Every other GenBank fixture is circular, and luria
 designs primers on linear templates only (D035, D041 G10), so this is the one
 GenBank record on which a request can run from text to a designed primer

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Expected sequence-context screens for `luria review` (milestone 7d0).
 
-The sequence-context screen (docs/tasks/milestone-7-tui.md §5.3, contract 7d)
+The sequence-context screen (docs/tasks/contracts/milestone-7-tui.md §5.3, contract 7d)
 lays a designed primer pair out against the template. This script writes the
 expected screen text for three designs whose geometry is already fixed by
 independently verified tables, using only those tables and the template:

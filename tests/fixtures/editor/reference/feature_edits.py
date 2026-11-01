@@ -3,7 +3,7 @@
 ../feature-edits.tsv says what one edit of a record's bases does to one
 feature: its intervals, its partial marks, the qualifiers M9-6 (h) and
 M9-13 change, and what the status line names. The planner wrote every
-expected column by hand from the rules in docs/tasks/milestone-9-editor.md
+expected column by hand from the rules in docs/tasks/contracts/milestone-9-editor.md
 (M9-6, M9-13, M9-14) as ../README.md states them. This script writes
 nothing: it applies those rules again, on plain lists of intervals, and
 asserts that every expected column agrees. It shares no code with

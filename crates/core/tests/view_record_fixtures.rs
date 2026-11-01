@@ -1,5 +1,5 @@
 //! `open_record` of `crates/core/src/view_record.rs` (contract 8b2, §4.1 of
-//! `docs/tasks/milestone-8-view.md`) against the records already in
+//! `docs/tasks/contracts/milestone-8-view.md`) against the records already in
 //! `tests/fixtures/`: pBR322 (`genbank/raw/J01749.1.gb`), `genbank/synthetic.gb`
 //! with the not-used table `genbank/synthetic-unused.tsv`, and
 //! `view/frames-61.fa`.

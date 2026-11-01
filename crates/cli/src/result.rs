@@ -768,7 +768,7 @@ pub fn primer_warning_view(warning: &PrimerWarning) -> PrimerWarningView {
 
 /// The member with its design: the design is attached and the design failure
 /// stays absent, so a member states one or the other and never both (§3.5,
-/// `docs/q5-sdm.md` §12).
+/// `docs/specs/q5-sdm.md` §12).
 pub fn designed_member(member: MemberView, design: &PrimerDesign) -> MemberView {
     MemberView {
         name: member.name,
@@ -781,7 +781,7 @@ pub fn designed_member(member: MemberView, design: &PrimerDesign) -> MemberView 
 
 /// The member that could not be designed: its own error, at no path in the
 /// request, and no design — the other members of a set are still designed
-/// (§3.5, `docs/q5-sdm.md` §12).
+/// (§3.5, `docs/specs/q5-sdm.md` §12).
 pub fn undesigned_member(member: MemberView, error: &DomainError) -> MemberView {
     MemberView {
         name: member.name,

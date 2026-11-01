@@ -1,4 +1,4 @@
-//! `docs/cli.md` §13 against the code (contract 8n): the command lines the
+//! `docs/specs/cli.md` §13 against the code (contract 8n): the command lines the
 //! page shows are the ones `luria help` prints, and the two `luria find`
 //! examples print what the page says they print.
 
@@ -6,14 +6,14 @@ use luria_cli::args::USAGE;
 use std::fs;
 use std::process::Command;
 
-const PAGE: &str = "../../docs/cli.md";
+const PAGE: &str = "../../docs/specs/cli.md";
 
 /// Everything after §13's heading, so a marker below is found in §13 alone.
 fn section_13() -> String {
-    let page: String = fs::read_to_string(PAGE).expect("docs/cli.md is readable");
+    let page: String = fs::read_to_string(PAGE).expect("docs/specs/cli.md is readable");
     page.split("## 13. Looking at and editing a sequence: `luria FILE` and `luria find`")
         .nth(1)
-        .expect("docs/cli.md has §13")
+        .expect("docs/specs/cli.md has §13")
         .to_string()
 }
 

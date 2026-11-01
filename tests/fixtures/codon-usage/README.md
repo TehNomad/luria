@@ -1,7 +1,7 @@
 # Fixture: codon usage, Kazusa entry 316407
 
 Date: capture 2026-10-16. Parser and test added by
-`docs/tasks/review-a7c-codon-usage.md` (D039).
+`docs/tasks/reviews/review-a7c-codon-usage.md` (D039).
 
 ## Purpose
 

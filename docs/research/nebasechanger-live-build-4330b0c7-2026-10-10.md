@@ -86,7 +86,7 @@ excluded by policy. No chunks, no workers, no source maps, no truncated bodies.
 | `docs/research/nebasechanger-polymerase-tm.md` | **MISSING** — exists only on branch `research/polymerase-tm` (head `b71c0e7`, 2026-10-09), 44,311 B |
 | `docs/research/nebasechanger-har-and-builds-2026-10-10.md` | present, 25,171 B |
 | `docs/research/nebasechanger-client-investigation.md` | present, 29,989 B (not in the task list) |
-| `docs/research/nbc_help_v284.txt` | present, 22,088 B (not in the task list) |
+| `docs/references/nbc_help_v284.txt` | present, 22,088 B (not in the task list) |
 | `tests/fixtures/nebasechanger-research/README.md` | **MISSING** — on `research/polymerase-tm` only |
 | `…/cases.tsv` | **MISSING** — on `research/polymerase-tm` only (4,017 B, 19 cases) |
 | `…/provenance.md` | **MISSING** — on `research/polymerase-tm` only (3,959 B) |

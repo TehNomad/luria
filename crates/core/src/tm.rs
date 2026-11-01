@@ -174,7 +174,7 @@ impl TmBasis {
 /// The buffer a Tm assumes. Named by the caller, never defaulted: the same
 /// reference tool uses 150 mM / 500 nM at its SDM call site and 50 mM / 200 nM
 /// in another default set, so a silent default would be a decision the caller
-/// did not make (`docs/q5-primer-design.md` §2.2).
+/// did not make (`docs/specs/q5-primer-design.md` §2.2).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct BufferModel {
     monovalent_millimolar: f64,

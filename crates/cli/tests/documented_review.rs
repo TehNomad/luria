@@ -1,4 +1,4 @@
-//! `docs/cli.md` §11 against the code (contract 7h): the command lines the page
+//! `docs/specs/cli.md` §11 against the code (contract 7h): the command lines the page
 //! shows are the ones `luria help` prints, and its order table's scale rule is
 //! `luria_cli::review::order::scale`'s, the one the export writes rows with.
 
@@ -6,14 +6,14 @@ use luria_cli::args::USAGE;
 use luria_cli::review::order::scale;
 use std::fs;
 
-const PAGE: &str = "../../docs/cli.md";
+const PAGE: &str = "../../docs/specs/cli.md";
 
 /// Everything after §11's heading, so a marker below is found in §11 alone.
 fn section_11() -> String {
-    let page: String = fs::read_to_string(PAGE).expect("docs/cli.md is readable");
+    let page: String = fs::read_to_string(PAGE).expect("docs/specs/cli.md is readable");
     page.split("## 11. Reviewing in the terminal: `luria review`")
         .nth(1)
-        .expect("docs/cli.md has §11")
+        .expect("docs/specs/cli.md has §11")
         .to_string()
 }
 
@@ -56,7 +56,7 @@ fn documented_scales() -> Vec<(u64, u64, String)> {
 #[test]
 fn the_documented_command_lines_are_the_usage_text() {
     let section: String = section_11();
-    let shown: String = fenced_after(&section, "docs/tasks/milestone-7-tui.md`.");
+    let shown: String = fenced_after(&section, "docs/tasks/contracts/milestone-7-tui.md`.");
     let lines: Vec<&str> = shown.lines().map(|line| line.trim()).collect();
     assert_eq!(lines.len(), 4, "§11 shows four command lines");
     for line in lines {

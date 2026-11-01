@@ -165,4 +165,4 @@ wrong before contiguity is even considered.
   `;` comments.
 
 The concrete semantic choices these cases pin down are recorded in
-`docs/tasks/milestone-1-core-foundation.md`.
+`docs/tasks/contracts/milestone-1-core-foundation.md`.

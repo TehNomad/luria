@@ -29,7 +29,7 @@ Working method:
 
 Context budget (your context is 128k tokens and auto-compacts at the limit;
 compaction loses detail, so stay well under it):
-- Never read `docs/decisions.md` whole (about 24k tokens). Use
+- Do not read all of `docs/decisions/` (about 24k tokens). Use
   `scripts/decision D0xx` for the entries the contract names.
 - Read `tests/fixtures/README.md` only by section: `grep -n` for the
   heading, then an offset read.

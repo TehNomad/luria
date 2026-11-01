@@ -434,7 +434,7 @@ build was substituted for the live one.
    the HAR now returns HTTP 404 (§11), so the current hash must be re-discovered
    from the SPA shell — a human-in-the-loop capture (§11) is the shortest route.
    Alternatively accept v2.8.4 as the reference and record that decision in
-   `docs/decisions.md`. Do not substitute an archived build and label it current.
+   `docs/decisions/`. Do not substitute an archived build and label it current.
 3. Pin the `calcSDMPrimers` coordinate convention with a live capture that
    exercises: substitution ≤6 nt, substitution ≥6 nt, insertion, deletion
    (v2.8.4 changelog says deletions changed file download, so deletion is a live

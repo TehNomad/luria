@@ -1,4 +1,4 @@
-//! `docs/cli.md` §12 against the code (contract 7k6): the command lines the
+//! `docs/specs/cli.md` §12 against the code (contract 7k6): the command lines the
 //! page shows are the ones `luria help` prints, and every mutation line of
 //! §12.2's table parses with `luria_cli::shorthand::parse_line` as its row
 //! says.
@@ -7,14 +7,14 @@ use luria_cli::args::USAGE;
 use luria_cli::shorthand::{parse_line, Reading};
 use std::fs;
 
-const PAGE: &str = "../../docs/cli.md";
+const PAGE: &str = "../../docs/specs/cli.md";
 
 /// Everything after §12's heading, so a marker below is found in §12 alone.
 fn section_12() -> String {
-    let page: String = fs::read_to_string(PAGE).expect("docs/cli.md is readable");
+    let page: String = fs::read_to_string(PAGE).expect("docs/specs/cli.md is readable");
     page.split("## 12. Entering a design in the terminal: `luria new`")
         .nth(1)
-        .expect("docs/cli.md has §12")
+        .expect("docs/specs/cli.md has §12")
         .to_string()
 }
 
@@ -118,7 +118,7 @@ fn named(reading: &Reading) -> &'static str {
 #[test]
 fn the_documented_command_lines_are_the_usage_text() {
     let section: String = section_12();
-    let shown: String = fenced_after(&section, "docs/tasks/milestone-7k-new.md`.");
+    let shown: String = fenced_after(&section, "docs/tasks/contracts/milestone-7k-new.md`.");
     let lines: Vec<&str> = shown.lines().map(|line| line.trim()).collect();
     assert_eq!(lines.len(), 2, "§12 shows two command lines");
     for line in lines {

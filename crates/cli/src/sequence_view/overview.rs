@@ -1,5 +1,5 @@
 //! The overview strip's three lines (contract 8l2 §4, contract 8m12 §4; the plan
-//! §4.6 and proposal §2.1 of `docs/tasks/milestone-8-view.md`; D054): the whole
+//! §4.6 and proposal §2.1 of `docs/tasks/contracts/milestone-8-view.md`; D054): the whole
 //! record scaled to the width with the longest features as bars, under it the part
 //! on screen, the cursor and the search hits, and under them the GC content of
 //! every column as a block height.

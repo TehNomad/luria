@@ -10,7 +10,7 @@
 //! since a strip is never wider than the record has bases (D054).
 //!
 //! Every height here is the planner's, written out in §5 of
-//! `docs/tasks/milestone-8m12-gc-sparkline.md`. The worker re-derived them from the
+//! `docs/tasks/contracts/milestone-8m12-gc-sparkline.md`. The worker re-derived them from the
 //! two files before writing these tests, with no help from the implementation: the
 //! column ranges from D054's floor formula, `⌊i·L/w⌋` to `⌊(i+1)·L/w⌋`, the counts
 //! from the files' own letters with `G`, `C`, `S` as GC and `A`, `T`, `W` as AT, and

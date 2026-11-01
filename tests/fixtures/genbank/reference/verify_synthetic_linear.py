@@ -1,7 +1,7 @@
 """Check the hand-derived linear GenBank expectations with Biopython (D039).
 
 ../synthetic-linear.gb is a 393-base linear record written by hand for the
-natural-language milestone (docs/tasks/milestone-6i0-linear-genbank.md, plan
+natural-language milestone (docs/tasks/contracts/milestone-6i0-linear-genbank.md, plan
 M6-13). It holds one CDS, `synA`, that luria can design primers on, unlike
 every other GenBank fixture, which is circular (D035, D041 G10). Its three
 expectation tables were derived by hand, as ../README.md records:

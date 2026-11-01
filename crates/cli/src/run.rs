@@ -255,7 +255,7 @@ fn variant_set(
 
     // `design_set` returns one outcome per member, in request order, so the
     // results and the outcomes stay paired by name: a member that could not be
-    // designed keeps its own error and the rest are still designed (`docs/q5-sdm.md`
+    // designed keeps its own error and the rest are still designed (`docs/specs/q5-sdm.md`
     // §12). An outcome that is neither a design nor a failure, or none at all,
     // is the same broken invariant as a single edit whose design is missing
     // (§3.2): the run is internal and the member is reported as built.

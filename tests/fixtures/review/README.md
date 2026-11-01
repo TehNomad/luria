@@ -1,7 +1,7 @@
 # Review screen fixtures
 
 Expected text of `luria review`'s sequence-context screen (milestone 7,
-`docs/tasks/milestone-7-tui.md` §5.3 and §7; contract 7d). The planner
+`docs/tasks/contracts/milestone-7-tui.md` §5.3 and §7; contract 7d). The planner
 wrote them in contract 7d0, on 2026-10-21.
 
 ## Files
@@ -87,7 +87,7 @@ base.
 ## The order table
 
 `reference/order.py` writes the table by the rules of
-`docs/tasks/milestone-7-tui.md` §5.4 (owner answers M7-7 to M7-13) from the
+`docs/tasks/contracts/milestone-7-tui.md` §5.4 (owner answers M7-7 to M7-13) from the
 `forward` and `reverse` columns of `del-11` and `ins-14`, which were derived
 without `crates/core`. All four primers are 15 to 19 nt, so every row is
 `25nm` and `STD`. The planner checked by hand that a `q5 design` run of the

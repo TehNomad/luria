@@ -11,22 +11,23 @@ Shared rules for every agent on `luria`. The planner's rules are in
 
 ## Current task
 - The task contract is the file named in the prompt, normally
-  `docs/tasks/milestone-*.md`. Its scope is binding; do not implement
+  `docs/tasks/contracts/*.md`. Its scope is binding; do not implement
   anything outside it.
-- Files in `docs/tasks/` marked as implemented are historical records, not
-  instructions.
+- Files in `docs/tasks/` with `status: deprecated` or marked as implemented
+  are historical records, not instructions.
 
 ## Working method
 - Implement one agreed task contract at a time.
 - Do not expand scope or change biological assumptions without asking.
 - Prefer small, testable changes to speculative framework construction.
-- Treat `docs/decisions.md` and `tests/fixtures/README.md` as requirements.
+- Treat `docs/decisions/` (one file per D-number) and
+  `tests/fixtures/README.md` as requirements.
   Read only the sections the task contract names or that the code you touch
   depends on; do not skim the whole file. `scripts/decision` lists every
   decision; `scripts/decision D052` prints one entry.
 - If coordinates, strand, CDS, numbering, or expected biology are
   ambiguous, stop and report the ambiguity rather than choosing silently.
-- Do not edit `AGENTS.md`, `CLAUDE.md`, `docs/agents/`, `docs/decisions.md`,
+- Do not edit `AGENTS.md`, `CLAUDE.md`, `docs/agents/`, `docs/decisions/`,
   task contracts, or existing fixture expectations unless the contract says
   to. Never change a requirement or an expected result to make a test
   pass; if a test seems wrong, report it.

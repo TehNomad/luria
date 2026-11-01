@@ -11,7 +11,7 @@
 //! from only 14 CDSs (5122 codons), so the W3110 entry is used instead. Both
 //! entries give the same highest-count codon for each of the twenty residues,
 //! and so does NEBaseChanger's built-in `Ecoli_K12` table; see
-//! `docs/tasks/milestone-2-mutation.md`, "Comparison with NEBaseChanger codon
+//! `docs/tasks/contracts/milestone-2-mutation.md`, "Comparison with NEBaseChanger codon
 //! selection".
 //!
 //! The table below is the raw codon count column of that entry, in standard

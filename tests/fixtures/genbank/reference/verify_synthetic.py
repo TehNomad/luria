@@ -1,7 +1,7 @@
 """Check the hand-derived synthetic GenBank expectations with Biopython (D039).
 
 ../synthetic.gb is a 60-base circular record written by hand for luria's
-GenBank CDS import (docs/tasks/milestone-5c3-genbank-cds.md). Its two
+GenBank CDS import (docs/tasks/contracts/milestone-5c3-genbank-cds.md). Its two
 expectation tables were derived by hand, as ../README.md records:
 
 * ../synthetic-expected.tsv: what importing each named CDS gives, one row

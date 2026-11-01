@@ -4,7 +4,7 @@
 //!
 //! The frame is `review::view::frame_block` and the key line is
 //! `review::view::key_line`, the same screen shape the review draws
-//! (`review::view`'s module doc, `docs/tasks/milestone-8b3-review-screen.md`):
+//! (`review::view`'s module doc, `docs/tasks/contracts/milestone-8b3-review-screen.md`):
 //! rows `0` to `height - 2` are one rounded block whose title sits in its top
 //! border, its inner area is the body, the status line takes the block's last
 //! inner row, and row `height - 1` is the keys, outside the border. Blocks are

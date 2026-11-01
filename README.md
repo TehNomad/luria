@@ -39,7 +39,7 @@ luria version
 luria help
 ```
 
-See `docs/cli.md` for a worked example, the exit codes and error codes, and
+See `docs/specs/cli.md` for a worked example, the exit codes and error codes, and
 a summary of the request and result. Primer design covers linear templates
 only (D029), so a plasmid gives a verified edit with a design failure rather
 than primers.
@@ -47,11 +47,11 @@ than primers.
 Natural-language interpretation (Milestone 6, D044) works with any
 OpenAI-compatible server, such as a local llama.cpp or Ollama, over plain
 HTTP; HTTPS and the Anthropic API are deferred. It sends your text and a
-summary of the record's CDSs, never the sequence. See `docs/cli.md` §10.
+summary of the record's CDSs, never the sequence. See `docs/specs/cli.md` §10.
 Milestone 7 adds `luria review`: a terminal view of a result or a
 proposal, which runs a proposal only once you approve it, and exports
 the result, the edited constructs and an IDT order table. See
-`docs/cli.md` §11 (D046). `luria new` is a form for a template and mutations,
+`docs/specs/cli.md` §11 (D046). `luria new` is a form for a template and mutations,
 typed in a shorthand or in words, that writes and runs the request once you
 approve; see §12 (D047). Milestone 8 adds `luria FILE`, a read-only
 view of a GenBank or FASTA file's sequence, translation and features,

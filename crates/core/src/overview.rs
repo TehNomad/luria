@@ -1,6 +1,6 @@
 //! The overview scale: the base range each column of the overview inset
 //! stands for, and the column a base is drawn in (plan §4.6 of
-//! `docs/tasks/milestone-8-view.md`; D054, D006, D048; contract 8g).
+//! `docs/tasks/contracts/milestone-8-view.md`; D054, D006, D048; contract 8g).
 //!
 //! D054 fixes the shape. Over `L` bases with a strip `N` columns wide there
 //! are `w = min(N, L)` columns, and column `i` stands for the half-open range

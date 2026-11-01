@@ -11,7 +11,7 @@ Two tables:
   View mode must not draw those bases at all (D050, M8-18), and must not
   translate them.
 
-The rules are the ones in `docs/tasks/milestone-8-view.md` section 4.3, D052
+The rules are the ones in `docs/tasks/contracts/milestone-8-view.md` section 4.3, D052
 and D050:
 
 * Frames are numbered 1, 2, 3 on **either** strand. On the plus strand frame f
@@ -180,7 +180,7 @@ def luria_symbol(codon: str) -> str:
     them is the same amino acid, so a script that collapsed them would print G
     and L, and D010 says there is no guess to be made.
 
-    See `docs/decisions.md` D010 and D052 and `docs/tasks/milestone-8-view.md`
+    See `docs/decisions/` D010 and D052 and `docs/tasks/contracts/milestone-8-view.md`
     §4.3."""
     return CODONS.get(codon, "?")
 

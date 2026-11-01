@@ -57,7 +57,7 @@ impl RecordFileProblem {
     /// trailing newline — and the status it exits with (§4.3): the byte ceiling
     /// is `Unsupported` whichever way the length came, a file that cannot be read
     /// or is not text is `MalformedInput`, and a record refusal carries its own
-    /// category, exactly as `ExitStatus::for_failure` reads it (D056, docs/cli.md
+    /// category, exactly as `ExitStatus::for_failure` reads it (D056, docs/specs/cli.md
     /// §5-§6).
     pub fn report(&self, file: &Path) -> (String, ExitStatus) {
         match self {

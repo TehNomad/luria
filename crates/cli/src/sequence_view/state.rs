@@ -1,6 +1,6 @@
 //! The view's state: which CDS is selected, which translation lanes are drawn,
 //! where the cursor is, and which blocks are on screen
-//! (`docs/tasks/milestone-8-view.md` §5.1, §5.2; contract 8k1; D048 M8-11,
+//! (`docs/tasks/contracts/milestone-8-view.md` §5.1, §5.2; contract 8k1; D048 M8-11,
 //! D049 M8-3, D052, D055).
 //!
 //! Pure: `new` takes a record and a size, `handle` takes a key and says whether

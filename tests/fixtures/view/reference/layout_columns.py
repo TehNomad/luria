@@ -13,7 +13,7 @@ Two tables:
   given), how many columns it covers, and its text. Columns, not drawn
   screens (plan section 6): no border, glyph or style is pinned here.
 
-The rules are `docs/tasks/milestone-8-view.md` section 5.1, D050 (M8-19) and
+The rules are `docs/tasks/contracts/milestone-8-view.md` section 5.1, D050 (M8-19) and
 D055, as contract 8j states them:
 
 * **Gutter.** `d = max(2, digits of the record length)`. A line's label (the
