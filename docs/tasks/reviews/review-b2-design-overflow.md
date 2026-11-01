@@ -1,7 +1,7 @@
 # Review fix B2: overflow in the primer-design feasibility sums
 
 Status: **Implemented 2026-10-16** by the local worker; accepted on planner review with one amendment (§7).
-Planner: Claude. Parent: `docs/tasks/reviews/review-post-m4.md` finding B2.
+Planner: Claude. Parent: [docs/tasks/reviews/review-post-m4.md](/tasks/reviews/review-post-m4.md) finding B2.
 
 ## 1. The defect
 

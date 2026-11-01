@@ -7,7 +7,7 @@ checked here, as in `requests.py`: a GenBank CDS id absent from the
 record, and a residue number past the CDS (both refused later by
 `prepare`/core). Untested: a paste given as FASTA text, and the refusal
 messages' wording. Planner: Claude. Parent:
-`docs/tasks/contracts/milestone-7k-new.md` §2 and §3 (owner answers M7-32 to M7-39).
+[docs/tasks/contracts/milestone-7k-new.md](/tasks/contracts/milestone-7k-new.md) §2 and §3 (owner answers M7-32 to M7-39).
 The specification is `tests/fixtures/new/reference/requests.py` (read its
 docstring and `build`/`member`); its outputs under `tests/fixtures/new/`
 (`request-*.json`, `paste-*.fa`, `refusals.tsv`) are the expected results,

@@ -1,7 +1,7 @@
 # Contract 9f — cli: insert, overtype, replace and the terminal's paste
 
 Planner: Claude. Status: implemented. Tier: light (plan M9-10).
-Plan row: `docs/tasks/contracts/milestone-9-editor.md` §7, row 9f.
+Plan row: [docs/tasks/contracts/milestone-9-editor.md](/tasks/contracts/milestone-9-editor.md) §7, row 9f.
 
 ## 1. What this contract builds
 

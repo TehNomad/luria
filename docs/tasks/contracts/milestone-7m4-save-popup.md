@@ -1,7 +1,7 @@
 # Milestone 7m4: one pop-up to save and run, asking before it replaces
 
 Status: **Implemented, 2026-10-22.** Planner: Claude. Parent:
-`docs/tasks/contracts/milestone-7m-polish.md`, M7-48 and the `luria new` half of
+[docs/tasks/contracts/milestone-7m-polish.md](/tasks/contracts/milestone-7m-polish.md), M7-48 and the `luria new` half of
 M7-49. Builds on 7m3 (committed `81c1ead`).
 
 ## 1. The owner's answers this contract applies

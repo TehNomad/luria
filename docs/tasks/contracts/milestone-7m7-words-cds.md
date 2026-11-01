@@ -1,7 +1,7 @@
 # Milestone 7m7: words in `luria new` use the form's CDS
 
 Status: **Implemented, 2026-10-22.** Planner: Claude. Parent:
-`docs/tasks/contracts/milestone-7m-polish.md`, M7-59. Follows 7m6 (committed
+[docs/tasks/contracts/milestone-7m-polish.md](/tasks/contracts/milestone-7m-polish.md), M7-59. Follows 7m6 (committed
 `8b46cb2`).
 
 ## 1. Why, and the owner's answer
@@ -72,7 +72,7 @@ to `build_with_cds`. Thread an `Option<&str>` through the private `run`.
 
 ### 2.4 Docs
 
-- `docs/specs/cli.md` §10's question table: after the `cds_unusable` row, add
+- [docs/specs/cli.md](/specs/cli.md) §10's question table: after the `cds_unusable` row, add
 
   ```
   | `cds_not_the_forms` | In `luria new` only: your words name a CDS other than the one picked on the form. |
@@ -80,7 +80,7 @@ to `build_with_cds`. Thread an `Option<&str>` through the private `run`.
 
   Change the `cds_unnamed` row's text to
   `The text names no CDS. luria never picks one, even when the record has one; in \`luria new\`, the CDS picked on the form is used instead (§12.3).`
-- `docs/specs/cli.md` §12.3: replace
+- [docs/specs/cli.md](/specs/cli.md) §12.3: replace
 
   ```
   counted from the CDS's first codon unless your words say otherwise. The
@@ -94,7 +94,7 @@ to `build_with_cds`. Thread an `Option<&str>` through the private `run`.
   proposal says so; if they name another, it asks. The
   ```
 
-- `docs/decisions/` D047's Words bullet: replace
+- [docs/decisions/](/decisions/) D047's Words bullet: replace
   `* **Words** (M7-33, M7-41, M7-42, M7-47).` with
   `* **Words** (M7-33, M7-41, M7-42, M7-47, M7-59).`, and replace
 
@@ -152,8 +152,8 @@ and 2 fail, and every corpus test still passes. Restore it.
 ## 4. Do not
 
 - Change only `interpret/build.rs`, `interpret/run.rs`, `new/form.rs`,
-  `new/terminal.rs`, `main.rs`, the tests named in §3, `docs/specs/cli.md` and
-  `docs/decisions/` as in §2.4.
+  `new/terminal.rs`, `main.rs`, the tests named in §3, [docs/specs/cli.md](/specs/cli.md) and
+  [docs/decisions/](/decisions/) as in §2.4.
 - No change to `luria q5 interpret`'s or `luria review`'s behaviour,
   fixtures, prompts, `luria-nl`, Cargo files or `vendor/`.
 - Do not stage or commit.

@@ -1,7 +1,7 @@
 # Milestone 6a: the `luria-nl` crate and the extraction parser
 
 Status: **Ready for the worker, 2026-10-19.**
-Planner: Claude. Parent: `docs/tasks/contracts/milestone-6-nl.md` §5.1, §5.2, §6 (6a).
+Planner: Claude. Parent: [docs/tasks/contracts/milestone-6-nl.md](/tasks/contracts/milestone-6-nl.md) §5.1, §5.2, §6 (6a).
 
 ## 1. What and why
 
@@ -564,7 +564,7 @@ and report both outcomes:
 - Ground anything, parse a mutation token, read a template, or build a
   request: those are 6b, 6c and 6e.
 - Change anything under `crates/cli/`, `crates/core/`, `tests/fixtures/` or
-  `docs/`.
+  [docs/](/).
 - Use `serde_json::Value` or `json!` to build or inspect the extraction.
 
 ## 6. Checks

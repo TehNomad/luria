@@ -2,7 +2,7 @@
 
 Status: **Implemented 2026-10-15** by the local worker; accepted on planner review (§8).
 Date: 2026-10-15
-Planner: Claude. Parent: `docs/tasks/contracts/milestone-4-indels.md`, pass 5. Uses
+Planner: Claude. Parent: [docs/tasks/contracts/milestone-4-indels.md](/tasks/contracts/milestone-4-indels.md), pass 5. Uses
 4e-1's `expand_degenerate` and 4e-4a's replacement intent. The last contract
 of pass 5.
 
@@ -132,7 +132,7 @@ module's tests; do not make them public.
 
 - Do not touch any existing file except `lib.rs` (one line). In particular,
   not `q5.rs`, `q5_design.rs`, `mutation.rs`, `sequence.rs`, `error.rs`,
-  fixtures or `docs/`.
+  fixtures or [docs/](/).
 - No new dependencies, no new error variants, no new public accessors on
   existing types.
 

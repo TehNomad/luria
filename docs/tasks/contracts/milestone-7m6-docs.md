@@ -1,15 +1,15 @@
 # Milestone 7m6: the docs for the owner's hand-test changes
 
 Status: **Implemented, 2026-10-22.** Planner: Claude. Parent:
-`docs/tasks/contracts/milestone-7m-polish.md` §2 item 6. Follows 7m1 to 7m5, all
+[docs/tasks/contracts/milestone-7m-polish.md](/tasks/contracts/milestone-7m-polish.md) §2 item 6. Follows 7m1 to 7m5, all
 committed.
 
-This contract authorizes the worker to edit `docs/specs/cli.md` and
-`docs/decisions/` exactly as below and nowhere else. Every old text
+This contract authorizes the worker to edit [docs/specs/cli.md](/specs/cli.md) and
+[docs/decisions/](/decisions/) exactly as below and nowhere else. Every old text
 must occur exactly once; if one does not, stop and report it
 (ask_owner). Replace text verbatim; do not reword.
 
-## 1. `docs/specs/cli.md` §11
+## 1. [docs/specs/cli.md](/specs/cli.md) §11
 
 1. Replace
 
@@ -73,13 +73,13 @@ must occur exactly once; if one does not, stop and report it
    not the one on screen.
    ```
 
-## 2. `docs/specs/cli.md` §12
+## 2. [docs/specs/cli.md](/specs/cli.md) §12
 
 Replace everything from the line `## 12. Entering a design in the
 terminal: \`luria new\`` to the end of the file with the whole of
 `docs/tasks/contracts/milestone-7m6-cli-section.txt`.
 
-## 3. `docs/decisions/`
+## 3. [docs/decisions/](/decisions/)
 
 1. In D046's Export bullet, replace
 
@@ -99,7 +99,7 @@ terminal: \`luria new\`` to the end of the file with the whole of
    ```
 
 2. Replace D047, from its heading `## D047:` to the end of the file, with
-   the whole of `docs/tasks/contracts/milestone-7m6-d047.txt`.
+   the whole of [docs/tasks/contracts/milestone-7m6-d047.txt](/tasks/contracts/milestone-7m6-d047.txt).
 
 ## 4. Test
 
@@ -109,7 +109,7 @@ test or the text.
 
 ## 5. Do not
 
-Change only `docs/specs/cli.md` and `docs/decisions/`, as above. No code,
+Change only [docs/specs/cli.md](/specs/cli.md) and [docs/decisions/](/decisions/), as above. No code,
 test, fixture, other doc, Cargo file or `vendor/`. Do not stage or commit.
 
 ## 6. Checks

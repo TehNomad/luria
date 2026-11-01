@@ -357,7 +357,7 @@ Proposed rules:
 | 7f | `milestone-7f-approve-and-run.md` | Approve, write the request, run it, open the result. |
 | 7g1 | `milestone-7g1-export.md` | Export of the result JSON and edited FASTA, byte-identical to the CLI. |
 | 7g2 | `milestone-7g2-order-table.md` | The IDT primer table (§5.4), after the codes are recorded. |
-| 7h | `milestone-7h-docs.md` | `docs/specs/cli.md` §11, README, D046. |
+| 7h | `milestone-7h-docs.md` | [docs/specs/cli.md](/specs/cli.md) §11, README, D046. |
 
 ## 7. Fixtures and verification
 

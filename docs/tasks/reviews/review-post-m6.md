@@ -138,13 +138,13 @@ risk because usability is re-checked in Rust.
 
 - **C-1, Low, confirmed.** `--write-request new.json/` passes step 4
   (`run.rs:503-531`), the model is called, then the write fails (exit 1).
-  Breaks "nothing is sent until every local input is valid" (6h1, `docs/specs/cli.md`
+  Breaks "nothing is sent until every local input is valid" (6h1, [docs/specs/cli.md](/specs/cli.md)
   §10.7).
 - **C-2, Low, suspected.** Step 4 treats any `symlink_metadata` error as
   "free" (`run.rs:528`); `write.rs:132-140` treats only `NotFound` so.
 - **C-3, Low, confirmed.** `--template ..` is reported as "the template
   file's name is not UTF-8" (`run.rs:401-410`).
-- **C-4, Medium, docs.** `docs/specs/cli.md` §5's table says exit 0 is
+- **C-4, Medium, docs.** [docs/specs/cli.md](/specs/cli.md) §5's table says exit 0 is
   "`verified`" and exit 1 is output failures; §10.7 says interpret's codes
   are "those of §5, plus 8". Nothing says interpret's 0 is `proposed`, 3 is
   `needs_clarification`, 1 includes backend failures, or that a failed

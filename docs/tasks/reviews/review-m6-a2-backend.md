@@ -3,7 +3,7 @@
 Status: **Implemented 2026-10-20** by the local worker, in two runs (the
 first hit the turn limit with `proxy.rs` unfinished); accepted on planner
 review. Planner: Claude. Parent:
-`docs/tasks/reviews/review-post-m6.md` A-2, A-4, A-5, A-6, A-7, A-8. Owner,
+[docs/tasks/reviews/review-post-m6.md](/tasks/reviews/review-post-m6.md) A-2, A-4, A-5, A-6, A-7, A-8. Owner,
 2026-10-20: "Go ahead and fix them".
 
 Files (no others):

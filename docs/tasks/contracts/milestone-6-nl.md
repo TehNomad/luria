@@ -40,19 +40,19 @@ These are facts about the code, not design choices:
 1. `luria_cli::request::RequestDocument` and its `*Spec` types have public
    fields, so a request can be built in code. `result::request_echo`
    serializes one, and parsing the echo gives the same request back
-   (`docs/specs/cli.md` §8).
+   ([docs/specs/cli.md](/specs/cli.md) §8).
 2. `luria_core::genbank::read_genbank` and
    `luria_core::genbank_cds::import_cds(record, &[])` list every feature,
    with its id (the first of `/locus_tag`, `/gene` and `/label`) and, for a
    CDS, the refusal importing it would give. Every CDS the record offers,
    and whether it can be used, can be listed without new core code.
 3. A request without `scope` already lets core resolve the target and ask
-   when more than one CDS could be meant (`docs/specs/cli.md` §7).
+   when more than one CDS could be meant ([docs/specs/cli.md](/specs/cli.md) §7).
 4. `luria-cli` depends on `serde` and `serde_json` only (D041). `luria-core`
    has no dependencies.
 5. Exit statuses 0 to 7 are taken (`crates/cli/src/exit.rs`).
 6. The post-M5 review recorded seven M6 inputs and deferred B-8, path
-   confinement and size caps (`docs/tasks/reviews/review-post-m5.md` §B). §7 says
+   confinement and size caps ([docs/tasks/reviews/review-post-m5.md](/tasks/reviews/review-post-m5.md) §B). §7 says
    where each is handled.
 
 ## 3. The trust boundary
@@ -115,7 +115,7 @@ command refuses before anything is sent.
 | M6-13 | Linear fixture (§9 Q6) | **Yes**: a short, hand-written, independently verified linear GenBank record with one CDS. |
 | M6-14 | Exit status (§9 Q7) | **New exit 8** for a refused model reply. |
 | M6-16 | A combined construct (asked 2026-10-19) | **Proposed faithfully.** `interpret` emits the request and core refuses it (`unsupported_composition`, exit 6). D003: the adapter must not duplicate a scientific scope limit core owns. |
-| M6-18 | TLS and the Anthropic backend (asked 2026-10-19) | **Deferred.** The TLS stack `ureq` uses (`rustls` → `ring`) compiles C and needs `/usr/include`, which the development sandbox denies (`nono why`: `path_not_granted`). Milestone 6 ships the OpenAI-compatible backend over plain HTTP only, with `ureq`'s default features off. An `https://` endpoint is refused before anything is sent. 6g2 is not built; see `docs/tasks/proposals/later-tls-and-anthropic.md`. Amends M6-1. |
+| M6-18 | TLS and the Anthropic backend (asked 2026-10-19) | **Deferred.** The TLS stack `ureq` uses (`rustls` → `ring`) compiles C and needs `/usr/include`, which the development sandbox denies (`nono why`: `path_not_granted`). Milestone 6 ships the OpenAI-compatible backend over plain HTTP only, with `ureq`'s default features off. An `https://` endpoint is refused before anything is sent. 6g2 is not built; see [docs/tasks/proposals/later-tls-and-anthropic.md](/tasks/proposals/later-tls-and-anthropic.md). Amends M6-1. |
 | M6-17 | Model thinking (6g1, asked 2026-10-19) | **Follow the server's setting.** The backend sends no thinking switch; whether a model thinks is the server's configuration. The research found thinking 4.4 times slower with no gain, which is documented for users, not enforced. |
 | M6-15 | Grounding (asked 2026-10-19, after §5.2 was first written) | **Evidence quotes**: the model returns a canonical `token` and a verbatim `quote` from the user's text, and Rust checks the quote supports the token (§5.3a). Strict verbatim tokens would refuse ordinary prose. |
 
@@ -217,7 +217,7 @@ an expected original residue the user did not state (D011), and never takes
 a coordinate from the model (D004).
 
 **`?` for an unstated part** (planner clarification, 2026-10-19, from the
-local-model research in `docs/research/m6-local-model-extraction-2026-10-19.md`).
+local-model research in [docs/research/m6-local-model-extraction-2026-10-19.md](/research/m6-local-model-extraction-2026-10-19.md)).
 The prompt tells the model to write `?` for a part the user did not state:
 `A?G` for "change alanine to glycine". The notation parser recognises `?`
 in any of the three places and reports which parts are unstated, so the
@@ -384,7 +384,7 @@ Each is small, with tests first, as in M5:
 | 6h | `milestone-6h-command.md` | Arguments, the remote gate, the document, `--write-request`, exit 8. |
 | 6i0 | `milestone-6i0-linear-genbank.md` | The linear GenBank fixture and its verification (planner), and `genbank_fixtures.rs` tests reading it (worker). No production code. |
 | 6i | `milestone-6i-end-to-end.md` | The NL corpus (§8) through the scripted backend: interpret, then design, compared byte for byte with the hand-written request's result. |
-| 6j | `milestone-6j-docs.md` | `docs/specs/cli.md` section, README, D044. |
+| 6j | `milestone-6j-docs.md` | [docs/specs/cli.md](/specs/cli.md) section, README, D044. |
 
 ## 7. The review inputs, and where each goes
 
@@ -426,7 +426,7 @@ Each is small, with tests first, as in M5:
 
 - **Naming a residue by an annotated site** ("the histidine in the catalytic
   triad"): deferred by the owner, 2026-10-19, to a later milestone not yet
-  scheduled. Recorded in `docs/tasks/proposals/later-annotated-sites.md`. Milestone 6
+  scheduled. Recorded in [docs/tasks/proposals/later-annotated-sites.md](/tasks/proposals/later-annotated-sites.md). Milestone 6
   asks for the number instead (`residue_number_unstated`).
 
 ## 9. Questions put to the owner (answered 2026-10-19 as M6-8 to M6-14)

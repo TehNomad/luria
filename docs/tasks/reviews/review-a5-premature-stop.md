@@ -1,7 +1,7 @@
 # Review A5: warn when an in-frame DNA edit creates a premature stop (D037)
 
 Status: **Implemented 2026-10-16** by the local worker; accepted after one review round (§7).
-Planner: Claude. Parent: `docs/tasks/reviews/review-post-m4.md` A5. Decision: D037.
+Planner: Claude. Parent: [docs/tasks/reviews/review-post-m4.md](/tasks/reviews/review-post-m4.md) A5. Decision: D037.
 Depends on A4 (D036): a circular CDS is split only at the origin.
 
 ## 1. Requirement (D037, inline)

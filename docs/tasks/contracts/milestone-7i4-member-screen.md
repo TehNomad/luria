@@ -8,7 +8,7 @@ by replaying the workers' recorded successful edits in order, with
 `cargo fmt` where they ran it, then re-ran every check and proof 1.
 Proofs 1-3 failed as required. The design-failure lines of
 `member_screen` are implemented but untested. Planner: Claude. Parent:
-`docs/tasks/contracts/milestone-7-tui.md` §5.3a (owner answers M7-16, M7-17,
+[docs/tasks/contracts/milestone-7-tui.md](/tasks/contracts/milestone-7-tui.md) §5.3a (owner answers M7-16, M7-17,
 M7-19, M7-22). Builds on 7i2 (`App::frame`) and 7i3
 (`text::member_sequence`).
 

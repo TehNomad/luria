@@ -1,7 +1,7 @@
 # Review fix B5: tail-path replacements are described as deletions and insertions
 
 Status: **Implemented 2026-10-16** by the local worker; accepted on planner review. Three further single-case doc comments (`PrimerPartRole`, `abuts`/`boundary`, the `changed_positions` comment) are left for the §D doc-trimming contract.
-Planner: Claude. Parent: `docs/tasks/reviews/review-post-m4.md` finding B5.
+Planner: Claude. Parent: [docs/tasks/reviews/review-post-m4.md](/tasks/reviews/review-post-m4.md) finding B5.
 
 ## 1. The defect
 

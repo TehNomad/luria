@@ -1,15 +1,15 @@
 # Review M6 B-1, B-2: one number per quote, in order (D045)
 
 Status: **Implemented 2026-10-20** by the local worker; accepted on planner review (`aeb5add`). Planner: Claude. Parent:
-`docs/tasks/reviews/review-post-m6.md` B-1, B-2. Owner answer, 2026-10-20: "One
+[docs/tasks/reviews/review-post-m6.md](/tasks/reviews/review-post-m6.md) B-1, B-2. Owner answer, 2026-10-20: "One
 number, in order". Records D045 for the whole review.
 
 Files (no others):
 - `crates/cli/src/interpret/evidence.rs`
 - `crates/cli/src/interpret/build.rs`
 - `crates/cli/tests/documented_interpret.rs` (one line, §2.4)
-- `docs/specs/cli.md` (two table rows of §10.6, §2.4)
-- `docs/decisions/` (append D045, text in §2.5)
+- [docs/specs/cli.md](/specs/cli.md) (two table rows of §10.6, §2.4)
+- [docs/decisions/](/decisions/) (append D045, text in §2.5)
 
 ## 1. Defect
 
@@ -95,7 +95,7 @@ Keep the rest of the doc.
   `QuestionCode::MutationQuoteAmbiguous,` right after
   `QuestionCode::SubstitutionDirectionUnclear,` in
   `the_question_table_lists_every_code_build_can_ask`. Change nothing else.
-- `docs/specs/cli.md` §10.6, the table after `<!-- luria:question-codes -->`:
+- [docs/specs/cli.md](/specs/cli.md) §10.6, the table after `<!-- luria:question-codes -->`:
   replace the `substitution_direction_unclear` row and add one row after it,
   exactly:
   ```
@@ -103,7 +103,7 @@ Keep the rest of the doc.
   | `mutation_quote_ambiguous` | The words given for one substitution hold more than one number. |
   ```
 
-### 2.5 `docs/decisions/`
+### 2.5 [docs/decisions/](/decisions/)
 
 Append after D044, exactly:
 

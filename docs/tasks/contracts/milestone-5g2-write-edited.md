@@ -5,7 +5,7 @@ Review found that a result name holding a path separator could write
 outside `DIR`, a gap in this contract rather than the code. §4.1, step 1a,
 §5.3 and one test were added, and the worker implemented them. Still
 untested: the `WriteFailure::Io` path (exit 1 with a stderr note).
-Planner: Claude. Parent: `docs/tasks/contracts/milestone-5-cli.md` §3.2, §3.5 and §5
+Planner: Claude. Parent: [docs/tasks/contracts/milestone-5-cli.md](/tasks/contracts/milestone-5-cli.md) §3.2, §3.5 and §5
 (5g2). Follows 5g1 (the wiring).
 
 ## 1. What and why

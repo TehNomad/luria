@@ -1,7 +1,7 @@
 # Contract 9n — core: a save replaces luria's own earlier stamp
 
 Planner: Claude. Status: implemented. Tier: full (the GenBank writer, M9-10).
-Plan row: `docs/tasks/contracts/milestone-9-editor.md` §7, row 9n.
+Plan row: [docs/tasks/contracts/milestone-9-editor.md](/tasks/contracts/milestone-9-editor.md) §7, row 9n.
 
 ## 1. What this contract fixes
 

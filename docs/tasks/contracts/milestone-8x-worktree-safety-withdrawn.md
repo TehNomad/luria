@@ -10,11 +10,11 @@ as the plan's 8a2 row.
 ## Why it is withdrawn
 
 **The contract invented scope that no document asks for.** Searching the whole
-`docs/` tree, excluding this contract itself:
+[docs/](/) tree, excluding this contract itself:
 
 - `constructs.json`, `constructs/`, `luria commit` and `luria construct`:
   **no occurrences anywhere.**
-- `docs/tasks/contracts/milestone-8-view.md` §3 lists saving as out of scope:
+- [docs/tasks/contracts/milestone-8-view.md](/tasks/contracts/milestone-8-view.md) §3 lists saving as out of scope:
   *"Placing edits, designing, **saving**, `luria DESIGN.json`, the start screen
   for a bare `luria` (milestone 9)."*
 - The plan's actual **8a2** row is a fixture contract: *"`tests/fixtures/view/`:
@@ -29,7 +29,7 @@ Citations that were wrong in the same way:
 | --- | --- |
 | D022 — the list of forbidden git commands | "Reproducibility precedes persistence infrastructure"; says nothing about git |
 | D042 — design failure exits 7 | "Every imported GenBank CDS starts with ATG". The design-failure/exit-7 rule is in **D041**'s bullets |
-| 7c1's `commit_message` | No such function in `crates/` or `docs/`. 7c1 is the text of the overview, problem and provenance screens |
+| 7c1's `commit_message` | No such function in `crates/` or [docs/](/). 7c1 is the text of the overview, problem and provenance screens |
 
 The worker found all of this by grepping and said so; the failure is entirely
 the planner's, and it is the reason the contract-first rule exists.

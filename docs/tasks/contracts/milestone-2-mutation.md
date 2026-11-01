@@ -5,8 +5,8 @@ Date: 2026-10-06
 
 This file records the concrete semantic choices made while implementing
 Milestone 2, in the same style as `milestone-1-core-foundation.md`. It does
-not restate `docs/decisions/`; each entry names the decision it implements.
-If an entry contradicts `docs/decisions/`, that document wins and this entry
+not restate [docs/decisions/](/decisions/); each entry names the decision it implements.
+If an entry contradicts [docs/decisions/](/decisions/), that document wins and this entry
 is wrong.
 
 ## Scope actually implemented
@@ -181,9 +181,9 @@ deliberately does not, so a future change can be made on purpose.
 
 Sources: the reverse-engineering notes on the
 `research/nebasechanger_reverse_engineer` branch
-(`docs/research/nebasechanger-client-investigation.md` §4.1,
-`docs/research/nebasechanger-live-build-4330b0c7-2026-10-10.md` §10.4, and the
-in-app help `docs/references/nbc_help_v284.txt`), and a comparison on
+([docs/research/nebasechanger-client-investigation.md](/research/nebasechanger-client-investigation.md) §4.1,
+[docs/research/nebasechanger-live-build-4330b0c7-2026-10-10.md](/research/nebasechanger-live-build-4330b0c7-2026-10-10.md) §10.4, and the
+in-app help [docs/references/nbc_help_v284.txt](/references/nbc_help_v284.txt)), and a comparison on
 2026-10-14 of the `Ecoli_K12` table extracted from the archived v2.5.3 and
 v2.8.4 bundles and the live build `4330b0c7` on that branch, against the
 Kazusa pages cited above.

@@ -1,7 +1,7 @@
 # Proposal: luria's commands for the sequence-first workflow
 
 Status: **Draft for the owner, 2026-10-23. Not approved and not a task
-contract.** If approved, this replaces the command list in `docs/specs/cli.md`
+contract.** If approved, this replaces the command list in [docs/specs/cli.md](/specs/cli.md)
 §1 and amends D041 (output), D046 and D047 (`review`, `new`).
 Companion to `proposal-product-direction.md` and
 `proposal-sequence-view.md`.
@@ -143,7 +143,7 @@ luria q5 design sid1.fa D404N --save d404n.request.json --order d404n.tsv
 - **`luria run DESIGN.json`** runs any saved design, choosing the workflow
   from the file's schema. It prints a table by default and the result
   document with `--json`, as `luria q5 design` does. Exit codes are
-  unchanged (`docs/specs/cli.md` §5).
+  unchanged ([docs/specs/cli.md](/specs/cli.md) §5).
 - **`luria export DESIGN.json`** writes the files the view's `x` writes,
   without a terminal. `--genbank DIR` writes each edited construct as
   GenBank with its primers as `primer_bind` features (milestone 10).

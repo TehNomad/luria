@@ -2,7 +2,7 @@
 
 Status: **Implemented 2026-10-15** by the local worker; accepted on planner review (§9).
 Date: 2026-10-15
-Planner: Claude. Parent: `docs/tasks/contracts/milestone-4-indels.md`, pass 5. Follows
+Planner: Claude. Parent: [docs/tasks/contracts/milestone-4-indels.md](/tasks/contracts/milestone-4-indels.md), pass 5. Follows
 4e-2 (replacement results exist). The design layer is 4e-3b.
 
 ## 1. Goal
@@ -123,7 +123,7 @@ None expected. If one breaks, stop and report it rather than changing it.
 ## 6. Do not
 
 - Do not touch `mutation.rs`, `primer_design.rs`, `q5.rs`, `q5_design.rs`,
-  any fixture or `docs/`. No new error variants.
+  any fixture or [docs/](/). No new error variants.
 - Do not change the substitution, deletion or insertion behaviour or
   messages. All 425 existing tests must pass.
 

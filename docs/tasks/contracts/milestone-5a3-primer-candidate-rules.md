@@ -1,9 +1,9 @@
 # Milestone 5a3: a `rule` on every `InvalidPrimerCandidate`
 
 Status: **Implemented 2026-10-16** by the local worker; accepted on first review.
-Planner: Claude. Parent: `docs/tasks/contracts/milestone-5-cli.md` §3.6 and §5 (5a3).
+Planner: Claude. Parent: [docs/tasks/contracts/milestone-5-cli.md](/tasks/contracts/milestone-5-cli.md) §3.6 and §5 (5a3).
 Decisions: D041; review item C8. Follows 5a2
-(`docs/tasks/contracts/milestone-5a2-mutation-request-rules.md`, committed), and uses
+([docs/tasks/contracts/milestone-5a2-mutation-request-rules.md](/tasks/contracts/milestone-5a2-mutation-request-rules.md), committed), and uses
 the same pattern.
 
 ## 1. Why

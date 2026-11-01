@@ -1,11 +1,11 @@
 # Review fix C5, C13: minus-strand and origin-wrapping coverage
 
 Status: **Implemented 2026-10-16** by the local worker; accepted on planner review. Every expectation held on first run; no non-test code changed.
-Planner: Claude. Parent: `docs/tasks/reviews/review-post-m4.md` findings C5, C13.
+Planner: Claude. Parent: [docs/tasks/reviews/review-post-m4.md](/tasks/reviews/review-post-m4.md) findings C5, C13.
 
 ## 1. The gaps
 
-- **C5.** `docs/specs/q5-primer-design.md` §6 says: "A residue edit whose semantics
+- **C5.** [docs/specs/q5-primer-design.md](/specs/q5-primer-design.md) §6 says: "A residue edit whose semantics
   are on a reverse CDS is the same DNA edit and produces the same pair". No
   test checks this. There are no minus-strand tests in the test code of
   `q5.rs`, `q5_design.rs`, `primer.rs` or `q5_expand.rs`. There are no

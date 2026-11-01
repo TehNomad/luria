@@ -6,7 +6,7 @@ test; §5 was amended to delete it. On the unreachable non-clarification path
 with no mutation, `run` unwraps `mutation()` as core's `design_run` does, so
 that broken invariant would panic rather than exit 1. Accepted, because a
 test pins that core never produces it.
-Planner: Claude. Parent: `docs/tasks/contracts/milestone-5-cli.md` §3.2, §3.7 and §5
+Planner: Claude. Parent: [docs/tasks/contracts/milestone-5-cli.md](/tasks/contracts/milestone-5-cli.md) §3.2, §3.7 and §5
 (5g1). Follows 5f1–5f4 (the result document) and 5e2 (`prepare`).
 
 ## 1. What and why

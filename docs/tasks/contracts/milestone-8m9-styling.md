@@ -3,7 +3,7 @@
 Planner: Claude. Status: **Implemented 2026-10-28** by worker `w-8m9` in
 three rounds, reviewed and accepted. Tier: light (D051): every style here
 can change at the hand test. Owner's answers:
-`docs/tasks/contracts/milestone-8m-polish.md` §1, M8-33 (dimming) and M8-34. Findings
+[docs/tasks/contracts/milestone-8m-polish.md](/tasks/contracts/milestone-8m-polish.md) §1, M8-33 (dimming) and M8-34. Findings
 from review:
 
 * Two gaps in this contract, both reported by the worker rather than

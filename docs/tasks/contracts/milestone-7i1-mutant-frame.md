@@ -1,7 +1,7 @@
 # Milestone 7i1: the mutant reading frame, in luria-core
 
 Status: **Implemented 2026-10-21.** Proofs 1-4 failed as required. Refusals: split CDS `UnsupportedFeatureStructure`; first base in the edit `MutationVerificationFailure`; reversed edit or window `ReversedInterval`. The `?` rule is implemented but no fixture row exercises it. Planner: Claude. Parent:
-`docs/tasks/contracts/milestone-7-tui.md` §5.3a (owner answers M7-18, M7-20, M7-21).
+[docs/tasks/contracts/milestone-7-tui.md](/tasks/contracts/milestone-7-tui.md) §5.3a (owner answers M7-18, M7-20, M7-21).
 The expected values are in `tests/fixtures/review/frame.tsv`, written by
 `tests/fixtures/review/reference/frame.py` (read its docstring: it is the
 specification), independent of `crates/`.
@@ -123,7 +123,7 @@ If `Cds` cannot be built that way, stop and report.)
 - Change only `crates/core/src/lib.rs` (one line), the new
   `crates/core/src/frame.rs` and `crates/core/tests/frame_fixtures.rs`.
 - No new dependency; `luria-core` stays dependency-free. No change to
-  any other core module, the CLI, fixtures, `docs/`, any `Cargo.toml` or
+  any other core module, the CLI, fixtures, [docs/](/), any `Cargo.toml` or
   `vendor/`. Do not stage or commit.
 
 ## 6. Checks

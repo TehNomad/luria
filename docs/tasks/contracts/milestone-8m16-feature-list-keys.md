@@ -15,7 +15,7 @@ one round, reviewed and accepted. Findings from review:
 
 Tier:
 light (D051): list drawing and filtering. Owner's answer:
-`docs/tasks/contracts/milestone-8m-polish.md` §1, M8-39.
+[docs/tasks/contracts/milestone-8m-polish.md](/tasks/contracts/milestone-8m-polish.md) §1, M8-39.
 
 ## 1. What this contract builds
 

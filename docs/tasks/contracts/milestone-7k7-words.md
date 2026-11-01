@@ -1,7 +1,7 @@
 # Milestone 7k7: `luria new`'s "In words" box, through the model
 
 Status: **Implemented, 2026-10-22.** Planner: Claude. Parent:
-`docs/tasks/contracts/milestone-7k-new.md` (owner answers M7-33, M7-36, M7-40).
+[docs/tasks/contracts/milestone-7k-new.md](/tasks/contracts/milestone-7k-new.md) (owner answers M7-33, M7-36, M7-40).
 Builds on 7k3 to 7k5, on milestone 6's `interpret`, and on 7f2's proposal
 screen, which it calls unchanged. Also fixes 7k5's known gap: `luria new`
 without a terminal names `'review'`.

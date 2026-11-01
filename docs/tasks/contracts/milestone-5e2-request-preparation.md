@@ -1,7 +1,7 @@
 # Milestone 5e2: preparing a request for the workflow
 
 Status: **Implemented 2026-10-17** by the local worker; accepted after two review rounds, both on planner errors the worker reported: the digest test could not add a member, and the types and one test helper were too large or too specific for clippy.
-Planner: Claude. Parent: `docs/tasks/contracts/milestone-5-cli.md` §3.3, §3.4 and §5
+Planner: Claude. Parent: [docs/tasks/contracts/milestone-5-cli.md](/tasks/contracts/milestone-5-cli.md) §3.3, §3.4 and §5
 (5e, split into 5e1 and 5e2). Follows 5e1 (`request.rs`, the strict
 document).
 

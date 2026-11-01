@@ -2,7 +2,7 @@
 
 Status: **Implemented 2026-10-15** by the local worker; accepted on planner review (§9).
 Date: 2026-10-15
-Planner: Claude. Parent: `docs/tasks/contracts/milestone-4-indels.md`, pass 5. Mirrors
+Planner: Claude. Parent: [docs/tasks/contracts/milestone-4-indels.md](/tasks/contracts/milestone-4-indels.md), pass 5. Mirrors
 `milestone-4a-deletion.md` and `milestone-4d1-insertion.md`, both implemented.
 Use their code in `mutation.rs` as the pattern. The design layer is 4e-3.
 
@@ -189,7 +189,7 @@ and change nothing else: `crates/core/tests/mutation_fixtures.rs`,
   mirroring the neighbouring `Insertion` arm. That is now the permitted
   change; nothing else in those two files may be touched.
 - Do not call `expand_degenerate` from this layer.
-- Do not change existing tests beyond §5, or any fixture, or `docs/`.
+- Do not change existing tests beyond §5, or any fixture, or [docs/](/).
 
 ## 7. Checks
 

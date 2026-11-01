@@ -2,7 +2,7 @@
 
 Status: **Implemented 2026-10-15** by the local worker; accepted on planner review (§7).
 Date: 2026-10-15
-Planner: Claude. Parent: `docs/tasks/contracts/milestone-4-indels.md`, pass 4. Mirrors
+Planner: Claude. Parent: [docs/tasks/contracts/milestone-4-indels.md](/tasks/contracts/milestone-4-indels.md), pass 4. Mirrors
 `milestone-4c1-workflow-deletion.md` and `milestone-4c2-design-deletion-run.md`,
 both implemented. Follow their code in `q5.rs` and `q5_design.rs`.
 
@@ -75,7 +75,7 @@ before this code existed. Tms within 0.006.
 ## 5. Do not
 
 - Do not touch `mutation.rs`, `primer.rs`, `primer_design.rs`,
-  `primer_quality.rs`, any fixture or `docs/`. No new error variants.
+  `primer_quality.rs`, any fixture or [docs/](/). No new error variants.
 - Do not change the deletion branch of `edit_warnings` or any existing test.
 
 ## 6. Checks

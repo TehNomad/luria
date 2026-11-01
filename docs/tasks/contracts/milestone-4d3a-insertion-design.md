@@ -2,7 +2,7 @@
 
 Status: **Implemented 2026-10-15** by the local worker; accepted on planner review (§9).
 Date: 2026-10-15
-Planner: Claude. Parent: `docs/tasks/contracts/milestone-4-indels.md`, pass 4. Depends on
+Planner: Claude. Parent: [docs/tasks/contracts/milestone-4-indels.md](/tasks/contracts/milestone-4-indels.md), pass 4. Depends on
 4d-1 (insertion results) and 4d-2 (`construct_tailed_primer`, insertion pairs).
 Its fixture tests are 4d-3b.
 
@@ -110,7 +110,7 @@ within 0.006.
 - Do not change `size_pair`, `Sizer`, `design_deletion` or the substitution
   path's behaviour.
 - Do not touch `primer.rs`, `mutation.rs`, `q5.rs`, `q5_design.rs`, any
-  fixture or `docs/`. No new error variants.
+  fixture or [docs/](/). No new error variants.
 
 ## 7. Checks
 

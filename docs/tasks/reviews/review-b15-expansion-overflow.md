@@ -1,7 +1,7 @@
 # Review fix B15: degenerate expansion overflows before it can warn
 
 Status: **Implemented 2026-10-16** by the local worker; accepted on planner review.
-Planner: Claude. Parent: `docs/tasks/reviews/review-post-m4.md` finding B15 and
+Planner: Claude. Parent: [docs/tasks/reviews/review-post-m4.md](/tasks/reviews/review-post-m4.md) finding B15 and
 owner answer A3.
 
 ## 1. The defect

@@ -2,7 +2,7 @@
 
 Status: **Implemented 2026-10-15** by two local workers; accepted on planner review (§10).
 Date: 2026-10-15
-Planner: Claude. Parent: `docs/tasks/contracts/milestone-4-indels.md`, pass 5. Follows
+Planner: Claude. Parent: [docs/tasks/contracts/milestone-4-indels.md](/tasks/contracts/milestone-4-indels.md), pass 5. Follows
 4e-2 (replacement results) and 4e-3a (replacement primers and pairs).
 
 ## 1. Goal
@@ -158,7 +158,7 @@ Nothing else. If another existing test breaks, stop and report.
 ## 6. Do not
 
 - Do not touch `mutation.rs`, `q5.rs`, `q5_design.rs`, `tm.rs`, `error.rs`,
-  any fixture or `docs/`. In `primer.rs`, add V9 only.
+  any fixture or [docs/](/). In `primer.rs`, add V9 only.
 - Do not change `size_pair`, `Sizer`'s methods, `replacement_region`,
   `MAX_REPLACEMENT_REGION` or any threshold.
 - Do not change a fixture expectation. If a row fails, report luria's value

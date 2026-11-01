@@ -1,7 +1,7 @@
 # Review A7a: track the Tm verification scripts, with `--check` (D039)
 
 Status: **Implemented 2026-10-16** by the local worker; accepted on planner review. All three checks pass; one label in crosscheck.py was aligned with tm_crosscheck.rs.
-Planner: Claude. Parent: `docs/tasks/reviews/review-post-m4.md` A7 and C3. Decision:
+Planner: Claude. Parent: [docs/tasks/reviews/review-post-m4.md](/tasks/reviews/review-post-m4.md) A7 and C3. Decision:
 D039.
 
 ## 1. Requirement (D039, inline)

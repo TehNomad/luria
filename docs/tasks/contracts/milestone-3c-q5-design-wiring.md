@@ -37,7 +37,7 @@ or delete. Those are unwritten or deliberately deferred (D014, D028).
 1. **A separate module.** The wiring is a third module that composes the other
    two. `Q5SdmRequest` does not gain a design field, and `execute` keeps its
    signature, so no existing caller or test changes. This also keeps
-   `docs/specs/q5-sdm.md` true as written: the workflow contract states that it does
+   [docs/specs/q5-sdm.md](/specs/q5-sdm.md) true as written: the workflow contract states that it does
    not describe primer design.
 2. **Atomic set failure.** *Reversed by the owner on 2026-10-14, after D030
    made design failures more common: each member reports its own design or
@@ -187,14 +187,14 @@ stop and report it rather than editing that file.
 
 ## 8. Documentation to update on completion
 
-- `docs/specs/q5-sdm.md`: a short section recording that primer design is reached by
+- [docs/specs/q5-sdm.md](/specs/q5-sdm.md): a short section recording that primer design is reached by
   composition in `q5_design.rs`, that the workflow layer itself still designs
   nothing, and the two owner decisions of §3. Do not restate D029.
-- `docs/tasks/contracts/milestone-3-q5-workflow.md`: the "Known gaps" entry saying no
+- [docs/tasks/contracts/milestone-3-q5-workflow.md](/tasks/contracts/milestone-3-q5-workflow.md): the "Known gaps" entry saying no
   primer logic exists is now partly closed; point it at this contract.
 - This file: what was implemented, deviations, and the §7 gaps as found.
 
-Do not edit `docs/decisions/`. This task implements D015, D014, D028 and
+Do not edit [docs/decisions/](/decisions/). This task implements D015, D014, D028 and
 D029 as written and decides nothing they leave open.
 
 ## 9. Required checks
@@ -292,7 +292,7 @@ and the failure carries its own obstacle),
 the edit-level rule is unchanged. The clarification test now also asserts
 `!all_designed()`.
 
-Also in this pass, from `docs/specs/q5-sdm.md` §10 item 6: `Q5VariantSetRequest`
+Also in this pass, from [docs/specs/q5-sdm.md](/specs/q5-sdm.md) §10 item 6: `Q5VariantSetRequest`
 refuses two members sharing a result identifier, with
 `InvalidMutationRequest` (`MalformedInput`), names compared exactly
 (`two_variants_sharing_a_result_name_are_refused`,

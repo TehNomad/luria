@@ -1,12 +1,12 @@
 # Milestone 5b: the FASTA reader
 
 Status: **Implemented 2026-10-17** by the local worker; accepted after one scope amendment (§5, three `variant_name` arms).
-Planner: Claude. Parent: `docs/tasks/contracts/milestone-5-cli.md` §3.3 (FASTA) and
+Planner: Claude. Parent: [docs/tasks/contracts/milestone-5-cli.md](/tasks/contracts/milestone-5-cli.md) §3.3 (FASTA) and
 §5 (5b). Follows 5a1–5a3 (error codes and rules, committed).
 
 ## 1. Requirements this contract applies
 
-From `docs/decisions/`:
+From [docs/decisions/](/decisions/):
 - **D007:** a sequence artifact records its identifier, normalized text,
   topology, length, *source metadata when available*, and a SHA-256 content
   hash. Two artifacts with different content are never interchangeable.

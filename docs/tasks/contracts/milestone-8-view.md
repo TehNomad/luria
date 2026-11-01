@@ -2,7 +2,7 @@
 
 Status: **Implemented, 2026-10-28.** Every contract in §7 up to 8m18 is committed,
 the owner's hand test is closed (`milestone-8m-polish.md`), and 8n puts
-the milestone in `docs/specs/cli.md` §13, D058 and D059. D051 expires when this
+the milestone in [docs/specs/cli.md](/specs/cli.md) §13, D058 and D059. D051 expires when this
 branch merges. History: **Draft for the owner, 2026-10-23; amended 2026-10-24 after the
 planner re-checked §2 against the code and the fixtures. Every question is
 now answered (§9), so §4–§6 are settled by D048–D052; what has not been
@@ -478,7 +478,7 @@ luria find FILE PATTERN [--aa] [--cds ID]
   2026-10-24, D052). luria reserves exit 1 for an internal error, and the
   `grep` habit of exiting 1 on no match would read here as a broken
   program; the usage, malformed-input and design-failure codes stay as
-  `docs/specs/cli.md` §5–§6 has them (2, 4, 7).
+  [docs/specs/cli.md](/specs/cli.md) §5–§6 has them (2, 4, 7).
 
 ### 5.6 Dispatch
 
@@ -495,7 +495,7 @@ luria find FILE PATTERN [--aa] [--cds ID]
 - A bare file needs a terminal on stdin and stdout, checked by the same
   `review::terminal_problem` the other two interactive commands use
   (M8-13): `luria FILE > out` is a usage error with the exit code
-  `docs/specs/cli.md` §5 already gives, not a half-drawn screen. The terminal
+  [docs/specs/cli.md](/specs/cli.md) §5 already gives, not a half-drawn screen. The terminal
   check comes before the file is opened, so a bad path and a missing
   terminal can't both claim the error.
 - Both file paths are refused before parsing when they are over
@@ -521,7 +521,7 @@ luria find FILE PATTERN [--aa] [--cds ID]
   because the site's `N` became a regex `.`, while `Dpi3090II` (`AAGRAG`)
   refuses a record `R` at the position of its own `R`, which luria accepts.
   **A correction to record:** an earlier draft of this section, and the
-  M8-7 answer in `docs/decisions/`, said Biopython's IUPAC matching is
+  M8-7 answer in [docs/decisions/](/decisions/), said Biopython's IUPAC matching is
   intersection-based and answers the opposite way. Measurement does not
   support that. What luria does is unchanged — containment, hand-coded —
   and Biopython is used only where measurement supports it: the letter
@@ -636,7 +636,7 @@ silently: its §4.4 half landed (`search-letters.tsv`, `search-dna-patterns.tsv`
 `search-dna-hits.tsv`), while its §4.5 half waits until contract 8f's document
 fixes `ProteinTarget` and `ProteinHit`, for the reason §4.5 gives — a fixture
 written against a signature that changes gets rewritten. Those are delivery
-labels, not new contracts, and **there is no 8a3**. A document in `docs/tasks/`
+labels, not new contracts, and **there is no 8a3**. A document in [docs/tasks/](/tasks/)
 once used the label 8a2 for a `luria commit` command and its git plumbing; that
 was a planning error — no document asks luria to run git, and saving belongs to
 milestone 9 — and it is withdrawn in `milestone-8x-worktree-safety-withdrawn.md`.
@@ -662,7 +662,7 @@ wording is what the hand test will change.
 | 8l1 | cli: the search prompt with its mode rule and cap (§5.4) |
 | 8l2 | cli: the overview inset (§4.6, §5.1) |
 | 8m | the owner's hand test, then a polish contract as 7m was |
-| 8n | docs: `docs/specs/cli.md` §13, the decisions this milestone settled, the product brief's milestone list |
+| 8n | docs: [docs/specs/cli.md](/specs/cli.md) §13, the decisions this milestone settled, the product brief's milestone list |
 
 **Order changed by D056 (owner, 2026-10-26).** 8i is split: **8i1** (core,
 full tier) is the name matcher every `--cds`, go-to and feature-list lookup
@@ -715,13 +715,13 @@ D-number that records it.
 | M8-4 | ORF detection (triage T2): in milestone 8 so a FASTA file has something to number, or milestone 9 as planned? | **Owner, 2026-10-24: accepted as proposed.** Milestone 9. Six-frame translation covers looking at a FASTA in milestone 8. Triage T2 stays unapproved. D052. |
 | M8-5 | Should the CDS picker show unusable CDSs (such as pBR322's ROP)? | **Owner, 2026-10-24: accepted as proposed.** Yes, greyed, with the reason, not selectable. The reason is 8b's refusal code rendered by the cli (D042), not a second judgement in the ui. Triage T3 (accepting `GTG` starts) would make ROP usable and stays unapproved. D052. |
 | M8-6 | A file whose extension and content disagree (a `.txt` that is GenBank)? | **Owner, 2026-10-24: accepted as proposed.** Decide by content: `LOCUS` first means GenBank, `>` first means FASTA, anything else is refused. One core `open_record` does it for the view and for `find` (§4.1). D049. |
-| M8-7 | A template `N` (or other ambiguity code): should it match pattern `A`? | **Owner, 2026-10-24: accepted as proposed.** No: a template letter matches only a pattern letter whose base set contains all of its bases (§4.4). The reference script hand-codes that rule (§6). An earlier answer here and in `docs/decisions/` justified it by saying Biopython's IUPAC matching is intersection-based and answers the opposite way; measured on the pinned 1.88 that is not what `Bio.Restriction` does — it compiles a regex out of its own site, so it matches `GGTXACC` at a site `N` and refuses a record `R` at a site `R`, which is neither rule — so the justification was rewritten the same day and the rule is unaffected. D052. |
+| M8-7 | A template `N` (or other ambiguity code): should it match pattern `A`? | **Owner, 2026-10-24: accepted as proposed.** No: a template letter matches only a pattern letter whose base set contains all of its bases (§4.4). The reference script hand-codes that rule (§6). An earlier answer here and in [docs/decisions/](/decisions/) justified it by saying Biopython's IUPAC matching is intersection-based and answers the opposite way; measured on the pinned 1.88 that is not what `Bio.Restriction` does — it compiles a regex out of its own site, so it matches `GGTXACC` at a site `N` and refuses a record `R` at a site `R`, which is neither rule — so the justification was rewritten the same day and the rule is unaffected. D052. |
 | M8-8 | A palindromic site matches on both strands at the same place. One hit or two? | **Owner, 2026-10-24: accepted as proposed.** One, strand `both`, in the view and in `luria find`. In pBR322 that means its **single** EcoRI site at 4359 is one hit with strand `both`, not two — likewise its single BamHI (375), HindIII (29) and NdeI (2295) sites, each verified to occur exactly once in the record. D052. |
-| M8-9 | `luria find` exit code when nothing matches? | **Owner, 2026-10-24: accepted as proposed.** 0 with `0 hits`, like a report rather than `grep`; exit 1 stays what `docs/specs/cli.md` says it is — an internal error. D052. |
+| M8-9 | `luria find` exit code when nothing matches? | **Owner, 2026-10-24: accepted as proposed.** 0 with `0 hits`, like a report rather than `grep`; exit 1 stays what [docs/specs/cli.md](/specs/cli.md) says it is — an internal error. D052. |
 | M8-10 | Use the two-tier process (triage P1, P2) in this milestone: full contracts and fixtures for 8a–8g and 8j, lighter contracts for 8h, 8i, 8k1–8k3 and 8l1–8l2, and no decision entries for keys and wording? | **Owner, 2026-10-24: accepted — for milestone 8 only.** The science tier's process is unchanged; keys, colours and on-screen wording get short contracts and no decision entries, so the hand test can change them without approval rounds. Recorded as D051, which names its own scope and expires with the milestone; the rest of the triage (T1–T6, P3–P5) stays unapproved and `AGENTS.md` is untouched. |
 | M8-11 | Which CDS, if any, is selected when the view opens? It decides the status line, `w`/`b`, residue numbering and the default for an AA search. | **Owner, 2026-10-24: accepted.** Exactly one usable CDS → select it. Several → select none and say `no CDS selected` in the title bar. Never pick one silently (D005). D048. |
 | M8-12 | A cap on hits? An all-ambiguity pattern (`N`, `NNNN`) hits at every base, so an 8521 bp construct gives 8521 hits and `luria find` would print every one. | **Owner, 2026-10-24: accepted.** 200 in both the view and `find`; the count line reads `showing the first 200 of N hits`; exit status unchanged. Core keeps no cap (§4.4, §5.4, §5.5). D048. |
-| M8-13 | `luria FILE` when stdin or stdout is not a terminal (`luria FILE > out`)? | **Owner, 2026-10-24: accepted.** Reuse `review::terminal_problem` and the usage exit code `docs/specs/cli.md` §5 gives (§5.6). D048. |
+| M8-13 | `luria FILE` when stdin or stdout is not a terminal (`luria FILE > out`)? | **Owner, 2026-10-24: accepted.** Reuse `review::terminal_problem` and the usage exit code [docs/specs/cli.md](/specs/cli.md) §5 gives (§5.6). D048. |
 | M8-14 | How big a file will the view and `find` accept? `luria-core` sets no sequence length limit today, so a gigabase FASTA reaches the allocator. | **Owner, 2026-10-24: accepted.** 10 000 000 bases in core, refused by name; the cli refuses on byte length before reading. Both tested at the boundary and one past it (§4.1, §5.6). D048. |
 | M8-15 | What does `--cds ID` match — the display name, `/locus_tag`, `/protein_id`? Will it also take a range later (`proposal-commands.md` §3.2)? | **Owner, 2026-10-24: answered — match every id the record offers, and ask when several match; the planner's reading of "ask" for a command with no terminal is accepted: a refusal listing the candidates (id source and span), the view's `c` picker being the interactive way to choose (§5.5).** The flag's grammar is fixed now, ranges reserved for milestone 9 and refused with that message until then. D049. |
 | M8-16 | Are overlapping hits reported? `AA` on `AAA` is three hits or one, depending on the answer. | **Owner, 2026-10-24: accepted as proposed.** All of them (§4.4). A search that dropped overlapping positions would hide the site the user came for. D050. |

@@ -1,7 +1,7 @@
 # Review refactor E2: one tail-rebuild check and one set of claim readers
 
 Status: **Implemented 2026-10-16** by the local worker; accepted on planner review.
-Planner: Claude. Parent: `docs/tasks/reviews/review-post-m4.md` finding E2.
+Planner: Claude. Parent: [docs/tasks/reviews/review-post-m4.md](/tasks/reviews/review-post-m4.md) finding E2.
 
 **Behavior-preserving.** Every existing test must pass unchanged, and every
 error payload must be byte-identical, message text included.
@@ -56,7 +56,7 @@ bodies or signatures.
 - `python3 -I target/api_guard.py crates/core/src/primer.rs crates/core/src/primer_design.rs`
   prints nothing and exits 0. `pub(crate)` lines are not public API, so the
   guard ignores them. The script text is in
-  `docs/tasks/reviews/review-e1-design-paths.md` §3.
+  [docs/tasks/reviews/review-e1-design-paths.md](/tasks/reviews/review-e1-design-paths.md) §3.
 - No change below either file's `#[cfg(test)]` line, and none under
   `crates/core/tests/`.
 

@@ -2,7 +2,7 @@
 
 Status: **Implemented 2026-10-21** by the local worker; accepted on planner
 review. Planner: Claude. Parent:
-`docs/tasks/reviews/review-post-m6.md` C-1, C-2, C-3, C-6, C-8. Owner, 2026-10-20:
+[docs/tasks/reviews/review-post-m6.md](/tasks/reviews/review-post-m6.md) C-1, C-2, C-3, C-6, C-8. Owner, 2026-10-20:
 "Go ahead and fix them".
 
 Files (no others):

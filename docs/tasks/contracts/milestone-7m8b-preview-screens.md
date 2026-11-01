@@ -1,7 +1,7 @@
 # Milestone 7m8b: the words preview on the variant screens
 
 Status: **Implemented, 2026-10-22.** Planner: Claude. Parent:
-`docs/tasks/contracts/milestone-7m-polish.md`, M7-60 and M7-61. Builds on 7m8a
+[docs/tasks/contracts/milestone-7m-polish.md](/tasks/contracts/milestone-7m-polish.md), M7-60 and M7-61. Builds on 7m8a
 (committed `aede827`): `review::preview(document, request) -> Result<Approved, String>`.
 
 ## 1. The owner's answers
@@ -80,7 +80,7 @@ counts the lines actually drawn, including the reading on Details.
 
 ### 2.5 Docs
 
-- `docs/specs/cli.md` §12.3: replace
+- [docs/specs/cli.md](/specs/cli.md) §12.3: replace
 
   ```
   The model's reading opens as §11.2's proposal: questions, the request as
@@ -103,7 +103,7 @@ counts the lines actually drawn, including the reading on Details.
   proposal instead, and cannot be saved.
   ```
 
-- `docs/decisions/` D047's Words bullet: replace
+- [docs/decisions/](/decisions/) D047's Words bullet: replace
 
   ```
     needs a GenBank template (M6-7), and its proposal is shown before
@@ -162,8 +162,8 @@ Existing tests must pass unchanged.
 ## 4. Do not
 
 - Change only `review/app.rs`, `review/text.rs`, `review/view.rs`,
-  `new/terminal.rs`, the new test file, `docs/specs/cli.md` and
-  `docs/decisions/` as in §2.5.
+  `new/terminal.rs`, the new test file, [docs/specs/cli.md](/specs/cli.md) and
+  [docs/decisions/](/decisions/) as in §2.5.
 - No change to `luria review`'s behaviour (no reading is ever set
   there), to the shorthand path's save, to fixtures, Cargo files or
   `vendor/`.

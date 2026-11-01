@@ -5,7 +5,7 @@ Review note: §3's snippets were shorthand. The real code needs
 `impl Serialize for Details`, `serde::ser::SerializeMap`, and `match &field`
 for an `Option<String>`. `PrimerPairCoverage(_)` binds nothing, because all
 three of its fields are left out and a bound name would be unused.
-Planner: Claude. Parent: `docs/tasks/contracts/milestone-5-cli.md` §3.5, §3.6 and §5
+Planner: Claude. Parent: [docs/tasks/contracts/milestone-5-cli.md](/tasks/contracts/milestone-5-cli.md) §3.5, §3.6 and §5
 (5f). Follows 5f3 (designs). Last of the 5f contracts.
 
 ## 1. What and why

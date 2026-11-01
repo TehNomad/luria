@@ -3,9 +3,9 @@
 Status: **Implemented 2026-10-19** by the local worker; accepted on the first
 review. Both constants were also checked against the note with a second,
 line-based extractor.
-Planner: Claude. Parent: `docs/tasks/contracts/milestone-6-nl.md` §3 ("What leaves
+Planner: Claude. Parent: [docs/tasks/contracts/milestone-6-nl.md](/tasks/contracts/milestone-6-nl.md) §3 ("What leaves
 the machine"), §5.6, M6-4, M6-17, M6-18, §6 (6f); research note
-`docs/research/m6-local-model-extraction-2026-10-19.md`.
+[docs/research/m6-local-model-extraction-2026-10-19.md](/research/m6-local-model-extraction-2026-10-19.md).
 
 ## 1. What and why
 
@@ -543,7 +543,7 @@ Disable each once, confirm the named test fails, restore, report both:
 - Read a file, an environment variable or the clock in `crates/nl/src/`.
 - Add any HTTP code, `ureq`, or a real backend: that is 6g1.
 - Change `extraction.rs`, the research note, `tests/fixtures/` or any
-  existing test. Edit `docs/` nowhere.
+  existing test. Edit [docs/](/) nowhere.
 - Change a word of the prompt or the schema. If either seems wrong, stop
   and report it.
 

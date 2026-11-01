@@ -1,7 +1,7 @@
 # Review B13: print half-open intervals as `[start, end)`
 
 Status: **Implemented 2026-10-16** by the local worker; accepted on planner review.
-Planner: Claude. Parent: `docs/tasks/reviews/review-post-m4.md` B13. Decision:
+Planner: Claude. Parent: [docs/tasks/reviews/review-post-m4.md](/tasks/reviews/review-post-m4.md) B13. Decision:
 D006, under which internal nucleotide coordinates are zero-based and
 half-open, `[start, end)`.
 File: `crates/core/src/primer.rs` only.

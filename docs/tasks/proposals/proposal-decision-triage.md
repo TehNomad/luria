@@ -1,7 +1,7 @@
 # Proposal: triage of the decisions and working rules
 
 Status: **Draft for the owner, 2026-10-23. Not approved and not a task
-contract.** Nothing here changes `docs/decisions/` or `AGENTS.md` until
+contract.** Nothing here changes [docs/decisions/](/decisions/) or `AGENTS.md` until
 the owner approves it item by item. Companion to
 `proposal-product-direction.md`.
 
@@ -85,7 +85,7 @@ useful feedback is the owner's hand test.
 | P2 | Words, layout and keys on screen are recorded as owner decisions (D046, D047), so changing them needs approval. | Record only behaviour that affects the science (what is written, what is designed). Screen wording and keys can change freely in the presentation tier. |
 | P3 | Small contracts, one function each. | Keep for the science tier. In the presentation tier, one contract per user-visible feature. |
 | P4 | Decisions are written as long rule lists. | A short decision per real choice; details live in the contract. |
-| P5 | `docs/specs/cli.md` documents every screen in detail. | One user guide written for biologists: tasks first ("make a point mutant in a plasmid"), reference second. |
+| P5 | [docs/specs/cli.md](/specs/cli.md) documents every screen in detail. | One user guide written for biologists: tasks first ("make a point mutant in a plasmid"), reference second. |
 
 Unchanged: the required checks, the git rules, worker and planner roles,
 and independent verification of scientific fixtures.

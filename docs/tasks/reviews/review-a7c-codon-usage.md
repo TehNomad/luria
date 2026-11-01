@@ -1,8 +1,8 @@
 # Review A7c: a codon-usage fixture from a saved Kazusa page, and one verify command (D039, C11)
 
 Status: **Implemented 2026-10-16** by the local worker; accepted after one README wording fix.
-Planner: Claude. Parent: `docs/tasks/reviews/review-post-m4.md` A7 and C11. Decision:
-D039. Environment as in `docs/tasks/reviews/review-a7a-tm-verification.md` §3.
+Planner: Claude. Parent: [docs/tasks/reviews/review-post-m4.md](/tasks/reviews/review-post-m4.md) A7 and C11. Decision:
+D039. Environment as in [docs/tasks/reviews/review-a7a-tm-verification.md](/tasks/reviews/review-a7a-tm-verification.md) §3.
 Depends on A7a and A7b being committed.
 
 ## 1. Gap

@@ -2,14 +2,14 @@
 
 Status: **Implemented 2026-10-21** by the local worker; accepted on planner
 review. Planner: Claude. Parent:
-`docs/tasks/reviews/review-post-m6.md`, reviewer A's question. Owner answer,
+[docs/tasks/reviews/review-post-m6.md](/tasks/reviews/review-post-m6.md), reviewer A's question. Owner answer,
 2026-10-20: "Refuse key + remote".
 
 Files (no others):
 - `crates/cli/src/args.rs`
 - `crates/cli/src/main.rs`
 - `crates/cli/tests/interpret_cli.rs`
-- `docs/specs/cli.md` (one sentence, §2.3)
+- [docs/specs/cli.md](/specs/cli.md) (one sentence, §2.3)
 
 ## 1. Defect
 
@@ -41,7 +41,7 @@ goes to `OpenAiCompatible::new` as the key does today. Import
 `checked_key` beside `checked_endpoint`. Update `emit_interpret`'s doc
 comment to say the key is refused for a remote endpoint (D045).
 
-### 2.3 `docs/specs/cli.md` §10.3
+### 2.3 [docs/specs/cli.md](/specs/cli.md) §10.3
 
 After the sentence that ends `it is sent as a bearer token and appears in
 no document or message.`, add exactly: `luria refuses to send it to an

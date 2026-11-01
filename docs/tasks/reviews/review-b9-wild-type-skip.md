@@ -1,7 +1,7 @@
 # Review B9: the wild-type skip compares against the template, not the request
 
 Status: **Implemented 2026-10-16** by the local worker; accepted after the §8 amendment (the worker stopped on a defect in §2.1).
-Planner: Claude. Parent: `docs/tasks/reviews/review-post-m4.md` B9.
+Planner: Claude. Parent: [docs/tasks/reviews/review-post-m4.md](/tasks/reviews/review-post-m4.md) B9.
 File: `crates/core/src/q5_expand.rs` only.
 
 ## 1. Defect

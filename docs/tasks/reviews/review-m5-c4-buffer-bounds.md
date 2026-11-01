@@ -1,13 +1,13 @@
 # Review M5 C-4: upper limits on the buffer model (D043)
 
 Status: **Implemented 2026-10-18** by the local worker; accepted on planner review. Planner: Claude. Parent:
-`docs/tasks/reviews/review-post-m5.md` C-4. Owner answer, 2026-10-18: "Na+ ≤ 1000
+[docs/tasks/reviews/review-post-m5.md](/tasks/reviews/review-post-m5.md) C-4. Owner answer, 2026-10-18: "Na+ ≤ 1000
 mM, primer ≤ 10 µM, DMSO ≤ 20 %". Recorded by this contract as D043.
 
 Files:
 - `crates/core/src/tm.rs`
-- `docs/decisions/` (append D043, text in §2.3)
-- `docs/specs/cli.md` (the two `"version": "0.2.0"` lines of the Tm algorithm,
+- [docs/decisions/](/decisions/) (append D043, text in §2.3)
+- [docs/specs/cli.md](/specs/cli.md) (the two `"version": "0.2.0"` lines of the Tm algorithm,
   §2.2)
 
 ## 1. Defect
@@ -36,13 +36,13 @@ Update the doc comment of `create` to state the three limits and cite D043.
 
 Bump `TM_FUNCTION_VERSION` from `"0.2.0"` to `"0.3.0"` (D021: the accepted
 input domain changed). Add a one-line note to its doc comment, in the style
-of the other version constants' notes. Then update `docs/specs/cli.md`: the Tm
+of the other version constants' notes. Then update [docs/specs/cli.md](/specs/cli.md): the Tm
 algorithm's `"version": "0.2.0"` appears in two blocks, around lines 133 and
 445 (the `tm` entry: confirm by its `name`). Change only those two lines,
 to `"0.3.0"`. The primer algorithm's `0.2.0` lines are not the Tm's: leave
 them.
 
-### 2.3 `docs/decisions/`
+### 2.3 [docs/decisions/](/decisions/)
 
 Append, after the last decision, exactly:
 
@@ -80,7 +80,7 @@ tests:
 3. `create(150.0, 1e300, 0.0)` is refused with field `"primer"`.
 
 `crates/cli/tests/cli.rs` checks `version` against the constant and needs no
-change. The documented-example test must pass after the `docs/specs/cli.md` edit;
+change. The documented-example test must pass after the [docs/specs/cli.md](/specs/cli.md) edit;
 if it fails for any other reason, stop and report.
 
 ## 4. Do not

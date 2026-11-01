@@ -23,7 +23,7 @@ three rounds, reviewed and accepted. Findings from review:
 
 Tier: full
 (D051): the ruler changes every block's lines, so it goes through the layout
-tables and their reference. Owner's answer: `docs/tasks/contracts/milestone-8m-polish.md`
+tables and their reference. Owner's answer: [docs/tasks/contracts/milestone-8m-polish.md](/tasks/contracts/milestone-8m-polish.md)
 §1, M8-33: "a ruler line with a tick every 10 bases and a number every 30,
 next to the top strand". The planner reads "next to" as the line directly
 above the top strand, in every mode. The hand test can move it.

@@ -3,16 +3,16 @@
 Status: **Implemented 2026-10-21** by the local worker; accepted on planner
 review, with one more phrase in §5's prose (`--write-request`), which the
 worker flagged. Planner: Claude. Parent:
-`docs/tasks/reviews/review-post-m6.md` C-4, C-5, C-9. Owner, 2026-10-20: "Go
+[docs/tasks/reviews/review-post-m6.md](/tasks/reviews/review-post-m6.md) C-4, C-5, C-9. Owner, 2026-10-20: "Go
 ahead and fix them". Docs and one fixture note; no code.
 
 Files (no others):
-- `docs/specs/cli.md`
+- [docs/specs/cli.md](/specs/cli.md)
 - `tests/fixtures/nl/cases.tsv` (the `note` column of one row)
 
 ## 1. Defects
 
-- C-4: `docs/specs/cli.md` §5 says exit 0 is "`verified`, and every member
+- C-4: [docs/specs/cli.md](/specs/cli.md) §5 says exit 0 is "`verified`, and every member
   designed" and exit 1 is a failed write of stdout or `--write-edited`;
   §10.7 says interpret's codes are "those of §5, plus 8". Nothing says that
   for `luria q5 interpret` exit 0 is `proposed`, that exit 1 also covers
@@ -26,7 +26,7 @@ Files (no others):
 
 ## 2. Required change
 
-### 2.1 `docs/specs/cli.md` §5, the exit-code table
+### 2.1 [docs/specs/cli.md](/specs/cli.md) §5, the exit-code table
 
 Replace the rows for codes 0 and 1, exactly:
 
@@ -37,7 +37,7 @@ Replace the rows for codes 0 and 1, exactly:
 
 Nothing else in §5 changes.
 
-### 2.2 `docs/specs/cli.md` §10.7
+### 2.2 [docs/specs/cli.md](/specs/cli.md) §10.7
 
 1. Replace the sentence `Exit codes are those of §5, plus **8**: the
    model's reply was refused.` with exactly:
@@ -71,13 +71,13 @@ with a newline as now.
 ## 3. Tests
 
 No new tests. Every existing test must pass: `documented_example.rs` and
-`documented_interpret.rs` read `docs/specs/cli.md`, and the corpus tests read
+`documented_interpret.rs` read [docs/specs/cli.md](/specs/cli.md), and the corpus tests read
 `cases.tsv` (none reads the `note` column; if one does, stop and report).
 
 ## 4. Do not
 
 - Change any code, any other fixture, any other row or column, or any
-  other section of `docs/specs/cli.md`.
+  other section of [docs/specs/cli.md](/specs/cli.md).
 
 ## 5. Checks
 

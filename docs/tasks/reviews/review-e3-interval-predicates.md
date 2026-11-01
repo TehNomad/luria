@@ -1,7 +1,7 @@
 # Review refactor E3: one copy of each interval-containment predicate
 
 Status: **Implemented 2026-10-16** by the local worker; accepted on planner review.
-Planner: Claude. Parent: `docs/tasks/reviews/review-post-m4.md` finding E3.
+Planner: Claude. Parent: [docs/tasks/reviews/review-post-m4.md](/tasks/reviews/review-post-m4.md) finding E3.
 
 **Behavior-preserving.** Every existing test must pass unchanged. Every
 warning and error payload must be byte-identical.
@@ -69,7 +69,7 @@ error payloads stay unchanged.
 
 - `python3 -I target/api_guard.py crates/core/src/interval.rs crates/core/src/mutation.rs crates/core/src/q5.rs`
   prints nothing and exits 0. The script is in
-  `docs/tasks/reviews/review-e1-design-paths.md` §3.
+  [docs/tasks/reviews/review-e1-design-paths.md](/tasks/reviews/review-e1-design-paths.md) §3.
 - The only test-module change is the new `interval.rs` tests. There is no
   change under `crates/core/tests/`.
 

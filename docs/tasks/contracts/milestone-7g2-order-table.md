@@ -2,7 +2,7 @@
 
 Status: **Implemented 2026-10-21** by the local worker; accepted on the
 first review. The table equals the fixture byte for byte.
-Planner: Claude. Parent: `docs/tasks/contracts/milestone-7-tui.md` §5.4 (owner
+Planner: Claude. Parent: [docs/tasks/contracts/milestone-7-tui.md](/tasks/contracts/milestone-7-tui.md) §5.4 (owner
 answers M7-4, M7-6 to M7-13), §6 (7g2). The expected table is in
 `tests/fixtures/review/order-sid1-del11-ins14.tsv` (see that directory's
 `README.md`). Writing it to a file from the screen is 7g1's export
@@ -152,7 +152,7 @@ Build documents by hand, as `text.rs`'s unit tests do.
   `crates/cli/tests/review_order.rs`.
 - Do not draw anything, write any file, or add an export key: that is
   7g1/7g3.
-- Do not change any fixture, other tests, `docs/`, any `Cargo.toml` or
+- Do not change any fixture, other tests, [docs/](/), any `Cargo.toml` or
   `vendor/`.
 - Do not add dependencies. Do not stage or commit.
 

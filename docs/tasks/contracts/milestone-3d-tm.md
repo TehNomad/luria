@@ -15,7 +15,7 @@ recommends, so luria can currently emit a pair that is contract-valid and
 would not work at the bench.
 
 The design contract already names Tm as unavailable and reports `minTm`,
-`tmFunction` and `saltModel` as unresolved inputs (`docs/specs/q5-primer-design.md`
+`tmFunction` and `saltModel` as unresolved inputs ([docs/specs/q5-primer-design.md](/specs/q5-primer-design.md)
 §10, §11). This milestone supplies the function and lets it determine primer
 length.
 
@@ -46,7 +46,7 @@ length.
 5. **Computed in Rust** (planner, from D025): deterministic table lookup and
    arithmetic. No Python worker is introduced for it.
 6. **Buffer conditions are named, never defaulted** (planner, from
-   `docs/specs/q5-primer-design.md` §2.2's rule that an absent input is reported
+   [docs/specs/q5-primer-design.md](/specs/q5-primer-design.md) §2.2's rule that an absent input is reported
    absent): a named model carries the monovalent salt and primer
    concentration, and the caller names it. The Q5 condition is 150 mM
    monovalent, 0 mM divalent, 500 nM primer, 0 % DMSO, per the research
@@ -215,7 +215,7 @@ Two things follow, and both are evidence for Phase 3 rather than decisions:
 
 ## 9. Phase 3 as built, 2026-10-14: D030
 
-**Owner decisions** (recorded in full as D030 in `docs/decisions/`):
+**Owner decisions** (recorded in full as D030 in [docs/decisions/](/decisions/)):
 
 1. 55 °C floor, as the practical minimum Tm for a PCR primer.
 2. Abutment stays the pair rule; Tm balance is a separate sizing rule on top
@@ -268,16 +268,16 @@ NEB's calculator, which this milestone does not claim.
 
 1. **Variant sets.** Per-member design results, so an undesignable member no
    longer discards the others; refuse a set whose members share a result
-   identifier (`docs/specs/q5-sdm.md` §10 item 6, §12).
+   identifier ([docs/specs/q5-sdm.md](/specs/q5-sdm.md) §10 item 6, §12).
 2. **Old workflow decisions.** Settled 2026-10-14, all as implemented
-   (`docs/specs/q5-sdm.md` §10). Only a stale test name remains.
+   ([docs/specs/q5-sdm.md](/specs/q5-sdm.md) §10). Only a stale test name remains.
 3. **Primer quality checks.** Warnings on an emitted design, not rejections.
    Sequence-only checks first — GC content, runs of one base, 3′ end
    composition — each threshold citing a published guideline. Hairpin and
    dimer checks follow later, after loop, bulge and dimer parameters are
    sourced and verified as the Tm tables were.
 4. **Insertions and deletions.** A milestone of its own:
-   `docs/tasks/contracts/milestone-4-indels.md`, written 2026-10-14 and **blocked on six
+   [docs/tasks/contracts/milestone-4-indels.md](/tasks/contracts/milestone-4-indels.md), written 2026-10-14 and **blocked on six
    owner decisions** in its §4 — how an insertion point is represented,
    whether `verify` keeps a length rule, the pair invariant for a deletion,
    which primer carries an insertion, whether a 5′ tail counts toward Tm, and

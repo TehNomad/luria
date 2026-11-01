@@ -31,7 +31,7 @@ approved by the owner 2026-10-26. Findings from review:
   an id and is imported. They are checked against `genbank_cds.rs` and
   accepted; core already has invariant `unwrap`s.
 * The 16 socket tests fail only inside the worker sandbox; they pass here. Tier: full (D051). Plan row: **8b** in
-`docs/tasks/contracts/milestone-8-view.md` §7, second half.
+[docs/tasks/contracts/milestone-8-view.md](/tasks/contracts/milestone-8-view.md) §7, second half.
 
 ## 1. What this contract builds
 

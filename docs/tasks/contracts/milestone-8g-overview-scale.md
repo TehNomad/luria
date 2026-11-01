@@ -5,7 +5,7 @@ round, reviewed and accepted. Its two decisions are D054, approved by the
 owner 2026-10-26. Tier: full (D051), but there is no fixture table: plan §7
 gives 8a1 tables for §4.2–§4.5 only. The tests here are hand-derived values
 plus a property sweep that checks the rules without using the formula. Plan
-row: **8g** in `docs/tasks/contracts/milestone-8-view.md` §7. Findings from review:
+row: **8g** in [docs/tasks/contracts/milestone-8-view.md](/tasks/contracts/milestone-8-view.md) §7. Findings from review:
 
 * §7 understated two guards: G1 also fails test 6 (the tiling changes but
   the inverse does not, so rule 5's cross-check disagrees), and G5 was run

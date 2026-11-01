@@ -5,7 +5,7 @@ question (the 7a key-line assertion, approved below). Notes: a stale-row
 concern was checked by the planner and is not a bug (ratatui resets its
 back buffer on every swap, `ratatui-core` `swap_buffers`); `c` opens the
 context screen for any member, and 7d shows the no-design line there.
-Planner: Claude. Parent: `docs/tasks/contracts/milestone-7-tui.md` §3 rules 1 and
+Planner: Claude. Parent: [docs/tasks/contracts/milestone-7-tui.md](/tasks/contracts/milestone-7-tui.md) §3 rules 1 and
 3, §5.1, §5.2, §6 (7c). Builds on 7a (`view.rs`), 7b (`app.rs`), 7c1 and
 7c2 (`text.rs`).
 
@@ -122,7 +122,7 @@ because §3.2 replaces 7a's `q quit` line):
 
 - Change only `app.rs`, `view.rs`, the key mapping in `terminal.rs`, and
   `tests/review_view.rs` (adding tests only).
-- Do not change `text.rs` or its tests, any other file, fixtures, `docs/`,
+- Do not change `text.rs` or its tests, any other file, fixtures, [docs/](/),
   any `Cargo.toml` or `vendor/`.
 - Do not wrap lines, add colour as meaning, or draw the context screen.
 - Do not add dependencies. Do not stage or commit.

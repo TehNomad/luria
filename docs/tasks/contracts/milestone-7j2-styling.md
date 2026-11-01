@@ -6,7 +6,7 @@ clippy) and w7j2b (two test lints). The planner fixed two
 `&document.experimental_validation` passed without `&`). Proofs 1 and 2
 failed as required. Test indices now read the body inside the border:
 `BODY_ROWS` 21, inner width 78. Planner: Claude. Parent:
-`docs/tasks/contracts/milestone-7-tui.md` §5.3b (owner answers M7-23, M7-27 and the
+[docs/tasks/contracts/milestone-7-tui.md](/tasks/contracts/milestone-7-tui.md) §5.3b (owner answers M7-23, M7-27 and the
 styling paragraph). Changes **drawing only**: every text line 7j1 builds
 stays byte for byte what it is, so the string tests still hold.
 

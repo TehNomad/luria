@@ -3,7 +3,7 @@
 Planner: Claude. Status: **Implemented 2026-10-27** by worker `w-8l1` in three
 rounds, reviewed and accepted. Tier: light (D051): tests assert behaviour,
 not wording; the hand test (8m) may change keys and sentences. Plan row:
-**8l1** in `docs/tasks/contracts/milestone-8-view.md` §7. Findings from review:
+**8l1** in [docs/tasks/contracts/milestone-8-view.md](/tasks/contracts/milestone-8-view.md) §7. Findings from review:
 
 * Round 1: tests 1–10 and G1–G8 behaved as §7 says; the worker added four
   guards of its own (the cap sentence, `T` keeping hits, unrouted prompt

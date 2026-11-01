@@ -1,7 +1,7 @@
 # Review B8: apply the symmetry correction only to a symmetric duplex
 
 Status: **Implemented 2026-10-16** by the local worker; accepted after one follow-up (the printed selfcomp column and two tm.rs comments, at the planner's request).
-Planner: Claude. Parent: `docs/tasks/reviews/review-post-m4.md` B8. Depends on B7
+Planner: Claude. Parent: [docs/tasks/reviews/review-post-m4.md](/tasks/reviews/review-post-m4.md) B8. Depends on B7
 being committed.
 Files:
 - `crates/core/src/tm.rs`

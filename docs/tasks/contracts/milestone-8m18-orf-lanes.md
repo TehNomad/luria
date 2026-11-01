@@ -17,7 +17,7 @@ two rounds, reviewed and accepted. Findings from review:
 Tier:
 light (D051): the ORFs themselves are pinned by 8m17's table; this contract
 only draws them, and the look can change at the hand test. Owner's answer:
-`docs/tasks/contracts/milestone-8m-polish.md` §1, M8-40.
+[docs/tasks/contracts/milestone-8m-polish.md](/tasks/contracts/milestone-8m-polish.md) §1, M8-40.
 
 ## 1. What this contract builds
 

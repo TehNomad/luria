@@ -8,9 +8,9 @@ Date: 2026-10-11
 
 This file records the concrete choices made while implementing the Q5 slice,
 in the style of the Milestone 1 and Milestone 2 records. It does not restate
-`docs/decisions/`; each entry names the decision it implements. If an entry
-contradicts `docs/decisions/`, that document wins and this entry is wrong.
-The workflow specification itself is `docs/specs/q5-sdm.md`; this record points at
+[docs/decisions/](/decisions/); each entry names the decision it implements. If an entry
+contradicts [docs/decisions/](/decisions/), that document wins and this entry is wrong.
+The workflow specification itself is [docs/specs/q5-sdm.md](/specs/q5-sdm.md); this record points at
 it rather than repeating it.
 
 ## Scope actually implemented
@@ -104,7 +104,7 @@ operation with the scope the caller stated, kept rather than chosen.
 
 Whether the workflow *ought* to impose containment once it has resolved a
 target CDS is **not settled by the written contracts** and is recorded as an
-open product decision in `docs/specs/q5-sdm.md` §4, with the three alternatives and
+open product decision in [docs/specs/q5-sdm.md](/specs/q5-sdm.md) §4, with the three alternatives and
 their consequences. It was not implemented as though it were settled: no
 containment rule was added, and no test asserts one of the alternatives that
 adds it. What the test suite does encode is alternative 1: the test is named
@@ -137,7 +137,7 @@ adds no new error variant.
 
 `verify` is called as it stands, with the same template and the same
 resolved annotation the edit used. Its postconditions are listed in
-`docs/specs/q5-sdm.md` §8, separating what Milestone 1 and Milestone 2 already
+[docs/specs/q5-sdm.md](/specs/q5-sdm.md) §8, separating what Milestone 1 and Milestone 2 already
 enforce (artifact identity by name, digest, and topology, interval bounds and
 structure, CDS and genetic-code and numbering rules, the expected-original
 checks, codon-policy resolution, refusal of an edit that changes nothing)
@@ -170,7 +170,7 @@ version (`Q5_WORKFLOW_NAME`, `Q5_WORKFLOW_VERSION`).
 
 This section records the choices made while adding the set API, in the same
 style as above. It names the task-contract decision each entry implements
-rather than restating it, and `docs/specs/q5-sdm.md` §11 is the specification of
+rather than restating it, and [docs/specs/q5-sdm.md](/specs/q5-sdm.md) §11 is the specification of
 the behavior itself.
 
 ### What was added, and what was not touched
@@ -255,7 +255,7 @@ successful partial set and no per-variant failure carrier exists.
 ### Result-identifier uniqueness (D-F)
 
 Left open at Milestone 3a, as the contract then required. **Decided by the
-owner on 2026-10-14** (`docs/specs/q5-sdm.md` §10 item 6): result identifiers in a
+owner on 2026-10-14** ([docs/specs/q5-sdm.md](/specs/q5-sdm.md) §10 item 6): result identifiers in a
 set must be distinct. `Q5VariantSetRequest::create` refuses a repeat with
 `InvalidMutationRequest` (`MalformedInput`), the variant an empty set gets.
 Names are compared exactly, with no case folding. The 3a test
@@ -338,7 +338,7 @@ form so both residue shapes are exercised. New or changed coverage:
 * caller-provided result naming and provenance, and the verification
   postconditions reached through the run.
 
-Milestone 3a adds set coverage, listed in full in `docs/specs/q5-sdm.md` §11: an
+Milestone 3a adds set coverage, listed in full in [docs/specs/q5-sdm.md](/specs/q5-sdm.md) §11: an
 empty set refused at construction; a combined construct refused before any
 member resolves or edits, and refused for one member as well as several;
 separate variants independent and reported in request order, and the reverse
@@ -376,7 +376,7 @@ tests cover those paths where they are reachable.
   unchanged while the DNA changes. Only a DNA-level no-op is refused, with
   Milestone 2's `InvalidMutationRequest`. A nucleotide intent, by contrast,
   refuses an equal expected and replacement at construction. This slice
-  changed neither; the decision is listed in `docs/specs/q5-sdm.md` §10.
+  changed neither; the decision is listed in [docs/specs/q5-sdm.md](/specs/q5-sdm.md) §10.
 * Several of those open decisions are currently pinned by unit tests, so the
   test suite encodes one answer today; §10 of the specification names the
   tests for each, and changing a decision is a test change as well as a
@@ -387,8 +387,8 @@ tests cover those paths where they are reachable.
   rejection criteria, warnings. **Partly closed on 2026-10-14:** D029 fixes
   the candidate geometry for a contiguous replacement of at most 3 bases, and
   the workflow now reaches a primer pair through
-  `crates/core/src/q5_design.rs` (`docs/tasks/contracts/milestone-3c-q5-design-wiring.md`,
-  `docs/specs/q5-sdm.md` §12). `q5.rs` itself is unchanged and still designs
+  `crates/core/src/q5_design.rs` ([docs/tasks/contracts/milestone-3c-q5-design-wiring.md](/tasks/contracts/milestone-3c-q5-design-wiring.md),
+  [docs/specs/q5-sdm.md](/specs/q5-sdm.md) §12). `q5.rs` itself is unchanged and still designs
   nothing. Thermodynamics, candidate ranking, rejection criteria and warnings
   remain unwritten.
 * Separate variants now run in one typed set request (§11 of the

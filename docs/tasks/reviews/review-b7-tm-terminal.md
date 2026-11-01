@@ -1,7 +1,7 @@
 # Review B7 and B16: terminal mismatches and the alphabet error position in `tm.rs`
 
 Status: **Implemented 2026-10-16** by the local worker; accepted on planner review.
-Planner: Claude. Parent: `docs/tasks/reviews/review-post-m4.md` B7 and B16.
+Planner: Claude. Parent: [docs/tasks/reviews/review-post-m4.md](/tasks/reviews/review-post-m4.md) B7 and B16.
 File: `crates/core/src/tm.rs` only.
 
 ## 1. Defects

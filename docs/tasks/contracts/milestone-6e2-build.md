@@ -14,7 +14,7 @@ round. Review notes:
 - **Accepted:** `#[allow(clippy::large_enum_variant)]` on `Built`, with a
   comment. Boxing the request, the house style elsewhere, would break the
   tests' direct comparison with a parsed `RequestDocument`.
-Planner: Claude. Parent: `docs/tasks/contracts/milestone-6-nl.md` §3, §5.3a, §5.5,
+Planner: Claude. Parent: [docs/tasks/contracts/milestone-6-nl.md](/tasks/contracts/milestone-6-nl.md) §3, §5.3a, §5.5,
 M6-9, M6-10, M6-11, M6-15, M6-16, §6 (6e).
 
 ## 1. What and why
@@ -855,7 +855,7 @@ Disable each once, confirm the named test fails, restore, report both:
 - Check biology: residues against the translation, codons against
   residues. That is `luria q5 design`'s.
 - Default any value, or choose a CDS the text does not name (M6-9).
-- Change `luria-core`, `luria-nl`, `tests/fixtures/`, `docs/`, or any
+- Change `luria-core`, `luria-nl`, `tests/fixtures/`, [docs/](/), or any
   existing file other than `crates/cli/Cargo.toml`, `Cargo.lock` and the
   one line in `interpret.rs`.
 

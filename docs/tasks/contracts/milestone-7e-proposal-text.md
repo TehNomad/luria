@@ -3,7 +3,7 @@
 Status: **Implemented 2026-10-21** by the local worker; accepted after one
 question (rule 2's proof needed a synthetic document, test
 `questions_come_before_a_request`). Planner:
-Claude. Parent: `docs/tasks/contracts/milestone-7-tui.md` §3 rules 1, 2, 3 and 6,
+Claude. Parent: [docs/tasks/contracts/milestone-7-tui.md](/tasks/contracts/milestone-7-tui.md) §3 rules 1, 2, 3 and 6,
 §5.2 screen 1, §6 (7e). Drawing it, approving it and running the design
 are 7f.
 
@@ -143,7 +143,7 @@ the corpus's own columns, which are independently derived
 - Change only `crates/cli/src/review/text.rs` and the new
   `crates/cli/tests/review_proposal.rs`.
 - Do not change `interpret/`, `luria-nl`, any fixture, other tests,
-  `docs/`, any `Cargo.toml` or `vendor/`.
+  [docs/](/), any `Cargo.toml` or `vendor/`.
 - Do not draw, write files, or call a model: the scripted backend only.
 - Do not add dependencies. Do not stage or commit.
 

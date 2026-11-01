@@ -2,7 +2,7 @@
 
 Planner: Claude. Status: implemented. Tier: light, with M9-6 (i) full (plan
 M9-10).
-Plan row: `docs/tasks/contracts/milestone-9-editor.md` §7, row 9e.
+Plan row: [docs/tasks/contracts/milestone-9-editor.md](/tasks/contracts/milestone-9-editor.md) §7, row 9e.
 
 ## 1. What this contract builds
 

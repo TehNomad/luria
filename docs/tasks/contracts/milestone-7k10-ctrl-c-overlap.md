@@ -55,9 +55,9 @@ read a value that fits.
 
 ### 2.5 Docs (authorized here)
 
-- `docs/specs/cli.md` §12.1, after `` and `esc` quits. ``: add `` `ctrl-c` quits
+- [docs/specs/cli.md](/specs/cli.md) §12.1, after `` and `esc` quits. ``: add `` `ctrl-c` quits
   from any screen, writing nothing. ``
-- `docs/specs/cli.md` §11: replace `` `q` quits from anywhere; `` with
+- [docs/specs/cli.md](/specs/cli.md) §11: replace `` `q` quits from anywhere; `` with
   `` `q` or `ctrl-c` quits from anywhere; ``.
 
 Each anchor occurs once; if one does not, stop and ask.

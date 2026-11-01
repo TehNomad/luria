@@ -2,7 +2,7 @@
 
 Status: **Implemented 2026-10-20** by the local worker; accepted on planner
 review. Prompt v3 measured live by the planner (research note, "Prompt v3
-results"). Planner: Claude. Parent: `docs/tasks/reviews/review-post-m6.md` B-7.
+results"). Planner: Claude. Parent: [docs/tasks/reviews/review-post-m6.md](/tasks/reviews/review-post-m6.md) B-7.
 Owner answer, 2026-10-20: "In its own quote, whole word", with the prompt
 bump and the `codon-stated` reply change approved.
 
@@ -11,8 +11,8 @@ Files (no others):
 - `crates/cli/tests/documented_interpret.rs` (one line, §2.5)
 - `crates/nl/src/prompt.rs`
 - `crates/nl/tests/prompt.rs`
-- `docs/research/m6-local-model-extraction-2026-10-19.md` (append, §2.4)
-- `docs/specs/cli.md` (one table row of §10.6, §2.5)
+- [docs/research/m6-local-model-extraction-2026-10-19.md](/research/m6-local-model-extraction-2026-10-19.md) (append, §2.4)
+- [docs/specs/cli.md](/specs/cli.md) (one table row of §10.6, §2.5)
 - `tests/fixtures/nl/reply/codon-stated.json` (one value, §2.3)
 - `tests/fixtures/nl/README.md` (one sentence, §2.3)
 
@@ -92,7 +92,7 @@ The expected request (`edit-w87a-gcg.json`) is unchanged.
 ### 2.4 The research note
 
 Append to the end of
-`docs/research/m6-local-model-extraction-2026-10-19.md`:
+[docs/research/m6-local-model-extraction-2026-10-19.md](/research/m6-local-model-extraction-2026-10-19.md):
 
 1. A heading `## Prompt v3`, and one paragraph: "Post-M6 review, 2026-10-20
    (D045). One line of v2 changes, the quote's: it must state one
@@ -116,7 +116,7 @@ Append to the end of
   comment. Nothing else in the file changes.
 - `crates/cli/tests/documented_interpret.rs`: add
   `QuestionCode::CodonNotInQuote,` right after `QuestionCode::CodonUnstated,`.
-- `docs/specs/cli.md` §10.6: add one row right after `codon_unstated`, exactly:
+- [docs/specs/cli.md](/specs/cli.md) §10.6: add one row right after `codon_unstated`, exactly:
   ```
   | `codon_not_in_quote` | A codon is in the text, but not in the words given for its substitution. |
   ```

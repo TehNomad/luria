@@ -1,7 +1,7 @@
 # Milestone 7k: `luria new`, entering a design in the terminal (plan draft)
 
 Status: **Approved plan, 2026-10-21** (M7-31 to M7-38). Planner: Claude. Parent:
-`docs/tasks/contracts/milestone-7-tui.md` (D034: the TUI is built around the same
+[docs/tasks/contracts/milestone-7-tui.md](/tasks/contracts/milestone-7-tui.md) (D034: the TUI is built around the same
 typed operations). Owner answers so far, 2026-10-21:
 
 | # | Question | Answer |
@@ -110,7 +110,7 @@ notation or a range of residues is refused with a reason.
 | 7k3 | Building a request document from a valid form (FASTA, GenBank, paste) | request round-trip through `request.rs`, fixture requests |
 | 7k4 | The form's text and drawing, in 7j2's frame | test backend |
 | 7k5 | `luria new` wiring: args, the confirmation screen, writing the paste and request, hand-over to review (shorthand only) | args tests; the loop by the owner's hand test |
-| 7k6 | Docs: `docs/specs/cli.md` §12, D047 | documented-usage test |
+| 7k6 | Docs: [docs/specs/cli.md](/specs/cli.md) §12, D047 | documented-usage test |
 | 7k7 | Free text with `--backend`: the "In words" box through 6's interpret path, its mutations joined to the shorthand's (planner split from 7k5, 2026-10-22, to keep 7k5 reviewable) | interpret corpus cases through the scripted backend |
 
 ## 5. Open questions

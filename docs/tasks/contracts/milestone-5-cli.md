@@ -318,7 +318,7 @@ Rules:
 | G7 | Single-edit design failure (2026-10-17) | Treated like a one-member set: `verified`, the member has its mutation and a `designFailure`, exit 7. |
 | G8 | `--write-edited DIR` that doesn't exist (2026-10-17) | Created, parents included. Existing files are still never overwritten (`output_exists`). |
 | G9 | FASTA against GenBank (2026-10-17) | Proven on pBR322, not on a hand-written SID-1 GenBank record. Amended the same day: proven on the whole result, not on a primer design, because pBR322 is circular and D029's design scope is linear. |
-| G10 | Plasmids cannot be designed (2026-10-17) | D029's limit stands. Documented in `docs/specs/cli.md` and the README rather than refused when the request is read. |
+| G10 | Plasmids cannot be designed (2026-10-17) | D029's limit stands. Documented in [docs/specs/cli.md](/specs/cli.md) and the README rather than refused when the request is read. |
 | R1 | Public cross-check record (2026-10-17) | pBR322, J01749.1. pUC19 L09137.2 was the first choice but has no CDS features. |
 
 ## 5. Contracts, in order
@@ -340,7 +340,7 @@ Each is one small worker contract with tests first.
 | 5g1 | `luria q5 design` wiring | The three run paths, the result document, exit codes, unit tests. |
 | 5g2 | `--write-edited` | Writing each edited construct as FASTA, creating the directory (G8), never overwriting (`output_exists`). |
 | 5g3 | End-to-end tests | §6: the fixture-checked cases, fail-closed, FASTA against GenBank (G9), and byte-identical determinism. |
-| 5h | Docs | `docs/specs/cli.md` (both schemas, exit codes, error codes), README usage, `product-brief.md` status. |
+| 5h | Docs | [docs/specs/cli.md](/specs/cli.md) (both schemas, exit codes, error codes), README usage, `product-brief.md` status. |
 | 5i | Optional: `luria sequence inspect` | Digest, length, topology and source metadata of a FASTA or GenBank file, and a GenBank file's CDS features with their ids and whether luria can use them. Useful for writing a request. |
 
 The order makes the error codes stable before any JSON exposes them, and the
@@ -375,9 +375,9 @@ inputs exist before the output that depends on them.
     comparison. The SID-1 cDNA stays FASTA only.
   - **No circular template can be designed** (D029). Every plasmid
     therefore gives a verified edit with a `designFailure` and exit 7. This
-    is stated in `docs/specs/cli.md` and the README (5h, owner 2026-10-17), not
+    is stated in [docs/specs/cli.md](/specs/cli.md) and the README (5h, owner 2026-10-17), not
     refused at request time: the verified edit is still useful.
-- **The planner hand-writes one small expected document** in `docs/specs/cli.md`
+- **The planner hand-writes one small expected document** in [docs/specs/cli.md](/specs/cli.md)
   for a synthetic case, with values taken from those fixtures. A test checks
   that the CLI's output matches it field by field. This pins the shape.
 - **The brief's fail-closed example,** "mutate residue 42 to glycine" against

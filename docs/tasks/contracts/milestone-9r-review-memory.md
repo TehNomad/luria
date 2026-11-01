@@ -2,7 +2,7 @@
 
 Planner: Claude. Status: implemented. Tier: light, with rule 2 full (the edit
 buffer, M9-10).
-Plan row: `docs/tasks/contracts/milestone-9-editor.md` §7, row 9r.
+Plan row: [docs/tasks/contracts/milestone-9-editor.md](/tasks/contracts/milestone-9-editor.md) §7, row 9r.
 
 ## 1. What this contract fixes
 

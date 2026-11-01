@@ -1,14 +1,14 @@
 # Review M6 B-5: the composition is read from the text by Rust (D045)
 
 Status: **Implemented 2026-10-20** by the local worker; accepted on planner
-review. Planner: Claude. Parent: `docs/tasks/reviews/review-post-m6.md` B-5.
+review. Planner: Claude. Parent: [docs/tasks/reviews/review-post-m6.md](/tasks/reviews/review-post-m6.md) B-5.
 Owner answer, 2026-10-20: "Rust phrase list, must agree".
 
 Files (no others):
 - `crates/cli/src/interpret/evidence.rs`
 - `crates/cli/src/interpret/build.rs`
 - `crates/cli/tests/documented_interpret.rs` (one line, §2.4)
-- `docs/specs/cli.md` (one table row of §10.6, §2.4)
+- [docs/specs/cli.md](/specs/cli.md) (one table row of §10.6, §2.4)
 
 ## 1. Defect
 
@@ -116,7 +116,7 @@ Add a bullet to the module doc describing this rule and citing D045.
 - `crates/cli/tests/documented_interpret.rs`: add
   `QuestionCode::CompositionUnclear,` right after
   `QuestionCode::CompositionUnstated,`. Change nothing else.
-- `docs/specs/cli.md` §10.6: add one row right after the `composition_unstated`
+- [docs/specs/cli.md](/specs/cli.md) §10.6: add one row right after the `composition_unstated`
   row, exactly:
   ```
   | `composition_unclear` | Your words say both, or negate it, or the model's reading differs from luria's. |

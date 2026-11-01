@@ -1,14 +1,14 @@
 # Review M5 docs: the CLI page, the GenBank fixture notes and D030's evidence
 
 Status: **Implemented 2026-10-18** by the local worker; accepted after two small review rounds (the CLI codes' `details`, the verify script comment). Planner: Claude. Parent:
-`docs/tasks/reviews/review-post-m5.md`: B-2 to B-6, C-5, C-6, C-11, the owner
+[docs/tasks/reviews/review-post-m5.md](/tasks/reviews/review-post-m5.md): B-2 to B-6, C-5, C-6, C-11, the owner
 answers of 2026-10-18 (B-2, B-3, B-6, C-6, D030), and reviewer A's doc drift.
 Docs and comments only: no code, test or fixture value changes.
 
 Files:
-- `docs/specs/cli.md`
+- [docs/specs/cli.md](/specs/cli.md)
 - `README.md` (one sentence, §2.2)
-- `docs/decisions/` (D030's Evidence, exact text in §2.3)
+- [docs/decisions/](/decisions/) (D030's Evidence, exact text in §2.3)
 - `tests/fixtures/genbank/README.md`
 - `tests/fixtures/genbank/reference/verify_synthetic.py` (one comment)
 - `crates/core/src/genbank_location.rs` (module doc comment only)
@@ -19,7 +19,7 @@ the code. If the code disagrees with this contract, stop and report.
 
 ## 1. What is wrong
 
-- **B-2.** `docs/specs/cli.md` says `template.sha256` is checked against "the
+- **B-2.** [docs/specs/cli.md](/specs/cli.md) says `template.sha256` is checked against "the
   file's digest". It is checked against the SHA-256 of the **normalized
   sequence** (upper-case bases, line breaks and whitespace removed): the
   value `provenance.template.sha256` reports, not `sha256sum` of the file.
@@ -68,8 +68,8 @@ the code. If the code disagrees with this contract, stop and report.
     `/transl_table` (D042);
   - a buffer above 1000 mM monovalent salt, 10000 nM primer or 20 % DMSO is
     refused as `invalid_buffer_model` (D043).
-- **README.** It says `docs/specs/cli.md` has "the request and result schemas",
-  but `docs/specs/cli.md` §9 says the full reference isn't written yet.
+- **README.** It says [docs/specs/cli.md](/specs/cli.md) has "the request and result schemas",
+  but [docs/specs/cli.md](/specs/cli.md) §9 says the full reference isn't written yet.
 - **Reviewer A's drift:**
   - `verify_synthetic.py` says Biopython warns about "the remote and
     between-base locations, which are in the record on purpose".
@@ -91,7 +91,7 @@ the code. If the code disagrees with this contract, stop and report.
 
 ## 2. Required change
 
-### 2.1 `docs/specs/cli.md`
+### 2.1 [docs/specs/cli.md](/specs/cli.md)
 
 Fix each item in §1 in the section where the topic already lives:
 - the `template` row of §7 and the `template_digest_mismatch` row of §6
@@ -112,12 +112,12 @@ section except, if needed, one short paragraph under §5.
 
 ### 2.2 `README.md`
 
-Change "See `docs/specs/cli.md` for the request and result schemas, a worked
+Change "See [docs/specs/cli.md](/specs/cli.md) for the request and result schemas, a worked
 example and the exit codes" so it no longer claims full schemas. For
-example: "See `docs/specs/cli.md` for a worked example, the exit codes and error
+example: "See [docs/specs/cli.md](/specs/cli.md) for a worked example, the exit codes and error
 codes, and a summary of the request and result".
 
-### 2.3 `docs/decisions/`, D030
+### 2.3 [docs/decisions/](/decisions/), D030
 
 In D030's Evidence, in the "Annealing temperature" bullet, insert this
 sentence right after "…so the quotation rests on the owner's reading." and
@@ -145,7 +145,7 @@ No test should change. From the repository root, after
 `export TMPDIR=$PWD/target/tmp`:
 - `cargo fmt --all -- --check`
 - `cargo test --workspace` (the documented-example test reads
-  `docs/specs/cli.md`; it must still pass)
+  [docs/specs/cli.md](/specs/cli.md); it must still pass)
 - `cargo clippy --workspace --all-targets -- -D warnings`
 - `.tmp/tm/venv/bin/python -I tests/fixtures/verify.py`
 - `git diff --check`

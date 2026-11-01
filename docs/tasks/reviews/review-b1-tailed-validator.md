@@ -1,7 +1,7 @@
 # Review fix B1: the pair validator must catch a tailed primer over the edit
 
 Status: **Implemented 2026-10-16** by the local worker; accepted on planner review.
-Planner: Claude. Parent: `docs/tasks/reviews/review-post-m4.md` finding B1.
+Planner: Claude. Parent: [docs/tasks/reviews/review-post-m4.md](/tasks/reviews/review-post-m4.md) finding B1.
 
 ## 1. The defect
 

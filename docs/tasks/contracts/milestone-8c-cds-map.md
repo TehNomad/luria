@@ -15,7 +15,7 @@ stop; and the fixture test derives reading order from the imported CDS's own
 intervals (`fixture_reading_order`) rather than sorting the ascending column,
 because an origin-straddling codon reads 62, 1, 2 — that couples the order
 check to the location parse, which 5c1 pins separately, and is accepted.
-Planner: Claude. Parent: `docs/tasks/contracts/milestone-8-view.md`
+Planner: Claude. Parent: [docs/tasks/contracts/milestone-8-view.md](/tasks/contracts/milestone-8-view.md)
 §4.2, full tier (D051). The fixtures it needs are already written and
 independently verified (commit `9dc1d38`, `tests/fixtures/view/`); nothing in
 this contract may change them.
@@ -49,7 +49,7 @@ a codon but not a residue, a CDS with no terminal stop at all, and a CDS whose
 length is not a multiple of three. The fixtures pin every one of them before
 any Rust exists.
 
-## 2. Requirements this contract applies (`docs/decisions/`)
+## 2. Requirements this contract applies ([docs/decisions/](/decisions/))
 
 - **D006:** reference coordinates inside core are zero-based and half-open
   (`[start, end)`); 1-based inclusive numbering is a user-facing convention
@@ -480,8 +480,8 @@ demonstrate both.
 - No CLI or view code, no `luria find`, no rendering. Those are 8h–8l.
 - No new public API beyond §3. In particular do not add a map for a *frame*
   (that is 8d) and do not expose the interval walk as a public function.
-- Do not edit `docs/decisions/`, this contract, or
-  `docs/tasks/contracts/milestone-8-view.md`.
+- Do not edit [docs/decisions/](/decisions/), this contract, or
+  [docs/tasks/contracts/milestone-8-view.md](/tasks/contracts/milestone-8-view.md).
 - Do not stage or commit anything.
 
 ## 8. Checks

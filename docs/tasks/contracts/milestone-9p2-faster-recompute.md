@@ -2,7 +2,7 @@
 
 Planner: Claude. Status: implemented. Tier: full (core: sequence and genetic
 code, M9-10).
-Plan row: `docs/tasks/contracts/milestone-9-editor.md` §7, row 9p (second half).
+Plan row: [docs/tasks/contracts/milestone-9-editor.md](/tasks/contracts/milestone-9-editor.md) §7, row 9p (second half).
 
 ## 1. What this contract builds
 
@@ -102,4 +102,4 @@ against a backup in `target/tmp/`, and report what failed.
 Release, median of three (`recompute_profile`): view A's step 3 went from
 1929 ms to 69 ms, and view B's step 6 from 3669 ms to 210 ms. One edit in
 all: A 110 ms (was 2044), B 340 ms (was 5438), C 1.0 ms (was 6.4).
-`docs/specs/cli.md` §13.7 states the new times.
+[docs/specs/cli.md](/specs/cli.md) §13.7 states the new times.

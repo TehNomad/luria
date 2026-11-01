@@ -1,7 +1,7 @@
 # Review M5 C-6, C-9, C-12: run invariants, the I/O exit, imported CDS locations
 
 Status: **Implemented 2026-10-18** by the local worker; accepted on planner review. Planner: Claude. Parent:
-`docs/tasks/reviews/review-post-m5.md` C-6, C-9 and C-12. Owner answers, 2026-10-18:
+[docs/tasks/reviews/review-post-m5.md](/tasks/reviews/review-post-m5.md) C-6, C-9 and C-12. Owner answers, 2026-10-18:
 C-6 "Exit 1 wins; document it" (the docs are a separate contract; this one
 adds the test); C-12 "add intervals + strand to importedCds".
 

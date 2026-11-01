@@ -17,7 +17,7 @@ Evidence tags:
 | `[BUNDLE-2.5.3]` | Read from `app-js/index.17c7600d.v2.5.3.js`. |
 | `[MANIFEST]` | Read from `tests/fixtures/nebasechanger-research/manifest.json`. |
 | `[CHECK]` | A command I ran in this session, with its result. |
-| `[PRIOR]` | Claim from `docs/research/nebasechanger-client-investigation.md` (2026-10-09, Arquivo.pt v2.5.0/v2.4.x bundles); not re-derived here unless tagged. |
+| `[PRIOR]` | Claim from [docs/research/nebasechanger-client-investigation.md](/research/nebasechanger-client-investigation.md) (2026-10-09, Arquivo.pt v2.5.0/v2.4.x bundles); not re-derived here unless tagged. |
 | `[UNKNOWN]` | Not established. |
 
 Cloud-sharing warning (D023): this report contains no sequence-bearing
@@ -434,7 +434,7 @@ build was substituted for the live one.
    the HAR now returns HTTP 404 (§11), so the current hash must be re-discovered
    from the SPA shell — a human-in-the-loop capture (§11) is the shortest route.
    Alternatively accept v2.8.4 as the reference and record that decision in
-   `docs/decisions/`. Do not substitute an archived build and label it current.
+   [docs/decisions/](/decisions/). Do not substitute an archived build and label it current.
 3. Pin the `calcSDMPrimers` coordinate convention with a live capture that
    exercises: substitution ≤6 nt, substitution ≥6 nt, insertion, deletion
    (v2.8.4 changelog says deletions changed file download, so deletion is a live

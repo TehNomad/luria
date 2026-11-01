@@ -1,7 +1,7 @@
 # Milestone 7k1: the mutation shorthand parser
 
 Status: **Implemented 2026-10-21.** Proofs 1-3 failed as required. Positions are ASCII digits only; w7k1 found the reference script accepted other Unicode digits (and crashed on `²`), now fixed there with no change to the table. Planner: Claude. Parent:
-`docs/tasks/contracts/milestone-7k-new.md` §3 (owner answer M7-35). The
+[docs/tasks/contracts/milestone-7k-new.md](/tasks/contracts/milestone-7k-new.md) §3 (owner answer M7-35). The
 specification is `tests/fixtures/new/reference/shorthand.py` (read its
 docstring); its output `tests/fixtures/new/shorthand.tsv` is the expected
 reading of every line, written independently of `crates/`.

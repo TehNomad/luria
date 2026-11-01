@@ -70,7 +70,7 @@ the worker.
 | A5 | **Should `verify` re-translate DNA-level edits?** | D013 asks for "the resulting translation where applicable". For substitution, deletion, insertion and replacement, `verify` ignores the `cds` argument. Example: a scoped substitution creating a premature stop (`TGG→TAG`) comes back `Verified` with no warning. `q5-sdm.md` §8 records only the inert scope argument as a limitation. Choose: implement, or record it as an accepted gap. |
 | A6 | **`ConfineToTail` for insertions.** | D032: "The 'confine to 5′ tails' option does not change an insertion." `primer_design.rs:440-446` refuses the placement for every edit. Meanwhile, tailed designs report `placement = ConfineToTail` for an `Inline` request. *Suspected* spec/code mismatch. |
 | A7 | **Python verification environment.** | Biopython 1.88 is required by every `native*.py` generator and by the `tm_crosscheck.rs` values. It exists only in the gitignored `.tmp/tm/venv`. The scripts that verified `tm/` (`.tmp/tm/verify_imm.py`, `crosscheck.py`) and the Kazusa parse are untracked. Proposal: track the verification scripts under `tests/fixtures/*/reference/` plus a pinned `requirements.txt`. |
-| A8 | **Permission to fix drift in `docs/decisions/` and the fixture READMEs.** | AGENTS.md reserves these. The edits would be status and drift fixes only, listed in §D. |
+| A8 | **Permission to fix drift in [docs/decisions/](/decisions/) and the fixture READMEs.** | AGENTS.md reserves these. The edits would be status and drift fixes only, listed in §D. |
 
 ---
 

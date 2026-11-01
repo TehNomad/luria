@@ -2,7 +2,7 @@
 
 Planner: Claude. Status: **Implemented 2026-10-27** by worker `w-8m6` in
 one round, reviewed and accepted. Tier: light (D051). Owner's answer:
-`docs/tasks/contracts/milestone-8m-polish.md` §1, M8-30. Findings from review: G1–G4
+[docs/tasks/contracts/milestone-8m-polish.md](/tasks/contracts/milestone-8m-polish.md) §1, M8-30. Findings from review: G1–G4
 each failed the tests §7 names (G1 failed tests 1 and 2 only; test 3
 cannot tell two levels from three, and G3 covers that). The level is
 applied inside `lanes`, before the sort and the limit. Status wording

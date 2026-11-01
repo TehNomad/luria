@@ -4,7 +4,7 @@ Status: **Implemented 2026-10-19** by the local worker, accepted after one
 review round. The round fixed a planner defect: the §4 tuple annotation in
 `each_way_of_naming_a_residue_is_found_where_it_is_written` failed clippy's
 `type_complexity`, so the test now names it `MentionCase`; no case changed.
-Planner: Claude. Parent: `docs/tasks/contracts/milestone-6-nl.md` §5.3a (with its
+Planner: Claude. Parent: [docs/tasks/contracts/milestone-6-nl.md](/tasks/contracts/milestone-6-nl.md) §5.3a (with its
 tightenings), §5.5 (numbering), M6-11, M6-15, §6 (6e, split into 6e1 and
 6e2).
 
@@ -352,7 +352,7 @@ Disable each once, confirm the named test fails, restore, report both:
   `interpret.rs`.
 - Add a dependency or a regex crate. Index no `&str` by byte. Panic on no
   input.
-- Change `luria-core`, `luria-nl`, `tests/fixtures/` or `docs/`.
+- Change `luria-core`, `luria-nl`, `tests/fixtures/` or [docs/](/).
 
 ## 6. Checks
 

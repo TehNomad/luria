@@ -19,7 +19,7 @@ one round, reviewed and accepted. Findings from review:
 
 Tier: full
 (D051): new biology, so a table from an independent Python reference pins it.
-Owner's answer: `docs/tasks/contracts/milestone-8m-polish.md` §1, M8-40. The lanes
+Owner's answer: [docs/tasks/contracts/milestone-8m-polish.md](/tasks/contracts/milestone-8m-polish.md) §1, M8-40. The lanes
 that draw ORFs are 8m18; this contract adds no drawing.
 
 ## 1. What this contract builds
@@ -35,7 +35,7 @@ and table that pin its output.
 | `lookup`, `CodonOutcome` (D010: an ambiguous codon is neither a stop nor a residue) | `crates/core/src/genetic_code.rs:181`, `:96` | start and stop codons |
 | `Sequence::letters`, `length`, `complement_letter` | `crates/core/src/sequence.rs` | the bases |
 | `Strand` | `crates/core/src/strand.rs:7` | the strand |
-| D036 interval order (origin-crossing = two intervals, the one ending at the record's end first) | `docs/decisions/` D036 | `Orf::intervals` |
+| D036 interval order (origin-crossing = two intervals, the one ending at the record's end first) | [docs/decisions/](/decisions/) D036 | `Orf::intervals` |
 | the fixture-test pattern (`VIEW`, loading records) | `crates/core/tests/frames_fixtures.rs:40` | the new test |
 | a reference script's shape (`--print`, `--check`, md5 lines) | `tests/fixtures/view/reference/frame_tables.py` | the new script |
 

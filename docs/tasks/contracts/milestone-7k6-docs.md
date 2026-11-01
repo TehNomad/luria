@@ -1,17 +1,17 @@
 # Milestone 7k6: the documentation of `luria new`, and D047
 
 Status: **Implemented, 2026-10-22.** Planner: Claude. Parent:
-`docs/tasks/contracts/milestone-7k-new.md` §4 (7k6). As 7h: the two long texts
+[docs/tasks/contracts/milestone-7k-new.md](/tasks/contracts/milestone-7k-new.md) §4 (7k6). As 7h: the two long texts
 are the planner's, appended verbatim.
 
-This contract authorizes the worker to edit `docs/specs/cli.md`, `README.md`,
-`docs/product/brief.md` and `docs/decisions/`, exactly as below and
+This contract authorizes the worker to edit [docs/specs/cli.md](/specs/cli.md), `README.md`,
+[docs/product/brief.md](/product/brief.md) and [docs/decisions/](/decisions/), exactly as below and
 nowhere else. Each replacement's old text occurs exactly once; if it does
 not, stop and report it.
 
 ## 1. Changes
 
-### 1.1 `docs/specs/cli.md`
+### 1.1 [docs/specs/cli.md](/specs/cli.md)
 
 1. Replace `is §11 (D046).` (the end of the opening paragraph's sentence
    about `luria review`) with `is §11 (D046). \`luria new\`, a form for a
@@ -25,7 +25,7 @@ not, stop and report it.
 
 3. In §1's table, after the `review ...` row, add:
    `| \`new ...\` | A form for a template and mutations, which writes and runs the request once you approve (§12). |`
-4. Append the whole of `docs/tasks/contracts/milestone-7k6-cli-section.txt` at the
+4. Append the whole of [docs/tasks/contracts/milestone-7k6-cli-section.txt](/tasks/contracts/milestone-7k6-cli-section.txt) at the
    end of the file.
 
 ### 1.2 `README.md`
@@ -37,15 +37,15 @@ not, stop and report it.
    mutations, typed in a shorthand or in words, that writes and runs the
    request once you approve; see §12 (D047). The web interface is next`.
 
-### 1.3 `docs/product/brief.md`
+### 1.3 [docs/product/brief.md](/product/brief.md)
 
 Replace `table, docs/specs/cli.md section 11 (D046).` with `table, docs/specs/cli.md
 section 11 (D046); luria new, a form for a new design, docs/specs/cli.md
 section 12 (D047).`
 
-### 1.4 `docs/decisions/`
+### 1.4 [docs/decisions/](/decisions/)
 
-Append the whole of `docs/tasks/contracts/milestone-7k6-d047.txt` at the end.
+Append the whole of [docs/tasks/contracts/milestone-7k6-d047.txt](/tasks/contracts/milestone-7k6-d047.txt) at the end.
 
 ## 2. Test: `crates/cli/tests/documented_new.rs` (new)
 

@@ -29,7 +29,7 @@ corrected form, so D030 paired a corrected Tm with the old offset and reports
 Ta about 2 °C high. Against NEBaseChanger the owner measured +1.9 °C (D404N)
 and +2.2 °C (D404E). NEBaseChanger's own code computes
 `min(min(tmf, tmr) + 1, 72)` and `Math.round`s it for display
-(`docs/research/nebasechanger-client-investigation.md` line 269).
+([docs/research/nebasechanger-client-investigation.md](/research/nebasechanger-client-investigation.md) line 269).
 
 The owner also decided that Ta is a **whole number of degrees**, because a
 thermocycler is set to that precision.
@@ -58,7 +58,7 @@ every rounding.
 
 ## 3. Changes, file by file
 
-### 3.1 `docs/decisions/` (D030 and its two references)
+### 3.1 [docs/decisions/](/decisions/) (D030 and its two references)
 
 Make exactly these six replacements. Change nothing else in the file.
 
@@ -176,7 +176,7 @@ Make exactly these six replacements. Change nothing else in the file.
    and in D033 replace `` `Ta = min(72, lower Tm + 3)` `` with
    `` `Ta = min(72, round(lower Tm) + 1)` `` (the only occurrence).
 
-### 3.2 `docs/specs/q5-primer-design.md`
+### 3.2 [docs/specs/q5-primer-design.md](/specs/q5-primer-design.md)
 
 Two replacements:
 
@@ -336,9 +336,9 @@ Ta is now exact, so take it out of the tolerance table: the arm
 `"celsius" | "gcPercent" => 0.005,`. Update the doc comment at the top if it
 says temperatures are compared within a tolerance: Tms are, Ta is not.
 
-### 3.8 `docs/specs/cli.md`
+### 3.8 [docs/specs/cli.md](/specs/cli.md)
 
-The planner has already updated `docs/tasks/contracts/milestone-5h-cli-page.txt`
+The planner has already updated [docs/tasks/contracts/milestone-5h-cli-page.txt](/tasks/contracts/milestone-5h-cli-page.txt)
 (version 0.7.0 in three places, `"annealingTemperature": 64.0`, and two
 prose passages). Copy it, do not edit it:
 
@@ -387,7 +387,7 @@ diff docs/tasks/contracts/milestone-5h-cli-page.txt docs/specs/cli.md
 - Do not change `TA_CAP`, any other constant, or any other algorithm version.
 - Do not write a Ta into any fixture or test by running luria. The values come
   from the generators and must agree with §3.6's table.
-- Do not edit `docs/tasks/contracts/milestone-5h-cli-page.txt` or this contract.
+- Do not edit [docs/tasks/contracts/milestone-5h-cli-page.txt](/tasks/contracts/milestone-5h-cli-page.txt) or this contract.
 - Do not add a dependency, create or modify `.venv`, or install anything.
 - Do not stage or commit.
 

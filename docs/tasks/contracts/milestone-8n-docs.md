@@ -4,14 +4,14 @@ Planner: Claude. Status: **Implemented 2026-10-28** by worker `w-8n` in
 one round, reviewed and accepted: every old text matched once (the
 `--backend` line only within §1, as §4.1 says), G1 and G2 each failed
 their test, and the planner's `scripts/check` passed. Tier: neither (plan §7: 8n is a
-documentation contract). Plan row: `docs/tasks/contracts/milestone-8-view.md` §7, 8n.
+documentation contract). Plan row: [docs/tasks/contracts/milestone-8-view.md](/tasks/contracts/milestone-8-view.md) §7, 8n.
 
 ## 1. What this contract builds
 
-Milestone 8's user documentation: `docs/specs/cli.md` gains §13 and the two
+Milestone 8's user documentation: [docs/specs/cli.md](/specs/cli.md) gains §13 and the two
 commands in §1, the README and the product brief say what milestone 8
 built and what milestone 9 is, `luria help` names the two commands, and
-`docs/decisions/` records D058 and D059. One new test pins §13's command
+[docs/decisions/](/decisions/) records D058 and D059. One new test pins §13's command
 lines and its two `luria find` examples to the program.
 
 The texts below are the planner's, checked against the program on
@@ -28,16 +28,16 @@ exactly once; if one does not, stop and report it.
 
 ## 3. Files the worker may touch
 
-1. `docs/specs/cli.md` — change, §4.1 below.
-2. `docs/decisions/` — change, §4.2.
+1. [docs/specs/cli.md](/specs/cli.md) — change, §4.1 below.
+2. [docs/decisions/](/decisions/) — change, §4.2.
 3. `README.md` — change, §4.3.
-4. `docs/product/brief.md` — change, §4.4.
+4. [docs/product/brief.md](/product/brief.md) — change, §4.4.
 5. `crates/cli/src/args.rs` — change: the usage text's last paragraph only, §4.5.
 6. `crates/cli/tests/documented_view.rs` — new, §5.
 
 ## 4. The edits
 
-### 4.1 `docs/specs/cli.md`
+### 4.1 [docs/specs/cli.md](/specs/cli.md)
 
 1. In the opening paragraph, after the sentence ending `is §12 (D047).`,
    add: `` `luria FILE`, a view of a GenBank or FASTA file, and `luria
@@ -59,11 +59,11 @@ exactly once; if one does not, stop and report it.
 4. In §5's table, the row for code 0 ends
    `for `luria review`, you quit |`. Make that
    ``for `luria review`, you quit; for `luria find`, any number of hits, `0 hits` included |``.
-5. Append the whole of `docs/tasks/contracts/milestone-8n-cli-section.txt` at the
+5. Append the whole of [docs/tasks/contracts/milestone-8n-cli-section.txt](/tasks/contracts/milestone-8n-cli-section.txt) at the
    end of the file, after one blank line. Keep its tables and fences as
    they are.
 
-### 4.2 `docs/decisions/`
+### 4.2 [docs/decisions/](/decisions/)
 
 1. In D034, replace `* **Milestone 8** is the web interface.` with
    `* **Milestone 8** is the web interface. D059 replaces this line.`
@@ -76,7 +76,7 @@ exactly once; if one does not, stop and report it.
 4. In D057, the first bullet ends
    `letter catches a number that names the wrong residue.` After that
    line, add `  D058 says where on the codon the cursor lands (M8-35).`
-5. Append the whole of `docs/tasks/contracts/milestone-8n-decisions.txt` at the end
+5. Append the whole of [docs/tasks/contracts/milestone-8n-decisions.txt](/tasks/contracts/milestone-8n-decisions.txt) at the end
    of the file, after one blank line.
 
 ### 4.3 `README.md`
@@ -93,7 +93,7 @@ exactly once; if one does not, stop and report it.
    see §13 (D048 to D058). Milestone 9 is an editor in that view (D059).
    ```
 
-### 4.4 `docs/product/brief.md`
+### 4.4 [docs/product/brief.md](/product/brief.md)
 
 Replace the block from the line `Milestone 8: Web interface` to the line
 `The order from Milestone 4 on was set by D034 (owner, 2026-10-16).`,
@@ -150,7 +150,7 @@ everything after the heading `## 13. Looking at a sequence: \`luria FILE\` and \
 
 | # | Change | Must fail |
 | --- | --- | --- |
-| G1 | In `docs/specs/cli.md` §13's first example, change `4359` to `4358` | test 2 |
+| G1 | In [docs/specs/cli.md](/specs/cli.md) §13's first example, change `4359` to `4358` | test 2 |
 | G2 | In §13's command block, change `--circular` to `--circ` | test 1 |
 
 ## 8. Do not

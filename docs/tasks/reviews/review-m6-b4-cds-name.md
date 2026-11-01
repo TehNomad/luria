@@ -2,12 +2,12 @@
 
 Status: **Implemented 2026-10-20** by the local worker; accepted on planner
 review. Test 3 is a guard against over-refusing and passes before the
-change too, as it should. Planner: Claude. Parent: `docs/tasks/reviews/review-post-m6.md` B-4.
+change too, as it should. Planner: Claude. Parent: [docs/tasks/reviews/review-post-m6.md](/tasks/reviews/review-post-m6.md) B-4.
 Fail-closed; no owner decision needed.
 
 Files (no others):
 - `crates/cli/src/interpret/build.rs`
-- `docs/decisions/` (one bullet of D045, §2.3)
+- [docs/decisions/](/decisions/) (one bullet of D045, §2.3)
 
 ## 1. Defect
 
@@ -46,7 +46,7 @@ value }`, as now. Nothing else in grounding changes. `build` passes its
 `catalogue` through. Update `first_ungrounded`'s doc comment to say the
 CDS name must be a whole name (D045).
 
-### 2.3 `docs/decisions/`
+### 2.3 [docs/decisions/](/decisions/)
 
 In D045, replace the bullet that starts `* **A CDS name is a whole name**
 (B-4).` (two lines) with exactly:
@@ -57,7 +57,7 @@ In D045, replace the bullet that starts `* **A CDS name is a whole name**
   the record has.
 ```
 
-Change nothing else in `docs/decisions/`.
+Change nothing else in [docs/decisions/](/decisions/).
 
 ## 3. Tests (write first; confirm each new one fails before the change)
 

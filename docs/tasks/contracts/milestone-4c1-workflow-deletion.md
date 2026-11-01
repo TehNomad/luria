@@ -2,7 +2,7 @@
 
 Status: **Implemented 2026-10-15** by the local worker; accepted on planner review (§8).
 Date: 2026-10-15
-Planner: Claude. Parent: `docs/tasks/contracts/milestone-4-indels.md`. The design-layer
+Planner: Claude. Parent: [docs/tasks/contracts/milestone-4-indels.md](/tasks/contracts/milestone-4-indels.md). The design-layer
 half, `q5_design.rs`, is 4c-2.
 
 ## 1. Goal
@@ -22,10 +22,10 @@ frame, the run carries a **warning** and the edit still goes ahead.
   - Count the deleted positions that lie inside any interval of the resolved
     CDS. Positions in an intron or outside the CDS do not count.
   - If that count is 0, there is no warning. The deletion is outside the CDS,
-    which `docs/specs/q5-sdm.md` §10 decision 1 says proceeds.
+    which [docs/specs/q5-sdm.md](/specs/q5-sdm.md) §10 decision 1 says proceeds.
   - If the count is not a multiple of 3, warn.
   - The warning records whether the deletion lay wholly inside the CDS.
-- **`docs/specs/q5-sdm.md` §10 decision 1:** a DNA edit that names no CDS proceeds
+- **[docs/specs/q5-sdm.md](/specs/q5-sdm.md) §10 decision 1:** a DNA edit that names no CDS proceeds
   even outside the CDS. A request that names a scope is checked against it;
   `apply_deletion` already does this with `TargetOutsideFeature`.
 - **Milestone 4a API** (`mutation.rs`): `NucleotideDeletionIntent`,
@@ -115,7 +115,7 @@ multi-interval case luria can represent.
   `q5_design.rs`.
 - Do not change any existing test or its expectations. All 337 existing tests
   must pass.
-- Do not edit `docs/` or any fixture.
+- Do not edit [docs/](/) or any fixture.
 
 ## 6. Checks
 

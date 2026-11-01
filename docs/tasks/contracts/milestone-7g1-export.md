@@ -9,7 +9,7 @@ compilation only, until the owner runs it. Note since drafting: 7f2
 factored the interpret-form parsing into `parse_interpret_form` in
 `args.rs`; add `--export` to the review form there, not to `q5
 interpret`. Planner:
-Claude. Parent: `docs/tasks/contracts/milestone-7-tui.md` §3 rules 2 and 4, M7-4,
+Claude. Parent: [docs/tasks/contracts/milestone-7-tui.md](/tasks/contracts/milestone-7-tui.md) §3 rules 2 and 4, M7-4,
 §5.4 ("Writing"), §6 (7g1). Uses 7g2's `order_table`.
 
 ## 1. What and why
@@ -209,7 +209,7 @@ and `tests/cli.rs`, update only what `USAGE`'s two lines and the new
 - Change only `args.rs`, `main.rs`, `review.rs`, `review/export.rs`,
   `review/app.rs`, `review/text.rs`, `review/view.rs`,
   `review/terminal.rs`, and the tests §4 names.
-- Do not change `run.rs`, `write.rs`, `order.rs`, fixtures, `docs/`, any
+- Do not change `run.rs`, `write.rs`, `order.rs`, fixtures, [docs/](/), any
   `Cargo.toml` or `vendor/`.
 - Do not add dependencies. Do not stage or commit. Do not run `luria
   review` by hand.

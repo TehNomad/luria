@@ -3,7 +3,7 @@
 Planner: Claude. Status: **Implemented 2026-10-27** by worker `w-8l2` in two
 rounds, reviewed and accepted. Tier: light (D051): tests assert behaviour,
 not wording; the hand test (8m) may change glyphs and rules. Plan row:
-**8l2** in `docs/tasks/contracts/milestone-8-view.md` §7. Findings from review:
+**8l2** in [docs/tasks/contracts/milestone-8-view.md](/tasks/contracts/milestone-8-view.md) §7. Findings from review:
 
 * Round 1: tests 1–7 and G1–G7 behaved as §7 says. The planner checked
   the unit tests' strings by hand with D054, and a planner mutation

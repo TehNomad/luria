@@ -1,7 +1,7 @@
 # Review refactor E1: share the steps of the three design paths
 
 Status: **Implemented 2026-10-16** by the local worker; accepted on planner review. Non-test lines 1374 → 1270.
-Planner: Claude. Parent: `docs/tasks/reviews/review-post-m4.md` finding E1.
+Planner: Claude. Parent: [docs/tasks/reviews/review-post-m4.md](/tasks/reviews/review-post-m4.md) finding E1.
 
 **Behavior-preserving.** Every existing test must pass unchanged, and every
 design and error payload must be byte-identical: values, the order of

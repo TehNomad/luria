@@ -1,7 +1,7 @@
 # Milestone 5a1: a stable code for every `DomainError`
 
 Status: **Implemented 2026-10-16** by the local worker; accepted on first review.
-Planner: Claude. Parent: `docs/tasks/contracts/milestone-5-cli.md` §3.6 and §5 (5a1).
+Planner: Claude. Parent: [docs/tasks/contracts/milestone-5-cli.md](/tasks/contracts/milestone-5-cli.md) §3.6 and §5 (5a1).
 Decisions: D041 (the CLI's JSON output carries each error's `code`); review
 item C8 (errors must be classifiable without message text).
 

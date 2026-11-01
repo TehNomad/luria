@@ -2,7 +2,7 @@
 
 Status: **Deferred by the owner, 2026-10-19 (M6-18). Not scheduled and not a
 task contract: do not implement.** Raised during Milestone 6
-(`docs/tasks/contracts/milestone-6-nl.md`).
+([docs/tasks/contracts/milestone-6-nl.md](/tasks/contracts/milestone-6-nl.md)).
 
 ## Why it is deferred
 

@@ -17,7 +17,7 @@ terminal paths, with owner answers M7-41 and M7-42.
    path asks.
 2. **M7-42 (owner, 2026-10-22): with words, residues count from the CDS
    start** unless the text says otherwise, the same rule the shorthand
-   path uses (docs/specs/cli.md §12.2).
+   path uses ([docs/specs/cli.md](/specs/cli.md) §12.2).
 3. **Pasted line ends.** Many terminals send a bracketed paste's line
    breaks as `\r`, not `\n`. `NewForm::paste` treats only `\n` as a line
    break, so a FASTA pasted from such a terminal becomes one line with
@@ -87,10 +87,10 @@ answers when it replies` and no cursor is set. Share the code with
 
 ### 2.5 Docs (authorized here)
 
-- `docs/specs/cli.md`, §12.1's `In words` row: after `not both.` add `The
+- [docs/specs/cli.md](/specs/cli.md), §12.1's `In words` row: after `not both.` add `The
   form's overlap and codon choice go with them, and residues count from
   the CDS's first codon unless your words say otherwise.`
-- `docs/decisions/`, D047's Words bullet: after `are not combined.` add
+- [docs/decisions/](/decisions/), D047's Words bullet: after `are not combined.` add
   `The form's overlap and codon choice are the design they are read
   with, and residues count from the CDS start (M7-41, M7-42).`
 - Change the status line of D047 from `answers M7-31 to M7-40` to

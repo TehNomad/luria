@@ -1,7 +1,7 @@
-# Contract 9j — docs: the editor in `docs/specs/cli.md`, the decisions, the brief
+# Contract 9j — docs: the editor in [docs/specs/cli.md](/specs/cli.md), the decisions, the brief
 
 Planner: Claude. Status: implemented. Tier: light (docs only).
-Plan row: `docs/tasks/contracts/milestone-9-editor.md` §7, row 9j.
+Plan row: [docs/tasks/contracts/milestone-9-editor.md](/tasks/contracts/milestone-9-editor.md) §7, row 9j.
 
 ## 1. What this contract does
 
@@ -12,12 +12,12 @@ that every key, message and number in the text matches the code.
 
 ## 2. Files the worker may touch
 
-1. `docs/specs/cli.md`: §13 only.
-2. `docs/decisions/`: append D060, D061 and D062 after D059. This
+1. [docs/specs/cli.md](/specs/cli.md): §13 only.
+2. [docs/decisions/](/decisions/): append D060, D061 and D062 after D059. This
    contract allows the edit (AGENTS.md).
-3. `docs/product/brief.md`: the "Milestone 9" paragraph only.
+3. [docs/product/brief.md](/product/brief.md): the "Milestone 9" paragraph only.
 4. `crates/cli/tests/documented_view.rs`: only the literal §13 heading it
-   splits `docs/specs/cli.md` on, changed to §4.1's new title.
+   splits [docs/specs/cli.md](/specs/cli.md) on, changed to §4.1's new title.
 5. `crates/cli/src/sequence_view/state.rs`: only the `?` list's
    `backspace` row, from `in i, a and R` to `in i and a`.
 ## 3. Checking the text against the code
@@ -33,17 +33,17 @@ with its `file:line`, and do not change the text to hide one:
 - 60 bases a line for FASTA (`crates/core/src/fasta.rs`) and for ORIGIN
   (`genbank_write.rs`).
 
-## 4. `docs/specs/cli.md` §13
+## 4. [docs/specs/cli.md](/specs/cli.md) §13
 
 1. **Title** becomes `## 13. Looking at and editing a sequence: `luria
    FILE` and `luria find``.
 2. **Intro paragraph.** Replace "It reads the file and writes nothing."
    with "You can edit the sequence and save it (§13.7, §13.8)." Replace
    "The decisions behind them are D048 to D058,
-   `docs/tasks/contracts/milestone-8-view.md` and `docs/tasks/contracts/milestone-8m-polish.md`."
+   [docs/tasks/contracts/milestone-8-view.md](/tasks/contracts/milestone-8-view.md) and [docs/tasks/contracts/milestone-8m-polish.md](/tasks/contracts/milestone-8m-polish.md)."
    with "The decisions behind them are D048 to D058 and D060 to D062,
-   `docs/tasks/contracts/milestone-8-view.md`, `docs/tasks/contracts/milestone-8m-polish.md`
-   and `docs/tasks/contracts/milestone-9-editor.md`."
+   [docs/tasks/contracts/milestone-8-view.md](/tasks/contracts/milestone-8-view.md), [docs/tasks/contracts/milestone-8m-polish.md](/tasks/contracts/milestone-8m-polish.md)
+   and [docs/tasks/contracts/milestone-9-editor.md](/tasks/contracts/milestone-9-editor.md)."
 3. **§13.2 table, "Status line" row.** Append: "; in an edit mode, the
    mode first (`-- INSERT --`, `-- OVERTYPE --`, `-- REPLACE --`,
    `-- VISUAL --` with the bases selected); while a prompt or the `:`
@@ -160,7 +160,7 @@ from the file only in the LOCUS date, the VERSION line, the COMMENT line
 and trailing spaces.
 ````
 
-## 6. `docs/decisions/`: D060 to D062
+## 6. [docs/decisions/](/decisions/): D060 to D062
 
 Append these, word for word, after D059, in D059's own format.
 
@@ -302,7 +302,7 @@ The backup and the overwrite rule can change without changing what is
 written. The file format needs approval.
 ````
 
-## 7. `docs/product/brief.md`
+## 7. [docs/product/brief.md](/product/brief.md)
 
 Replace the paragraph under "Milestone 9: Sequence editor" with:
 

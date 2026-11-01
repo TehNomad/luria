@@ -2,7 +2,7 @@
 
 Status: **Implemented 2026-10-19** by the local worker; accepted on the first
 review. `cargo tree -p luria-nl` holds neither `ring` nor `rustls`.
-Planner: Claude. Parent: `docs/tasks/contracts/milestone-6-nl.md` §3 ("Cloud use is
+Planner: Claude. Parent: [docs/tasks/contracts/milestone-6-nl.md](/tasks/contracts/milestone-6-nl.md) §3 ("Cloud use is
 explicit"), §5.6, M6-1, M6-2, M6-17, M6-18, §6 (6g1).
 
 ## 1. What and why
@@ -611,7 +611,7 @@ Disable each once, confirm the named test fails, restore, report both:
 - Send any field not in §3.4, follow a redirect, or use a proxy.
 - Resolve a host name in `is_loopback`.
 - Change `extraction.rs`, `prompt.rs`, `backend.rs`, any existing test,
-  `crates/cli/`, `crates/core/`, `tests/fixtures/` or `docs/`.
+  `crates/cli/`, `crates/core/`, `tests/fixtures/` or [docs/](/).
 
 ## 6. Checks
 

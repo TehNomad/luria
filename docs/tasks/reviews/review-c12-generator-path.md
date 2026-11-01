@@ -1,7 +1,7 @@
 # Review fix C12: the reference generator hard-codes one machine's path
 
 Status: **Implemented 2026-10-16** by the local worker; accepted on planner review. Regenerated designs.json differs only in the three `reportedBy` strings.
-Planner: Claude. Parent: `docs/tasks/reviews/review-post-m4.md` finding C12.
+Planner: Claude. Parent: [docs/tasks/reviews/review-post-m4.md](/tasks/reviews/review-post-m4.md) finding C12.
 
 ## 1. The defect
 

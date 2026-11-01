@@ -1,7 +1,7 @@
 # Contract 9k — cli: the messages that promise milestone 9
 
 Planner: Claude. Status: implemented. Tier: light (plan M9-10).
-Plan row: `docs/tasks/contracts/milestone-9-editor.md` §7, row 9k.
+Plan row: [docs/tasks/contracts/milestone-9-editor.md](/tasks/contracts/milestone-9-editor.md) §7, row 9k.
 
 ## 1. What this contract builds
 

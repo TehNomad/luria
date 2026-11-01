@@ -18,7 +18,7 @@ one round, reviewed and accepted. Findings from review:
 
 Tier: full
 (D051): it changes lane text, which the layout tables pin. Owner's answer:
-`docs/tasks/contracts/milestone-8m-polish.md` §1, M8-34: "an arrowhead at a lane's 3′
+[docs/tasks/contracts/milestone-8m-polish.md](/tasks/contracts/milestone-8m-polish.md) §1, M8-34: "an arrowhead at a lane's 3′
 end in place of the arrow after the name".
 
 ## 1. What this contract builds

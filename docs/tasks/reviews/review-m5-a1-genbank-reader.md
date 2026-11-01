@@ -1,11 +1,11 @@
 # Review M5 A-1, A-2, A-4, A-5, A-6: the readers drop or misread input
 
 Status: **Implemented 2026-10-18** by the local worker; accepted on planner review. Planner: Claude. Parent:
-`docs/tasks/reviews/review-post-m5.md` A-1, A-2, A-4, A-5 and A-6.
+[docs/tasks/reviews/review-post-m5.md](/tasks/reviews/review-post-m5.md) A-1, A-2, A-4, A-5 and A-6.
 Requirement: D008, which says normalization must never silently "delete
 unexpected symbols", and D009/D041 (G4), under which topology comes from the
 LOCUS line and is never inferred.
-This contract amends `docs/tasks/contracts/milestone-5c2-genbank-record.md` §4.3, §4.5
+This contract amends [docs/tasks/contracts/milestone-5c2-genbank-record.md](/tasks/contracts/milestone-5c2-genbank-record.md) §4.3, §4.5
 and §4.8 as described below. 5c2 stays a historical record: do not edit it.
 Files: `crates/core/src/sequence.rs`, `crates/core/src/genbank.rs`.
 

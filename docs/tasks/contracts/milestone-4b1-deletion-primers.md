@@ -2,7 +2,7 @@
 
 Status: **Implemented 2026-10-15** by the local worker; accepted on planner review (§8).
 Date: 2026-10-15
-Planner: Claude. Parent: `docs/tasks/contracts/milestone-4-indels.md`, pass 3, first
+Planner: Claude. Parent: [docs/tasks/contracts/milestone-4-indels.md](/tasks/contracts/milestone-4-indels.md), pass 3, first
 half. The second half, the design layer, is `milestone-4b2-deletion-design.md`.
 
 ## 1. Goal
@@ -13,7 +13,7 @@ design layer keeps refusing one until 4b-2.
 
 ## 2. Requirements, inline
 
-From **D031** (`docs/decisions/`, approved 2026-10-15). For a deletion of
+From **D031** ([docs/decisions/](/decisions/), approved 2026-10-15). For a deletion of
 `[s, e)` with width `w = e − s`:
 
 - The forward primer's 5′ end is at `e` and it covers `[e, e + f)`. The
@@ -120,7 +120,7 @@ passing `deletion()`. Where a step is expected to fail, assert on the
 - Do not change any existing test or fixture. All 325 existing tests must
   pass unchanged.
 - Do not change the substitution path's behaviour or messages.
-- Do not edit `docs/`.
+- Do not edit [docs/](/).
 
 ## 6. Checks
 

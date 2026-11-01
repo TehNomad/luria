@@ -18,7 +18,7 @@ two rounds, reviewed and accepted. Findings from review:
 
 Tier: light
 (D051): the strip is display only, and the glyphs and scale can change at
-the hand test. Owner's answer: `docs/tasks/contracts/milestone-8m-polish.md` §1,
+the hand test. Owner's answer: [docs/tasks/contracts/milestone-8m-polish.md](/tasks/contracts/milestone-8m-polish.md) §1,
 M8-34: "a GC-content sparkline as a third strip line".
 
 ## 1. What this contract builds

@@ -19,7 +19,7 @@ produced by code under this contract, never by a model.
 
 Each rule below carries the decision that fixes it, or the word **new** when no
 existing decision covers it. New rules are proposals in this document; they are
-not yet recorded in `docs/decisions/` and are not binding until they are.
+not yet recorded in [docs/decisions/](/decisions/) and are not binding until they are.
 
 | Rule | Source |
 | --- | --- |
@@ -725,7 +725,7 @@ Selection and configuration stay separate:
 **Rule (new):** no public API changes in this pass. `PrimerDesign` is not
 implemented — `crates/core/src/primer.rs` delivers `PrimerPair`, `construct_primer`,
 `assemble_pair` and `require_design_constraints`, and §8 of
-`docs/tasks/contracts/milestone-3b-q5-primer-contract.md` records that the output record
+[docs/tasks/contracts/milestone-3b-q5-primer-contract.md](/tasks/contracts/milestone-3b-q5-primer-contract.md) records that the output record
 itself is unimplemented — so the policy fields are contract additions, not API
 additions.
 
@@ -835,7 +835,7 @@ primer keeps a fixed 10-base 5′ flank, both primers grow at their 3′ ends to
 55 °C floor, prefer a G/C last base below 63 °C, and are balanced to within
 5 °C, and the annealing temperature is the lower Tm, rounded to a whole
 degree, + 1 °C, capped at 72 °C (D030 as amended 2026-10-18).
-`docs/decisions/` D030 is the rule and its sources; the text below is kept as
+[docs/decisions/](/decisions/) D030 is the rule and its sources; the text below is kept as
 the record of D029 and still governs scope, hard constraints and the failure
 outcomes, as amended in §18.5. The Tm function is `crates/core/src/tm.rs`
 (SantaLucia & Hicks 2004, Owczarzy 2004), validated as
@@ -1030,8 +1030,8 @@ tool's rule. The reference's code pins the forward primer's 5′ flank at its
 pad of 10 and grows only the 3′ flank toward a Tm target (2026-10-12 review,
 C8; `replay_dispatcher_geometry.py`). Its manual describes the result as
 "at least 10 nucleotides that are 100% complementary on both sides of the
-mutation region" (`docs/references/nbc_help_v284.txt` line 200, quoted at
-`docs/research/nebasechanger-live-build-4330b0c7-2026-10-10.md` §15.4,
+mutation region" ([docs/references/nbc_help_v284.txt](/references/nbc_help_v284.txt) line 200, quoted at
+[docs/research/nebasechanger-live-build-4330b0c7-2026-10-10.md](/research/nebasechanger-live-build-4330b0c7-2026-10-10.md) §15.4,
 `@19261`). `luriaNative` adopts that number as a per-side length floor, and
 nothing else: no Tm growth, no G/C clamp, no Tm balance.
 
@@ -1233,7 +1233,7 @@ This section is the index to the review pass that re-read §§16–20 against th
 stored artifacts. The pass implements nothing: `PrimerDesign` is still not
 implemented, no Rust changed, and no runtime behaviour was added.
 
-**Report:** `docs/research/q5-primer-policy-review-2026-10-12.md`.
+**Report:** [docs/research/q5-primer-policy-review-2026-10-12.md](/research/q5-primer-policy-review-2026-10-12.md).
 
 **What the pass changed in this document, and why:**
 
@@ -1247,7 +1247,7 @@ implemented, no Rust changed, and no runtime behaviour was added.
 | §18.4 closed form and rule | restated for the availability-aware split | consistency with the amended §18.1 |
 | §18.5 failure semantics | one outcome → three named outcomes | the three reasons are distinguishable and the caller needs the difference |
 | §19 unresolved items 1 and 2 | reasons corrected | the Tm gap is an implementation task, not an evidence gap; span equivalence is untestable because the reference reports no spans |
-| §18.5 citation | `D010` → `D005` | `docs/decisions/` D010 is "Initial CDS and translation scope is deliberately narrow"; the fail-closed rule is D005 |
+| §18.5 citation | `D010` → `D005` | [docs/decisions/](/decisions/) D010 is "Initial CDS and translation scope is deliberately narrow"; the fail-closed rule is D005 |
 
 **Superseded in part (2026-10-13, split-policy pass).** Three rows above —
 §18.1 split, §18.3 ordering, §18.4 closed form and rule — describe the split as
@@ -1255,11 +1255,11 @@ it stood after this pass. The 2026-10-13 pass replaced the availability-aware
 split with a mutation-centered split, so those rows are the record of the
 earlier pass and not the current rule; the rows are kept rather than rewritten
 so that the reasoning of both passes stays traceable. See §22 and
-`docs/research/q5-primer-implementation-readiness-2026-10-13.md`.
+[docs/research/q5-primer-implementation-readiness-2026-10-13.md](/research/q5-primer-implementation-readiness-2026-10-13.md).
 
 **Decisions the pass recorded:** D028 (a design names a policy, and a
 compatibility policy names a build) and D029 (the Luria-native candidate
-geometry) in `docs/decisions/`.
+geometry) in [docs/decisions/](/decisions/).
 
 **What the pass left open**, and the smallest experiment that would settle each,
 is §20's table plus the report's Part E. Nothing in §§1–§15 was changed by the
@@ -1273,7 +1273,7 @@ This section indexes the pass that changed the native split rule. The pass
 implements nothing: `PrimerDesign` is still not implemented, no Rust changed,
 and no runtime behaviour was added.
 
-**Report:** `docs/research/q5-primer-implementation-readiness-2026-10-13.md`.
+**Report:** [docs/research/q5-primer-implementation-readiness-2026-10-13.md](/research/q5-primer-implementation-readiness-2026-10-13.md).
 
 **What the pass changed in this document, and why:**
 
@@ -1289,7 +1289,7 @@ and no runtime behaviour was added.
 | §18.5 failure semantics | outcome 1 renamed and required to name the binding side; outcome 2's "one may exist above them" clause dropped; the centered-geometry distinction stated; the error-model gap recorded | under a centered split a shifted candidate is not a design, so a bounded search cannot promise more than a capped one |
 | §21 change table | marked three rows superseded | the rows describe the split as it stood after the 2026-10-12 pass |
 
-**Decisions the pass amended:** D029 in `docs/decisions/`, in place. It stays
+**Decisions the pass amended:** D029 in [docs/decisions/](/decisions/), in place. It stays
 **proposed** and unapproved; the availability-aware split it previously stated
 is recorded as superseded inside the entry.
 
@@ -1309,7 +1309,7 @@ maximum primer length was touched.
 | §18.3 | enumeration starts at `a_f = max(minAnnealingOverlap, 20)`; `maxAnnealingOverlap` removed from the request |
 | §18.4 | closed form restated and checked against full enumeration; the reference comparison corrected: the reference pins its 5′ flank and grows its 3′ flank, and no saved design distinguishes that from centering |
 | §18.5 | outcomes split by cause: *no design possible* (`BiologicalValidation`), *no centered design fits* (`Unsupported`), *not searched*; the `maxAnnealingOverlap` outcome dropped |
-| `docs/decisions/` | D029 rewritten to match |
+| [docs/decisions/](/decisions/) | D029 rewritten to match |
 | §18.3, §18.4, §18.5 | reverse primer floor of 15 bases: `a_r ≥ max(minAnnealingOverlap, 15)` (owner, 2026-10-14) |
 | D029 status | **approved** by the owner, 2026-10-14 |
 | §18.2 | an ambiguity code in the template under the centered pair is *no centered design fits* (point-mutation mode) |

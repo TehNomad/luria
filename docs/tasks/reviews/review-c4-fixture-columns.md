@@ -1,7 +1,7 @@
 # Review fix C4, C6, C9: read every column of `cases.tsv` and the NEBaseChanger files
 
 Status: **Implemented 2026-10-16** by the local worker; accepted on planner review. `cases.tsv` has 14 columns, not 13 as §1 says; all 14 are read and 11 tested. No fixture mismatch was found.
-Planner: Claude. Parent: `docs/tasks/reviews/review-post-m4.md` findings C4, C6, C9.
+Planner: Claude. Parent: [docs/tasks/reviews/review-post-m4.md](/tasks/reviews/review-post-m4.md) findings C4, C6, C9.
 
 ## 1. The gaps
 
@@ -55,7 +55,7 @@ given.
    - `target_tm` equals `request.targetTm` (`55` against `55.0`).
 5. `every_case_names_only_defined_invariants`: every comma-separated token of
    `invariants` is one of `H1`…`H8` or `I-1`…`I-13`
-   (`docs/specs/q5-primer-design.md` §7 and §14.1).
+   ([docs/specs/q5-primer-design.md](/specs/q5-primer-design.md) §7 and §14.1).
 6. `every_reference_check_matches_its_record`:
    - a reference row's `reference_check` starts with `H1=pass` or
      `H1=VIOLATED`, and agrees with the H1 outcome its `designs.json`

@@ -1,7 +1,7 @@
 # Review fix B4: residue verification must check the annotation, not just its name
 
 Status: **Implemented 2026-10-16** by the local worker; accepted on planner review.
-Planner: Claude. Parent: `docs/tasks/reviews/review-post-m4.md` finding B4.
+Planner: Claude. Parent: [docs/tasks/reviews/review-post-m4.md](/tasks/reviews/review-post-m4.md) finding B4.
 
 ## 1. The defect
 
@@ -17,7 +17,7 @@ Two recorded claims are also never re-checked:
 - `original_codon`, the codon the source held at the residue;
 - `actual_original`, the residue the source held.
 
-`docs/specs/q5-sdm.md` §8 justifies `verify` by results that "arrive from
+[docs/specs/q5-sdm.md](/specs/q5-sdm.md) §8 justifies `verify` by results that "arrive from
 elsewhere", and that is exactly where these gaps matter.
 
 ## 2. Requirement (D013, inline)

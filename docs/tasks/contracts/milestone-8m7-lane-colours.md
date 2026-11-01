@@ -2,7 +2,7 @@
 
 Planner: Claude. Status: **Implemented 2026-10-27** by worker `w-8m7` in
 two rounds, reviewed and accepted. Tier: light (D051): the palette can
-change at the hand test. Owner's answer: `docs/tasks/contracts/milestone-8m-polish.md`
+change at the hand test. Owner's answer: [docs/tasks/contracts/milestone-8m-polish.md](/tasks/contracts/milestone-8m-polish.md)
 §1, M8-31. Findings from review:
 
 * G1–G5 each failed the test §7 names. G5's tie case,

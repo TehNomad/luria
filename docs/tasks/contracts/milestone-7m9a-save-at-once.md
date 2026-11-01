@@ -1,7 +1,7 @@
 # Milestone 7m9a: `[ Save and run ]` writes and runs at once
 
 Status: **Implemented, 2026-10-23.** Planner: Claude. Parent:
-`docs/tasks/contracts/milestone-7m-polish.md`, M7-62 to M7-65. Follows 7m8b
+[docs/tasks/contracts/milestone-7m-polish.md](/tasks/contracts/milestone-7m-polish.md), M7-62 to M7-65. Follows 7m8b
 (committed `c1d650f`). 7m9b later removes 7m8a's in-memory run.
 
 ## 1. The owner's answers
@@ -111,13 +111,13 @@ the result `App` gets `.with_reading(lines)`.
 Each old text below occurs exactly once. If one does not, stop and
 report it.
 
-1. `docs/specs/cli.md` §12.1, after the Overlap row, add the row
+1. [docs/specs/cli.md](/specs/cli.md) §12.1, after the Overlap row, add the row
 
    ```
    | Save as | The request file's name: `<name>.request.json`, or `<LOCUS>.request.json` for GenBank, until you change it. |
    ```
 
-2. `docs/specs/cli.md` §12.3: replace the whole paragraph that begins
+2. [docs/specs/cli.md](/specs/cli.md) §12.3: replace the whole paragraph that begins
    `When the model's reading can be saved, luria designs it in memory and`
    and ends `proposal instead, and cannot be saved.` with
 
@@ -133,7 +133,7 @@ report it.
    or `esc` goes back to the form.
    ```
 
-3. `docs/specs/cli.md` §12.4: replace the paragraph from
+3. [docs/specs/cli.md](/specs/cli.md) §12.4: replace the paragraph from
    `` `[ Save and run ]` opens a pop-up with the request's file name, which you ``
    to `pop-up and writes nothing.` with
 
@@ -146,7 +146,7 @@ report it.
    happens once the model has answered.
    ```
 
-4. `docs/decisions/` D047: replace the `luria new` bullet, from
+4. [docs/decisions/](/decisions/) D047: replace the `luria new` bullet, from
    `` * **`luria new`** (M7-31, M7-48). `` to
    `writes nothing and runs nothing.`, with
 
@@ -159,7 +159,7 @@ report it.
      `y`. Quitting before saving writes nothing and runs nothing.
    ```
 
-5. `docs/decisions/` D047's Words bullet: replace
+5. [docs/decisions/](/decisions/) D047's Words bullet: replace
 
    ```
      needs a GenBank template (M6-7). A reading that can be saved is

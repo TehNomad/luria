@@ -1,7 +1,7 @@
 # Review fix C7, C10: unasserted error variants and weak assertions
 
 Status: **Implemented 2026-10-16** by the local worker; accepted on planner review. All three C7 variants are unreachable through the public API and are now documented as defensive checks.
-Planner: Claude. Parent: `docs/tasks/reviews/review-post-m4.md` findings C7, C10.
+Planner: Claude. Parent: [docs/tasks/reviews/review-post-m4.md](/tasks/reviews/review-post-m4.md) findings C7, C10.
 
 ## 1. C7: three primer error variants that no test asserts
 

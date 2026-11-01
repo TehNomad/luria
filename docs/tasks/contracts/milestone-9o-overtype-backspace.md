@@ -1,7 +1,7 @@
 # Contract 9o — cli: `backspace` in `R` brings the base back
 
 Planner: Claude. Status: implemented. Tier: light.
-Plan row: `docs/tasks/contracts/milestone-9-editor.md` §7, row 9o.
+Plan row: [docs/tasks/contracts/milestone-9-editor.md](/tasks/contracts/milestone-9-editor.md) §7, row 9o.
 
 ## 1. What this contract builds
 
@@ -23,11 +23,11 @@ cursor moves onto it. Today `backspace` does nothing in `R` (owner,
 ## 3. Files the worker may touch
 
 1. `crates/cli/src/sequence_view/state.rs`.
-2. `docs/specs/cli.md`: the §13.7 `backspace` row only, which becomes `In
+2. [docs/specs/cli.md](/specs/cli.md): the §13.7 `backspace` row only, which becomes `In
    `i`, `a` and `R`: take back the last base you typed. It never removes
    a base that was there before; in `R` the base that was there comes
    back`.
-3. `docs/decisions/`: in D060, the words `In `i` and `a`, `backspace`
+3. [docs/decisions/](/decisions/): in D060, the words `In `i` and `a`, `backspace`
    takes back only bases typed in the current command` become
    ``backspace` takes back only bases typed in the current command; in
    `R` the overtyped base comes back (contract 9o)`.

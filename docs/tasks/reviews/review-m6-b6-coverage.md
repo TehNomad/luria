@@ -1,14 +1,14 @@
 # Review M6 B-6, B-8: nothing dropped, nothing repeated (D045)
 
 Status: **Implemented 2026-10-20** by the local worker; accepted on planner
-review. Planner: Claude. Parent: `docs/tasks/reviews/review-post-m6.md` B-6,
+review. Planner: Claude. Parent: [docs/tasks/reviews/review-post-m6.md](/tasks/reviews/review-post-m6.md) B-6,
 B-8. Owner answers, 2026-10-20: "Scan for notation tokens" and "Ask in
 interpret".
 
 Files (no others):
 - `crates/cli/src/interpret/build.rs`
 - `crates/cli/tests/documented_interpret.rs` (two lines, §2.4)
-- `docs/specs/cli.md` (two table rows of §10.6, and one sentence, §2.4)
+- [docs/specs/cli.md](/specs/cli.md) (two table rows of §10.6, and one sentence, §2.4)
 
 ## 1. Defects
 
@@ -90,13 +90,13 @@ not detected.
 - `crates/cli/tests/documented_interpret.rs`: add
   `QuestionCode::MutationRepeated,` and `QuestionCode::MutationNotExtracted,`
   right after `QuestionCode::MutationQuoteAmbiguous,`.
-- `docs/specs/cli.md` §10.6: right after the `mutation_quote_ambiguous` row, add
+- [docs/specs/cli.md](/specs/cli.md) §10.6: right after the `mutation_quote_ambiguous` row, add
   exactly:
   ```
   | `mutation_repeated` | The same substitution is listed twice. |
   | `mutation_not_extracted` | Your text holds a substitution such as `A42G` that the reply does not list. |
   ```
-- `docs/specs/cli.md` §10.6: after the paragraph that starts "All the questions
+- [docs/specs/cli.md](/specs/cli.md) §10.6: after the paragraph that starts "All the questions
   are asked at once.", add a paragraph, exactly:
   ```
   luria checks that every substitution written as a token (`A42G`,

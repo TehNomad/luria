@@ -3,7 +3,7 @@
 Status: **Implemented 2026-10-19** by the local worker; accepted on the first
 review. The unreachable branch of §3.3 step 4 (an import that returns no CDS)
 returns core's own `NotFound` refusal for the id; no test reaches it.
-Planner: Claude. Parent: `docs/tasks/contracts/milestone-6-nl.md` §3 ("What leaves
+Planner: Claude. Parent: [docs/tasks/contracts/milestone-6-nl.md](/tasks/contracts/milestone-6-nl.md) §3 ("What leaves
 the machine"), §5.5, M6-4, §6 (6c).
 
 ## 1. What and why
@@ -309,7 +309,7 @@ Disable each once, confirm the named test fails, restore, report both:
   other way than §3.3 step 4.
 - Render the catalogue as text for a prompt: that is 6f.
 - Add a dependency, or make `luria-cli` depend on `luria-nl`.
-- Change `luria-core`, `tests/fixtures/`, `docs/`, or any existing file
+- Change `luria-core`, `tests/fixtures/`, [docs/](/), or any existing file
   under `crates/cli/` other than the one line in `interpret.rs`.
 - Panic on any record. `catalogue` returns a `DomainError` instead.
 

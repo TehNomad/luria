@@ -1,8 +1,8 @@
 # Review M5 C-3, C-7, C-8, C-13: CLI test gaps
 
 Status: **Implemented 2026-10-18** by the local worker; accepted after one round (the `pair_summary` amendment in §2.3). Planner: Claude. Parent:
-`docs/tasks/reviews/review-post-m5.md` C-3, C-7, C-8 and C-13. Requirements:
-`docs/tasks/contracts/milestone-5-cli.md` §6 (end-to-end cases against
+[docs/tasks/reviews/review-post-m5.md](/tasks/reviews/review-post-m5.md) C-3, C-7, C-8 and C-13. Requirements:
+[docs/tasks/contracts/milestone-5-cli.md](/tasks/contracts/milestone-5-cli.md) §6 (end-to-end cases against
 independently verified fixtures; each case run twice, byte-identical, D012),
 D030 (annealing temperature: the lower Tm rounded half up, plus 1 °C, capped
 at 72 °C), D040 (codon coordinates in feature interval order).

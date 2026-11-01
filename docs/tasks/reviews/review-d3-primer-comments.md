@@ -1,13 +1,13 @@
 # Review cleanup D3: comments in `primer.rs` and `primer_design.rs`
 
 Status: **Implemented 2026-10-16** by the local worker; accepted on planner review. The worker found that D035 misdescribed the code (circular templates are refused, not designed as linear); corrected in docs separately.
-Planner: Claude. Parent: `docs/tasks/reviews/review-post-m4.md` §D.
+Planner: Claude. Parent: [docs/tasks/reviews/review-post-m4.md](/tasks/reviews/review-post-m4.md) §D.
 
 **Comments only.** No code, string, test or behavior change.
 
 ## 1. Rules
 
-Follow §2 of `docs/tasks/reviews/review-d1-q5-comments.md` exactly; its 11 rules
+Follow §2 of [docs/tasks/reviews/review-d1-q5-comments.md](/tasks/reviews/review-d1-q5-comments.md) exactly; its 11 rules
 apply here unchanged. In short:
 - describe the code as it is now;
 - keep every D-number, spec section, H/I invariant and owner decision that
@@ -77,7 +77,7 @@ apply here unchanged. In short:
 
 ## 4. Guard
 
-Run the §5 guard of `docs/tasks/reviews/review-d1-q5-comments.md`, with these file
+Run the §5 guard of [docs/tasks/reviews/review-d1-q5-comments.md](/tasks/reviews/review-d1-q5-comments.md), with these file
 arguments:
 
 ```

@@ -1,7 +1,7 @@
 # Milestone 7m2: export names constructs by template, and asks before replacing
 
 Status: **Implemented, 2026-10-22.** Planner:
-Claude. Parent: `docs/tasks/contracts/milestone-7m-polish.md`, M7-57 and the export
+Claude. Parent: [docs/tasks/contracts/milestone-7m-polish.md](/tasks/contracts/milestone-7m-polish.md), M7-57 and the export
 half of M7-49.
 
 ## 1. The owner's answers this contract applies

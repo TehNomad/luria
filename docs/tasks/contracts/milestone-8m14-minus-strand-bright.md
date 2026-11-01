@@ -16,7 +16,7 @@ three rounds, reviewed and accepted. Findings from review:
 * G1–G4 each failed the test §8 names.
 
 Tier:
-light (D051): drawing only. Owner's answer: `docs/tasks/contracts/milestone-8m-polish.md`
+light (D051): drawing only. Owner's answer: [docs/tasks/contracts/milestone-8m-polish.md](/tasks/contracts/milestone-8m-polish.md)
 §1, M8-36.
 
 ## 1. What this contract builds

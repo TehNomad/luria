@@ -16,7 +16,7 @@ two rounds, reviewed and accepted. Findings from review:
 * G1–G3 each failed the tests §8 names.
 
 Tier: light
-(D051): cursor landing only. Owner's answer: `docs/tasks/contracts/milestone-8m-polish.md`
+(D051): cursor landing only. Owner's answer: [docs/tasks/contracts/milestone-8m-polish.md](/tasks/contracts/milestone-8m-polish.md)
 §1, M8-35.
 
 ## 1. What this contract builds

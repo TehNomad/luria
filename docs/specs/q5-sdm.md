@@ -2,9 +2,9 @@
 
 Status: Contract for the implemented slice; open decisions are marked
 Date: 2026-10-11; current-state note added 2026-10-16
-Implements: `docs/decisions/` D005, D006, D007, D011, D013, D014, D016,
-D020, D021; the Q5 workflow boundary in `docs/product/brief.md`; the
-mutation-domain contract in `docs/tasks/contracts/milestone-2-mutation.md`.
+Implements: [docs/decisions/](/decisions/) D005, D006, D007, D011, D013, D014, D016,
+D020, D021; the Q5 workflow boundary in [docs/product/brief.md](/product/brief.md); the
+mutation-domain contract in [docs/tasks/contracts/milestone-2-mutation.md](/tasks/contracts/milestone-2-mutation.md).
 Code: `crates/core/src/q5.rs`.
 
 **Current state (2026-10-16).** This document was written before primer
@@ -15,7 +15,7 @@ Milestone 4 added deletions, insertions, unequal replacements and degenerate
 expansion (D031–D033) to the intents `q5.rs` carries, with frameshift
 warnings. Read statements below that "no design rule is written" or that
 indels are out of scope as superseded. `q5.rs` itself still designs no
-primer. Where this document and `docs/decisions/` disagree, the decisions
+primer. Where this document and [docs/decisions/](/decisions/) disagree, the decisions
 win.
 
 This document is the specification of the part of the Q5 workflow that
@@ -29,9 +29,9 @@ document does not invent a rule to make it able to.
 
 Milestone 3b wrote the contract that bounds such a design layer, and marked
 which of those rules are settled, which are preferences, and which remain
-unknown: `docs/specs/q5-primer-design.md`, with its fixture set in
+unknown: [docs/specs/q5-primer-design.md](/specs/q5-primer-design.md), with its fixture set in
 `tests/fixtures/q5-primer/` and its task contract in
-`docs/tasks/contracts/milestone-3b-q5-primer-contract.md`. That document specifies a
+[docs/tasks/contracts/milestone-3b-q5-primer-contract.md](/tasks/contracts/milestone-3b-q5-primer-contract.md). That document specifies a
 layer `q5.rs` does not contain. It fixes what any design result must report —
 strand, 5′→3′ orientation, spans against the pristine template, an overlap
 that is counted position by position — and it records the thermodynamic rules
@@ -44,22 +44,22 @@ substitution path — `crates/core/src/primer_design.rs`, implementing D029's
 `crates/core/src/q5_design.rs`. Everything above still holds of `q5.rs`
 itself: it designs nothing, reads no design document, and gained no field, no
 function and no dependency. The wiring is specified in
-`docs/tasks/contracts/milestone-3c-q5-design-wiring.md` and summarised in §13; the Tm
+[docs/tasks/contracts/milestone-3c-q5-design-wiring.md](/tasks/contracts/milestone-3c-q5-design-wiring.md) and summarised in §13; the Tm
 rules remain unwritten, so no thermodynamic value is calculated anywhere.
 
 Source labels used below and in the traceability table:
 
-* **brief** — `docs/product/brief.md`.
-* **D0xx** — `docs/decisions/`.
-* **M2** — `docs/tasks/contracts/milestone-2-mutation.md`, the mutation-domain contract.
-* **M1** — `docs/tasks/contracts/milestone-1-core-foundation.md`.
+* **brief** — [docs/product/brief.md](/product/brief.md).
+* **D0xx** — [docs/decisions/](/decisions/).
+* **M2** — [docs/tasks/contracts/milestone-2-mutation.md](/tasks/contracts/milestone-2-mutation.md), the mutation-domain contract.
+* **M1** — [docs/tasks/contracts/milestone-1-core-foundation.md](/tasks/contracts/milestone-1-core-foundation.md).
 * **impl** — current behavior of `crates/core/src/q5.rs`, recorded here so a
   caller can tell implementation apart from requirement.
 * **proposed** — a decision this task made, not settled by the sources above.
 * **open** — a question the sources do not settle; no behavior is claimed.
 
 Where two sources say different things, the difference is recorded as a
-difference, not resolved into agreement. `docs/decisions/` wins over a
+difference, not resolved into agreement. [docs/decisions/](/decisions/) wins over a
 task record when they contradict (both records say so).
 
 ## 1. Inputs, and what the user has and has not identified
@@ -456,7 +456,7 @@ translation is not checked. A scoped substitution that writes a premature
 stop (`TGG` → `TAG`) comes back `Verified` with no warning. D013 asks for
 "the resulting translation where applicable"; whether this applies to
 DNA-level edits is an owner decision
-(`docs/tasks/reviews/review-post-m4.md` A5).
+([docs/tasks/reviews/review-post-m4.md](/tasks/reviews/review-post-m4.md) A5).
 
 Verification does not re-derive the residue-to-coordinate mapping: that is
 the generator's responsibility, checked by the residue and codon claims
@@ -599,7 +599,7 @@ one answer:
 Out of scope when this section was written, and now specified elsewhere:
 candidate generation, primer orientation, thermodynamic calculation method,
 sequence constraints and rejection criteria (D029–D033,
-`docs/specs/q5-primer-design.md`), and edit warnings (frameshift, D031–D033).
+[docs/specs/q5-primer-design.md](/specs/q5-primer-design.md)), and edit warnings (frameshift, D031–D033).
 Comparison with external tools (NEBaseChanger fixtures under
 `tests/fixtures/nebasechanger-research/`) is development validation, not
 proof of experimental success (D014), and no comparison is claimed here.

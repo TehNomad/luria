@@ -1,7 +1,7 @@
 # Contract 9c2 — core: writing a location back as GenBank text
 
 Planner: Claude. Status: implemented. Tier: full.
-Plan row: `docs/tasks/contracts/milestone-9-editor.md` §7, row 9c2.
+Plan row: [docs/tasks/contracts/milestone-9-editor.md](/tasks/contracts/milestone-9-editor.md) §7, row 9c2.
 
 ## 1. What this contract builds
 

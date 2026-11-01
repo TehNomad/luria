@@ -5,7 +5,7 @@ first review. Notes: the `EditWarningView` and `PrimerWarningView` code
 helpers are not written, since 7c1 does not use them (an unused one fails
 clippy); 7c2 adds them. A member with both a design and a failure (core
 forbids it) would print `designed`. Planner:
-Claude. Parent: `docs/tasks/contracts/milestone-7-tui.md` §3 rules 1 and 3, §5.2
+Claude. Parent: [docs/tasks/contracts/milestone-7-tui.md](/tasks/contracts/milestone-7-tui.md) §3 rules 1 and 3, §5.2
 screens 2, 5 and 6, §6 (7c). The member screen's text is 7c2; drawing
 these lines, with scrolling, is 7c3.
 
@@ -209,7 +209,7 @@ Disable each once, run, confirm the named test fails, restore, report:
 - Change only `crates/cli/src/review.rs` (the one `pub mod` line),
   `crates/cli/src/review/text.rs` and `crates/cli/tests/review_text.rs`.
 - Do not change `app.rs`, `view.rs`, `terminal.rs`, `main.rs`, any other
-  test, any fixture, `docs/`, any `Cargo.toml` or `vendor/`.
+  test, any fixture, [docs/](/), any `Cargo.toml` or `vendor/`.
 - Do not draw anything; 7c3 draws these lines.
 - Do not compute a value, round a float, or translate a codon.
 - Do not add dependencies. Do not stage or commit.

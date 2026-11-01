@@ -3,7 +3,7 @@
 Planner: Claude. Status: **implemented 2026-10-29** (w-9b, two rounds:
 round 2 kept a `)` after a plain `pos:`). All ten §7 proofs failed as
 required; test 8 ran in 0.35 s. Tier: full.
-Plan row: `docs/tasks/contracts/milestone-9-editor.md` §7, row 9b.
+Plan row: [docs/tasks/contracts/milestone-9-editor.md](/tasks/contracts/milestone-9-editor.md) §7, row 9b.
 
 ## 1. What this contract builds
 

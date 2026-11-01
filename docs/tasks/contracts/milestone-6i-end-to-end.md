@@ -2,7 +2,7 @@
 
 Status: **Implemented 2026-10-19** by the local worker; accepted on the first
 review.
-Planner: Claude. Parent: `docs/tasks/contracts/milestone-6-nl.md` §1 ("The milestone
+Planner: Claude. Parent: [docs/tasks/contracts/milestone-6-nl.md](/tasks/contracts/milestone-6-nl.md) §1 ("The milestone
 succeeds when..."), §8, §6 (6i); the product brief's "Definition of
 success": *natural language can produce the same typed operation and
 deterministic scientific result without changing the underlying

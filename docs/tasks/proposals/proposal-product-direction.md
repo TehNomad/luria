@@ -2,7 +2,7 @@
 
 Status: **Draft for the owner, 2026-10-23. Not approved and not a task
 contract.** If approved, it replaces the "Purpose", "Product thesis" and
-"Subsequent milestones" parts of `docs/product/brief.md` and supersedes
+"Subsequent milestones" parts of [docs/product/brief.md](/product/brief.md) and supersedes
 D034's milestone order. Companion drafts: `proposal-decision-triage.md`,
 `proposal-sequence-view.md` and `proposal-commands.md`.
 

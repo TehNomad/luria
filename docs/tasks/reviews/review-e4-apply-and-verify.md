@@ -1,7 +1,7 @@
 # Review refactor E4 and fix B11: the `apply_*` scope check, and `verify` without `unreachable!`
 
 Status: **Implemented 2026-10-16** by the local worker; accepted on planner review.
-Planner: Claude. Parent: `docs/tasks/reviews/review-post-m4.md` findings E4 and B11.
+Planner: Claude. Parent: [docs/tasks/reviews/review-post-m4.md](/tasks/reviews/review-post-m4.md) findings E4 and B11.
 
 **Behavior-preserving.** Every existing test must pass unchanged. Every error
 payload must be byte-identical, and the order of checks must not change.
@@ -62,7 +62,7 @@ Keep the order of checks inside each arm exactly as it is today.
 ## 3. Guards
 
 - `python3 -I target/api_guard.py crates/core/src/mutation.rs` prints nothing
-  and exits 0. The script is in `docs/tasks/reviews/review-e1-design-paths.md` §3.
+  and exits 0. The script is in [docs/tasks/reviews/review-e1-design-paths.md](/tasks/reviews/review-e1-design-paths.md) §3.
 - There is no change below `mutation.rs`'s `#[cfg(test)]` line, and none
   under `crates/core/tests/`.
 - `grep -n 'unreachable!' crates/core/src/mutation.rs` shows no hit in

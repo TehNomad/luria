@@ -2,7 +2,7 @@
 
 Planner: Claude. Status: implemented. Tier: light, with the core undo full
 (plan M9-10).
-Plan row: `docs/tasks/contracts/milestone-9-editor.md` §7, row 9g.
+Plan row: [docs/tasks/contracts/milestone-9-editor.md](/tasks/contracts/milestone-9-editor.md) §7, row 9g.
 
 ## 1. What this contract builds
 

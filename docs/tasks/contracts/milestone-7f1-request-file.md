@@ -3,7 +3,7 @@
 Status: **Implemented 2026-10-21** by the local worker; accepted on the
 first review. `run.rs`'s own unit test `a_write_never_replaces_a_file` had
 its three `write_new` calls renamed, its assertions unchanged. Planner:
-Claude. Parent: `docs/tasks/contracts/milestone-7-tui.md` §3 rule 4 ("Approving
+Claude. Parent: [docs/tasks/contracts/milestone-7-tui.md](/tasks/contracts/milestone-7-tui.md) §3 rule 4 ("Approving
 shows the request file's path first; the file follows `--write-request`'s
 rules"), §6 (7f). A refactor with no change in behaviour; 7f2 uses it.
 
@@ -12,7 +12,7 @@ rules"), §6 (7f). A refactor with no change in behaviour; 7f2 uses it.
 In the TUI flow (M7-1), `interpret` runs **without** writing the request.
 The user reads the proposal; only on approval is the request written and
 designed. The file must follow exactly the rules `luria q5 interpret
---write-request` follows today (`docs/specs/cli.md` §10.5, §10.7): beside the
+--write-request` follows today ([docs/specs/cli.md](/specs/cli.md) §10.5, §10.7): beside the
 template, a name that is a file, never replacing anything, written
 atomically. Those rules live inside `interpret`'s steps 4 and 8
 (`crates/cli/src/interpret/run.rs`). This contract moves them into three
@@ -84,7 +84,7 @@ new function. Restore, and report the run.
 - Change only `crates/cli/src/interpret/run.rs` and, if you choose, the
   new `crates/cli/tests/request_file.rs`.
 - Do not change any code, message or exit status `interpret` produces.
-- Do not change other files, tests, fixtures, `docs/`, any `Cargo.toml`
+- Do not change other files, tests, fixtures, [docs/](/), any `Cargo.toml`
   or `vendor/`. Do not add dependencies. Do not stage or commit.
 
 ## 5. Checks

@@ -1,7 +1,7 @@
 # Review A4: refuse circular features split away from the origin (D036)
 
 Status: **Implemented 2026-10-16** by the local worker; accepted on planner review.
-Planner: Claude. Parent: `docs/tasks/reviews/review-post-m4.md` A4. Decision: D036.
+Planner: Claude. Parent: [docs/tasks/reviews/review-post-m4.md](/tasks/reviews/review-post-m4.md) A4. Decision: D036.
 
 ## 1. Requirement (D036, inline)
 

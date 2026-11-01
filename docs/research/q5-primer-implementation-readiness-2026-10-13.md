@@ -14,7 +14,7 @@ exists, and no runtime behaviour changed. The pass is documentation and audit.
 D029 remains **proposed and unapproved**.
 
 **Supersedes / is superseded by.** This pass supersedes the split rule recorded
-by `docs/research/q5-primer-policy-review-2026-10-12.md` (A8, Part D item 4,
+by [docs/research/q5-primer-policy-review-2026-10-12.md](/research/q5-primer-policy-review-2026-10-12.md) (A8, Part D item 4,
 Part E's D029 bullet, D-5's "the split of `a_f` among ties" row). That report
 carries a dated supersession note at its head and is otherwise unchanged.
 Everything that report established about evidence, enumeration, test plans and
@@ -90,8 +90,8 @@ The reference tool's short-substitution path is described, in the saved in-app
 help text, as anchoring the center of the primer to the nucleotide region and
 extending in both the 5′ and 3′ directions "so that there are at least 10
 nucleotides that are 100% complementary on both sides of the mutation region"
-(`docs/references/nbc_help_v284.txt` line 200; quoted at
-`docs/research/nebasechanger-live-build-4330b0c7-2026-10-10.md` §15.4,
+([docs/references/nbc_help_v284.txt](/references/nbc_help_v284.txt) line 200; quoted at
+[docs/research/nebasechanger-live-build-4330b0c7-2026-10-10.md](/research/nebasechanger-live-build-4330b0c7-2026-10-10.md) §15.4,
 `@19261`). That is source evidence about that path.
 
 Three things stay separate, and the pass keeps them separate:
@@ -125,7 +125,7 @@ primer length 16), while the reference design carries `a_f = 20` (primer length
 
 | File | Where | Change |
 | --- | --- | --- |
-| `docs/specs/q5-primer-design.md` | §1 rule table | added the centered-split rule (it was unlisted, so a reader of §1 could not see it) |
+| [docs/specs/q5-primer-design.md](/specs/q5-primer-design.md) | §1 rule table | added the centered-split rule (it was unlisted, so a reader of §1 could not see it) |
 | | §18.1 | split replaced: availability-aware → mutation-centered; `u`, `v` restated as unchanged template-derived flanks with `a_f = u + v` excluding the replacement; availability restated as a feasibility test on the centered candidate; multi-base statement added; the 2026-10-12 amendment kept and labelled superseded |
 | | §18.2 | added that the centered split fixes the candidate set, and that availability and alphabet remain the hard feasibility tests — hard constraints and candidate-generation rules kept visibly separate |
 | | §18.3 | third ordering key `u ≥ v` still removed, reason restated (it is now true by construction, so as a key it orders nothing); monotonicity consequence added: availability is monotone along the order, so the first candidate is the only one that can fit under the initial policy |
@@ -133,12 +133,12 @@ primer length 16), while the reference design carries `a_f = 20` (primer length
 | | §18.5 | outcome 1 renamed to *no centered candidate fits* and required to name the binding side; outcome 2's "one may exist above them" clause dropped (unsound under a monotone availability test); the centered-geometry distinction stated; the error-model gap recorded |
 | | §21 change table | three rows marked superseded, kept rather than rewritten |
 | | §22 (new) | index to this pass, mirroring §21's form |
-| `docs/decisions/` | D029 | amended in place: status line added (proposed, not approved); split bullet replaced; `a_f` notation clarified; Reason rewritten (centered rationale, superseded rule named, reference wording kept as evidence about the reference path); Evidence gained the help-text citation; Consequences gained the closed form, the `maxAnnealingOverlap` monotonicity, and the error-carrier gap; Reversibility gained that reverting is a policy change needing approval |
-| `docs/tasks/contracts/milestone-3b-q5-primer-contract.md` | §8 "Still open" | amended: a rule for the annealing boundary is now *proposed* under D029, not settled; D029's unapproved status stated; nothing in the implementation pass changed |
-| `docs/research/q5-primer-policy-review-2026-10-12.md` | head | dated supersession note naming the four passages that changed meaning; body otherwise intact |
+| [docs/decisions/](/decisions/) | D029 | amended in place: status line added (proposed, not approved); split bullet replaced; `a_f` notation clarified; Reason rewritten (centered rationale, superseded rule named, reference wording kept as evidence about the reference path); Evidence gained the help-text citation; Consequences gained the closed form, the `maxAnnealingOverlap` monotonicity, and the error-carrier gap; Reversibility gained that reverting is a policy change needing approval |
+| [docs/tasks/contracts/milestone-3b-q5-primer-contract.md](/tasks/contracts/milestone-3b-q5-primer-contract.md) | §8 "Still open" | amended: a rule for the annealing boundary is now *proposed* under D029, not settled; D029's unapproved status stated; nothing in the implementation pass changed |
+| [docs/research/q5-primer-policy-review-2026-10-12.md](/research/q5-primer-policy-review-2026-10-12.md) | head | dated supersession note naming the four passages that changed meaning; body otherwise intact |
 | this file | — | the record and the audit |
 
-`docs/specs/q5-sdm.md`, `docs/tasks/contracts/milestone-3-q5-workflow.md`,
+[docs/specs/q5-sdm.md](/specs/q5-sdm.md), [docs/tasks/contracts/milestone-3-q5-workflow.md](/tasks/contracts/milestone-3-q5-workflow.md),
 `tests/fixtures/q5-primer/README.md` and `tests/fixtures/q5-primer/cases.tsv`
 were inspected and **not** changed: they carry no split rule. Their
 `split`/`boundary` vocabulary is about primer decomposition and the reference
@@ -236,7 +236,7 @@ anything about the reference.
 | # | Blocker | Blocks | Smallest next step | Who decides |
 | --- | --- | --- | --- | --- |
 | **P0-1** | No `PrimerDesign` type, no design-parameter fields on `Q5SdmRequest`, no entry point from `MutationResult` to `PrimerPair` | any implementation of §18 | add the typed design record and the request fields, mirroring §2.2's names, before any search code | contract (mechanical once §2.2's names are fixed) |
-| **P0-2** | No error carrier for §18.5 outcomes 1 and 2, and no stated `ErrorCategory` for them | reporting a centered-geometry absence at all; the distinction §18.5 requires | propose the variant and its category in `docs/decisions/` as a decision, then implement | **human** — the category is a contract choice (D005's fail-closed rule does not pick it) |
+| **P0-2** | No error carrier for §18.5 outcomes 1 and 2, and no stated `ErrorCategory` for them | reporting a centered-geometry absence at all; the distinction §18.5 requires | propose the variant and its category in [docs/decisions/](/decisions/) as a decision, then implement | **human** — the category is a contract choice (D005's fail-closed rule does not pick it) |
 | **P0-3** | D029 is **proposed and unapproved**; §18 is a contract, not a decision | implementing the centered split as *the* policy rather than a candidate | human approval of D029 as amended | **human** |
 | **P1-1** | No fixture states a `luriaNative` expectation, and no case distinguishes the centered rule from the superseded availability-aware rule | any test that would notice the policy changed | add one case: an edit near a template end where the availability-aware rule would have designed and the centered rule reports no design (worked example, Part 5). Its expected outcome under the centered policy is a no-design report naming the binding side | expectation is **human**-gated by D029; the case itself is mechanical |
 | **P1-2** | No Rust test reads `tests/fixtures/q5-primer/` | turning the existing corpus into a check | a reader for `cases.tsv` + `designs.json` asserting the invariants I-1…I-13 against the reference designs, without asserting algorithm-specific text | mechanical |
@@ -323,7 +323,7 @@ edited by this pass.
 
 | Check | Result |
 | --- | --- |
-| `git status --short --branch` | branch `feat/milestone-3`, tracking `origin/feat/milestone-3`; modified: `crates/core/src/{error,lib,q5}.rs`, `crates/core/tests/{core_foundation,mutation_fixtures,mutation_invariants}.rs`, `docs/decisions/`, `tests/fixtures/README.md`; untracked: `crates/core/src/primer.rs`, `docs/specs/q5-primer-design.md`, `docs/specs/q5-sdm.md`, `docs/research/`, `docs/tasks/contracts/milestone-3{,-b}*.md`, `package.json`, `package-lock.json`, `tests/fixtures/{nebasechanger-research,q5-primer}/`. Nothing staged, committed, discarded or moved |
+| `git status --short --branch` | branch `feat/milestone-3`, tracking `origin/feat/milestone-3`; modified: `crates/core/src/{error,lib,q5}.rs`, `crates/core/tests/{core_foundation,mutation_fixtures,mutation_invariants}.rs`, [docs/decisions/](/decisions/), `tests/fixtures/README.md`; untracked: `crates/core/src/primer.rs`, [docs/specs/q5-primer-design.md](/specs/q5-primer-design.md), [docs/specs/q5-sdm.md](/specs/q5-sdm.md), [docs/research/](/research/), `docs/tasks/contracts/milestone-3{,-b}*.md`, `package.json`, `package-lock.json`, `tests/fixtures/{nebasechanger-research,q5-primer}/`. Nothing staged, committed, discarded or moved |
 | `cargo fmt --all -- --check` | clean (exit 0) |
 | `cargo build` | `luria-core` built, 0 errors, 0 warnings |
 | `cargo test --workspace` | 207 tests, **0 failures** (179 + 8 + 6 + 14, plus 0 doc-tests) |
@@ -334,9 +334,9 @@ Documentation checks:
 
 | Check | Result |
 | --- | --- |
-| `rg -n "availability-aware" docs/` | 4 files, 24 lines: this report (6), `q5-primer-policy-review-2026-10-12.md` (6: head note, A8, D-5, Part D item 4, Part E's D029 bullet, handoff bullet), `docs/decisions/` (4: status line, Reason, Consequences, Reversibility), `docs/specs/q5-primer-design.md` (8: §18.1 superseded note ×2, three §21 rows, the note beneath that table, two §22 rows). Every statement of the rule that is **live** is the centered one; every availability-aware statement is labelled superseded or records the earlier pass |
-| `rg -n "arbitrary among ties" docs/` | 4 lines, all in changed-or-superseded context: this report (2), the 2026-10-12 report's head note (1), `docs/specs/q5-primer-design.md` §22's row saying the rule was replaced (1). No live rule calls the split arbitrary |
-| centered rule present where the rule belongs | `docs/specs/q5-primer-design.md` §1 table, §18.1, §18.4, §22; `docs/decisions/` D029 |
+| `rg -n "availability-aware" docs/` | 4 files, 24 lines: this report (6), `q5-primer-policy-review-2026-10-12.md` (6: head note, A8, D-5, Part D item 4, Part E's D029 bullet, handoff bullet), [docs/decisions/](/decisions/) (4: status line, Reason, Consequences, Reversibility), [docs/specs/q5-primer-design.md](/specs/q5-primer-design.md) (8: §18.1 superseded note ×2, three §21 rows, the note beneath that table, two §22 rows). Every statement of the rule that is **live** is the centered one; every availability-aware statement is labelled superseded or records the earlier pass |
+| `rg -n "arbitrary among ties" docs/` | 4 lines, all in changed-or-superseded context: this report (2), the 2026-10-12 report's head note (1), [docs/specs/q5-primer-design.md](/specs/q5-primer-design.md) §22's row saying the rule was replaced (1). No live rule calls the split arbitrary |
+| centered rule present where the rule belongs | [docs/specs/q5-primer-design.md](/specs/q5-primer-design.md) §1 table, §18.1, §18.4, §22; [docs/decisions/](/decisions/) D029 |
 | D029 status | "proposed, not yet approved" stated in the entry; the file's global approval header unchanged |
 | No Rust touched | `git status` shows the same Rust files as before the pass; `crates/core/src/primer.rs` still untracked and byte-identical (not opened for editing) |
 

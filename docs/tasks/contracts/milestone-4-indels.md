@@ -49,8 +49,8 @@ Each of these is a fact about the code as it stands, not a design choice:
 7. **There is no reference design to check against.** The research notes
    record that the reference tool routes insertions and deletions to its
    fragment path, which this project never investigated
-   (`docs/research/nebasechanger-live-build-4330b0c7-2026-10-10.md` §17.8
-   item 1, via `docs/specs/q5-primer-design.md` §19). So unlike substitutions,
+   ([docs/research/nebasechanger-live-build-4330b0c7-2026-10-10.md](/research/nebasechanger-live-build-4330b0c7-2026-10-10.md) §17.8
+   item 1, via [docs/specs/q5-primer-design.md](/specs/q5-primer-design.md) §19). So unlike substitutions,
    there is no captured external design to compare against, and D014's
    "comparison is development validation, not proof" leaves us with no
    comparison at all.
@@ -73,7 +73,7 @@ plasmid outward from the junction; the product is then circularised. So:
   primer (or split across both), with the annealing portions abutting on the
   template. The tail does not anneal, which is why the contract already
   separates a primer's `tail` from its `annealing` portion
-  (`docs/specs/q5-primer-design.md` §5) and why `minAnnealingOverlap` is about the
+  ([docs/specs/q5-primer-design.md](/specs/q5-primer-design.md) §5) and why `minAnnealingOverlap` is about the
   annealing portion only.
 
 Two consequences that matter for §4:
@@ -155,7 +155,7 @@ For an insertion the inserted bases must be carried as a 5′ tail. Options:
    all (§4.5).
 2. **Split between the two primers.** The reference tool's own UI text
    mentions splitting a long insertion across both primers
-   (`docs/research/nebasechanger-client-investigation.md`, the
+   ([docs/research/nebasechanger-client-investigation.md](/research/nebasechanger-client-investigation.md), the
    `seqfpflap`/`seqrpflap` fields at the call site suggest a 6-base
    threshold). Balances the two primers; needs a documented split rule, which
    we do not have, and the fragment path it comes from was never
@@ -208,7 +208,7 @@ on its own.
 | 4.6 scope order | **Option 1**: deletion, then insertion, then unequal replacement |
 
 **Note on 4.4, to settle before pass 4.** The reference tool's own help
-text (`docs/references/nbc_help_v284.txt`, lines 26–28, 67–69, 155–157) does not
+text ([docs/references/nbc_help_v284.txt](/references/nbc_help_v284.txt), lines 26–28, 67–69, 155–157) does not
 quite match "confine on = one primer, off = split":
 
 - **Insertions are always 5′ tails**, whatever the option. Splitting is by
@@ -224,7 +224,7 @@ quite match "confine on = one primer, off = split":
 - **The split rule itself is unsubstantiated.** The extracted code has a split
   point `ceil(target.length / 2)`, but a recorded run of it attached an
   8-nt replacement whole to the forward primer with an empty reverse tail
-  (`docs/research/nebasechanger-cycles-1-4-2026-10-10.md` §6.1), which
+  ([docs/research/nebasechanger-cycles-1-4-2026-10-10.md](/research/nebasechanger-cycles-1-4-2026-10-10.md) §6.1), which
   contradicts the help text's ">6 split". The research table rates the
   tail and split behaviour "Medium: bundle + help text; not executed".
 
@@ -247,7 +247,7 @@ affects passes 1–3: a deletion carries no tail.
 ### 4.8 D031: deletion primer geometry
 
 **Approved by the owner 2026-10-15 as drafted below**; recorded as D031 in
-`docs/decisions/`. The frameshift question at the end was answered the same
+[docs/decisions/](/decisions/). The frameshift question at the end was answered the same
 day: **warn, still apply**.
 
 For a deletion of `[s, e)`, width `w = e − s`, on a linear template of length
@@ -257,7 +257,7 @@ For a deletion of `[s, e)`, width `w = e − s`, on a linear template of length
   `[e, e + f)`. The reverse primer's 5′ end is at `s` and it reads leftward,
   `[s − r, s)`. Source: the reference tool's help text, "For deletions, the 5′
   ends of the primers align with the edges of the deletion"
-  (`docs/references/nbc_help_v284.txt` line 155). Neither primer carries any
+  ([docs/references/nbc_help_v284.txt](/references/nbc_help_v284.txt) line 155). Neither primer carries any
   non-template base.
 * **Pair invariant** (owner decision 4.3): reverse end + `w` = forward start.
   In the product the two 5′ ends meet at `s`.
@@ -281,7 +281,7 @@ separate owner question.
 
 ### 4.9 D032: insertion representation and primer geometry
 
-**Approved by the owner 2026-10-15** and recorded as D032 in `docs/decisions/`,
+**Approved by the owner 2026-10-15** and recorded as D032 in [docs/decisions/](/decisions/),
 with two answers that settle the draft below. An insertion asserts **the base
 on each side** of the point, so `1 ≤ p ≤ n − 1`. There is **no cap on
 insertion length**, but any primer over **100 nt** (the owner's practical IDT
@@ -327,7 +327,7 @@ the bases it removes; an insertion removes nothing.
 ### 4.10 D033: unequal replacements and degenerate expansion
 
 **Approved by the owner 2026-10-15** and recorded as D033 in
-`docs/decisions/`, with the two open points answered: the expansion count is
+[docs/decisions/](/decisions/), with the two open points answered: the expansion count is
 **not capped** but warns past **64** designs, and an expanded design is named
 the base name plus its concrete replacement sequence (`mut-1-AC`).
 
@@ -392,7 +392,7 @@ In order, each pass with its own tests and fixtures:
    generalised; D029/D030 extended in a new decision entry.
 4. **Insertion design.** The tail path, §4.4's threshold, §4.5's Tm rule.
 5. **Degenerate replacements.** The owner's note of 2026-10-14
-   (`docs/specs/q5-primer-design.md` §19): ambiguity codes in the *replacement*
+   ([docs/specs/q5-primer-design.md](/specs/q5-primer-design.md) §19): ambiguity codes in the *replacement*
    expand combinatorially into one pair per concrete sequence. Needs the
    mutation layer's A/C/G/T restriction revisited, and makes one request
    produce several designs.

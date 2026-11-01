@@ -1,7 +1,7 @@
 # Review M5 C-1, C-2: `--write-edited` never overwrites, never writes elsewhere
 
 Status: **Implemented 2026-10-18** by the local worker; accepted on planner review. Planner: Claude. Parent:
-`docs/tasks/reviews/review-post-m5.md` C-1 and C-2. Requirements: D041 G8 ("An
+[docs/tasks/reviews/review-post-m5.md](/tasks/reviews/review-post-m5.md) C-1 and C-2. Requirements: D041 G8 ("An
 existing file is never overwritten"), `milestone-5g2-write-edited.md` §4.1
 ("a request cannot choose where the constructs are written"). Owner answer
 C-2, 2026-10-18: "Refuse case-folded clashes with --write-edited", and also

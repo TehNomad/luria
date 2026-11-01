@@ -1,7 +1,7 @@
 # Review cleanup D1: comments in `q5.rs`
 
 Status: **Implemented 2026-10-16** by the local worker; accepted on planner review. Comment lines 657 → 578; module doc 95 → 53.
-Planner: Claude. Parent: `docs/tasks/reviews/review-post-m4.md` §D.
+Planner: Claude. Parent: [docs/tasks/reviews/review-post-m4.md](/tasks/reviews/review-post-m4.md) §D.
 
 **Comments only.** No code, string, test or behavior change.
 
@@ -19,8 +19,8 @@ the decisions they describe as open have since been made or implemented.
    Keep a date only when it dates an owner decision that a rule rests on
    (e.g. "owner, 2026-10-15").
 2. **Keep every source citation for a rule that is still in the code.** That
-   means each D-number (`D0xx`), each spec section (`docs/specs/q5-sdm.md` §n,
-   `docs/specs/q5-primer-design.md` §n, H1–H8, I-1–I-13), and each owner decision.
+   means each D-number (`D0xx`), each spec section ([docs/specs/q5-sdm.md](/specs/q5-sdm.md) §n,
+   [docs/specs/q5-primer-design.md](/specs/q5-primer-design.md) §n, H1–H8, I-1–I-13), and each owner decision.
    If you cut a paragraph, carry its citation into the shorter sentence that
    states the rule.
 3. **Do not restate another module's rules** at length. Name the function
@@ -50,7 +50,7 @@ the decisions they describe as open have since been made or implemented.
 
 ## 3. Facts to use (verified by the planner)
 
-`docs/specs/q5-sdm.md` §10. The owner settled all six items on 2026-10-14:
+[docs/specs/q5-sdm.md](/specs/q5-sdm.md) §10. The owner settled all six items on 2026-10-14:
 
 | # | Settled behavior |
 | --- | --- |

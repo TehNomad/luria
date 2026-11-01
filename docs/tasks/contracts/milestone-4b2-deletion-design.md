@@ -2,7 +2,7 @@
 
 Status: **Implemented 2026-10-15** by the local worker; accepted on planner review (§9).
 Date: 2026-10-15
-Planner: Claude. Parent: `docs/tasks/contracts/milestone-4-indels.md`, pass 3, second
+Planner: Claude. Parent: [docs/tasks/contracts/milestone-4-indels.md](/tasks/contracts/milestone-4-indels.md), pass 3, second
 half. Depends on `milestone-4b1-deletion-primers.md`: `PrimerPair` has
 `deleted_width()`, and `construct_primer`/`assemble_pair` accept a deletion.
 
@@ -169,7 +169,7 @@ existing `native_rows` / `native_design` / `obstacle_text` code.
   with luria, report the row, both values and your diagnosis. Do not change
   either side to agree.
 - Do not change D030 sizing logic. 3.2 is a move, not a rewrite.
-- Do not edit `docs/`.
+- Do not edit [docs/](/).
 
 ## 7. Checks
 

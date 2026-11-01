@@ -2,7 +2,7 @@
 
 Planner: Claude. Status: **Implemented 2026-10-27** by worker `w-8m3` in one
 round, reviewed and accepted. Tier: light (D051): tests assert behaviour,
-not wording. Owner's answers: `docs/tasks/contracts/milestone-8m-polish.md` §1,
+not wording. Owner's answers: [docs/tasks/contracts/milestone-8m-polish.md](/tasks/contracts/milestone-8m-polish.md) §1,
 M8-23, M8-25 and M8-26. Findings from review: tests 1–3 and G1–G5
 behaved as §7 says. Choices accepted: one `drawn_lines` filter shared by
 `lines` and `line_count`; the key list has no highlight and nothing

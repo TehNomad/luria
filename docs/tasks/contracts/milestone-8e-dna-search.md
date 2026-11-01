@@ -4,7 +4,7 @@ Planner: Claude.
 
 Status: **Implemented 2026-10-26** by worker `w-8e` in two rounds, reviewed
 and accepted. Tier: **full** (D051). Plan row **8e** in
-`docs/tasks/contracts/milestone-8-view.md` §7. Findings from review:
+[docs/tasks/contracts/milestone-8-view.md](/tasks/contracts/milestone-8-view.md) §7. Findings from review:
 
 * §3 was wrong, a planner error: two new `DomainError` variants break four
   exhaustive matches it did not list — `crates/cli/src/result.rs` `rule_code`
@@ -147,7 +147,7 @@ in that file. A refusal must name the letter and its position.
 - `crates/core/tests/search_fixtures.rs` (new).
 
 Off limits: every other file under `crates/` (including `frame.rs` and
-`frames.rs`, which belong to 8d), everything under `tests/` and `docs/`,
+`frames.rs`, which belong to 8d), everything under `tests/` and [docs/](/),
 `Cargo.toml` and any new dependency, `#[allow(...)]`, `unwrap`, `expect`,
 `panic!`, `unreachable!` and unchecked indexing outside `mod tests`, and any git
 write command. If something here cannot be done within those files, stop and

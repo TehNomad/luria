@@ -6,7 +6,7 @@ planner; tests L1–L4 by the local worker, accepted on the first review. §4.1'
 files were still untracked and the planner's README edits uncommitted; the
 worker showed each restore with `sha256sum -c` instead, and the planner
 compared each file with its own copy.
-Planner: Claude. Parent: `docs/tasks/contracts/milestone-6-nl.md` §8 and M6-13.
+Planner: Claude. Parent: [docs/tasks/contracts/milestone-6-nl.md](/tasks/contracts/milestone-6-nl.md) §8 and M6-13.
 
 ## 1. What and why
 

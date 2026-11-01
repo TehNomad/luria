@@ -1,7 +1,7 @@
 # Milestone 7i2: each member's mutant protein, for the review
 
 Status: **Implemented 2026-10-21.** Proofs 1-3 failed as required (proof 2 through the added test 8 and fixture row `syn-ins-minus`). Rules 2, 3, 5 and the empty-coordinates case are implemented but untested. Planner: Claude. Parent:
-`docs/tasks/contracts/milestone-7-tui.md` §5.3a (M7-18, M7-21). Builds on 7i1
+[docs/tasks/contracts/milestone-7-tui.md](/tasks/contracts/milestone-7-tui.md) §5.3a (M7-18, M7-21). Builds on 7i1
 (`luria_core::frame::mutant_residues`, committed). Next: 7i3 (the
 member-screen text) uses what this contract returns.
 

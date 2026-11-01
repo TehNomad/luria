@@ -2,7 +2,7 @@
 
 Status: **Implemented 2026-10-15** by the local worker; reviewed by the planner (§9).
 Date: 2026-10-14
-Planner: Claude. Parent: `docs/tasks/contracts/milestone-4-indels.md` (passes 1 and 2
+Planner: Claude. Parent: [docs/tasks/contracts/milestone-4-indels.md](/tasks/contracts/milestone-4-indels.md) (passes 1 and 2
 of its §5, for deletions only, per owner decision 4.6).
 
 ## 1. Goal
@@ -224,7 +224,7 @@ MutationResult::Deletion(_record) => {
 - Do not touch `q5.rs` or `q5_design.rs`: the workflow cannot request a
   deletion yet, and that is a later pass.
 - Do not add insertion, `InsertionPoint`, or any tail logic.
-- Do not edit any file under `docs/`.
+- Do not edit any file under [docs/](/).
 
 ## 7. Checks
 
@@ -288,5 +288,5 @@ content check's message too. T12 now asserts the length rule's own message.
 
 **Still not done, by design:** the Q5 workflow cannot request a deletion, and
 the design layer refuses one. Deletion primer design is pass 3 of
-`docs/tasks/contracts/milestone-4-indels.md` §5 (decision 4.3: reverse end + deleted
+[docs/tasks/contracts/milestone-4-indels.md](/tasks/contracts/milestone-4-indels.md) §5 (decision 4.3: reverse end + deleted
 width = forward start).

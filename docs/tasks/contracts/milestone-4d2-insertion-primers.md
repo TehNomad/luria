@@ -2,7 +2,7 @@
 
 Status: **Implemented 2026-10-15** by the local worker; accepted on planner review (§9).
 Date: 2026-10-15
-Planner: Claude. Parent: `docs/tasks/contracts/milestone-4-indels.md`, pass 4. Follows
+Planner: Claude. Parent: [docs/tasks/contracts/milestone-4-indels.md](/tasks/contracts/milestone-4-indels.md), pass 4. Follows
 `milestone-4d1-insertion.md` (implemented). The design layer is 4d-3.
 
 ## 1. Goal
@@ -179,7 +179,7 @@ existing test reads it, change nothing.
 - Do not change `construct_primer`'s behaviour or messages, or
   `PrimerPlacement`'s refusal of `ConfineToTail`.
 - Do not touch `mutation.rs`, `primer_design.rs`, `q5.rs` or `q5_design.rs`.
-- Do not edit `docs/` or any fixture.
+- Do not edit [docs/](/) or any fixture.
 
 ## 7. Checks
 

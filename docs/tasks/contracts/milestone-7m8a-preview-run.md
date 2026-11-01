@@ -1,7 +1,7 @@
 # Milestone 7m8a: run a proposed request without writing it
 
 Status: **Implemented, 2026-10-22.** Planner: Claude. Parent:
-`docs/tasks/contracts/milestone-7m-polish.md`, M7-60. Follows 7m7 (committed
+[docs/tasks/contracts/milestone-7m-polish.md](/tasks/contracts/milestone-7m-polish.md), M7-60. Follows 7m7 (committed
 `a65ca68`). 7m8b, the preview screens, builds on this.
 
 ## 1. Why

@@ -3,21 +3,21 @@
 Status: **Implemented 2026-10-19** by the local worker; accepted on the first
 review. The §10.3 example was run against the local model by the planner
 (6i §8).
-Planner: Claude. Parent: `docs/tasks/contracts/milestone-6-nl.md` §6 (6j).
+Planner: Claude. Parent: [docs/tasks/contracts/milestone-6-nl.md](/tasks/contracts/milestone-6-nl.md) §6 (6j).
 
 ## 1. What and why
 
 Milestone 6's behaviour is built and tested; this contract writes it down
-where users and future contributors look: `docs/specs/cli.md`, the README, the
+where users and future contributors look: [docs/specs/cli.md](/specs/cli.md), the README, the
 product brief, the Q5 workflow note, and decision D044 in
-`docs/decisions/`. The two long pieces are written by the planner in
+[docs/decisions/](/decisions/). The two long pieces are written by the planner in
 files of their own and are appended verbatim; every other change is an
 exact replacement given below. A small test keeps the page honest about
 the parts that can drift: the command line, the question codes and the
 profile example.
 
-This contract authorizes the worker to edit `docs/specs/cli.md`, `README.md`,
-`docs/decisions/`, `docs/product/brief.md` and `docs/specs/q5-sdm.md`, exactly
+This contract authorizes the worker to edit [docs/specs/cli.md](/specs/cli.md), `README.md`,
+[docs/decisions/](/decisions/), [docs/product/brief.md](/product/brief.md) and [docs/specs/q5-sdm.md](/specs/q5-sdm.md), exactly
 as below and nowhere else.
 
 ## 2. Changes
@@ -25,7 +25,7 @@ as below and nowhere else.
 Each replacement's old text occurs exactly once; if it does not, stop and
 report it.
 
-### 2.1 `docs/specs/cli.md`
+### 2.1 [docs/specs/cli.md](/specs/cli.md)
 
 1. Replace
 
@@ -76,7 +76,7 @@ report it.
 5. In §6's table, replace `Mapping those errors to request fields is
    planned for Milestone 6.` with `Milestone 6 left this as it is (M6-12).`
 
-6. Append the whole content of `docs/tasks/contracts/milestone-6j-cli-section.txt`
+6. Append the whole content of [docs/tasks/contracts/milestone-6j-cli-section.txt](/tasks/contracts/milestone-6j-cli-section.txt)
    to the end of the file, byte for byte. It starts with an empty line, so
    the page's last line is followed by one blank line and `## 10. ...`.
 
@@ -132,12 +132,12 @@ summary of the record's CDSs, never the sequence. See `docs/specs/cli.md` §10.
 The review-oriented TUI is next (Milestone 7, D034).
 ```
 
-### 2.3 `docs/decisions/`
+### 2.3 [docs/decisions/](/decisions/)
 
-Append the whole content of `docs/tasks/contracts/milestone-6j-d044.txt` to the end
+Append the whole content of [docs/tasks/contracts/milestone-6j-d044.txt](/tasks/contracts/milestone-6j-d044.txt) to the end
 of the file, byte for byte. It starts with an empty line.
 
-### 2.4 `docs/product/brief.md`
+### 2.4 [docs/product/brief.md](/product/brief.md)
 
 Replace
 
@@ -157,7 +157,7 @@ luria.q5-design-profile/1 schemas, a local OpenAI-compatible backend, and
 docs/specs/cli.md section 10 (D044).
 ```
 
-### 2.5 `docs/specs/q5-sdm.md`
+### 2.5 [docs/specs/q5-sdm.md](/specs/q5-sdm.md)
 
 Replace `` `proposed` is Milestone 6; `` with `` `proposed` is the state of a
 `luria q5 interpret` document (Milestone 6, D044); ``.
@@ -285,7 +285,7 @@ each restore with `git diff` of the page against your finished version.
 
 - Change any wording of the two appended files, or anything in the five
   documents beyond §2.
-- Change any code, any existing test, `docs/tasks/`, `AGENTS.md` or
+- Change any code, any existing test, [docs/tasks/](/tasks/), `AGENTS.md` or
   `tests/fixtures/`.
 
 ## 5. Checks
@@ -297,7 +297,7 @@ From the repository root, with `TMPDIR=$PWD/target/tmp`:
 - `git diff --check`
 - `git status --short`
 - `tail -c 200 docs/specs/cli.md | cmp - <(tail -c 200 docs/tasks/contracts/milestone-6j-cli-section.txt)`
-  and the same for `docs/decisions/` against `milestone-6j-d044.txt`:
+  and the same for [docs/decisions/](/decisions/) against `milestone-6j-d044.txt`:
   both must print nothing.
 
 ## 6. Handoff

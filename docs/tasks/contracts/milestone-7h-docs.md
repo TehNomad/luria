@@ -2,18 +2,18 @@
 
 Status: **Implemented 2026-10-21.** Proof failed as required. (The owner confirmed the
 plan's §8a choices). Planner: Claude. Parent:
-`docs/tasks/contracts/milestone-7-tui.md` §6 (7h).
+[docs/tasks/contracts/milestone-7-tui.md](/tasks/contracts/milestone-7-tui.md) §6 (7h).
 
 ## 1. What and why
 
 Milestone 7's behaviour is built and tested. This contract writes it down
-in `docs/specs/cli.md`, the README, the product brief and `docs/decisions/`,
+in [docs/specs/cli.md](/specs/cli.md), the README, the product brief and [docs/decisions/](/decisions/),
 and adds a test that keeps the page honest where it can drift: the
 command lines and the order table's scale rule. The two long pieces are
 the planner's, appended verbatim.
 
-This contract authorizes the worker to edit `docs/specs/cli.md`, `README.md`,
-`docs/product/brief.md` and `docs/decisions/`, exactly as below and
+This contract authorizes the worker to edit [docs/specs/cli.md](/specs/cli.md), `README.md`,
+[docs/product/brief.md](/product/brief.md) and [docs/decisions/](/decisions/), exactly as below and
 nowhere else.
 
 ## 2. Changes
@@ -21,7 +21,7 @@ nowhere else.
 Each replacement's old text occurs exactly once; if it does not, stop and
 report it.
 
-### 2.1 `docs/specs/cli.md`
+### 2.1 [docs/specs/cli.md](/specs/cli.md)
 
 1. Replace
 
@@ -59,7 +59,7 @@ report it.
    `| 0 | `verified`, and every member designed; for `luria q5
    interpret`, `proposed`; for `luria review`, you quit |`.
 
-5. Append the whole of `docs/tasks/contracts/milestone-7h-cli-section.txt` at the
+5. Append the whole of [docs/tasks/contracts/milestone-7h-cli-section.txt](/tasks/contracts/milestone-7h-cli-section.txt) at the
    end of the file.
 
 ### 2.2 `README.md`
@@ -76,7 +76,7 @@ the result, the edited constructs and an IDT order table. See
 and in the usage block near the top, after the `luria q5 interpret` lines,
 add the four `luria review` lines of §2.1 step 2.
 
-### 2.3 `docs/product/brief.md`
+### 2.3 [docs/product/brief.md](/product/brief.md)
 
 After `Build the TUI around the same application capabilities and typed
 operations.` add a blank line and:
@@ -87,9 +87,9 @@ protein), details, provenance and export screens, and an IDT order
 table, docs/specs/cli.md section 11 (D046).
 ```
 
-### 2.4 `docs/decisions/`
+### 2.4 [docs/decisions/](/decisions/)
 
-Append the whole of `docs/tasks/contracts/milestone-7h-d046.txt` at the end of the
+Append the whole of [docs/tasks/contracts/milestone-7h-d046.txt](/tasks/contracts/milestone-7h-d046.txt) at the end of the
 file.
 
 ## 3. Test: `crates/cli/tests/documented_review.rs` (new)

@@ -10,7 +10,7 @@ review round. Review notes:
 - **Fixed:** `read_capped` allocated the whole cap (32 MiB for a template)
   and failed on an interrupted read; it now uses `take(cap + 1)` and
   `read_to_end`.
-Planner: Claude. Parent: `docs/tasks/contracts/milestone-6-nl.md` §3, §5.5, §5.7,
+Planner: Claude. Parent: [docs/tasks/contracts/milestone-6-nl.md](/tasks/contracts/milestone-6-nl.md) §3, §5.5, §5.7,
 M6-7, M6-10, M6-14, §6 (6h, split into 6h1 and 6h2).
 
 ## 1. What and why
@@ -745,7 +745,7 @@ Disable each once, confirm the named test fails, restore, report both:
 - Write any path but `write_request`, or write it anywhere but through
   `create_new`.
 - Put an absolute path, a directory or a key in the document or a note.
-- Change `luria-core`, `luria-nl`, `tests/fixtures/`, `docs/`, or any
+- Change `luria-core`, `luria-nl`, `tests/fixtures/`, [docs/](/), or any
   existing file other than `lib.rs`, `exit.rs` and the one line in
   `interpret.rs`.
 

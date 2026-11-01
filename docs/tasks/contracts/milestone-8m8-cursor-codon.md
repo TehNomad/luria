@@ -2,7 +2,7 @@
 
 Planner: Claude. Status: **Implemented 2026-10-28** by worker `w-8m8` in
 two rounds, reviewed and accepted. Tier: light (D051). Owner's answer:
-`docs/tasks/contracts/milestone-8m-polish.md` §1, M8-32. Findings from review:
+[docs/tasks/contracts/milestone-8m-polish.md](/tasks/contracts/milestone-8m-polish.md) §1, M8-32. Findings from review:
 
 * G1–G4 each failed the test §7 names. For G2, widening the span alone
   also needed the loop's skip widened; the worker noted this.

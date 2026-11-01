@@ -1,7 +1,7 @@
 # Review fix B6: the matched-Tm fallback is broader than D030 allows
 
 Status: **Implemented 2026-10-16** by the local worker; accepted on planner review.
-Planner: Claude. Parent: `docs/tasks/reviews/review-post-m4.md` finding B6.
+Planner: Claude. Parent: [docs/tasks/reviews/review-post-m4.md](/tasks/reviews/review-post-m4.md) finding B6.
 
 ## 1. The defect
 

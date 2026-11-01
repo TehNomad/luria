@@ -12,7 +12,7 @@ one round, reviewed and accepted. Findings from review:
   test of its own, as with `ctrl-c`.
 
 Tier:
-light (D051): keys only. Owner's answers: `docs/tasks/contracts/milestone-8m-polish.md`
+light (D051): keys only. Owner's answers: [docs/tasks/contracts/milestone-8m-polish.md](/tasks/contracts/milestone-8m-polish.md)
 §1, M8-37 and M8-38.
 
 ## 1. What this contract builds

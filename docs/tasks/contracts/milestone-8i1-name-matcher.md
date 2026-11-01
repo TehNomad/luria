@@ -2,7 +2,7 @@
 
 Planner: Claude. Status: **Implemented 2026-10-26** by worker `w-8i1` in one
 round, reviewed and accepted. Tier: full (D051). Plan rows: 8i1 and 8i2
-replace **8i** in `docs/tasks/contracts/milestone-8-view.md` §7, by D056.
+replace **8i** in [docs/tasks/contracts/milestone-8-view.md](/tasks/contracts/milestone-8-view.md) §7, by D056.
 `luria find --cds` (8i2), go-to (8k2) and the feature list (8k3) use this.
 Findings from review:
 

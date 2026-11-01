@@ -1,7 +1,7 @@
 # Milestone 7k3: the `luria new` form's state
 
 Status: **Implemented 2026-10-22** by w7k3 (ran out of context before reporting) and w7k3b (proofs and checks). Proofs 1-3 failed as required; proof 2 was run by adding a preview cache refreshed only on typing, since previews are computed on demand. Planner: Claude. Parent:
-`docs/tasks/contracts/milestone-7k-new.md` §1, §2 (owner answers M7-31 to M7-39).
+[docs/tasks/contracts/milestone-7k-new.md](/tasks/contracts/milestone-7k-new.md) §1, §2 (owner answers M7-31 to M7-39).
 Builds on 7k1 (`shorthand::parse_line`) and 7k2 (`new::build`). Next: 7k4
 draws it, 7k5 wires it to a terminal and the proposal screen.
 

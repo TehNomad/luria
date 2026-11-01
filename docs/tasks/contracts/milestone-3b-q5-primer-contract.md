@@ -4,7 +4,7 @@
 **Status:** specification and reference fixtures delivered; a representation,
 decomposition and validation layer (`crates/core/src/primer.rs`) implemented;
 no primer-design algorithm, and no Tm function, implemented
-**Depends on:** Milestone 3 (`docs/tasks/contracts/milestone-3-q5-workflow.md`),
+**Depends on:** Milestone 3 ([docs/tasks/contracts/milestone-3-q5-workflow.md](/tasks/contracts/milestone-3-q5-workflow.md)),
 Milestone 3a (separate-variant composition)
 
 ---
@@ -44,7 +44,7 @@ The actual artifacts were read, not inferred from names.
 
 | Artifact | What it establishes |
 | --- | --- |
-| `docs/specs/q5-sdm.md` | The input-scope gate, single-request workflow, separate-variant composition, one-time target resolution, atomic failure. §10 records six unsettled items. |
+| [docs/specs/q5-sdm.md](/specs/q5-sdm.md) | The input-scope gate, single-request workflow, separate-variant composition, one-time target resolution, atomic failure. §10 records six unsettled items. |
 | `crates/core/src/mutation.rs` | `apply_nucleotide` and `apply_residue` are the only mutation operations. A nucleotide substitution selects exactly one nucleotide. There is **no insert and no delete operation**. |
 | `crates/core/src/q5.rs` | `Q5MutationIntent` has three variants: `Nucleotide`, `Residue`, `ResidueWithoutCds`. The module header states it "does not add a mutation kind". |
 | `crates/core/src/strand.rs` | `Strand` is an explicit two-value enum with a symbol; `is_plus`. |
@@ -69,7 +69,7 @@ absorbed:
 
 ## 3. The contract
 
-Written to `docs/specs/q5-primer-design.md`. Its shape:
+Written to [docs/specs/q5-primer-design.md](/specs/q5-primer-design.md). Its shape:
 
 - **§2 Inputs.** A validated `MutationResult` is the only biological input; the
   design layer must not re-derive coordinates from a bare sequence. Every
@@ -172,7 +172,7 @@ record fails the run.
 
 ## 6. Deliberately left open
 
-Recorded in `docs/specs/q5-primer-design.md` §11 and §15. They are listed so that a
+Recorded in [docs/specs/q5-primer-design.md](/specs/q5-primer-design.md) §11 and §15. They are listed so that a
 later milestone does not answer one by accident:
 
 1. Which Tm function `luria` owns, and which salt assumption it states.
@@ -241,8 +241,8 @@ primer's is its whole span. D029 is **proposed and unapproved**, so the rule is
 not a contract the implementation pass above worked to; nothing in that pass
 changed, and no Rust was written by this amendment. The split that the 2026-10-12
 review pass wrote into §18.1 is superseded; see §22 of
-`docs/specs/q5-primer-design.md` and
-`docs/research/q5-primer-implementation-readiness-2026-10-13.md` for what the
+[docs/specs/q5-primer-design.md](/specs/q5-primer-design.md) and
+[docs/research/q5-primer-implementation-readiness-2026-10-13.md](/research/q5-primer-implementation-readiness-2026-10-13.md) for what the
 centered rule does and does not settle.
 
 Questions 3, 6 and 7 are the ones the current material cannot settle. They
@@ -270,7 +270,7 @@ to Milestone 3 code; none changes a Milestone 3 rule:
   `GGC` for G and `GCG` for A. They test composition, not codon choice, so the
   hand-derived edits are kept rather than re-derived.
 - `primer.rs`: the 16 clippy findings recorded in
-  `docs/research/q5-primer-implementation-readiness-2026-10-13.md` Part 7 and
+  [docs/research/q5-primer-implementation-readiness-2026-10-13.md](/research/q5-primer-implementation-readiness-2026-10-13.md) Part 7 and
   Part 8 item 7 are fixed (`is_empty`, string-literal comparisons, `!` for
   `== false`). `cargo clippy --workspace --all-targets -- -D warnings` is a
   required check (D026), and it now passes.
@@ -285,10 +285,10 @@ failures.
 ## 10. Owner answers and test coverage, 2026-10-14
 
 Answers to the blockers in
-`docs/research/q5-primer-implementation-readiness-2026-10-13.md` Part 4:
+[docs/research/q5-primer-implementation-readiness-2026-10-13.md](/research/q5-primer-implementation-readiness-2026-10-13.md) Part 4:
 
 - **P0-3, D029:** **approved** on 2026-10-14, with four amendments applied to
-  D029 and `docs/specs/q5-primer-design.md` §18 (§23 lists them): at least 10
+  D029 and [docs/specs/q5-primer-design.md](/specs/q5-primer-design.md) §18 (§23 lists them): at least 10
   unchanged bases on each side of the replacement, the extra base of an odd
   split on the 3′ side, a scope of any contiguous replacement region of at most
   3 bases, and a reverse primer of at least 15 bases.
@@ -358,7 +358,7 @@ Deviations, confirmed by the owner on 2026-10-14:
 - An ambiguity code (H6) in the template under the centered pair is not one
   of §18.5's outcomes. It is reported as a `NoCenteredPrimerDesign` obstacle
   (`AmbiguousTemplateBase`), on the reasoning that a shifted pair might avoid
-  it. **Confirmed for point-mutation mode** (`docs/specs/q5-primer-design.md`
+  it. **Confirmed for point-mutation mode** ([docs/specs/q5-primer-design.md](/specs/q5-primer-design.md)
   §18.2, §18.5).
 
 Owner note for future work (2026-10-14): if an indel/substitution mode like
@@ -367,7 +367,7 @@ NEBaseChanger's is added, it should accept ambiguity codes in the
 per concrete sequence, as NEBaseChanger's help describes ("a replacement
 sequence containing NS will be expanded to 8 sequences containing: AC, CC, GC,
 TC, AG, CG, GG, and TG, generating 8 primer pairs"). Recorded in
-`docs/specs/q5-primer-design.md` §19. Not implemented; the mutation layer currently
+[docs/specs/q5-primer-design.md](/specs/q5-primer-design.md) §19. Not implemented; the mutation layer currently
 restricts replacements to A/C/G/T.
 
 Tests: 16 unit tests in `primer_design.rs` on a 60-base synthetic template,
@@ -385,7 +385,7 @@ both suites.
 
 This milestone is complete only when:
 
-- `docs/specs/q5-primer-design.md` states inputs, outputs, hard requirements,
+- [docs/specs/q5-primer-design.md](/specs/q5-primer-design.md) states inputs, outputs, hard requirements,
   preferences, and unknowns as separate categories;
 - every rule names the decision that fixes it, or is marked **new**;
 - no rule rests on an observed website behaviour without its scope stated;

@@ -1,19 +1,19 @@
 # Milestone 5h: the CLI's documentation
 
 Status: **Ready for the worker, 2026-10-18.** Planner: Claude. Parent:
-`docs/tasks/contracts/milestone-5-cli.md` §5 (5h) and §6 (the pinned example).
+[docs/tasks/contracts/milestone-5-cli.md](/tasks/contracts/milestone-5-cli.md) §5 (5h) and §6 (the pinned example).
 Follows 5g3.
 
 ## 1. What and why
 
 The `luria` executable exists and is tested end to end, but there is no
-`docs/specs/cli.md`: `luria help` already points to it. Plan §5 gives 5h three
-deliverables: `docs/specs/cli.md`, README usage and the product brief's status.
+[docs/specs/cli.md](/specs/cli.md): `luria help` already points to it. Plan §5 gives 5h three
+deliverables: [docs/specs/cli.md](/specs/cli.md), README usage and the product brief's status.
 Plan §6 adds that the planner hand-writes one expected document in
-`docs/specs/cli.md`, and a test checks the CLI's output against it field by
+[docs/specs/cli.md](/specs/cli.md), and a test checks the CLI's output against it field by
 field.
 
-**Scope, as the owner set it on 2026-10-18:** `docs/specs/cli.md` holds the worked
+**Scope, as the owner set it on 2026-10-18:** [docs/specs/cli.md](/specs/cli.md) holds the worked
 example, the `luria version` document and short reference tables: commands,
 exit codes, error codes, and the request and result at a glance. The longer
 reference prose — every template rule, every request field, every result
@@ -47,7 +47,7 @@ verified fixture (§3).
   document prints `-373.2999999999999`, not `-373.3`. The page writes the
   verification tables' own precision instead, says so in §3 of the page,
   and §7's test compares those fields within a tolerance.
-- **D041 G10:** "The limit is stated in `docs/specs/cli.md` and the README":
+- **D041 G10:** "The limit is stated in [docs/specs/cli.md](/specs/cli.md) and the README":
   no circular template can be designed.
 - **D020 and the product brief:** a result is a computational claim, never
   experimental validation.
@@ -74,9 +74,9 @@ verified every row below on 2026-10-18 before writing the page.
 | algorithm names and versions | the constants in `luria-core`, as `luria version` prints them |
 | `requestSha256` `def77353…` | `sha256` of the request block's exact bytes: the block's lines, newline-separated, with one trailing newline — 743 bytes |
 
-## 4. `docs/specs/cli.md` (new)
+## 4. [docs/specs/cli.md](/specs/cli.md) (new)
 
-The file's whole content is `docs/tasks/contracts/milestone-5h-cli-page.txt`, already
+The file's whole content is [docs/tasks/contracts/milestone-5h-cli-page.txt](/tasks/contracts/milestone-5h-cli-page.txt), already
 in the repository. Copy it, do not retype it:
 
 ```bash
@@ -90,7 +90,7 @@ comments, the en-dashes, the `°`, `′` and `×` characters, and the `60.87`
 and `-373.3` figures. §7's test finds both JSON blocks by those markers and
 hashes the request block's exact bytes.
 
-Leave `docs/tasks/contracts/milestone-5h-cli-page.txt` in place; it is the source the
+Leave [docs/tasks/contracts/milestone-5h-cli-page.txt](/tasks/contracts/milestone-5h-cli-page.txt) in place; it is the source the
 `diff` above checks against.
 
 ## 5. README usage (change)
@@ -131,7 +131,7 @@ fence, and it must survive into `README.md` as one.
 
 ## 6. Product brief status (change)
 
-In `docs/product/brief.md`, the Milestone 5 entry currently reads:
+In [docs/product/brief.md](/product/brief.md), the Milestone 5 entry currently reads:
 
 ```
 Milestone 5: Machine-readable and CLI workflow
@@ -235,7 +235,7 @@ at stake:
 ### 7.3 If the CLI and the page disagree
 
 **Stop and report, with the path and both values.** Do not edit
-`docs/specs/cli.md`, do not widen a tolerance, and do not change the test's
+[docs/specs/cli.md](/specs/cli.md), do not widen a tolerance, and do not change the test's
 expectation. The page is a hand-written expectation under plan §6, and a
 disagreement is either a planner error in the page or a defect in the CLI.
 Either way it is the planner's to resolve, not the worker's.
@@ -246,10 +246,10 @@ AGENTS.md: for each new rule, prove the test fails when the rule is
 disabled, then restore it. Run these three, record the exact failure each
 produced, and restore the file after each so the final tree is clean:
 
-1. **The page is really compared.** In `docs/specs/cli.md`, change the forward
+1. **The page is really compared.** In [docs/specs/cli.md](/specs/cli.md), change the forward
    primer's `"length": 23` to `"length": 24`. The test must fail naming
    that path. Restore it.
-2. **Key order is really checked.** In `docs/specs/cli.md`, swap the `"state"`
+2. **Key order is really checked.** In [docs/specs/cli.md](/specs/cli.md), swap the `"state"`
    and `"schema"` members at the top of the result block. The test must
    fail naming the order. Restore them.
 3. **The digest is really checked.** Add one space inside the request
@@ -286,15 +286,15 @@ cargo test -p luria-cli --test documented_example
   production code. If the test cannot pass without such a change, stop and
   report it.
 - Do not change any existing test, fixture or expected file.
-- Do not edit the text of `docs/tasks/contracts/milestone-5h-cli-page.txt`, or of
-  `docs/specs/cli.md` beyond copying it — except the three temporary edits of §8,
+- Do not edit the text of [docs/tasks/contracts/milestone-5h-cli-page.txt](/tasks/contracts/milestone-5h-cli-page.txt), or of
+  [docs/specs/cli.md](/specs/cli.md) beyond copying it — except the three temporary edits of §8,
   each restored.
 - Do not add a dependency. `serde_json` and `luria-core` are already
   `luria-cli` dev-available; use what the other tests in
   `crates/cli/tests/` already use.
-- Do not reformat `README.md` or `docs/product/brief.md` beyond the one
+- Do not reformat `README.md` or [docs/product/brief.md](/product/brief.md) beyond the one
   replacement and the one addition named above.
-- Do not run luria to obtain any value written into `docs/specs/cli.md`.
+- Do not run luria to obtain any value written into [docs/specs/cli.md](/specs/cli.md).
 - Do not stage or commit anything.
 
 ## 11. Report

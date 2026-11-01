@@ -1,7 +1,7 @@
 # Milestone 5e1: the strict request document
 
 Status: **Implemented 2026-10-17** by the local worker, across two runs (the first hit the turn limit with `json.rs` done and the readers unwritten); accepted on review.
-Planner: Claude. Parent: `docs/tasks/contracts/milestone-5-cli.md` §3.4 and §5 (5e,
+Planner: Claude. Parent: [docs/tasks/contracts/milestone-5-cli.md](/tasks/contracts/milestone-5-cli.md) §3.4 and §5 (5e,
 split into 5e1 and 5e2). Follows 5d (the `luria-cli` crate).
 
 ## 1. What and why

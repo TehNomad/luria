@@ -10,8 +10,8 @@ directories, as the other CLI test files do; one invocation is fine.
 Deviation found in the post-M5 review (C-3), 2026-10-18: plan §6's residue
 edits through the executable, minus strand and origin-crossing, against
 `mutation/cases.tsv`, were left out of this contract without a recorded
-deviation. They were added under `docs/tasks/reviews/review-m5-c3-cli-tests.md`.
-Planner: Claude. Parent: `docs/tasks/contracts/milestone-5-cli.md` §6 and §5 (5g3).
+deviation. They were added under [docs/tasks/reviews/review-m5-c3-cli-tests.md](/tasks/reviews/review-m5-c3-cli-tests.md).
+Planner: Claude. Parent: [docs/tasks/contracts/milestone-5-cli.md](/tasks/contracts/milestone-5-cli.md) §6 and §5 (5g3).
 Follows 5g1 (the wiring) and 5g2 (`--write-edited`).
 
 ## 1. What and why

@@ -3,7 +3,7 @@
 Planner: Claude. Status: **Implemented 2026-10-26** by worker `w-8k2` in one
 round, reviewed and accepted. Tier: light (D051): tests assert behaviour, not
 wording; the hand test (8m) may change keys and sentences. Plan row: **8k2**
-in `docs/tasks/contracts/milestone-8-view.md` §7. Findings from review:
+in [docs/tasks/contracts/milestone-8-view.md](/tasks/contracts/milestone-8-view.md) §7. Findings from review:
 
 * Tests 1–10 and G1–G7 behaved as §7 says.
 * The planner ran ten mutations; nine were caught. The tenth (letting

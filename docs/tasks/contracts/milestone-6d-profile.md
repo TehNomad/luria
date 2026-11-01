@@ -3,7 +3,7 @@
 Status: **Implemented 2026-10-19** by the local worker; accepted on the first
 review. The worker flagged that the profile fixtures' provenance was not
 written down; the planner added it to `tests/fixtures/nl/README.md`.
-Planner: Claude. Parent: `docs/tasks/contracts/milestone-6-nl.md` §5.4 (and its
+Planner: Claude. Parent: [docs/tasks/contracts/milestone-6-nl.md](/tasks/contracts/milestone-6-nl.md) §5.4 (and its
 implementation note), M6-6, M6-11, §6 (6d).
 
 ## 1. What and why
@@ -343,7 +343,7 @@ Disable each once, confirm the named test fails, restore, report both:
 - Add a default value for any profile member, or a built-in profile.
 - Read a file: `parse_profile` takes text. Reading the profile file is 6h.
 - Add a dependency. Change `luria-core`, `luria-nl`, `tests/fixtures/` or
-  `docs/`.
+  [docs/](/).
 
 ## 6. Checks
 

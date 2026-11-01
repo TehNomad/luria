@@ -1,7 +1,7 @@
 # Review B12: bump the algorithm versions whose behavior changed
 
 Status: **Implemented 2026-10-16** by the local worker; accepted after adding the 0.6.0 history entry at the planner's request.
-Planner: Claude. Parent: `docs/tasks/reviews/review-post-m4.md` B12. Decision:
+Planner: Claude. Parent: [docs/tasks/reviews/review-post-m4.md](/tasks/reviews/review-post-m4.md) B12. Decision:
 D021, under which every result names its algorithm and algorithm version.
 
 ## 1. Defect
@@ -35,7 +35,7 @@ Update the one test that pins a version,
 
 ## 3. Before editing, check
 
-Grep `crates/`, `tests/` and `docs/` for each old version string next to its
+Grep `crates/`, `tests/` and [docs/](/) for each old version string next to its
 constant's name, and for any test asserting `function_version()`,
 `algorithm_version()` or the like. Report anything else that pins one of
 these four values. Don't change docs that describe history.

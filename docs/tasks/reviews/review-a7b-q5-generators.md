@@ -1,8 +1,8 @@
 # Review A7b: `--check` for the q5-primer generators; track the unit-test driver (D039, C1)
 
 Status: **Implemented 2026-10-16** by the local worker; the worker was stopped while matching values (§2 item 3), and the planner finished that check and the deliberate-failure demonstration during review.
-Planner: Claude. Parent: `docs/tasks/reviews/review-post-m4.md` A7 and C1. Decision:
-D039. Environment as in `docs/tasks/reviews/review-a7a-tm-verification.md` §3: run
+Planner: Claude. Parent: [docs/tasks/reviews/review-post-m4.md](/tasks/reviews/review-post-m4.md) A7 and C1. Decision:
+D039. Environment as in [docs/tasks/reviews/review-a7a-tm-verification.md](/tasks/reviews/review-a7a-tm-verification.md) §3: run
 `.tmp/tm/venv/bin/python -I`, and keep scratch files under `target/`.
 
 ## 1. Gaps
@@ -76,7 +76,7 @@ D039. Environment as in `docs/tasks/reviews/review-a7a-tm-verification.md` §3: 
 ## 5. Checks
 
 The Python commands, a comment-only guard on `primer_design.rs` and
-`q5_design.rs` (the script in `docs/tasks/reviews/review-d1-q5-comments.md` §5), and
+`q5_design.rs` (the script in [docs/tasks/reviews/review-d1-q5-comments.md](/tasks/reviews/review-d1-q5-comments.md) §5), and
 the usual cargo checks with `TMPDIR=$PWD/target/tmp`.
 
 ## 6. Handoff

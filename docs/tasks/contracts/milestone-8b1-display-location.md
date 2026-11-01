@@ -3,7 +3,7 @@
 Planner: Claude. Status: **Implemented 2026-10-26** by worker `w-8b1` in two
 rounds, reviewed and accepted. The two decisions in §4 are D053, approved by
 the owner 2026-10-26. Tier: full (D051). Plan row: **8b** in
-`docs/tasks/contracts/milestone-8-view.md` §7, first half; 8b2 (`ViewRecord`,
+[docs/tasks/contracts/milestone-8-view.md](/tasks/contracts/milestone-8-view.md) §7, first half; 8b2 (`ViewRecord`,
 `open_record`) uses this. Findings from review:
 
 * Round 2: test 9 had no whitespace between a marker and its digits, so

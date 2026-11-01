@@ -4,9 +4,9 @@ Status: **Implemented 2026-10-21** by the local worker; accepted on the
 first review. Notes: disabling `new`'s problem rule also fails tests 6, 7
 and 9; `terminal.rs`'s new key mapping is unverified until run in a real
 terminal. Planner: Claude. Parent:
-`docs/tasks/contracts/milestone-7-tui.md` §5.1 (`review::app`, pure), §5.2 (the
+[docs/tasks/contracts/milestone-7-tui.md](/tasks/contracts/milestone-7-tui.md) §5.1 (`review::app`, pure), §5.2 (the
 result screens 2 to 6), §6 (7b). Builds on 7a
-(`docs/tasks/contracts/milestone-7a-review-skeleton.md`, implemented).
+([docs/tasks/contracts/milestone-7a-review-skeleton.md](/tasks/contracts/milestone-7a-review-skeleton.md), implemented).
 
 ## 1. What and why
 
@@ -154,7 +154,7 @@ and report what you saw:
 - Do not change files other than `crates/cli/src/review/app.rs` and the
   key mapping in `crates/cli/src/review/terminal.rs`.
 - Do not change `view.rs`, `main.rs`, `args.rs`, any test file outside
-  `app.rs`, any fixture, `docs/`, any `Cargo.toml` or `vendor/`.
+  `app.rs`, any fixture, [docs/](/), any `Cargo.toml` or `vendor/`.
 - Do not draw any new screen, or read any member field in `app.rs`.
 - Do not add dependencies. Do not stage or commit.
 - Your shell has no terminal: do not run `luria review` by hand.

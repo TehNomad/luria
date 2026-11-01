@@ -3,7 +3,7 @@
 Planner: Claude. Status: **Implemented 2026-10-26** by worker `w-8k1` in two
 rounds, reviewed and accepted. Tier: light (D051): tests assert behaviour, not
 wording; the hand test (8m) may change keys and sentences. Plan row: **8k1** in
-`docs/tasks/contracts/milestone-8-view.md` §7. 8h opens this view from `luria FILE`.
+[docs/tasks/contracts/milestone-8-view.md](/tasks/contracts/milestone-8-view.md) §7. 8h opens this view from `luria FILE`.
 Findings from review:
 
 * Round 1: tests 1–12 and G1–G7 behaved as §7 says.
@@ -39,7 +39,7 @@ picker (8k3), no search (8l1), no overview (8l2), no `?` help.
 
 Rules that apply, already settled:
 - Plan §5.1 (cursor, status line, title bar) and §5.2; proposal
-  `docs/tasks/proposals/proposal-sequence-view.md` §2–§3 for the screen's shape.
+  [docs/tasks/proposals/proposal-sequence-view.md](/tasks/proposals/proposal-sequence-view.md) §2–§3 for the screen's shape.
 - D048 M8-11 (`scripts/decision D048`): exactly one usable CDS → selected;
   several → none, and the title says `no CDS selected`.
 - D049 M8-3: a FASTA's topology is `linear (assumed)`; `T` switches it to

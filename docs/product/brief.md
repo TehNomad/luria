@@ -322,7 +322,7 @@ Provide a minimal CLI and structured output so complete scientific workflows
 can be exercised without a TUI, web frontend, or LLM.
 
 Implemented: the luria executable, FASTA and GenBank import, the
-luria.q5-request/1 and luria.q5-result/1 schemas, and docs/specs/cli.md.
+luria.q5-request/1 and luria.q5-result/1 schemas, and [docs/specs/cli.md](/specs/cli.md).
 
 Milestone 6: Natural-language interpretation
 
@@ -331,7 +331,7 @@ clarification requests.
 
 Implemented: luria q5 interpret, the luria.q5-interpretation/1 and
 luria.q5-design-profile/1 schemas, a local OpenAI-compatible backend, and
-docs/specs/cli.md section 10 (D044).
+[docs/specs/cli.md](/specs/cli.md) section 10 (D044).
 
 Milestone 7: Review-oriented user interface
 
@@ -339,8 +339,8 @@ Build the TUI around the same application capabilities and typed operations.
 
 Implemented: luria review, its result, proposal, variant (sequence and
 protein), details, provenance and export screens, and an IDT order
-table, docs/specs/cli.md section 11 (D046); luria new, a form for a new design,
-docs/specs/cli.md section 12 (D047).
+table, [docs/specs/cli.md](/specs/cli.md) section 11 (D046); luria new, a form for a new design,
+[docs/specs/cli.md](/specs/cli.md) section 12 (D047).
 
 Milestone 8: Sequence view
 
@@ -349,7 +349,7 @@ translation, numbering, features, go-to and search.
 
 Implemented: luria FILE, with frame, feature and ORF lanes, an overview
 strip, go-to, and DNA and protein search; luria find, the same search as
-a table; docs/specs/cli.md section 13 (D048 to D058).
+a table; [docs/specs/cli.md](/specs/cli.md) section 13 (D048 to D058).
 
 Milestone 9: Sequence editor
 
@@ -359,7 +359,7 @@ paste, with features following the edits, and save the edited construct
 
 Implemented: editing in luria FILE with Vim's keys, features and CDSs
 following each edit, undo and redo, and :w, :q, :wq, :x, ZZ and ZQ;
-GenBank and FASTA saves; docs/specs/cli.md sections 13.7 and 13.8 (D060 to
+GenBank and FASTA saves; [docs/specs/cli.md](/specs/cli.md) sections 13.7 and 13.8 (D060 to
 D062).
 
 Later: Web interface

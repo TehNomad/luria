@@ -7,7 +7,7 @@ text, pinned by test 3); a whole-number float prints without `.0` (`66`
 where the JSON holds `66.0`), as 7c1's `{}` rule gives; a tail's `reason`
 is core's own text and may hold `′`, which is a document field, not a
 literal. Planner:
-Claude. Parent: `docs/tasks/contracts/milestone-7-tui.md` §3 rules 1 and 3, §5.2
+Claude. Parent: [docs/tasks/contracts/milestone-7-tui.md](/tasks/contracts/milestone-7-tui.md) §3 rules 1 and 3, §5.2
 screen 3, §6 (7c). Builds on 7c1 (`crates/cli/src/review/text.rs`).
 
 ## 1. What and why
@@ -136,7 +136,7 @@ codon `GCA`, interval `[165, 168)`.
 
 - Change only `crates/cli/src/review/text.rs` and
   `crates/cli/tests/review_text.rs`.
-- Do not change other files, any fixture, `docs/`, any `Cargo.toml` or
+- Do not change other files, any fixture, [docs/](/), any `Cargo.toml` or
   `vendor/`.
 - Do not draw anything, compute a value, round a float, reverse or
   complement a sequence.

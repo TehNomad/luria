@@ -3,7 +3,7 @@
 Planner: Claude. Status: **Implemented 2026-10-27** by worker `w-8m5` in
 three rounds, reviewed and accepted. Tier: light (D051): tests assert
 behaviour, and the hand test may change the colours again. Owner's answer:
-`docs/tasks/contracts/milestone-8m-polish.md` §1, M8-29. Findings from review:
+[docs/tasks/contracts/milestone-8m-polish.md](/tasks/contracts/milestone-8m-polish.md) §1, M8-29. Findings from review:
 
 * Round 1 stopped before its report, after a context compaction. Its last
   reasoning was in a scratch test, with values not in this contract. The

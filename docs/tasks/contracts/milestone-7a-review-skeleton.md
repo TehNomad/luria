@@ -9,7 +9,7 @@ for integration tests. The planner corrected one comment in
 `review_view.rs` (the test that pins `edit-a42g.json`'s result).
 `terminal.rs` is unverified until the owner runs `luria review` in a real
 terminal. Planner: Claude. Parent:
-`docs/tasks/contracts/milestone-7-tui.md` §3 (rules 1, 3, 7), §5.1, §6 (7a). Step
+[docs/tasks/contracts/milestone-7-tui.md](/tasks/contracts/milestone-7-tui.md) §3 (rules 1, 3, 7), §5.1, §6 (7a). Step
 7a0 is done: `ratatui` 0.30 and `crossterm` 0.29 are already in
 `crates/cli/Cargo.toml` and vendored.
 
@@ -284,7 +284,7 @@ report what you saw:
   `crates/cli/src/review/view.rs`, `crates/cli/src/review/terminal.rs`,
   `crates/cli/tests/review_view.rs` and `crates/cli/tests/cli.rs` (adding
   the one test only).
-- Do not change existing tests or fixtures, `docs/`, or `luria-core` or
+- Do not change existing tests or fixtures, [docs/](/), or `luria-core` or
   `luria-nl`.
 - Do not add the interpret form of `review`, export, member or primer
   screens, colours as meaning, or mouse support.

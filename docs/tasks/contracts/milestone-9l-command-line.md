@@ -1,7 +1,7 @@
 # Contract 9l — cli: the `:` command line, `ZZ` and `ZQ`
 
 Planner: Claude. Status: implemented. Tier: light.
-Plan row: `docs/tasks/contracts/milestone-9-editor.md` §7, row 9l.
+Plan row: [docs/tasks/contracts/milestone-9-editor.md](/tasks/contracts/milestone-9-editor.md) §7, row 9l.
 
 ## 1. What this contract builds
 

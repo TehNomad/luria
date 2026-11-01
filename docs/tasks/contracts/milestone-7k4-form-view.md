@@ -1,7 +1,7 @@
 # Milestone 7k4: the `luria new` form's text and drawing
 
 Status: **Implemented 2026-10-22** by w7k4f (ran out of context) and w7k4g. Proofs 1-3 failed as required. Test 1 matched the contract's 28 lines with no change to either side. Untested: the style rules §4.2 does not name. Planner: Claude. Parent:
-`docs/tasks/contracts/milestone-7k-new.md` §1 (the mock-up), M7-36, M7-39, and
+[docs/tasks/contracts/milestone-7k-new.md](/tasks/contracts/milestone-7k-new.md) §1 (the mock-up), M7-36, M7-39, and
 7j2's frame. Builds on 7k3 (`new::form::NewForm` and its accessors).
 Next: 7k5 (the `luria new` command and its loop).
 

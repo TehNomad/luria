@@ -2,7 +2,7 @@
 
 Status: **Implemented 2026-10-15** by the local worker; accepted on planner review (§8).
 Date: 2026-10-15
-Planner: Claude. Parent: `docs/tasks/contracts/milestone-4-indels.md`, pass 5. This is
+Planner: Claude. Parent: [docs/tasks/contracts/milestone-4-indels.md](/tasks/contracts/milestone-4-indels.md), pass 5. This is
 the first of four contracts; it adds only a pure function and its tests.
 Nothing calls it yet.
 
@@ -84,7 +84,7 @@ pub fn expand_degenerate(text: &str) -> Result<Vec<String>, DomainError>;
 
 - Do not change `DNA_ALPHABET`, `complement_letter`, `normalize`,
   `is_dna_base` or anything else that exists in `sequence.rs`.
-- Do not touch any other file, any fixture, or `docs/`. No new dependencies
+- Do not touch any other file, any fixture, or [docs/](/). No new dependencies
   and no new `DomainError` variants.
 - Do not add a cap on the number of expansions.
 

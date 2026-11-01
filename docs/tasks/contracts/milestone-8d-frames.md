@@ -4,7 +4,7 @@ Planner: Claude.
 
 Status: **Implemented 2026-10-24** by the local worker in one round (label
 `w8d`), reviewed and accepted 2026-10-26. Full tier (D051). Plan row **8d** in
-`docs/tasks/contracts/milestone-8-view.md` §7. The worker's own report was not kept; its
+[docs/tasks/contracts/milestone-8-view.md](/tasks/contracts/milestone-8-view.md) §7. The worker's own report was not kept; its
 `md5-8d.txt` matched the tree, so its guard experiments were restored. Findings
 from review:
 
@@ -34,13 +34,13 @@ with the position of its codon's middle base.
 
 The rules are already written down. They are not open:
 
-* `docs/tasks/contracts/milestone-8-view.md` §4.3 (lines 254–274): frame numbering, the
+* [docs/tasks/contracts/milestone-8-view.md](/tasks/contracts/milestone-8-view.md) §4.3 (lines 254–274): frame numbering, the
   window, the no-wrap rule, `*`, `?`, and what a leftover base does.
-* `docs/decisions/` D052 (`## D052: Frames, ambiguity codes, palindromic
+* [docs/decisions/](/decisions/) D052 (`## D052: Frames, ambiguity codes, palindromic
   sites, and what \`find\` exits with`, line 1858): frames do not run across the
   origin, `N` is always `?`, and the reversibility note lists what may not be
   changed without the owner.
-* `docs/decisions/` D050 (line 1764), especially its bullet "A leftover codon
+* [docs/decisions/](/decisions/) D050 (line 1764), especially its bullet "A leftover codon
   in a frame is not drawn": `?` means a *complete* codon that cannot be read.
 * The fixtures in `tests/fixtures/view/` written for this: `frame-tables.tsv`
   (1318 codon rows) and `frame-tails.tsv` (36 rows), whose rules and
@@ -339,7 +339,7 @@ the test.
   not change any behaviour there; the review fixtures must keep passing.
 * Do not edit, regenerate, reformat or delete anything under
   `tests/fixtures/`, including `verify.py` and the `reference/` scripts.
-* Do not edit `docs/decisions/`, `docs/tasks/`, `docs/specs/cli.md`, or any test
+* Do not edit [docs/decisions/](/decisions/), [docs/tasks/](/tasks/), [docs/specs/cli.md](/specs/cli.md), or any test
   written by someone else. If a fixture looks wrong, stop and report it — three
   earlier rounds found real fixture bugs that way, and one found two bugs in a
   contract instead.

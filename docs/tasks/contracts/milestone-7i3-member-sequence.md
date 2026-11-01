@@ -7,7 +7,7 @@ but not test 2, which cannot fail it: a deletion writes no bases, so
 proves the rule). Added by the worker and accepted: a `Residue` with no
 coordinates gives the single line `the edit span cannot be read:
 <reason>` (untested; core never reports one). Planner: Claude. Parent:
-`docs/tasks/contracts/milestone-7-tui.md` §5.3a (owner answers M7-16 to M7-21).
+[docs/tasks/contracts/milestone-7-tui.md](/tasks/contracts/milestone-7-tui.md) §5.3a (owner answers M7-16 to M7-21).
 The specification is `tests/fixtures/review/reference/member.py`: read its
 docstring and `screen` function first. Its outputs,
 `tests/fixtures/review/member-*.txt` (nine files), are the expected

@@ -1,7 +1,7 @@
 # Review M6 A-1, A-3: a reply is an object, and its error is one line
 
 Status: **Implemented 2026-10-20** by the local worker; accepted on planner review. Planner: Claude. Parent:
-`docs/tasks/reviews/review-post-m6.md` A-1, A-3. Owner, 2026-10-20: "Go ahead and
+[docs/tasks/reviews/review-post-m6.md](/tasks/reviews/review-post-m6.md) A-1, A-3. Owner, 2026-10-20: "Go ahead and
 fix them" (the review recommends refusing an array-form reply).
 
 Files (no others):

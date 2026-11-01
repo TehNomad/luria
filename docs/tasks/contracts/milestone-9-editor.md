@@ -53,7 +53,7 @@ unchanged unless §5 says otherwise.
   a GenBank writer in core, pinned by round-trip fixtures checked with
   Biopython (full tier).
 - A quit that asks when there are unsaved edits (M9-9).
-- `docs/specs/cli.md` §13 and the decisions this milestone settles.
+- [docs/specs/cli.md](/specs/cli.md) §13 and the decisions this milestone settles.
 
 ### Out (unless the owner moves it in)
 
@@ -151,7 +151,7 @@ removed end interval moves to the feature's new end, and an absent
 | 9r | core, cli: the review's memory and speed fixes (owner, 2026-10-31) | light |
 | 9i | the owner's hand test, then a polish set | — |
 | 9k | cli: the messages that promise milestone 9 reworded (M9-1) | light |
-| 9j | docs: `docs/specs/cli.md` §13, the decisions, the brief | — |
+| 9j | docs: [docs/specs/cli.md](/specs/cli.md) §13, the decisions, the brief | — |
 
 Carried over from milestone 8's hand test, no change asked yet (8m §1):
 the cap sentence cut short at 80 columns, the list window scrolling

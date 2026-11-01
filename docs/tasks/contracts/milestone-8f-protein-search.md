@@ -6,7 +6,7 @@ before the protein tables were written, as plan §4.5 asks; those tables
 (8a1c's §4.5 half: `search-protein-patterns.tsv`, `search-protein-hits.tsv`)
 landed in commit 8b81222. The matching and order rules in §4 are D054,
 approved by the owner 2026-10-26. Tier: full (D051). Plan row: **8f** in
-`docs/tasks/contracts/milestone-8-view.md` §7. Findings from review:
+[docs/tasks/contracts/milestone-8-view.md](/tasks/contracts/milestone-8-view.md) §7. Findings from review:
 
 * Round 2, memory: six-frame mode built all six frames' codons before
   searching any, about 370 MB on a 4.6 Mb record and 800 MB at D048's

@@ -2,7 +2,7 @@
 
 Planner: Claude. Status: **Implemented 2026-10-26** by worker `w-8j` in two
 rounds, reviewed and accepted. Tier: full (D051). Plan row: **8j** in
-`docs/tasks/contracts/milestone-8-view.md` §7. The view's state, cursor and status line
+[docs/tasks/contracts/milestone-8-view.md](/tasks/contracts/milestone-8-view.md) §7. The view's state, cursor and status line
 (8k1) draw with this. Findings from review:
 
 * Round 1: tests 1 and 2 read all 645 block rows and all 845 cell rows (the

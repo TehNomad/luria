@@ -11,7 +11,7 @@ and write, which no test reaches. `interpret`'s exit status is ignored
 here: a failed interpretation opens on `proposal: failed`, and quitting
 exits 0. The terminal loop and `emit_review_interpret` are verified by
 compilation only, until the owner runs them.
-Planner: Claude. Parent: `docs/tasks/contracts/milestone-7-tui.md` §1, §3 rules 3,
+Planner: Claude. Parent: [docs/tasks/contracts/milestone-7-tui.md](/tasks/contracts/milestone-7-tui.md) §1, §3 rules 3,
 4 and 6, M7-1, M7-3, §6 (7f). Uses 7e's `text::proposal` and 7f1's
 `request_location_problem`, `request_text` and `write_request_file`.
 
@@ -265,7 +265,7 @@ Corpus cases through the scripted backend, as 7e's tests run them, with
 - Change only `args.rs`, `main.rs`, `review.rs`, `review/proposal.rs`,
   `review/view.rs`, `review/terminal.rs`, and the tests named in §4
   (adding tests; 7a's tests stay unchanged).
-- Do not change `interpret/`, `luria-nl`, `text.rs`, fixtures, `docs/`,
+- Do not change `interpret/`, `luria-nl`, `text.rs`, fixtures, [docs/](/),
   any `Cargo.toml` or `vendor/`.
 - Do not call a real model in a test; do not run `luria review` by hand.
 - Do not add dependencies. Do not stage or commit.

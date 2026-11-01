@@ -6,7 +6,7 @@ has a reverse tail. The planner added `context-ins-04.txt`, from
 `native-insertion.tsv` row `ins-04`, which has tails on both primers;
 contract 7d2 adds its test. Unverified: a layout longer than one 60-base
 block, and a primer with no spanned part. Planner:
-Claude. Parent: `docs/tasks/contracts/milestone-7-tui.md` §3 rules 1 and 4, §5.3,
+Claude. Parent: [docs/tasks/contracts/milestone-7-tui.md](/tasks/contracts/milestone-7-tui.md) §3 rules 1 and 4, §5.3,
 §6 (7d0, 7d), §7. Builds on 7b (`app.rs`), 7c1/7c2 (`text.rs`) and 7c3
 (`view.rs`). Step 7d0 is done: the expected screens are in
 `tests/fixtures/review/` (see its `README.md`).
@@ -197,7 +197,7 @@ Run it with `luria_cli::run::run`, get the template with
   `review/view.rs`, `main.rs` (§3.3 only), and the new
   `tests/review_context.rs`.
 - Do not change any fixture, `tests/fixtures/review/` included, any other
-  test, `docs/`, any `Cargo.toml` or `vendor/`.
+  test, [docs/](/), any `Cargo.toml` or `vendor/`.
 - Do not complement a base, compute a coordinate the document does not
   report, or call `luria_core`'s `reverse_complement`.
 - Do not add dependencies. Do not stage or commit. Do not run `luria

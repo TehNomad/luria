@@ -5,7 +5,7 @@ review. Notes: the "gate before `interpret`" proof fails through the
 stdout-is-empty assertion, not the exit status; a duplicated option is
 reported before a missing value, as `--write-edited` already is; an empty
 `--backend` or `--endpoint` is refused by the later rules.
-Planner: Claude. Parent: `docs/tasks/contracts/milestone-6-nl.md` §3 ("Cloud use is
+Planner: Claude. Parent: [docs/tasks/contracts/milestone-6-nl.md](/tasks/contracts/milestone-6-nl.md) §3 ("Cloud use is
 explicit"), §5.6, §5.7, M6-17, M6-18, §6 (6h).
 
 ## 1. What and why
@@ -513,7 +513,7 @@ Disable each once, confirm the named test fails, restore, report both:
   `LURIA_OPENAI_API_KEY`.
 - Print the key, or anything derived from it, anywhere.
 - Change `interpret`, `luria-nl`, `luria-core`, `tests/fixtures/` or
-  `docs/`, or any test other than the two messages of §3.3.
+  [docs/](/), or any test other than the two messages of §3.3.
 - Add a backend kind, a default for any option, or a dependency.
 
 ## 6. Checks

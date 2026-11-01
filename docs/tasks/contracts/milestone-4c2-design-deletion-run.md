@@ -2,7 +2,7 @@
 
 Status: **Implemented 2026-10-15** by the local worker; accepted on planner review (§7).
 Date: 2026-10-15
-Planner: Claude. Parent: `docs/tasks/contracts/milestone-4-indels.md`.
+Planner: Claude. Parent: [docs/tasks/contracts/milestone-4-indels.md](/tasks/contracts/milestone-4-indels.md).
 
 ## 1. Goal
 
@@ -40,7 +40,7 @@ bases).unwrap())`.
 ## 4. Do not
 
 - Do not change production code in any file, or any existing test or fixture.
-- Do not edit `docs/`.
+- Do not edit [docs/](/).
 
 ## 5. Checks
 

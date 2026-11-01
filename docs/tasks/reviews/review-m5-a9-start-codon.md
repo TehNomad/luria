@@ -1,15 +1,15 @@
 # Review M5 A-9: every imported GenBank CDS starts with ATG (D042)
 
 Status: **Implemented 2026-10-18** by the local worker; accepted after one review round (the `AlternativeStart` message wording). Planner: Claude. Parent:
-`docs/tasks/reviews/review-post-m5.md`, owner item A-9 (the reviewer's owner item 1).
+[docs/tasks/reviews/review-post-m5.md](/tasks/reviews/review-post-m5.md), owner item A-9 (the reviewer's owner item 1).
 Owner answer, 2026-10-18: "Require ATG for every table." Recorded by this
-contract as D042. Amends `docs/tasks/contracts/milestone-5c3-genbank-cds.md` §4.2 step
+contract as D042. Amends [docs/tasks/contracts/milestone-5c3-genbank-cds.md](/tasks/contracts/milestone-5c3-genbank-cds.md) §4.2 step
 11, which stays a historical record: do not edit it.
 
 Files:
 - `crates/core/src/genbank_cds.rs`
 - `crates/core/src/error.rs` (doc comments only)
-- `docs/decisions/` (append D042, text in §2.4)
+- [docs/decisions/](/decisions/) (append D042, text in §2.4)
 - `tests/fixtures/genbank/synthetic-expected.tsv`,
   `tests/fixtures/genbank/synthetic-unused.tsv`,
   `tests/fixtures/genbank/README.md`,
@@ -88,7 +88,7 @@ In `reference/verify_synthetic.py`, `check_expected`:
 Update the module docstring only if it mentions table 11 for the start
 rule.
 
-### 2.4 `docs/decisions/`
+### 2.4 [docs/decisions/](/decisions/)
 
 Append, after D041, exactly:
 

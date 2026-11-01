@@ -3,7 +3,7 @@
 Status: **Implemented 2026-10-21** by the local worker; accepted after one
 question (the template is 100 bases, not 99). The proof failed as it
 should: with the reverse tail placed left, the window became `[27, 70)`. Planner: Claude. Parent:
-`docs/tasks/contracts/milestone-7d-context.md` (implemented), whose proof 2 could
+[docs/tasks/contracts/milestone-7d-context.md](/tasks/contracts/milestone-7d-context.md) (implemented), whose proof 2 could
 not fail because no fixture had a reverse-primer tail.
 
 ## 1. What and why
@@ -64,7 +64,7 @@ test, confirm it fails, restore, and report what you saw.
 - Change only `crates/cli/tests/review_context.rs`, adding the one test
   and any helper it needs.
 - Do not change `text.rs` (except to disable and restore for §3), any
-  fixture, other tests, `docs/`, any `Cargo.toml` or `vendor/`.
+  fixture, other tests, [docs/](/), any `Cargo.toml` or `vendor/`.
 - Do not stage or commit.
 
 ## 5. Checks

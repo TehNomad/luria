@@ -9,7 +9,7 @@ Known gaps: without a terminal, `luria new` prints the review's message
 (it names `'review'`), to be fixed in a follow-up; the GenBank path and an
 already-taken paste file name are untested; the terminal loop is the
 owner's hand test. Planner: Claude. Parent:
-`docs/tasks/contracts/milestone-7k-new.md` §1, §2 (rules 4 to 6), M7-31, M7-37.
+[docs/tasks/contracts/milestone-7k-new.md](/tasks/contracts/milestone-7k-new.md) §1, §2 (rules 4 to 6), M7-31, M7-37.
 Builds on 7k2 (`new::build`), 7k3 (`NewForm`), 7k4 (`draw_form`) and the
 review's proposal pattern (7f2: nothing written before `a` then `y`).
 

@@ -1,7 +1,7 @@
 # Milestone 5c2: the GenBank record reader
 
 Status: **Implemented 2026-10-17** by the local worker; accepted after one review round (§4.6, §4.7 clarified; two tests added).
-Planner: Claude. Parent: `docs/tasks/contracts/milestone-5-cli.md` §3.3 (GenBank) and
+Planner: Claude. Parent: [docs/tasks/contracts/milestone-5-cli.md](/tasks/contracts/milestone-5-cli.md) §3.3 (GenBank) and
 §5 (5c2). Follows 5c1 (`genbank_location.rs`, committed).
 
 ## 1. What and why

@@ -1,6 +1,6 @@
 # Milestone 7m3: the form's fields after the owner's hand test
 
-Status: **Implemented, 2026-10-22.** Planner: Claude. Parent: `docs/tasks/contracts/milestone-7m-polish.md`,
+Status: **Implemented, 2026-10-22.** Planner: Claude. Parent: [docs/tasks/contracts/milestone-7m-polish.md](/tasks/contracts/milestone-7m-polish.md),
 M7-45, M7-46, M7-47 and M7-51.
 
 ## 1. The owner's answers this contract applies

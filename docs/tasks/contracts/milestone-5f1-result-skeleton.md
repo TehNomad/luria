@@ -3,7 +3,7 @@
 Status: **Implemented 2026-10-17** by the local worker, across two runs (the
 first ended in a local inference error with clippy unrun); accepted on
 review.
-Planner: Claude. Parent: `docs/tasks/contracts/milestone-5-cli.md` §3.5 and §5 (5f,
+Planner: Claude. Parent: [docs/tasks/contracts/milestone-5-cli.md](/tasks/contracts/milestone-5-cli.md) §3.5 and §5 (5f,
 split into 5f1 to 5f4).
 
 ## 1. What and why

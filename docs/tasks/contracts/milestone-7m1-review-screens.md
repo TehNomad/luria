@@ -1,7 +1,7 @@
 # Milestone 7m1: the review screens after the owner's hand test
 
 Status: **Implemented, 2026-10-22.** Planner: Claude. Parent:
-`docs/tasks/contracts/milestone-7m-polish.md`, items M7-52 to M7-56 and M7-58's
+[docs/tasks/contracts/milestone-7m-polish.md](/tasks/contracts/milestone-7m-polish.md), items M7-52 to M7-56 and M7-58's
 keys (quoted in §1).
 
 ## 1. The owner's answers this contract applies

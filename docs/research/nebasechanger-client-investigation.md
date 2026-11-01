@@ -536,6 +536,6 @@ Xe.ta=Math.min(Xe.tmf,Xe.tmr)+1,Xe.ta>72&&(Xe.ta=72)
   20231121085423, 20230504194028 (URLs in Section 3).
 - Luria repository: `crates/core/src/mutation.rs`,
   `tests/fixtures/nebasechanger-research/...` (captured D404N),
-  `tests/fixtures/README.md`, `docs/decisions/`.
+  `tests/fixtures/README.md`, [docs/decisions/](/decisions/).
 - Prior report (context only): `docs/research/nebasechanger-polymerase-tm.md`
   on branch `research/polymerase-tm`.

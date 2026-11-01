@@ -1,7 +1,7 @@
 # Review M5 A-8, A-10: GenBank test gaps
 
 Status: **Implemented 2026-10-18** by the local worker; accepted on planner review. Planner: Claude. Parent:
-`docs/tasks/reviews/review-post-m5.md` A-8 and A-10. Test-only: no production code
+[docs/tasks/reviews/review-post-m5.md](/tasks/reviews/review-post-m5.md) A-8 and A-10. Test-only: no production code
 changes.
 
 Files:

@@ -2,7 +2,7 @@
 
 Planner: Claude. Status: **Implemented 2026-10-27** by worker `w-8m1`,
 reviewed and accepted. Tier: light (D051): tests assert behaviour, not
-wording. Owner's answers: `docs/tasks/contracts/milestone-8m-polish.md` §1, M8-21 and
+wording. Owner's answers: [docs/tasks/contracts/milestone-8m-polish.md](/tasks/contracts/milestone-8m-polish.md) §1, M8-21 and
 M8-22. Findings from review:
 
 * The first worker tab was lost when the model server went down, so a

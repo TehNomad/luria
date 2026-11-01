@@ -162,7 +162,7 @@ depends on which route a given request takes; not established here.
 
 ### 1.5 Corrections to the earlier live-build report
 
-The earlier `docs/research/nebasechanger-live-build-4330b0c7-2026-10-10.md`
+The earlier [docs/research/nebasechanger-live-build-4330b0c7-2026-10-10.md](/research/nebasechanger-live-build-4330b0c7-2026-10-10.md)
 §5 stated that the SDM path uses `+4.1/+2300` and `−2.8/+100`, and that the
 GC-clamp loop is bounded by `primerMaxTm` (default 70). Both are wrong for the
 SDM path:

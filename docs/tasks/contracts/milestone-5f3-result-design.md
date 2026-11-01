@@ -3,7 +3,7 @@
 Status: **Implemented 2026-10-17** by the local worker; accepted on review.
 Review note: `primer_view` and `pair_view` are also `pub`, beyond the four
 named functions; harmless, left as is.
-Planner: Claude. Parent: `docs/tasks/contracts/milestone-5-cli.md` §3.5 and §5 (5f).
+Planner: Claude. Parent: [docs/tasks/contracts/milestone-5-cli.md](/tasks/contracts/milestone-5-cli.md) §3.5 and §5 (5f).
 Follows 5f2 (members, targets, clarifications).
 
 ## 1. What and why
@@ -19,7 +19,7 @@ it, or the member's design failure, to a member.
   and any `substitutedBecause`, whole-primer Tm and quality warnings; and
   the annealing temperature, balance, edit span and pair relationship.
   Floats print in shortest round-trip form and are never rounded.
-- **`docs/specs/q5-sdm.md` §12 (owner, 2026-10-14):** a set member that cannot be
+- **[docs/specs/q5-sdm.md](/specs/q5-sdm.md) §12 (owner, 2026-10-14):** a set member that cannot be
   designed carries its own error, and the others are still designed.
 - **D021, D028:** the design names its algorithm and version, and states
   what it left unresolved.

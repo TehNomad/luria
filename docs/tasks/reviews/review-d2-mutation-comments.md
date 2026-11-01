@@ -1,13 +1,13 @@
 # Review cleanup D2: comments in `mutation.rs`, `q5_design.rs`, `q5_expand.rs`
 
 Status: **Implemented 2026-10-16** by the local worker; accepted after one review round (two false claims and a vague citation fixed).
-Planner: Claude. Parent: `docs/tasks/reviews/review-post-m4.md` §D.
+Planner: Claude. Parent: [docs/tasks/reviews/review-post-m4.md](/tasks/reviews/review-post-m4.md) §D.
 
 **Comments only.** No code, string, test or behavior change.
 
 ## 1. Rules
 
-Follow §2 of `docs/tasks/reviews/review-d1-q5-comments.md` exactly; its 11 rules
+Follow §2 of [docs/tasks/reviews/review-d1-q5-comments.md](/tasks/reviews/review-d1-q5-comments.md) exactly; its 11 rules
 apply here unchanged. In short:
 - describe the code as it is now;
 - keep every D-number, spec section and owner decision that justifies a rule
@@ -41,7 +41,7 @@ the rules allow.
   It rebuilds the edited artifact from the record for deletions, insertions
   and replacements. For residue results it checks the recorded annotation
   (exact `Cds` equality), the source's residue and codon, and the edited
-  codon. It re-translates **only** residue results (`docs/specs/q5-sdm.md` §8, open
+  codon. It re-translates **only** residue results ([docs/specs/q5-sdm.md](/specs/q5-sdm.md) §8, open
   owner question A5).
 - **`require_within_feature`** requires the whole interval inside one CDS
   interval. **`require_point_within_feature`** requires `start < p < end`
@@ -70,7 +70,7 @@ particular these two in `q5_design.rs`:
 
 ## 4. Guard
 
-Run the §5 guard of `docs/tasks/reviews/review-d1-q5-comments.md`, with these file
+Run the §5 guard of [docs/tasks/reviews/review-d1-q5-comments.md](/tasks/reviews/review-d1-q5-comments.md), with these file
 arguments:
 
 ```

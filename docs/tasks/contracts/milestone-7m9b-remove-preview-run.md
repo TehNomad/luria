@@ -1,7 +1,7 @@
 # Milestone 7m9b: remove the in-memory run
 
 Status: **Implemented, 2026-10-23.** Planner: Claude. Parent:
-`docs/tasks/contracts/milestone-7m-polish.md`, M7-65. Follows 7m9a (committed
+[docs/tasks/contracts/milestone-7m-polish.md](/tasks/contracts/milestone-7m-polish.md), M7-65. Follows 7m9a (committed
 `8499fd8`).
 
 ## 1. Why

@@ -1,7 +1,7 @@
 # Contract 9q — core, cli: the review's five correctness fixes
 
 Planner: Claude. Status: implemented. Tier: full (the GenBank writer, M9-10).
-Plan row: `docs/tasks/contracts/milestone-9-editor.md` §7, row 9q.
+Plan row: [docs/tasks/contracts/milestone-9-editor.md](/tasks/contracts/milestone-9-editor.md) §7, row 9q.
 
 ## 1. What this contract fixes
 

@@ -1,7 +1,7 @@
 # Milestone 5c3: importing named CDSs from a GenBank record
 
 Status: **Implemented 2026-10-17** by the local worker, across two runs (the first hit the turn limit with the integration test unfinished); accepted on review. Finding: the §4.1 `AmbiguousName` check is redundant, because §4.2 step 3 gives the same error for a named import, so disabling it alone fails no test (§6.5). It is kept as a shortcut.
-Planner: Claude. Parent: `docs/tasks/contracts/milestone-5-cli.md` §3.3 (GenBank) and
+Planner: Claude. Parent: [docs/tasks/contracts/milestone-5-cli.md](/tasks/contracts/milestone-5-cli.md) §3.3 (GenBank) and
 §5 (5c3). Builds on 5c1 (`genbank_location.rs`) and 5c2 (`genbank.rs`), both
 committed.
 
@@ -13,7 +13,7 @@ rule luria applies, and lists every other feature as *not used*. For an
 unused CDS, the list also gives the refusal luria would have given it. A
 problem in an unused feature never fails the run.
 
-## 2. Requirements this contract applies (`docs/decisions/` D041)
+## 2. Requirements this contract applies ([docs/decisions/](/decisions/) D041)
 
 - **G1:** only `CDS` features are candidates. Each requested id must match
   exactly one CDS feature; zero or more than one is an error. A named CDS

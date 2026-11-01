@@ -1,7 +1,7 @@
 # Milestone 7m5: a filtered file list under `File`
 
 Status: **Implemented, 2026-10-22.** Planner: Claude. Parent:
-`docs/tasks/contracts/milestone-7m-polish.md`, M7-50. Builds on 7m4 (committed
+[docs/tasks/contracts/milestone-7m-polish.md](/tasks/contracts/milestone-7m-polish.md), M7-50. Builds on 7m4 (committed
 `7848c46`).
 
 ## 1. The owner's answer this contract applies

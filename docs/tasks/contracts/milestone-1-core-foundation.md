@@ -4,9 +4,9 @@ Status: Implemented in `crates/core`
 Date: 2026-10-06
 
 This file records the concrete semantic choices made while implementing
-Milestone 1. It does not restate `docs/decisions/`; each entry names the
+Milestone 1. It does not restate [docs/decisions/](/decisions/); each entry names the
 decision it implements and the specific choice taken here. If an entry
-contradicts `docs/decisions/`, that document wins and this entry is wrong.
+contradicts [docs/decisions/](/decisions/), that document wins and this entry is wrong.
 
 ## Scope actually implemented
 

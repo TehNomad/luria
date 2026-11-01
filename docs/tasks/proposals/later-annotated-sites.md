@@ -3,7 +3,7 @@
 Status: **Deferred by the owner, 2026-10-19. Not scheduled and not a task
 contract: do not implement.** Placing it in a milestone is a scope decision
 for the owner (D034). Raised during Milestone 6
-(`docs/tasks/contracts/milestone-6-nl.md`).
+([docs/tasks/contracts/milestone-6-nl.md](/tasks/contracts/milestone-6-nl.md)).
 
 ## The request it would serve
 
@@ -13,7 +13,7 @@ the residue by its role, not its number.
 ## What luria does today
 
 It asks. On the local model (prompt v2 of
-`docs/research/m6-local-model-extraction-2026-10-19.md`), that sentence gives
+[docs/research/m6-local-model-extraction-2026-10-19.md](/research/m6-local-model-extraction-2026-10-19.md)), that sentence gives
 the token `H?A`: histidine to alanine, number unstated. The evidence check
 turns it into a `residue_number_unstated` question. That is the right
 behaviour until a deterministic source for the number exists.

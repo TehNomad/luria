@@ -1,7 +1,7 @@
 # Review A6: accept `ConfineToTail` where it changes nothing (D038)
 
 Status: **Implemented 2026-10-16** by the local worker; accepted on planner review.
-Planner: Claude. Parent: `docs/tasks/reviews/review-post-m4.md` A6. Decision: D038.
+Planner: Claude. Parent: [docs/tasks/reviews/review-post-m4.md](/tasks/reviews/review-post-m4.md) A6. Decision: D038.
 
 ## 1. Requirement (D038, inline)
 
@@ -64,7 +64,7 @@ substitution, must still pass unchanged.
 
 ## 5. Checks
 
-Same as `docs/tasks/reviews/review-a4-origin-split.md` §6.
+Same as [docs/tasks/reviews/review-a4-origin-split.md](/tasks/reviews/review-a4-origin-split.md) §6.
 
 ## 6. Handoff
 

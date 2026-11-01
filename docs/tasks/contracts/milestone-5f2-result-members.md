@@ -5,7 +5,7 @@ Review note: the §4.2 "clarification has no target" proof only fails when
 the literal `target: None` in `clarification_document` is broken. A gate
 that needs clarification never carries a target, so breaking the accessor
 fails nothing.
-Planner: Claude. Parent: `docs/tasks/contracts/milestone-5-cli.md` §3.5 and §5 (5f).
+Planner: Claude. Parent: [docs/tasks/contracts/milestone-5-cli.md](/tasks/contracts/milestone-5-cli.md) §3.5 and §5 (5f).
 Follows 5f1 (`result.rs`: the document's skeleton, provenance and failures).
 
 ## 1. What and why

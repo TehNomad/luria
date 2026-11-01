@@ -1,7 +1,7 @@
 # Contract 9c1 — core: the GenBank reader keeps what a save writes back
 
 Planner: Claude. Status: implemented. Tier: full.
-Plan row: `docs/tasks/contracts/milestone-9-editor.md` §7, row 9c1.
+Plan row: [docs/tasks/contracts/milestone-9-editor.md](/tasks/contracts/milestone-9-editor.md) §7, row 9c1.
 
 ## 1. What this contract builds
 

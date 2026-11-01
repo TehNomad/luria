@@ -2,7 +2,7 @@
 
 Status: **Implemented 2026-10-15** by the local worker; accepted on planner review (§8).
 Date: 2026-10-15
-Planner: Claude. Parent: `docs/tasks/contracts/milestone-4-indels.md`, pass 5. Mirrors
+Planner: Claude. Parent: [docs/tasks/contracts/milestone-4-indels.md](/tasks/contracts/milestone-4-indels.md), pass 5. Mirrors
 `milestone-4d4-workflow-insertion.md` (implemented): follow its code in
 `q5.rs` and `q5_design.rs`. Degenerate expansion is 4e-4b, not this task.
 
@@ -89,7 +89,7 @@ Biopython 1.88, run by the planner before this code existed. Tms within 0.006.
 ## 5. Do not
 
 - Do not touch `mutation.rs`, `primer.rs`, `primer_design.rs`,
-  `primer_quality.rs`, any fixture or `docs/`. No new error variants.
+  `primer_quality.rs`, any fixture or [docs/](/). No new error variants.
 - Do not change the deletion or insertion warning logic or any existing test,
   except the version string in §3.1 item 4.
 - If adding the `Q5MutationIntent` variant forces an arm in a match in a file

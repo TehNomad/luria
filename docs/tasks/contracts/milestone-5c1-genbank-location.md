@@ -1,7 +1,7 @@
 # Milestone 5c1: the GenBank location parser
 
 Status: **Implemented 2026-10-17** by the local worker; accepted on first review.
-Planner: Claude. Parent: `docs/tasks/contracts/milestone-5-cli.md` §3.3 (GenBank,
+Planner: Claude. Parent: [docs/tasks/contracts/milestone-5-cli.md](/tasks/contracts/milestone-5-cli.md) §3.3 (GenBank,
 "Locations") and §5 (5c1). Follows 5b (FASTA reader, committed).
 
 ## 1. What and why

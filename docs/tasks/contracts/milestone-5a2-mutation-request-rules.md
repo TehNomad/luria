@@ -1,7 +1,7 @@
 # Milestone 5a2: a `rule` on every `InvalidMutationRequest`
 
 Status: **Implemented 2026-10-16** by the local worker; accepted on first review.
-Planner: Claude. Parent: `docs/tasks/contracts/milestone-5-cli.md` §3.6 and §5 (5a2).
+Planner: Claude. Parent: [docs/tasks/contracts/milestone-5-cli.md](/tasks/contracts/milestone-5-cli.md) §3.6 and §5 (5a2).
 Decisions: D041 (the CLI prints each error's code and payload); review item
 C8 (`InvalidMutationRequest` is a catch-all told apart only by message text).
 Follows 5a1 (`DomainError::code()`, committed).

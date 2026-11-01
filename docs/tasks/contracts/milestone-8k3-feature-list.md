@@ -3,7 +3,7 @@
 Planner: Claude. Status: **Implemented 2026-10-26** by worker `w-8k3` in two
 rounds, reviewed and accepted. Tier: light (D051): tests assert behaviour,
 not wording; the hand test (8m) may change keys and sentences. Plan row:
-**8k3** in `docs/tasks/contracts/milestone-8-view.md` §7. Go-to (8k2) opens this list
+**8k3** in [docs/tasks/contracts/milestone-8-view.md](/tasks/contracts/milestone-8-view.md) §7. Go-to (8k2) opens this list
 filtered. Findings from review:
 
 * Round 1: tests 1–8 and G1–G7 behaved as §7 says; the worker added six
@@ -29,7 +29,7 @@ Typing filters a list with the shared matcher, `enter` acts on the
 highlighted row, `esc` closes it. No go-to (8k2), no search (8l1).
 
 Rules that apply, already settled:
-- Proposal `docs/tasks/proposals/proposal-sequence-view.md` §3 (`f`, `c`); plan §4.1
+- Proposal [docs/tasks/proposals/proposal-sequence-view.md](/tasks/proposals/proposal-sequence-view.md) §3 (`f`, `c`); plan §4.1
   (an undrawn feature is listed as "not drawn" with its reason) and §5.3
   (no jump to a feature whose start is not stated).
 - D052 (M8-5, `scripts/decision D052`): the picker shows unusable CDSs,

@@ -3,7 +3,7 @@
 Planner: Claude. Status: **Implemented 2026-10-27** by worker `w-8m4` in
 two rounds, reviewed and accepted. Tier: **full** for the layout tables
 (they are verified fixtures); light for the view tests. Owner's answer:
-`docs/tasks/contracts/milestone-8m-polish.md` §1, M8-28; plan §5.1 is amended.
+[docs/tasks/contracts/milestone-8m-polish.md](/tasks/contracts/milestone-8m-polish.md) §1, M8-28; plan §5.1 is amended.
 Findings from review:
 
 * The regenerated script's output matched every rule 2 value, and the

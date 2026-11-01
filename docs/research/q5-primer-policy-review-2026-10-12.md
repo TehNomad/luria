@@ -1,6 +1,6 @@
 # Q5 primer policy review — the M3b review-and-decision pass
 
-**What this is.** A review of the policy written in `docs/specs/q5-primer-design.md`
+**What this is.** A review of the policy written in [docs/specs/q5-primer-design.md](/specs/q5-primer-design.md)
 §§16–20: the `luriaNative` candidate policy and the `NebaseChangerV2_11_0`
 compatibility target. It is a review, an evidence pass and a decision pass. It
 implements nothing: `PrimerDesign` is still not implemented, no Rust changed in
@@ -9,7 +9,7 @@ this pass, and no runtime behaviour was added.
 **What it changed.** §§17.3, 18.1, 18.3, 18.4, 18.5 and 19 of the design
 contract were amended in place, and §21 was added as the index to this report.
 §20 was not changed. The decisions this pass settled are recorded as D028 and
-D029 in `docs/decisions/`. Everything else is recorded here as unresolved,
+D029 in [docs/decisions/](/decisions/). Everything else is recorded here as unresolved,
 with the smallest experiment that would settle it.
 
 **Date.** 2026-10-12.
@@ -18,14 +18,14 @@ with the smallest experiment that would settle it.
 pass. One rule it settled was changed the next day: the **availability-aware
 split** it records at A8, at D-5's "the split of `a_f` among ties" row, at
 Part D item 4, at Part E's D029 bullet, and at the handoff bullet "No
-biological assumption was changed" is **no longer the native rule**. `docs/specs/q5-primer-design.md`
+biological assumption was changed" is **no longer the native rule**. [docs/specs/q5-primer-design.md](/specs/q5-primer-design.md)
 §18.1 now states a **mutation-centered** split (`u = ceil(a_f/2)`,
 `v = floor(a_f/2)`, extra base 5′), availability is a feasibility test on the
 centered candidate rather than a rule that moves it, and the split is no longer
 "arbitrary among ties". Read those five passages as the reasoning of the
 2026-10-12 pass, not as the current contract. The follow-up and its
 consequences are §22 of the design contract and
-`docs/research/q5-primer-implementation-readiness-2026-10-13.md`. Nothing else
+[docs/research/q5-primer-implementation-readiness-2026-10-13.md](/research/q5-primer-implementation-readiness-2026-10-13.md). Nothing else
 in this report was changed, and no compatibility claim, Tm rule or maximum
 primer length statement was touched.
 
@@ -94,9 +94,9 @@ $ git diff --stat
 ```
 
 Nothing was staged, committed, reset or discarded. The only files this pass
-wrote are documentation: `docs/decisions/` (modified: D028 and D029 appended),
-`docs/specs/q5-primer-design.md` (untracked; §§17.3, 18.1, 18.3, 18.4, 18.5, 19 amended
-and §21 added) and this report under `docs/research/`.
+wrote are documentation: [docs/decisions/](/decisions/) (modified: D028 and D029 appended),
+[docs/specs/q5-primer-design.md](/specs/q5-primer-design.md) (untracked; §§17.3, 18.1, 18.3, 18.4, 18.5, 19 amended
+and §21 added) and this report under [docs/research/](/research/).
 
 ---
 
@@ -510,7 +510,7 @@ test result: ok.  14 passed; 0 failed; …
 test result: ok.   0 passed; 0 failed; …   (doc-tests)
 ```
 207 tests, 0 failures. No Rust changed in this pass; the count is unchanged
-from the 207 recorded in `docs/tasks/contracts/milestone-3b-q5-primer-contract.md` §8.
+from the 207 recorded in [docs/tasks/contracts/milestone-3b-q5-primer-contract.md](/tasks/contracts/milestone-3b-q5-primer-contract.md) §8.
 
 ```
 $ cd tests/fixtures/nebasechanger-research
@@ -603,10 +603,10 @@ repaired: fixing it edits Rust, which is outside this pass's scope.
 
 ### D-1. The task's description of the worktree did not match the worktree
 
-The task brief said `docs/decisions/` contains "D-010 'Primer policy review'"
+The task brief said [docs/decisions/](/decisions/) contains "D-010 'Primer policy review'"
 and an "Open questions and superseded decisions" section. It does not:
 
-* `docs/decisions/` is 599 lines, D001–D027, in a `## D0NN: Title` /
+* [docs/decisions/](/decisions/) is 599 lines, D001–D027, in a `## D0NN: Title` /
   `Decision:` / `Reason:` style, with **no** open-questions section and **no**
   primer-policy decision. D010 is "Initial CDS and translation scope is
   deliberately narrow".
@@ -614,10 +614,10 @@ and an "Open questions and superseded decisions" section. It does not:
   was reverted: the content the brief describes was never in it. The strings
   "Primer policy review" and "Open questions and superseded" occur in no file in
   the repository.
-* The brief's "§18" is `docs/specs/q5-primer-design.md` §18 ("The Luria-native
-  policy"), not the task contract: `docs/tasks/contracts/milestone-3b-q5-primer-contract.md`
+* The brief's "§18" is [docs/specs/q5-primer-design.md](/specs/q5-primer-design.md) §18 ("The Luria-native
+  policy"), not the task contract: [docs/tasks/contracts/milestone-3b-q5-primer-contract.md](/tasks/contracts/milestone-3b-q5-primer-contract.md)
   has §§1–8 only (numbered 1–6, then 8, then 7), and its §6 "Deliberately left
-  open" lists seven items pointing at `docs/specs/q5-primer-design.md` §§11 and 15.
+  open" lists seven items pointing at [docs/specs/q5-primer-design.md](/specs/q5-primer-design.md) §§11 and 15.
 
 Consequence: the two policy choices were **not** pre-recorded anywhere, so this
 pass is the first record of them, and the brief's instruction to record "chosen
@@ -629,7 +629,7 @@ preferences rather than evidence conclusions are flagged as such below.
 
 ### D-2. A wrong decision citation in the contract, corrected
 
-`docs/specs/q5-primer-design.md` §18.5 opened "Per D010 and §10". D010 is the CDS-scope
+[docs/specs/q5-primer-design.md](/specs/q5-primer-design.md) §18.5 opened "Per D010 and §10". D010 is the CDS-scope
 decision; the fail-closed rule is **D005**. Corrected to D005 in place, and
 flagged in §21's change table rather than silently fixed.
 

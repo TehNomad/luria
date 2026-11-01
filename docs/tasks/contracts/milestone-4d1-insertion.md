@@ -2,7 +2,7 @@
 
 Status: **Implemented 2026-10-15** by the local worker; accepted on planner review (§9).
 Date: 2026-10-15
-Planner: Claude. Parent: `docs/tasks/contracts/milestone-4-indels.md`, pass 4. Mirrors
+Planner: Claude. Parent: [docs/tasks/contracts/milestone-4-indels.md](/tasks/contracts/milestone-4-indels.md), pass 4. Mirrors
 `milestone-4a-deletion.md`, which is implemented. Use its code in
 `mutation.rs` (`NucleotideDeletionIntent`, `apply_deletion`, `verify_deletion`)
 as the pattern.
@@ -221,7 +221,7 @@ mirrors the neighbouring `Deletion` arm, with `insertion` in place of
   else existing in `interval.rs`.
 - Do not touch `primer.rs`, `q5.rs` or `q5_design.rs`. Do not add error
   variants or edit `error.rs`.
-- Do not change existing tests beyond §5, or any fixture, or `docs/`.
+- Do not change existing tests beyond §5, or any fixture, or [docs/](/).
 
 ## 7. Checks
 

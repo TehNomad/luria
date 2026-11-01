@@ -3,7 +3,7 @@
 Planner: Claude. Status: **Implemented 2026-10-26** by worker `w-8h` in two
 rounds, reviewed and accepted. Tier: light (D051): tests assert behaviour;
 wording may change at the hand test. Plan row: **8h** in
-`docs/tasks/contracts/milestone-8-view.md` §7. Findings from review:
+[docs/tasks/contracts/milestone-8-view.md](/tasks/contracts/milestone-8-view.md) §7. Findings from review:
 
 * Round 1: tests 1–9 and G1–G6 behaved as §7 says; no code defect found.
 * The planner ran five mutations; two survived, both gaps in this table:

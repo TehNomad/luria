@@ -36,7 +36,7 @@ Each fix is its own contract, `docs/tasks/reviews/review-m5-*.md`.
 | --- | --- | --- |
 | A-9 | Non-ATG start codons when `/transl_table` is absent or 1 | Require ATG for every table. Recorded as D042. |
 | B-2 | What `template.sha256` means | The normalized sequence's content digest, as `provenance.template.sha256` reports it. The docs are fixed; the code is unchanged. |
-| B-3 | Exit status for an unreadable request or template file | Keep exit 4 (`malformed_input`). Plan §3.7 and `docs/specs/cli.md` are fixed: exit 1 is for internal errors and output write failures. |
+| B-3 | Exit status for an unreadable request or template file | Keep exit 4 (`malformed_input`). Plan §3.7 and [docs/specs/cli.md](/specs/cli.md) are fixed: exit 1 is for internal errors and output write failures. |
 | B-6 | `path` is null for errors raised while running | Fix the docs now; mapping errors to request fields belongs to Milestone 6. |
 | B-8 | `..` and symlinked template paths; unbounded reads | Deferred to Milestone 6, where an LLM writes requests. |
 | C-2 | Member names that collide by case | Refused with `--write-edited` only (`output_name_unusable`), and `:` `*` `?` `<` `>` `\|` too. Windows reserved names are allowed. |
@@ -89,12 +89,12 @@ Recorded, no change:
 
 - **B-1, Medium, confirmed.** A non-UTF-8 argument panics (exit 101) instead
   of a usage error (exit 2). → `review-m5-b1-arguments.md`.
-- **B-2, Medium, confirmed (docs).** `docs/specs/cli.md` says `template.sha256` is
+- **B-2, Medium, confirmed (docs).** [docs/specs/cli.md](/specs/cli.md) says `template.sha256` is
   the file's digest; it is the sequence content digest. → docs contract.
 - **B-3, Medium (spec conflict).** Plan §3.6 makes unreadable files
   `malformed_input` (exit 4); §3.7 says I/O is exit 1. Resolved for exit 4.
   → docs contract.
-- **B-4, B-5, Low (docs).** `docs/specs/cli.md` lists four CLI codes (there are
+- **B-4, B-5, Low (docs).** [docs/specs/cli.md](/specs/cli.md) lists four CLI codes (there are
   six: `template_unreadable` and `output_name_unusable` are missing), and says
   `rule` is set for two error codes (it is set for six). → docs contract.
 - **B-6, Low (docs).** `path` is null for errors raised during execution,
@@ -154,8 +154,8 @@ client code, `NATIVE_DESIGN_ALGORITHM_VERSION` was bumped, and the fixture
 values come from independent Python generators.
 
 Docs drift for the docs contract: B-2 to B-6, C-5, C-6, C-11; the README says
-`docs/specs/cli.md` has the schemas but `docs/specs/cli.md` §9 says the full reference
-isn't written; `docs/specs/cli.md` §5 doesn't say the document is still printed on
+[docs/specs/cli.md](/specs/cli.md) has the schemas but [docs/specs/cli.md](/specs/cli.md) §9 says the full reference
+isn't written; [docs/specs/cli.md](/specs/cli.md) §5 doesn't say the document is still printed on
 exit 1; a `--write-edited` FASTA doesn't record topology; the GenBank comment
 and README drift listed by reviewer A.
 

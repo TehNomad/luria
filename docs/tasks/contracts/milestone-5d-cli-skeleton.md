@@ -1,7 +1,7 @@
 # Milestone 5d: the `luria-cli` crate skeleton
 
 Status: **Implemented 2026-10-17** by the local worker; accepted after one review round (stdout written with `write_all`, so a failed write exits 1; test added).
-Planner: Claude. Parent: `docs/tasks/contracts/milestone-5-cli.md` §3.1, §3.2, §3.7 and
+Planner: Claude. Parent: [docs/tasks/contracts/milestone-5-cli.md](/tasks/contracts/milestone-5-cli.md) §3.1, §3.2, §3.7 and
 §5 (5d).
 
 ## 1. What and why

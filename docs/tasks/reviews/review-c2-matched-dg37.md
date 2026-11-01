@@ -1,7 +1,7 @@
 # Review fix C2: make the Watson–Crick parameter check rerunnable
 
 Status: **Implemented 2026-10-16** by the local worker; accepted on planner review. Worst deviation 0.0147 kcal/mol (GA/CT).
-Planner: Claude. Parent: `docs/tasks/reviews/review-post-m4.md` finding C2.
+Planner: Claude. Parent: [docs/tasks/reviews/review-post-m4.md](/tasks/reviews/review-post-m4.md) finding C2.
 
 ## 1. The gap
 
@@ -70,7 +70,7 @@ within 0.016 kcal/mol, using `ΔG°37 = ΔH° − 310.15 × ΔS° / 1000`.
 
 **3.3 `tests/fixtures/tm/README.md`.** Replace the paragraph saying the
 Watson–Crick check "cannot be rerun from tracked files"
-(`docs/tasks/reviews/review-post-m4.md` C2) with a short statement of what §2 says:
+([docs/tasks/reviews/review-post-m4.md](/tasks/reviews/review-post-m4.md) C2) with a short statement of what §2 says:
 - the 1998 source, and that the 2004 review could not be retrieved on
   2026-10-16;
 - the two derived values;

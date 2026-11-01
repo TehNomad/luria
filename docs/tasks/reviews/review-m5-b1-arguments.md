@@ -1,11 +1,11 @@
 # Review M5 B-1, B-7: non-UTF-8 arguments and `--`
 
 Status: **Implemented 2026-10-18** by the local worker; accepted on planner review. Planner: Claude. Parent:
-`docs/tasks/reviews/review-post-m5.md` B-1 and B-7. Requirement:
-`docs/tasks/contracts/milestone-5-cli.md` §3.7, under which exit 2 means "Usage error:
+[docs/tasks/reviews/review-post-m5.md](/tasks/reviews/review-post-m5.md) B-1 and B-7. Requirement:
+[docs/tasks/contracts/milestone-5-cli.md](/tasks/contracts/milestone-5-cli.md) §3.7, under which exit 2 means "Usage error:
 bad arguments. Text on stderr, no JSON".
 Files: `crates/cli/src/args.rs`, `crates/cli/src/main.rs`,
-`crates/cli/tests/cli.rs`, `docs/specs/cli.md`.
+`crates/cli/tests/cli.rs`, [docs/specs/cli.md](/specs/cli.md).
 
 ## 1. Defects
 
@@ -49,7 +49,7 @@ collected into a `Vec<OsString>` and passed to `utf8_arguments`. On `Err`,
 call `report_usage` with that error, so the result is exit 2, text on
 stderr and nothing on stdout. On `Ok`, continue exactly as now.
 
-### 2.3 `docs/specs/cli.md`
+### 2.3 [docs/specs/cli.md](/specs/cli.md)
 
 In the section that describes usage errors (around line 26), add one
 sentence each:

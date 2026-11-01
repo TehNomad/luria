@@ -41,7 +41,7 @@ row names it.
 3. `7m3`, the form's fields: M7-45, M7-46, M7-47 and M7-51.
 4. `7m4`, saving: M7-48 and the `luria new` half of M7-49.
 5. `7m5`, the file picker: M7-50.
-6. `7m6`, docs: `docs/specs/cli.md` §11 and §12, D046 and D047.
+6. `7m6`, docs: [docs/specs/cli.md](/specs/cli.md) §11 and §12, D046 and D047.
 
 One worker at a time, because each contract changes tests the next one
 runs.

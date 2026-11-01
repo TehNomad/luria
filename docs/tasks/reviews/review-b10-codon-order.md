@@ -1,7 +1,7 @@
 # Review B10: a codon crossing the origin is recorded in feature order (D040)
 
 Status: **Implemented 2026-10-16** by the local worker; accepted after the §9 amendment (the worker stopped on a test my contract missed). The planner fixed one wrong reverse complement in a test comment.
-Planner: Claude. Parent: `docs/tasks/reviews/review-post-m4.md` B10. Decision: D040.
+Planner: Claude. Parent: [docs/tasks/reviews/review-post-m4.md](/tasks/reviews/review-post-m4.md) B10. Decision: D040.
 Files:
 - `crates/core/src/mutation.rs`
 - `tests/fixtures/mutation/cases.tsv` (two rows)

@@ -4,7 +4,7 @@ Status: **Implemented 2026-10-19** by the local worker, accepted after one
 review round. The round added `the_table_holds_the_iupac_codes_and_names`:
 the §4 tests read `RESIDUE_NAMES` back to itself, so nothing pinned its sourced
 values (a planner gap; the worker proved the new test fails on "Glu" → "Glq").
-Planner: Claude. Parent: `docs/tasks/contracts/milestone-6-nl.md` §5.3, §5.3a, M6-8,
+Planner: Claude. Parent: [docs/tasks/contracts/milestone-6-nl.md](/tasks/contracts/milestone-6-nl.md) §5.3, §5.3a, M6-8,
 M6-15, §6 (6b).
 
 ## 1. What and why
@@ -385,7 +385,7 @@ outcomes:
 - Add a dependency, or make `luria-cli` depend on `luria-nl`. 6b needs
   neither.
 - Change `luria-core`, any existing file under `crates/cli/` other than the
-  one line in `lib.rs`, `tests/fixtures/` or `docs/`.
+  one line in `lib.rs`, `tests/fixtures/` or [docs/](/).
 - Add grounding, the evidence check against a quote, a `name_of` lookup, or
   anything that builds a request: those are 6e.
 - Panic on any input. `parse_substitution` is total.

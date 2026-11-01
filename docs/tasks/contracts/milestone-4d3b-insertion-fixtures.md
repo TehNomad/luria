@@ -2,7 +2,7 @@
 
 Status: **Implemented 2026-10-15** by the local worker; accepted on planner review (§6).
 Date: 2026-10-15
-Planner: Claude. Parent: `docs/tasks/contracts/milestone-4-indels.md`, pass 4.
+Planner: Claude. Parent: [docs/tasks/contracts/milestone-4-indels.md](/tasks/contracts/milestone-4-indels.md), pass 4.
 
 ## 1. Goal
 
@@ -73,7 +73,7 @@ reading the flanking bases from the template, then `apply_insertion(…, None,
 ## 4. Do not
 
 - Do not change production code outside `primer_quality.rs`, or any fixture,
-  or `docs/`. If a fixture row disagrees with luria, stop and report the case
+  or [docs/](/). If a fixture row disagrees with luria, stop and report the case
   id, the field and both values.
 
 ## 5. Checks

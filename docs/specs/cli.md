@@ -2,7 +2,7 @@
 
 This page describes `luria-cli` 0.1.0, which reads requests in schema
 `luria.q5-request/1` and writes results in schema `luria.q5-result/1`.
-The decisions behind it are D041 and D034 in `docs/decisions/`.
+The decisions behind it are D041 and D034 in [docs/decisions/](/decisions/).
 `luria q5 interpret`, which turns a request in words into a proposed
 request, is §10 (D044). `luria review`, which shows a result or a
 proposal in the terminal, is §11 (D046). `luria new`, a form for a new
@@ -598,7 +598,7 @@ This page is the worked example and the tables above. The full reference —
 every GenBank location form and qualifier rule luria accepts or refuses,
 every request field in detail, every result field in detail, and every
 error code with its `details` — is not written yet. Until it is,
-`docs/tasks/contracts/milestone-5-cli.md` §3.3 to §3.5 is the authority, and
+[docs/tasks/contracts/milestone-5-cli.md](/tasks/contracts/milestone-5-cli.md) §3.3 to §3.5 is the authority, and
 `luria_core::error` is the authority on codes.
 
 ## 10. Natural language: `luria q5 interpret`
@@ -652,7 +652,7 @@ An endpoint whose host is not this machine (`localhost`, `127.x.x.x` or
 read or anything is sent. This build speaks plain HTTP only: an
 `https://` endpoint is refused, and HTTP to another machine is
 unencrypted. HTTPS and the Anthropic API are deferred
-(`docs/tasks/proposals/later-tls-and-anthropic.md`).
+([docs/tasks/proposals/later-tls-and-anthropic.md](/tasks/proposals/later-tls-and-anthropic.md)).
 
 ### 10.3 Setting it up
 
@@ -676,7 +676,7 @@ fixed seed, and the extraction's JSON schema as `response_format`, so a
 server that supports it constrains the reply. It sends no thinking or
 token-limit setting: the server's own configuration decides. On the small
 local model luria was measured with, thinking made extraction four times
-slower and no better (`docs/research/m6-local-model-extraction-2026-10-19.md`).
+slower and no better ([docs/research/m6-local-model-extraction-2026-10-19.md](/research/m6-local-model-extraction-2026-10-19.md)).
 
 **Templates are GenBank only**, so the CDSs come from the record. A FASTA
 template is refused (`interpret_fasta_unsupported`); write that request by
@@ -903,7 +903,7 @@ you paste it.
 `luria new` is a form for a new design: a template, the mutations and
 the overlap. It builds the request, and writes and runs it only once you
 save. The result then opens on `luria review`'s screens (§11). The
-decisions behind it are D047, `docs/tasks/contracts/milestone-7m-polish.md` and
+decisions behind it are D047, [docs/tasks/contracts/milestone-7m-polish.md](/tasks/contracts/milestone-7m-polish.md) and
 `docs/tasks/contracts/milestone-7k-new.md`.
 
 ```
@@ -998,8 +998,8 @@ sequence: both strands, the translation, the features, go-to and search.
 You can edit the sequence and save it (§13.7, §13.8). `luria find` runs
 the same search without a terminal and prints the hits as a table. The
 decisions behind them are D048 to D058 and D060 to D062,
-`docs/tasks/contracts/milestone-8-view.md`, `docs/tasks/contracts/milestone-8m-polish.md`
-and `docs/tasks/contracts/milestone-9-editor.md`.
+[docs/tasks/contracts/milestone-8-view.md](/tasks/contracts/milestone-8-view.md), [docs/tasks/contracts/milestone-8m-polish.md](/tasks/contracts/milestone-8m-polish.md)
+and [docs/tasks/contracts/milestone-9-editor.md](/tasks/contracts/milestone-9-editor.md).
 
 ```
 luria FILE
