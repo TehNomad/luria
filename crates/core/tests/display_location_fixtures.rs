@@ -1,5 +1,5 @@
 //! The display-only location parser of `crates/core/src/display_location.rs`
-//! (contract 8b1, §4.1 of `docs/tasks/milestone-8-view.md`) against
+//! (contract 8b1, §4.1 of `docs/tasks/contracts/milestone-8-view.md`) against
 //! `tests/fixtures/genbank/synthetic.gb`: the CDS whose location is `<1..12`
 //! is drawn by `parse_display_location` and still refused for import by
 //! `parse_genbank_location` (D049, D053, D041). The row was derived by the

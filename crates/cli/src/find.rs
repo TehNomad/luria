@@ -83,7 +83,7 @@ const RANGE_MESSAGE: &str = "searching a range of bases is not supported yet";
 /// What one `find` run answers, before anything is printed. `Found` is the whole
 /// stdout text and exit 0, whatever the count (M8-9, D052); `Refused` is one
 /// message on stderr with the status it exits with and no usage text; `Usage` is
-/// a usage error, which goes with the usage text and exit 2 (docs/cli.md §3.7).
+/// a usage error, which goes with the usage text and exit 2 (docs/specs/cli.md §3.7).
 #[derive(Clone, Debug, PartialEq)]
 pub enum FindOutcome {
     Found { text: String },
@@ -476,7 +476,7 @@ fn write_err(text: &str) {
 /// Print the answer on the stream it belongs to and give the status it exits
 /// with: the rows on stdout and exit 0 (D052's M8-9), a refusal on stderr with
 /// its own status and no usage text, and a usage error on stderr with the usage
-/// text and exit 2 (docs/cli.md §3.7). A stdout that cannot be written is exit 1,
+/// text and exit 2 (docs/specs/cli.md §3.7). A stdout that cannot be written is exit 1,
 /// the internal error `main.rs` gives a report that cannot be made.
 fn report(outcome: FindOutcome) -> ExitStatus {
     match outcome {

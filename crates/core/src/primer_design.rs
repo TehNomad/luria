@@ -5,7 +5,7 @@
 //! primer is one; this module proposes the pair the policy defines and then
 //! hands it to `construct_primer`, `assemble_pair` and
 //! `require_design_constraints`, so every hard requirement of
-//! `docs/q5-primer-design.md` §7 is checked on the output by the same code that
+//! `docs/specs/q5-primer-design.md` §7 is checked on the output by the same code that
 //! checks any other primer.
 //!
 //! # The policy
@@ -143,7 +143,7 @@ pub const MAX_REPLACEMENT_REGION: u64 = 3;
 /// threshold is the reference tool's help text: "If 6 or fewer nucleotides are
 /// to be inserted, they will be placed at the 5′ end of one primer. If more
 /// than 6 … they will be split between the two primers to keep the primer
-/// lengths and Tm's similar" (`docs/research/nbc_help_v284.txt`).
+/// lengths and Tm's similar" (`docs/references/nbc_help_v284.txt`).
 pub const MAX_WHOLE_TAIL: u64 = 6;
 
 /// D033: the largest replacement that stays inline, on `t = max(w, m)`: the

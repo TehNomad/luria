@@ -9,7 +9,7 @@ both at bound 15. The primers are the rows' own `forward` and `reverse`
 columns, derived without crates/core (../../q5-primer/README.md). Nothing
 here reads luria's output.
 
-The rules are docs/tasks/milestone-7-tui.md §5.4 (owner answers M7-7 to
+The rules are docs/tasks/contracts/milestone-7-tui.md §5.4 (owner answers M7-7 to
 M7-13): a header `Name Sequence Scale Purification`, tab-separated; one row
 per primer, forward then reverse, members in order; the name
 `<template id>_<member>_F` or `_R`; the scale by full primer length (15-60

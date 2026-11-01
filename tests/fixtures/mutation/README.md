@@ -133,7 +133,7 @@ from tracked files. The page it parsed was captured on 2026-10-16 as
 `crates/core/tests/codon_usage_fixture.rs` checks the embedded table against
 that file codon by codon and count by count, so the counts in the table above
 can be read off `counts.tsv`. `tests/fixtures/verify.py` reruns the parse
-(`docs/tasks/review-a7c-codon-usage.md`, D039).
+(`docs/tasks/reviews/review-a7c-codon-usage.md`, D039).
 
 ### Edits
 
@@ -221,5 +221,5 @@ re-writes the letter already there is refused earlier, at intent construction.
   with no other optimisation (edit distance, restriction sites, other hosts).
 
 The semantic choices these cases pin down are recorded in
-`docs/tasks/milestone-2-mutation.md`. The driver is
+`docs/tasks/contracts/milestone-2-mutation.md`. The driver is
 `crates/core/tests/mutation_fixtures.rs`.

@@ -4,7 +4,7 @@
 feature: its intervals and partial marks, the qualifiers that change, and
 what the status line names. It drives contract 9b's edit buffer. The rules
 are the owner's answers M9-6, M9-13 and M9-14 in
-`docs/tasks/milestone-9-editor.md` (approved 2026-10-29); this file states
+`docs/tasks/contracts/milestone-9-editor.md` (approved 2026-10-29); this file states
 them in the table's terms, with the readings the planner chose where the
 answers leave a detail open (marked **Reading**).
 

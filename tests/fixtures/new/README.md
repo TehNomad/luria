@@ -1,7 +1,7 @@
 # `luria new` fixtures
 
 Planner-written expectations for `luria new` (plan
-`docs/tasks/milestone-7k-new.md`), each produced by a script under
+`docs/tasks/contracts/milestone-7k-new.md`), each produced by a script under
 `reference/` that shares no code with `crates/`.
 
 ## The mutation shorthand

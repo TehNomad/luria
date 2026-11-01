@@ -16,7 +16,7 @@
 //!
 //! Hairpins, self-dimers and primer-dimers are **not** checked. They need
 //! loop, bulge and dimer nearest-neighbour parameters that have not been
-//! sourced, and inventing them is what `docs/decisions.md` D014 forbids.
+//! sourced, and inventing them is what `docs/decisions/` D014 forbids.
 //!
 //! Nothing here reads a template, an edit or a Tm: a warning is a property of
 //! the primer text alone, so the same text always draws the same warnings.

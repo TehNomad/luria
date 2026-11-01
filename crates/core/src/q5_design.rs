@@ -25,7 +25,7 @@
 //! bound, style, policy, placement and buffer, and each member reports its own
 //! outcome: a `PrimerDesign`, or the `DomainError` that stopped it. One member's
 //! design failure does not discard the others' designs (owner, 2026-10-14,
-//! `docs/q5-sdm.md` §12; D030's 55 °C floor makes such a failure ordinary on an
+//! `docs/specs/q5-sdm.md` §12; D030's 55 °C floor makes such a failure ordinary on an
 //! AT-rich site). A failure of the *edits* still fails the whole set, which is
 //! `q5::execute_set`'s rule: it runs every member before any design happens.
 //!
@@ -237,7 +237,7 @@ pub fn design_run(
 ///
 /// Members are designed in request order, and each carries its own outcome: a
 /// member that cannot be designed records its error and the rest are designed
-/// anyway (owner, 2026-10-14, `docs/q5-sdm.md` §12). The result is always
+/// anyway (owner, 2026-10-14, `docs/specs/q5-sdm.md` §12). The result is always
 /// `Ok`: reading the set's members and results cannot fail, and a member's
 /// design failure is carried per member rather than returned as the set's.
 /// A failure of the *edits* is not this function's to report: it fails the

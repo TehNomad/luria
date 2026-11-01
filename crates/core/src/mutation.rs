@@ -25,7 +25,7 @@
 //! Verification is a separate responsibility (D013): `verify` re-derives the
 //! edit from the source and the result's claims rather than re-running it, and
 //! checks length per kind (owner decision 4.2 in
-//! `docs/tasks/milestone-4-indels.md` §4.2). A result stays `Calculated`
+//! `docs/tasks/contracts/milestone-4-indels.md` §4.2). A result stays `Calculated`
 //! until that pass accepts it (D020). Containment of a target inside its
 //! scope is checked here, by `require_within_feature` and
 //! `require_point_within_feature`; choosing that scope and the frameshift
@@ -1522,7 +1522,7 @@ pub fn default_codon(residue: Residue) -> Result<Codon, DomainError> {
 /// re-run, and the result's claims are read back out of both artifacts. Every
 /// kind first checks that the source is the artifact the result claims, by
 /// name, digest and topology, and checks length for its kind (owner decision
-/// 4.2 in `docs/tasks/milestone-4-indels.md` §4.2). A deletion, an insertion
+/// 4.2 in `docs/tasks/contracts/milestone-4-indels.md` §4.2). A deletion, an insertion
 /// and a replacement are re-derived by rebuilding the edited artifact from
 /// the record; a substitution and a residue result are compared position by
 /// position. What each kind then checks:
@@ -1543,7 +1543,7 @@ pub fn default_codon(residue: Residue) -> Result<Codon, DomainError> {
 ///   recorded region replaced by the recorded text; the source holds the
 ///   recorded original text there.
 ///
-/// Only residue results are re-translated (`docs/q5-sdm.md` §8, open owner
+/// Only residue results are re-translated (`docs/specs/q5-sdm.md` §8, open owner
 /// question A5): a DNA-level edit inside a CDS is verified as a DNA edit, and
 /// its effect on the translation is not checked. Verification does not re-derive
 /// the residue-to-coordinate mapping: the generator owns it, and the residue
@@ -1630,7 +1630,7 @@ pub fn verify(
 /// The differing positions of a substitution, and the length rule that makes
 /// them comparable: a substitution and a residue substitution both keep the
 /// artifact's length (owner decision 4.2 in
-/// `docs/tasks/milestone-4-indels.md` §4.2), so a length change is a
+/// `docs/tasks/contracts/milestone-4-indels.md` §4.2), so a length change is a
 /// verification failure rather than a set of positions to compare. The name
 /// in the payload is the produced artifact's.
 fn substitution_positions(source: &Sequence, edited: &Sequence) -> Result<Vec<u64>, DomainError> {

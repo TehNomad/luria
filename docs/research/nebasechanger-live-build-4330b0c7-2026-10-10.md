@@ -1,3 +1,9 @@
+---
+type: Research Note
+title: "NEBaseChanger live build index.4330b0c7.js — v2.11.0 (2026-10-10)"
+description: "Research only: the live build index.4330b0c7.js is v2.11.0, captured 2026-10-10."
+status: stable
+---
 # NEBaseChanger live build `index.4330b0c7.js` — **v2.11.0** (2026-10-10)
 
 Research only. No Luria production code, no Milestone 3 code.
@@ -84,9 +90,9 @@ excluded by policy. No chunks, no workers, no source maps, no truncated bodies.
 | Path | Status on this branch (`research/nebasechanger_reverse_engineer`) |
 |---|---|
 | `docs/research/nebasechanger-polymerase-tm.md` | **MISSING** — exists only on branch `research/polymerase-tm` (head `b71c0e7`, 2026-10-09), 44,311 B |
-| `docs/research/nebasechanger-har-and-builds-2026-10-10.md` | present, 25,171 B |
-| `docs/research/nebasechanger-client-investigation.md` | present, 29,989 B (not in the task list) |
-| `docs/research/nbc_help_v284.txt` | present, 22,088 B (not in the task list) |
+| [docs/research/nebasechanger-har-and-builds-2026-10-10.md](/research/nebasechanger-har-and-builds-2026-10-10.md) | present, 25,171 B |
+| [docs/research/nebasechanger-client-investigation.md](/research/nebasechanger-client-investigation.md) | present, 29,989 B (not in the task list) |
+| [docs/references/nbc_help_v284.txt](/references/nbc_help_v284.txt) | present, 22,088 B (not in the task list) |
 | `tests/fixtures/nebasechanger-research/README.md` | **MISSING** — on `research/polymerase-tm` only |
 | `…/cases.tsv` | **MISSING** — on `research/polymerase-tm` only (4,017 B, 19 cases) |
 | `…/provenance.md` | **MISSING** — on `research/polymerase-tm` only (3,959 B) |
@@ -217,7 +223,7 @@ R = 1.987 ; primerc = ct*1e-6 ; saltc = salt*1e-3
 Method 4 (`calcTm_nomm` and the closure `Tm` share this structure):
 
 > **CORRECTION (2026-10-10, cycle 1 — see
-> `docs/research/nebasechanger-cycles-1-4-2026-10-10.md` §1.3/§1.4).** The two
+> [docs/research/nebasechanger-cycles-1-4-2026-10-10.md](/research/nebasechanger-cycles-1-4-2026-10-10.md) §1.3/§1.4).** The two
 > engines do **not** share this structure. The SDM path (`createTmCalc` closure
 > `Tm`, reached from `Ne.tm`) uses initiation `ΔS = −5.7`, `ΔH = 200` and
 > `+6.9 / +2200` per terminal A/T, with **no** G/C terminal term. The block
@@ -718,7 +724,7 @@ grep -aoE '<dt[^>]*>[^<]{0,60}</dt>' \
 
 ## 14. Files changed by this pass
 
-- `docs/research/nebasechanger-live-build-4330b0c7-2026-10-10.md` — this report.
+- [docs/research/nebasechanger-live-build-4330b0c7-2026-10-10.md](/research/nebasechanger-live-build-4330b0c7-2026-10-10.md) — this report.
 - `tests/fixtures/nebasechanger-research/tm_tables_diff.py` — new, self-contained
   comparison script (section 6.1 and 6.3 are its output).
 
@@ -869,7 +875,7 @@ No quantity in this table changes across the four builds.
   `a/c -1`, …; live line 17209–17217). The override was found in all four saved
   beautified bundles (`17c7600d`, `dfcf8292`, `a5da1636`, `4330b0c7`).
 * *Minimum annealing tail 10 → 11.* Refuted by
-  `docs/research/q5-primer-policy-review-2026-10-12.md` C19: the pad literal is
+  [docs/research/q5-primer-policy-review-2026-10-12.md](/research/q5-primer-policy-review-2026-10-12.md) C19: the pad literal is
   10 in every build, and neither `calcSDMPrimers` body contains an `11`. The
   row came from an older version of `q5_verify.py`. There is no
   routing-relevant change across the four builds.

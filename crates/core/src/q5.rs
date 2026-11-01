@@ -190,7 +190,7 @@ impl Q5MutationIntent {
 /// Neither this carrier nor `bind` rejects a request whose expected
 /// original equals its replacement: such a request is legal when the codon
 /// the policy selects differs from the codon already at that residue, which
-/// is how a silent mutation is made (`docs/q5-sdm.md` §10 item 5, owner
+/// is how a silent mutation is made (`docs/specs/q5-sdm.md` §10 item 5, owner
 /// 2026-10-14). A DNA-level no-op — the selected codon equal to the codon
 /// already there — is refused by `mutation::apply_residue` with
 /// `InvalidMutationRequest`.
@@ -285,7 +285,7 @@ impl ResidueIntentWithoutCds {
 ///   belongs to, and an absent one states no preference. `scope` is
 ///   optional so the ambiguous case stays clarifiable rather than
 ///   unrepresentable, and an unscoped DNA edit gains no containment rule
-///   from the gate's resolution (`docs/q5-sdm.md` §4, §10 item 1, owner
+///   from the gate's resolution (`docs/specs/q5-sdm.md` §4, §10 item 1, owner
 ///   2026-10-14).
 ///
 /// The ambiguity this record can express is what those two halves leave
@@ -585,7 +585,7 @@ impl Q5EditWarning {
 /// For a deletion (D031's related owner decision, 2026-10-15): count the
 /// deleted positions that lie inside some interval of the resolved CDS. A
 /// count of 0 means the edit lies outside the CDS: the run proceeds and
-/// warns nothing (`docs/q5-sdm.md` §10 item 1, owner 2026-10-14). A count
+/// warns nothing (`docs/specs/q5-sdm.md` §10 item 1, owner 2026-10-14). A count
 /// that is a multiple of 3 keeps the reading frame; any other count shifts
 /// it, and the warning says whether the deletion lay wholly inside the CDS.
 /// The only position that does not count lies outside the CDS:
@@ -614,7 +614,7 @@ impl Q5EditWarning {
 /// kept rather than refused, so the warning is a result and not a
 /// `DomainError`. Only the region positions that lie inside some interval of
 /// the resolved CDS are coding, so a replacement wholly outside it has no
-/// frame to shift and warns nothing, which is what `docs/q5-sdm.md` §10
+/// frame to shift and warns nothing, which is what `docs/specs/q5-sdm.md` §10
 /// item 1 (owner 2026-10-14) lets an unscoped DNA edit do. The warning
 /// counts the whole region width and the text written, and `wholly_inside`
 /// says whether every overwritten base was coding.
@@ -979,7 +979,7 @@ impl Q5WorkflowExecution {
 ///   2, fixture `nuc-a-unscoped`), so this layer carries the request's own
 ///   scope through unchanged: a request that scoped an annotation is checked
 ///   against it, and an unscoped DNA edit outside the resolved CDS proceeds
-///   (`docs/q5-sdm.md` §4, §10 item 1, owner 2026-10-14). A residue
+///   (`docs/specs/q5-sdm.md` §4, §10 item 1, owner 2026-10-14). A residue
 ///   mutation is different in kind: a named residue intent already names its
 ///   CDS, so the resolved annotation is always its scope, and an unbound one
 ///   takes the gate's answer through `bind`, which is also where Milestone 1
@@ -1089,7 +1089,7 @@ fn run_resolved(
     // coordinate it wrote, and `verify` never reads the scope on those
     // branches, so passing `dna_scope` changes no check; it is passed rather
     // than `None` so the value stays the request's own claim. That inertness
-    // is a limitation recorded in `docs/q5-sdm.md` §8, and verification
+    // is a limitation recorded in `docs/specs/q5-sdm.md` §8, and verification
     // behavior is unchanged.
     let verify_scope: Option<Cds> = match request.intent() {
         Q5MutationIntent::Nucleotide(_intent) => dna_scope.clone(),
@@ -1111,7 +1111,7 @@ fn run_resolved(
 /// request that scoped an annotation is checked against it, and a request
 /// that scoped nothing gains no containment rule from the gate's resolution,
 /// so an unscoped DNA edit outside the resolved CDS proceeds
-/// (`docs/q5-sdm.md` §4, §10 item 1, owner 2026-10-14).
+/// (`docs/specs/q5-sdm.md` §4, §10 item 1, owner 2026-10-14).
 fn nucleotide_scope(scope: Option<Identifier>, resolved: Cds) -> Option<Cds> {
     if scope.is_some() {
         return Some(resolved.clone());
@@ -1401,7 +1401,7 @@ impl Q5VariantSetRequest {
     ///    when the set runs.
     /// 6. every member's result identifier must be distinct, refused with
     ///    `InvalidMutationRequest` (`MalformedInput`) as the empty set is.
-    ///    Owner decision, 2026-10-14 (`docs/q5-sdm.md` §10 item 6): two primer
+    ///    Owner decision, 2026-10-14 (`docs/specs/q5-sdm.md` §10 item 6): two primer
     ///    pairs sharing a label could be confused when oligos are ordered.
     ///    Identifiers are compared exactly, with no case folding: no source
     ///    states a folding rule, and D007 compares names exactly.
@@ -2349,7 +2349,7 @@ mod tests {
         // annotation could hold residue 42, and Milestone 1's translation
         // then refuses the residue against an annotation of 4 residues.
         // Whether resolution *ought* to exclude CDSs too short to hold the
-        // requested residue is an open decision (`docs/q5-sdm.md` §3, §5 and
+        // requested residue is an open decision (`docs/specs/q5-sdm.md` §3, §5 and
         // §10 item 2). This pins the single-candidate case only, where
         // narrowing would have nothing to remove; no test here offers several
         // annotations of which only one could hold the residue.
@@ -2538,7 +2538,7 @@ mod tests {
         // form has, reached through the residue shape: a clarification naming
         // what the artifact *is* annotated with, not an error. Reporting
         // target-not-found as a clarification rather than a structured error
-        // is the open decision in `docs/q5-sdm.md` §10 item 3, pinned here
+        // is the open decision in `docs/specs/q5-sdm.md` §10 item 3, pinned here
         // for the unbound residue shape alongside the nucleotide form and the
         // named residue intent. That a single annotation can identify the
         // target with no claim at all is the separate decision in §10 item 4.
@@ -2964,7 +2964,7 @@ mod tests {
         // mutation domain.
         //
         // Whether the workflow *ought* to impose that containment is open
-        // (`docs/q5-sdm.md` §4, §10 item 1), and this test is named for what
+        // (`docs/specs/q5-sdm.md` §4, §10 item 1), and this test is named for what
         // it pins: Alternative 1, explicit-scope semantics, as expected
         // behavior. Coordinate 20 lies outside the 12-nucleotide CDS the gate
         // resolved, and the run edits and verifies rather than refusing. Under
@@ -3899,7 +3899,7 @@ mod tests {
 
     #[test]
     fn two_variants_sharing_a_result_name_are_refused() {
-        // Owner decision, 2026-10-14 (`docs/q5-sdm.md` §10 item 6): result
+        // Owner decision, 2026-10-14 (`docs/specs/q5-sdm.md` §10 item 6): result
         // identifiers in a set must be distinct. Refused at construction, before
         // any member resolves a target, with the same variant and category as an
         // empty set.

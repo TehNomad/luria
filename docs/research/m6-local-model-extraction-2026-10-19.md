@@ -1,3 +1,9 @@
+---
+type: Research Note
+title: "Milestone 6: extraction on a weak local model"
+description: "Prompt research for contract 6f, run on the owner's request (\"I want to try to get the NLP working on less powerful models\")."
+status: stable
+---
 # Milestone 6: extraction on a weak local model
 
 **What this is.** Prompt research for contract 6f, run on the owner's request

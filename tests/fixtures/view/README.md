@@ -1,7 +1,7 @@
 # Milestone 8 view fixtures
 
 These files pin what the sequence view and `luria find` must print before any
-of it is implemented (contract 8c of `docs/tasks/milestone-8-view.md`). They
+of it is implemented (contract 8c of `docs/tasks/contracts/milestone-8-view.md`). They
 are inputs to Rust tests that do not exist yet; nothing under `crates/` reads
 them today.
 
@@ -147,7 +147,7 @@ residue scale.
 ## Six frames, and the bases a frame cannot use (8a1b)
 
 `frame-tables.tsv` and `frame-tails.tsv` come from the rules in
-`docs/tasks/milestone-8-view.md` §4.3, D052 and D050:
+`docs/tasks/contracts/milestone-8-view.md` §4.3, D052 and D050:
 
 * Frames are numbered **1, 2, 3 on either strand**. On the plus strand frame *f*
   starts at base *f* (1-based) and reads rightwards; on the minus strand frame

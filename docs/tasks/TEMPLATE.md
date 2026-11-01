@@ -1,12 +1,21 @@
+---
+type: Template
+title: "Contract template"
+description: "Template for task contracts, not a contract."
+status: stable
+---
 # Contract template
 
 Template for task contracts, not a contract. Copy it to
-`docs/tasks/milestone-<n><letter>-<slug>.md`, fill each section, and delete
-the guidance in brackets. Aim for 150 lines or fewer, not counting the code
+`docs/tasks/contracts/milestone-<n><letter>-<slug>.md`, fill each section, and delete
+the guidance in brackets. Start the copy with OKF frontmatter (see
+`docs/tasks/contracts/docs-okf-c-frontmatter.md` §3): `type: Task Contract`,
+`title`, a one-sentence `description`, `status: draft`, and
+`tags: [milestone-<n>]`. Aim for 150 lines or fewer, not counting the code
 block in §4 and the tables in §5 and §7. If a contract needs more, split it.
 
 What keeps a contract short:
-- Cite, don't restate. A rule that lives in `docs/decisions.md`, a plan or a
+- Cite, don't restate. A rule that lives in `docs/decisions/`, a plan or a
   fixture README is named by D-number or section, with one line saying what
   it settles here. The worker reads it with `scripts/decision D0nn`.
 - `AGENTS.md` and `docs/agents/worker.md` already apply. Do not repeat them:

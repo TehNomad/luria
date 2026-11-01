@@ -14,7 +14,7 @@ Two tables, with the headers contract 8f fixes:
   top-strand bases it covers.
 
 `target` is `frames` (all six frames of the record) or a CDS id (D041). The
-rules are `docs/tasks/milestone-8-view.md` section 4.5, D050, D052 and D054:
+rules are `docs/tasks/contracts/milestone-8-view.md` section 4.5, D050, D052 and D054:
 
 * **Letters.** Pattern `X` matches every target symbol, `*` and `?` included
   (D054). `*` matches only `*`, and any other letter only itself, so an

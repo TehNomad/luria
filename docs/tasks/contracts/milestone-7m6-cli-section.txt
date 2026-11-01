@@ -1,0 +1,84 @@
+## 12. Entering a design in the terminal: `luria new`
+
+`luria new` is a form for a new design: a template, the mutations and
+the overlap. It builds the request, and writes and runs it only once you
+save. The result then opens on `luria review`'s screens (§11). The
+decisions behind it are D047, `docs/tasks/contracts/milestone-7m-polish.md` and
+`docs/tasks/contracts/milestone-7k-new.md`.
+
+```
+luria new [--design PROFILE.json] [--export DIR]
+    [--backend openai-compatible --endpoint URL --model NAME [--allow-remote]]
+```
+
+It needs a terminal on stdin and stdout, and a screen of at least 80 by
+24.
+
+### 12.1 The form
+
+| Field | What you give |
+| --- | --- |
+| Template | A file, FASTA or GenBank, by its path; or a sequence you paste, raw or as FASTA. Under `File`, a list shows the folders and the `.fa`, `.fasta`, `.fna`, `.gb`, `.gbk` and `.genbank` files of the directory you are typing, filtered as you type: `↓`/`↑` pick, `enter` opens a folder or loads a file. A paste is saved as a new FASTA file when you save. |
+| Name, Shape | For FASTA or a paste: the template's name and whether it is linear or circular. A GenBank record gives its own. |
+| CDS | For FASTA or a paste: the whole sequence, or its first and last base (1-based, inclusive), and its strand. For GenBank: one of the record's CDSs that luria can use. Never guessed. |
+| Mutations | One per line, in the shorthand of §12.2. Each line shows what luria reads it as, or why it cannot. |
+| Primers | `inline`, shown and fixed: confine-to-tail placement is not supported yet (D029). |
+| Overlap | The minimum annealing overlap in nucleotides: 15 until you change it, or a `--design` profile's value. |
+
+`tab` and `shift-tab` move between fields, `←`/`→` change a choice,
+`PgUp`/`PgDn` move ten lines in a long box and to the first or last
+field elsewhere, `enter` on `[ Save and run ]` saves, and `esc` quits.
+`ctrl-c` quits from any screen, writing nothing. A field that is missing
+or a line luria cannot read is named in red, and the cursor moves to it.
+
+### 12.2 The mutation shorthand
+
+Positions are template bases, 1-based and inclusive, as GenBank writes
+them; residue numbers count from the CDS's first codon.
+
+| Line | Meaning |
+| --- | --- |
+| `D404N`, `p.D404N`, `Asp404Asn` | Residue 404 from D to N, the codon by the default codon policy |
+| `D404N:AAC` | The same, with codon `AAC` |
+| `1210 G>A` | Base 1210 from G to A |
+| `1210-1212 GAT>AAC` | Bases 1210 to 1212 replaced (any length) |
+| `del 1210-1212`, `del 46` | Bases deleted |
+| `ins GAT after 1209` | `GAT` inserted between bases 1209 and 1210 |
+
+A stop (`*`, `X`, `Ter`), a `?`, a position of 0, a range written
+backwards, or bases that do not match the range are refused with the
+reason; the typed bases of a substitution or a replacement must be the
+template's. Two or more lines are separate variants, one construct each.
+
+### 12.3 Words
+
+A line that is not shorthand at all, such as `change alanine 42 to
+glycine`, makes the whole Mutations box words. With `--backend`, `[ Save
+and run ]` sends the box to your model as `luria q5 interpret` does
+(§10), with the form's overlap, the default codon policy, and residues
+counted from the CDS's first codon unless your words say otherwise. The
+template must be GenBank, because the model is shown its CDS list.
+Without `--backend`, the form says the line is not shorthand and asks
+you to start with it. A line that is shorthand but refused, such as
+`D404*`, stays an error and is never sent to the model.
+
+The model's reading opens as §11.2's proposal: questions, the request as
+it will be written, and where each value came from. Nothing is written
+until you press `a` there, which opens the save pop-up below.
+
+### 12.4 Saving
+
+`[ Save and run ]` opens a pop-up with the request's file name, which you
+can change, and where it goes: beside a template file, as
+`--write-request` requires (§10), or, for a paste, in the current
+directory, with the pasted FASTA. `enter` writes the files and runs the
+request as `luria q5 design` does, and the result opens as §11.1 does,
+with export when `--export DIR` was given (§11.3). `esc` closes the
+pop-up and writes nothing.
+
+If a file it would write exists, the pop-up names it, and `y` replaces
+it; any other key writes nothing. A replaced file is written whole and
+then moved into place, and a name that is a link or a folder is never
+replaced. `luria q5 interpret --write-request` and `luria review
+--template` still never replace a file. Quitting before you save writes
+nothing.

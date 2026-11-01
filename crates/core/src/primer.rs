@@ -1,6 +1,6 @@
 //! Primer representation, decomposition, and validation.
 //!
-//! This is the part of `docs/q5-primer-design.md` that the contract has
+//! This is the part of `docs/specs/q5-primer-design.md` that the contract has
 //! already settled, and nothing beyond it. The contract fixes what a primer
 //! *is* and what must hold of one before it fixes how one is found: §4 names
 //! the reference sequence a primer is built against, §5 defines the

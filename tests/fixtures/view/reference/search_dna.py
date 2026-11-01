@@ -20,7 +20,7 @@ The pattern as written is the join key, because three raw patterns - `GAATTC`,
 `gaattc`, `GAUTTC` - normalise to one string, and a hits table keyed on the
 normalised form could not say which of them produced a row.
 
-The rules are `docs/tasks/milestone-8-view.md` section 4.4 and D052:
+The rules are `docs/tasks/contracts/milestone-8-view.md` section 4.4 and D052:
 
 * **Containment, not intersection.** A template letter matches a pattern letter
   only when the pattern letter's base set contains *all* of the template

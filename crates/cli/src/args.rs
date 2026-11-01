@@ -95,7 +95,7 @@ proposed request, or its questions, as one JSON document. 'review' runs a
 request, or interprets a request in words and runs it once you approve, and
 shows the result in the terminal. 'new' takes a template and mutations in a
 form and runs them once you approve. A FILE alone opens it in a
-read-only sequence view, and 'find' searches it. See docs/cli.md.
+read-only sequence view, and 'find' searches it. See docs/specs/cli.md.
 ";
 
 /// The reason `word` gives, as a `UsageError`. The value type is the command

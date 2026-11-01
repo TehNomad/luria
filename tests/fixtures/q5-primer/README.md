@@ -2,7 +2,7 @@
 
 ## Purpose
 
-These cases pin the **contract** in `docs/q5-primer-design.md`. `cases.tsv`
+These cases pin the **contract** in `docs/specs/q5-primer-design.md`. `cases.tsv`
 does not test a primer-design algorithm: every case states inputs and the
 invariants that must hold of *any* design of those inputs, so the contract is
 testable independently of an algorithm (§14 of the contract document).
@@ -106,7 +106,7 @@ that produced its figures. None of this is part of the required cargo checks
 - `expected` is `design`, `design-per-variant`, `contract-only`, or
   `no-design`. `no-design` is the failure contract: the case has no design
   that satisfies the hard requirements, and a layer must say so (§10).
-- `invariants` names the requirements from `docs/q5-primer-design.md` §7
+- `invariants` names the requirements from `docs/specs/q5-primer-design.md` §7
   (`H1`–`H8`) and §14.1 (`I-1`–`I-13`) that this case exercises. These are
   requirements on a **luria** design; a reference design is not claimed to
   satisfy them.

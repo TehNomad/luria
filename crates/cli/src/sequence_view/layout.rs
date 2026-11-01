@@ -1,6 +1,6 @@
 //! The block layout: how a record splits into lines for a width and a
 //! translation mode, and what one block's lines hold
-//! (`docs/tasks/milestone-8-view.md` §5.1; D050 M8-19, D055, D053, D052).
+//! (`docs/tasks/contracts/milestone-8-view.md` §5.1; D050 M8-19, D055, D053, D052).
 //!
 //! Two pure functions and no state: `layout` splits the record into blocks,
 //! `block_lines` turns one block into lines. Nothing here reads a terminal, a

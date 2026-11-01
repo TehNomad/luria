@@ -1,5 +1,5 @@
 //! The one record the view and `luria find` build from a file's text
-//! (plan §4.1 of `docs/tasks/milestone-8-view.md`; D049, D048, D041, D042,
+//! (plan §4.1 of `docs/tasks/contracts/milestone-8-view.md`; D049, D048, D041, D042,
 //! D052, D053).
 //!
 //! `open_record` is the single entry point (§4.1, D048's "shared entry point"):

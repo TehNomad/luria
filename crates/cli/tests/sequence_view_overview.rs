@@ -1,5 +1,5 @@
 //! The overview strip as the view holds it and draws it (contract 8l2 §5; plan
-//! §4.6 and proposal §2.1 of `docs/tasks/milestone-8-view.md`; D054).
+//! §4.6 and proposal §2.1 of `docs/tasks/contracts/milestone-8-view.md`; D054).
 //!
 //! `pbr` is `tests/fixtures/genbank/raw/J01749.1.gb` — 4361 bp, circular by its own
 //! declaration, 50 features and two usable CDSs of the three, so M8-11 selects none
