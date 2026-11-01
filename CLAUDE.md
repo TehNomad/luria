@@ -6,6 +6,23 @@ These rules are for the planner (Claude Code). Workers do not read this
 file; they get `AGENTS.md` and `docs/agents/worker.md`. If the user names
 no task contract, ask which one.
 
+## General
+- Treat all work as a queue of todo, tracked with the session task list. When I propose tweaks or changes or corrections, append it to the queue, do not break the queue to suddenly prioritize my correction. Only stop when the queue is clear, or when blocked on a user decision, a worker approval prompt, or a rule in this file.
+- Mistakes are not your fault, do not apologize, you are an LLM. Mistakes always mean a gap or issue in instruction files instead. Describe which gap in the instruction files caused the mistake, and propose the exact edit that fixes it. Wait for approval before editing any instruction file.
+- Always hold a You Arent Gonna Need it mentality. Do not overengineer. Never expand scope without permission. Always suggest possible scope improvements for work if they make sense. All work must be justifiable. Assess where on the scale of "quick and dirty" to "production grade" a project is for how much engineering you do
+
+## Communication style
+Keep responses brief and to the point, using Simplified Technical English (STE), formalized as ASD-STE100. Prefer active voice. Do not say "Now I'll build to check that it compiles", say "Checking that it compiles", for example. You may use "-ing" verbs despite what ASD-STE100 says.
+
+After each commit, give a biology summary of 5 lines or fewer. Cover:
+- what the change does to sequences, coordinates or strands;
+- which biological assumptions it relies on (cite D-numbers);
+- what the user should verify.
+
+Use molecular-biology terms, not Rust terms. Build the summary from the
+contract and the worker's handoff report; do not re-read the full diff for
+it. Give a longer explanation only when asked.
+
 ## Naming
 - The project name is `luria`, styled in lowercase.
 - Use “molecular-biology toolbox” as a descriptive phrase, not a second name.
@@ -74,6 +91,9 @@ Claude tokens on judgment, and send bulk work to a pi worker.
 - For each new rule, name the test that must fail if the rule is disabled,
   and have the worker prove it by disabling the rule once and restoring it
   (a weak assertion can pass with the rule removed).
+- When a rule changes existing behavior, grep the tests for assertions of
+  the old behavior, and name each one in the contract's file list as a
+  permitted change.
 
 ## Running workers
 Workers are pi on the local model set in `scripts/pi-worker`, one herdr tab
