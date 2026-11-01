@@ -15,23 +15,38 @@
 //! dispatch, not this module's, and 8h is the caller this signature is written
 //! for.
 //!
-//! Nothing here writes a file (§8), and nothing here decides what a key means:
-//! `super::state::ViewState::handle` does, and this module only names the key
-//! that was pressed and passes the answer on.
+//! The one thing here that writes is the view's save (9h, 9l), and every write
+//! it makes - the backup of the opened file's original included - goes through
+//! `crate::write::write_text`, the single writer (§8, C-1). Nothing here decides
+//! what a key means: `super::state::ViewState::handle` does, and this module only
+//! names the key that was pressed and passes the answer on. Bracketed paste is
+//! switched on and off here as well (9f §3 item 2), since only the terminal knows
+//! a paste is one; what a paste means stays `state::paste_text`'s rule.
 
 use crate::sequence_view::screen;
 use crate::sequence_view::state::Action;
 use crate::sequence_view::state::Key;
 use crate::sequence_view::state::ViewState;
+use crate::write::write_text;
 use crossterm::event::read;
+use crossterm::event::DisableBracketedPaste;
+use crossterm::event::EnableBracketedPaste;
 use crossterm::event::Event;
 use crossterm::event::KeyCode;
 use crossterm::event::KeyEvent;
 use crossterm::event::KeyEventKind;
 use crossterm::event::KeyModifiers;
+use crossterm::execute;
 use luria_core::view_record::ViewRecord;
 use ratatui::layout::Size;
 use std::ffi::OsStr;
+use std::ffi::OsString;
+use std::fs;
+use std::io::stdout;
+use std::path::Path;
+use std::path::PathBuf;
+use std::time::SystemTime;
+use std::time::UNIX_EPOCH;
 
 /// Whether the view must open without the residue colours (contract 8m5 §4 rule
 /// 5, no-color.org): `NO_COLOR` present and not empty, whatever it is set to,
@@ -61,6 +76,11 @@ fn key_of(press: KeyEvent) -> Key {
     if press.code == KeyCode::Char('u') && press.modifiers == KeyModifiers::CONTROL {
         return Key::CtrlU;
     }
+    // 9g's redo key, named the same way: `r` on its own is text, and a press
+    // with another modifier is `Other`.
+    if press.code == KeyCode::Char('r') && press.modifiers == KeyModifiers::CONTROL {
+        return Key::CtrlR;
+    }
     match press.code {
         KeyCode::Char(letter) => Key::Char(letter),
         KeyCode::Left => Key::Left,
@@ -83,6 +103,150 @@ fn key_of(press: KeyEvent) -> Key {
     }
 }
 
+/// Today's day count, days since 1970-01-01 (9h §4.9, M9-15): the terminal is
+/// the part of the view that reads a clock, and the state never does (D003).
+/// The count goes to `ViewState::new_for_file`, which stamps a save with it
+/// through `save::date_from_days`, so tests can fix the day and match the line.
+fn today_days() -> u64 {
+    match SystemTime::now().duration_since(UNIX_EPOCH) {
+        Ok(since) => since.as_secs() / 86_400,
+        // A clock older than the epoch has no day to name: the view stamps the
+        // epoch's own day and keeps running rather than leaving the screen.
+        Err(_problem) => 0,
+    }
+}
+
+/// The whole write step (9l §4.7), split from the key loop so a test can reach it
+/// without a terminal (9h §5 test 7): `opened` names the file the view opened,
+/// `target` the name the command settled on, and `text` is the text to write.
+/// `replace` says whether an existing name other than the opened file may be
+/// written again, and `backed_up` says whether this session has kept the opened
+/// file's original yet - the session owns that flag, so the original is kept once
+/// however many writes follow (§4.6).
+///
+/// An empty target refuses. A target that is the opened file - the two paths
+/// canonicalize to the same file, and compare as they were given otherwise - is
+/// written through [`write_opened`], and 9q §3.4 says which path that writes:
+/// the target when a regular file sits at its own name, and the opened path for
+/// anything else, so a link at the opened path's name is not made into a file
+/// while the regular file it leads to is written as itself. The link refusal and
+/// the backup follow the path written. Any other existing name refuses unless
+/// `replace` is true. A name nothing holds yet is written with `replace: false`,
+/// as 9h had it. The returned `Option` is the backup this call made, `None` when
+/// it made none. Every write is `write_text`'s, the one writer: the backup too,
+/// since `fs::copy` would write through a link sitting at the backup's name.
+pub fn save_step(
+    opened: &Path,
+    target: &Path,
+    text: &str,
+    replace: bool,
+    backed_up: &mut bool,
+) -> Result<Option<PathBuf>, String> {
+    if target.as_os_str().is_empty() {
+        return Err(String::from("save: an empty name writes nothing"));
+    }
+    let same: bool = match (fs::canonicalize(opened), fs::canonicalize(target)) {
+        (Ok(opened_path), Ok(target_path)) => opened_path == target_path,
+        // A path that cannot be canonicalized: the names as given compare.
+        _ => opened == target,
+    };
+    if same {
+        // 9q §3.4: a regular file at the target's own name is the file to write,
+        // even when the opened path is a link that leads to it - `:w REAL` names
+        // REAL, and REAL is a file. With a link, or nothing, at the target's
+        // name, the opened path is the one the write and its backup belong to,
+        // and `write_opened` refuses it if that too is a link.
+        let own_file: bool = match fs::symlink_metadata(target) {
+            Ok(found) => found.is_file(),
+            Err(_problem) => false,
+        };
+        let written: &Path = if own_file { target } else { opened };
+        return write_opened(written, text, backed_up);
+    }
+    // Steps 3 and 4: an existing name needs `replace` to be written again, and a
+    // name nothing holds yet is written as a new one, `replace: false` whatever
+    // the command typed.
+    let exists: bool = target.exists();
+    if exists && !replace {
+        return Err(format!("{} exists: :w! replaces it", target.display()));
+    }
+    write_text(target, text, exists && replace)
+        .map_err(|problem| format!("{}: {problem}", target.display()))?;
+    Ok(None)
+}
+
+/// The opened file itself being written, or the name 9q §3.4 says is that file
+/// and nothing else (9l §4.7 step 2): its original is kept once a session as
+/// `<path>~`, and then that path is written as itself.
+/// The path is looked at with `symlink_metadata` first, because a name holding a
+/// link is not the file to write: C-1 holds on the opened side as it does
+/// elsewhere. The returned `Option` is the backup this call made, `None` when an
+/// earlier write of this session made it.
+fn write_opened(
+    opened: &Path,
+    text: &str,
+    backed_up: &mut bool,
+) -> Result<Option<PathBuf>, String> {
+    match fs::symlink_metadata(opened) {
+        // The opened path holds a regular file: that file is the one to write.
+        Ok(found) if found.is_file() => {}
+        // A link, or a name holding nothing at all: writing it would write through
+        // the link or make the link into a file, so nothing is written and the
+        // words say where to write instead.
+        _ => {
+            return Err(format!(
+                "{} is a link, not a file: :w NAME writes elsewhere",
+                opened.display()
+            ));
+        }
+    }
+    let backup: PathBuf = backup_name(opened);
+    let mut made: Option<PathBuf> = None;
+    if !*backed_up {
+        // The copy of the original: read from the file the view opened, and
+        // written as a name that may be replaced if something already holds it. A
+        // failure of either half refuses naming the backup, and writes nothing.
+        match fs::read_to_string(opened) {
+            Ok(original) => {
+                if let Err(problem) = write_text(&backup, &original, true) {
+                    return Err(format!("{}: {problem}; nothing written", backup.display()));
+                }
+                *backed_up = true;
+                made = Some(backup.clone());
+            }
+            Err(problem) => {
+                return Err(format!("{}: {problem}; nothing written", backup.display()));
+            }
+        }
+    }
+    // The opened path itself, written as itself: `replace` is true because the
+    // name is taken, and `write_text` still looks at the path itself, so nothing
+    // goes through a link that leads here.
+    write_text(opened, text, true).map_err(|problem| format!("{}: {problem}", opened.display()))?;
+    Ok(made)
+}
+
+/// The name the opened file's original is kept under (9l §4.6, §4.7): the opened
+/// path's own file name with `~` appended, in the opened path's own directory, so
+/// `dir/a.gb` keeps its original at `dir/a.gb~`.
+fn backup_name(opened: &Path) -> PathBuf {
+    match opened.file_name() {
+        Some(raw) => {
+            let mut name: OsString = raw.to_os_string();
+            name.push("~");
+            opened.with_file_name(name)
+        }
+        // A path with no file name of its own - `/`, `..`, the empty path: the `~`
+        // goes on the end of what was given instead. `open_record` refuses such a
+        // path, so this arm only keeps the function total.
+        None => {
+            let mut name: OsString = opened.as_os_str().to_os_string();
+            name.push("~");
+            PathBuf::from(name)
+        }
+    }
+}
+
 /// Open the view on `record`, draw it until the view asks to leave, and restore
 /// the terminal on every way out (D048 M8-13, D055): the same session, key
 /// mapping and restore rule as `review::terminal::run`.
@@ -90,18 +254,44 @@ fn key_of(press: KeyEvent) -> Key {
 /// The view is laid out at the size the terminal reports when the session opens,
 /// and re-laid out at every `Event::Resize` (§4 rule 14), which is the only way a
 /// size change reaches it: no key asks for a size. The record is moved into the
-/// view, so a session holds no reference to a caller's borrow.
-pub fn run(record: ViewRecord) -> std::io::Result<()> {
+/// view, so a session holds no reference to a caller's borrow. `opened` is the
+/// path the record was read from: the view names its writes after it (9l §4.5),
+/// and this session writes that path only after keeping its original as
+/// `<opened>~` once a session (§4.6).
+pub fn run(record: ViewRecord, opened: &Path) -> std::io::Result<()> {
     let mut terminal = match ratatui::try_init() {
         Ok(opened) => opened,
         Err(problem) => {
             // `restore` reports its own failures on stderr and returns nothing,
             // so the error this returns is `try_init`'s (`review::terminal`'s
-            // comment on the same call, unchanged).
+            // comment on the same call, unchanged). Bracketed paste is switched
+            // on below, so there is nothing of that to undo at this point.
             ratatui::restore();
             return Err(problem);
         }
     };
+
+    // 9f §3 item 2: a paste arrives as one piece of text only while the terminal
+    // is asked to bracket it, which is what makes the `Event::Paste` arm below
+    // fire at all. It is switched back off on every way out of `run`, because a
+    // leftover `ESC[?2004h` would leave the shell eating the paste markers of
+    // every later command.
+    if let Err(problem) = execute!(stdout(), EnableBracketedPaste) {
+        // The screen is open, so it is restored before the error is handed on.
+        ratatui::restore();
+        return Err(problem);
+    }
+
+    // The panic path. `try_init` installed a hook that restores raw mode and the
+    // screen but knows nothing about bracketed paste, so this hook chains the one
+    // ratatui installed: paste gets switched off first, then the old hook does
+    // the rest of the restore.
+    let previous_hook: Box<dyn Fn(&std::panic::PanicHookInfo<'_>) + Sync + Send + 'static> =
+        std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        let _ = execute!(stdout(), DisableBracketedPaste);
+        previous_hook(info);
+    }));
 
     // The size the record is laid out at. A terminal that will not say its size
     // is not drawn on at all: the view has no width to lay blocks out in, and
@@ -109,14 +299,21 @@ pub fn run(record: ViewRecord) -> std::io::Result<()> {
     let size: Size = match terminal.size() {
         Ok(size) => size,
         Err(problem) => {
+            let _ = execute!(stdout(), DisableBracketedPaste);
             let _ = ratatui::try_restore();
             return Err(problem);
         }
     };
-    let mut state: ViewState = ViewState::new(record, size.width, size.height);
+    let mut state: ViewState =
+        ViewState::new_for_file(record, size.width, size.height, opened, today_days());
     // The residues are coloured on open unless the environment says not to
     // (8m5 §4 rule 5), which is decided before the first draw: no key asks.
     state.set_colours(!no_color(std::env::var_os("NO_COLOR").as_deref()));
+
+    // Whether this session has kept the opened file's original yet (9l §4.6,
+    // §4.7): the flag lives as long as the session, so the copy is made once and
+    // no later write replaces it with what has been edited since.
+    let mut backed_up: bool = false;
 
     let mut looped: std::io::Result<()> = Ok(());
     loop {
@@ -133,20 +330,58 @@ pub fn run(record: ViewRecord) -> std::io::Result<()> {
             // and the next draw pass draws the screen again unchanged
             // (`review::terminal`'s rule).
             Ok(Event::Key(press)) if press.kind == KeyEventKind::Press => {
-                if state.handle(key_of(press)) == Action::Quit {
+                let action: Action = state.handle(key_of(press));
+                if action == Action::Quit {
                     break;
+                }
+                // 9l §4.6: the write itself is the terminal's, where files are;
+                // the state only settled on the target, the text and whether an
+                // existing name may be replaced. `SaveAndQuit` leaves the session
+                // once the write is reported as written, as `Quit` does; a failure
+                // stays, the error being the message `report_save` set.
+                if action == Action::Save || action == Action::SaveAndQuit {
+                    let (path, text, replace): (PathBuf, String, bool) = state.save_request();
+                    let outcome: Result<Option<PathBuf>, String> =
+                        save_step(opened, &path, &text, replace, &mut backed_up);
+                    match outcome {
+                        Ok(backup) => {
+                            state.report_save(&path, Ok(()));
+                            // The write that kept the original says where the copy
+                            // went, over the line `report_save` wrote (§4.6).
+                            if let Some(kept) = backup {
+                                state.set_message(format!(
+                                    "saved {}, the original kept as {}",
+                                    path.display(),
+                                    kept.display()
+                                ));
+                            }
+                            if action == Action::SaveAndQuit {
+                                break;
+                            }
+                        }
+                        Err(problem) => state.report_save(&path, Err(problem)),
+                    }
                 }
             }
             // A new size: the blocks are laid out again for it, the top block
             // keeps the base it covered, and the next draw shows the record at
             // the new width (§4 rule 14).
             Ok(Event::Resize(width, height)) => state.resize(width, height),
+            // A bracketed paste: the whole text comes in one event, and every
+            // rule about what a paste means is `ViewState::paste_text`'s, not this (9f
+            // §3 item 2).
+            Ok(Event::Paste(text)) => state.paste_text(&text),
             // A mouse event, a focus change, a poll that found nothing: the next
             // draw pass redraws.
             Ok(_other) => {}
         }
     }
 
+    // Every way out of the loop lands here: quit, an error from `read` and a
+    // failed draw. Paste gets switched off before the screen is restored, and
+    // each early return above does the same for itself; the hook installed at the
+    // open covers a panic, the one way out that is not a return.
+    let _ = execute!(stdout(), DisableBracketedPaste);
     let restored: std::io::Result<()> = ratatui::try_restore();
     match looped {
         Err(problem) => Err(problem),
@@ -156,7 +391,12 @@ pub fn run(record: ViewRecord) -> std::io::Result<()> {
 
 #[cfg(test)]
 mod tests {
+    use super::key_of;
     use super::no_color;
+    use super::Key;
+    use crossterm::event::KeyCode;
+    use crossterm::event::KeyEvent;
+    use crossterm::event::KeyModifiers;
     use std::ffi::OsStr;
 
     /// §5's U2: the three answers the environment gives, as no-color.org has
@@ -177,5 +417,15 @@ mod tests {
             no_color(Some(OsStr::new("0"))),
             "`NO_COLOR=0` is set and not empty, so it asks for none too"
         );
+    }
+
+    /// 9g §3 item 3: `ctrl` + `r` names the view's redo key, the way `ctrl-c`
+    /// is named. A plain `r` is still the replace key.
+    #[test]
+    fn ctrl_r_is_the_redo_key() {
+        let press: KeyEvent = KeyEvent::new(KeyCode::Char('r'), KeyModifiers::CONTROL);
+        assert_eq!(key_of(press), Key::CtrlR, "ctrl-r comes in as redo");
+        let plain: KeyEvent = KeyEvent::new(KeyCode::Char('r'), KeyModifiers::NONE);
+        assert_eq!(key_of(plain), Key::Char('r'), "a plain r is replace");
     }
 }

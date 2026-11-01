@@ -1,0 +1,70 @@
+id	rule	length	topology	key	shape	qualifiers	edit	length_after	shape_after	qualifiers_after	named
+a1	M9-6a	100	linear	misc_feature	+ 30..40	-	ins 5 after 10	105	+ 35..45	-	-
+a2	M9-6a	100	linear	misc_feature	+ 30..40	-	del 5-9	95	+ 25..35	-	-
+a3	M9-6a	100	linear	misc_feature	+ 30..40	-	del 20-29	90	+ 20..30	-	-
+a4	M9-6a	100	linear	misc_feature	+ 30..40	-	ins 5 after 50	105	+ 30..40	-	-
+a5	M9-6a	100	linear	misc_feature	+ 30..40	-	del 41-50	90	+ 30..40	-	-
+b1	M9-6b	100	linear	misc_feature	+ 30..40	-	ins 5 after 30	105	+ 30..45	-	-
+b2	M9-6b	100	linear	misc_feature	+ 30..40	-	ins 5 after 39	105	+ 30..45	-	-
+b3	M9-6b	100	linear	misc_feature	+ 30..40	-	ins 5 after 29	105	+ 35..45	-	-
+b4	M9-6b	100	linear	misc_feature	+ 30..40	-	ins 3 after 40	103	+ 30..40	-	-
+b5	M9-6b	100	linear	misc_feature	+ 30..30	-	ins 2 after 30	102	+ 30..30	-	-
+b6	M9-6b	100	linear	misc_feature	+ 30..30	-	ins 2 after 29	102	+ 32..32	-	-
+c1	M9-6c	100	linear	misc_feature	+ 30..40	-	del 33-35	97	+ 30..37	-	-
+c2	M9-6c	100	linear	misc_feature	+ 30..40	-	del 30-40	89	removed	-	feature
+c3	M9-6c	100	linear	misc_feature	+ 30..40	-	del 25-45	79	removed	-	feature
+c4	M9-6c	100	linear	misc_feature	+ 10..20,30..40	-	del 28-45	82	+ 10..20	-	-
+c5	M9-6c	100	linear	misc_feature	+ 10..20,30..40	-	del 15-35	79	+ 10..14,15..19	-	-
+d1	M9-6d	100	linear	misc_feature	+ <30..40	-	del 25-32	92	+ <25..32	-	-
+d2	M9-6d	100	linear	misc_feature	+ 30..>40	-	del 38-45	92	+ 30..>37	-	-
+d3	M9-6d	100	linear	misc_feature	+ 30..40	-	del 38-45	92	+ 30..37	-	-
+d4	M9-6d	100	linear	misc_feature	+ <10..20,30..40	-	del 5-25	79	+ <9..19	-	-
+e1	M9-6e	100	linear	misc_feature	+ 30..40	-	rep 33-35 5	102	+ 30..42	-	-
+e2	M9-6e	100	linear	misc_feature	+ 30..40	-	rep 30-32 4	101	+ 34..41	-	-
+e3	M9-6e	100	linear	misc_feature	+ 30..40	-	rep 30-40 6	95	removed	-	feature
+e4	M9-6e	100	linear	misc_feature	+ 30..40	-	rep 38-40 2	99	+ 30..37	-	-
+e5	M9-6e	100	linear	misc_feature	+ 30..40	-	sub 33-35	100	+ 30..40	-	-
+e6	M9-6e	100	linear	misc_feature	+ 30..40	-	sub 25-45	100	+ 30..40	-	-
+f1	M9-6f	100	linear	misc_feature	+ 10..20,30..40	-	ins 4 after 25	104	+ 10..20,34..44	-	-
+f2	M9-6f	100	linear	misc_feature	+ 10..20,21..30	-	ins 3 after 20	103	+ 10..20,24..33	-	-
+f3	M9-6f	100	linear	misc_feature	- 10..20,30..40	-	ins 2 after 15	102	- 10..22,32..42	-	-
+g1	M9-6g	62	circular	CDS	+ 56..62,1..11	-	ins 3 after 5	65	+ 59..65,1..14	-	-
+g2	M9-6g	62	circular	CDS	+ 56..62,1..11	-	del 58-60	59	+ 56..59,1..11	-	-
+g3	M9-6g	62	circular	CDS	- 53..62,1..8	codon_start=1;translation=MKKK	del 1-3	59	- 50..59,1..5	codon_start=1	-
+h1	M9-6h	100	linear	CDS	+ 30..40	codon_start=1;translation=MAAA;product=x	ins 3 after 10	103	+ 33..43	codon_start=1;translation=MAAA;product=x	-
+h2	M9-6h	100	linear	CDS	+ 30..40	codon_start=1;translation=MAAA;product=x	sub 32-32	100	+ 30..40	codon_start=1;product=x	-
+h3	M9-6h	100	linear	CDS	+ 30..40	codon_start=1;translation=MAAA;product=x	ins 3 after 35	103	+ 30..43	codon_start=1;product=x	-
+h4	M9-6h	100	linear	CDS	+ 30..40	codon_start=1;translation=MAAA;product=x	ins 3 after 40	103	+ 30..40	codon_start=1;translation=MAAA;product=x	-
+h5	M9-6h	100	linear	CDS	+ 30..40	translation=MAAA	rep 25-29 2	97	+ 27..37	translation=MAAA	-
+h6	M9-6h	100	linear	CDS	+ 30..40	translation=MAAA	del 30-40	89	removed	-	feature
+t1	M9-13a	100	linear	CDS	+ 30..60	transl_except=(pos:45..47,aa:Sec)	ins 3 after 10	103	+ 33..63	transl_except=(pos:48..50,aa:Sec)	-
+t2	M9-13a	100	linear	CDS	+ 30..60	transl_except=(pos:45..47,aa:Sec)	del 10-14	95	+ 25..55	transl_except=(pos:40..42,aa:Sec)	-
+t3	M9-13a	100	linear	CDS	+ 30..60	transl_except=(pos:45..47,aa:Sec)	ins 3 after 50	103	+ 30..63	transl_except=(pos:45..47,aa:Sec)	-
+t4	M9-13a	100	linear	CDS	+ 30..60	transl_except=(pos:45..47,aa:Sec)	sub 46-46	100	+ 30..60	-	transl_except
+t5	M9-13a	100	linear	CDS	+ 30..60	transl_except=(pos:45..47,aa:Sec)	ins 2 after 45	102	+ 30..62	-	transl_except
+t6	M9-13a	100	linear	CDS	+ 30..60	transl_except=(pos:45..47,aa:Sec)	ins 2 after 47	102	+ 30..62	transl_except=(pos:45..47,aa:Sec)	-
+t7	M9-13a	100	linear	CDS	+ 30..60	transl_except=(pos:45..47,aa:Sec)	del 40-44	95	+ 30..55	transl_except=(pos:40..42,aa:Sec)	-
+t8	M9-13a	100	linear	CDS	- 30..60	transl_except=(pos:complement(33..35),aa:Sec)	ins 3 after 20	103	- 33..63	transl_except=(pos:complement(36..38),aa:Sec)	-
+t9	M9-13a	100	linear	CDS	+ 30..60	transl_except=(pos:60,aa:TERM)	del 10-11	98	+ 28..58	transl_except=(pos:58,aa:TERM)	-
+n1	M9-13a	200	linear	tRNA	+ 30..105	anticodon=(pos:64..66,aa:Phe,seq:gaa)	ins 2 after 20	202	+ 32..107	anticodon=(pos:66..68,aa:Phe,seq:gaa)	-
+n2	M9-13a	200	linear	tRNA	+ 30..105	anticodon=(pos:64..66,aa:Phe,seq:gaa)	del 65-65	199	+ 30..104	-	anticodon
+s1	M9-13b	100	linear	CDS	+ <1..60	codon_start=1	del 1-1	99	+ <1..59	codon_start=3	-
+s2	M9-13b	100	linear	CDS	+ <1..60	codon_start=1	del 1-2	98	+ <1..58	codon_start=2	-
+s3	M9-13b	100	linear	CDS	+ <1..60	codon_start=2	del 1-1	99	+ <1..59	codon_start=1	-
+s4	M9-13b	100	linear	CDS	+ <1..60	codon_start=3	del 1-3	97	+ <1..57	codon_start=3	-
+s5	M9-13b	100	linear	CDS	+ <1..60	codon_start=2	del 10-10	99	+ <1..59	codon_start=2	-
+s6	M9-13b	100	linear	CDS	- 41..>100	codon_start=1	del 99-100	98	- 41..>98	codon_start=2	-
+s7	M9-13b	100	linear	CDS	- 41..>100	codon_start=1	del 41-42	98	- 41..>98	codon_start=1	-
+s8	M9-13b	100	linear	CDS	+ <1..60	-	del 1-1	99	+ <1..59	codon_start=3	-
+s9	M9-13b	100	linear	CDS	+ <1..60	-	del 1-3	97	+ <1..57	-	-
+s10	M9-13b	100	linear	CDS	+ <10..20,30..60	codon_start=1	del 5-25	79	+ <9..39	codon_start=2	-
+s11	M9-13b	100	linear	CDS	+ <1..60	codon_start=1	rep 1-2 4	102	+ <5..62	codon_start=2	-
+o1	M9-14	62	circular	CDS	+ 56..62,1..11	translation=MKKK	ins 4 after 62	66	+ 56..66,1..11	-	-
+o2	M9-14	62	circular	CDS	+ 56..62,1..11	-	ins 4 after 0	66	+ 60..66,1..15	-	-
+o3	M9-14	62	circular	CDS	- 53..62,1..8	-	ins 2 after 0	64	- 55..64,1..10	-	-
+o4	M9-14	4361	circular	misc_feature	+ 4000..4361,1..10	-	ins 5 after 4361	4366	+ 4000..4366,1..10	-	-
+o5	M9-14	4361	circular	misc_feature	+ 4000..4361,1..10	-	ins 5 after 0	4366	+ 4005..4366,1..15	-	-
+o6	M9-14	100	circular	misc_feature	+ 1..10	-	ins 3 after 0	103	+ 4..13	-	-
+o7	M9-14	100	circular	misc_feature	+ 91..100	-	ins 3 after 100	103	+ 91..100	-	-
+o8	M9-14	100	linear	misc_feature	+ 1..10	-	ins 3 after 0	103	+ 4..13	-	-
+o9	M9-14	100	linear	misc_feature	+ 91..100	-	ins 3 after 100	103	+ 91..100	-	-

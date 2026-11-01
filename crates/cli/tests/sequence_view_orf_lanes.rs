@@ -657,8 +657,9 @@ fn o_shows_and_hides_the_orfs() {
         status(&state)
     );
     assert!(
-        state.orfs().is_some(),
-        "the scan's result is kept for the next `O`, which needs no second scan"
+        state.orfs().is_none(),
+        "and the scan's result goes with the lanes (9r §3.1 reverses the 8m18 rule \
+         that kept them): the next `O` scans the record again"
     );
     assert!(
         !body_rows(&state).iter().any(|row| row.contains("ORF")),

@@ -92,6 +92,12 @@ impl GenBankQualifier {
     pub fn value(&self) -> Option<String> {
         self.value.clone()
     }
+
+    /// A qualifier from its name and value, as 9e builds one from an edit
+    /// buffer (9c1).
+    pub fn new(name: String, value: Option<String>) -> GenBankQualifier {
+        GenBankQualifier { name, value }
+    }
 }
 
 /// One entry of the FEATURES table. The location is text: 5c3 parses it, and
@@ -101,6 +107,9 @@ pub struct GenBankFeature {
     key: String,
     location: String,
     qualifiers: Vec<GenBankQualifier>,
+    /// The feature's lines as read, its key line first, each verbatim
+    /// (§4.5, kept for the writer, M9-7).
+    lines: Vec<String>,
     line: u64,
 }
 
@@ -123,6 +132,31 @@ impl GenBankFeature {
     pub fn line(&self) -> u64 {
         self.line
     }
+
+    /// The feature's lines as read: its key line, then every non-blank line
+    /// up to the next key line, the next section line or ORIGIN, each
+    /// verbatim with its trailing `\r` removed (§4.5, M9-7). Empty for a
+    /// feature built with `new`.
+    pub fn lines(&self) -> Vec<String> {
+        self.lines.clone()
+    }
+
+    /// A feature from its parts, as 9e builds one from an edit buffer: no
+    /// lines of its own, so `lines()` is empty (9c1).
+    pub fn new(
+        key: String,
+        location: String,
+        qualifiers: Vec<GenBankQualifier>,
+        line: u64,
+    ) -> GenBankFeature {
+        GenBankFeature {
+            key,
+            location,
+            qualifiers,
+            lines: Vec::new(),
+            line,
+        }
+    }
 }
 
 /// One GenBank record: source metadata, the sequence, and the feature table.
@@ -131,6 +165,17 @@ pub struct GenBankRecord {
     locus_name: String,
     accession: Option<String>,
     version: Option<String>,
+    /// The LOCUS line as read, its trailing `\r` removed (§4.3, M9-15).
+    locus_line: String,
+    /// The LOCUS line's molecule type and division tokens, and its date, as
+    /// read (§4.3, M9-15).
+    molecule_type: Option<String>,
+    division: Option<String>,
+    date: Option<String>,
+    /// Every non-blank line between the LOCUS line and FEATURES, or between
+    /// the LOCUS line and ORIGIN when there is no FEATURES section, verbatim
+    /// in file order (§4.4, M9-7).
+    header_lines: Vec<String>,
     sequence: Sequence,
     features: Vec<GenBankFeature>,
 }
@@ -167,14 +212,76 @@ impl GenBankRecord {
     pub(crate) fn feature_slice(&self) -> &[GenBankFeature] {
         &self.features
     }
+
+    /// The LOCUS line as read, its trailing `\r` removed (§4.2, M9-15).
+    pub fn locus_line(&self) -> String {
+        self.locus_line.clone()
+    }
+
+    /// The token right after the `bp` token of the LOCUS line, unless it is
+    /// `linear` or `circular`: `DNA`, `ds-DNA`, `mRNA` … `None` when there is
+    /// none (§4.3, M9-15).
+    pub fn molecule_type(&self) -> Option<String> {
+        self.molecule_type.clone()
+    }
+
+    /// The token right after the topology token of the LOCUS line, unless it
+    /// is a date, which `date()` reads: `SYN`, `BCT` … `None` when there is
+    /// none (§4.3, M9-15).
+    pub fn division(&self) -> Option<String> {
+        self.division.clone()
+    }
+
+    /// The first token after the LOCUS line's `bp` token that is a date: two
+    /// digits, three ASCII upper-case letters and four digits (§4.3, M9-11,
+    /// M9-15).
+    pub fn date(&self) -> Option<String> {
+        self.date.clone()
+    }
+
+    /// Every non-blank line after the LOCUS line and before the FEATURES
+    /// line, or before the ORIGIN line when there is no FEATURES section,
+    /// verbatim with its trailing `\r` removed, in file order (§4.4, M9-7).
+    pub fn header_lines(&self) -> Vec<String> {
+        self.header_lines.clone()
+    }
+
+    /// A record from its parts, as 9e builds one from an edit buffer: the
+    /// LOCUS line is empty, `molecule_type()`, `division()` and `date()` are
+    /// `None`, and `header_lines()` is empty (9c1).
+    pub fn from_parts(
+        locus_name: String,
+        accession: Option<String>,
+        version: Option<String>,
+        sequence: Sequence,
+        features: Vec<GenBankFeature>,
+    ) -> GenBankRecord {
+        GenBankRecord {
+            locus_name,
+            accession,
+            version,
+            locus_line: String::new(),
+            molecule_type: None,
+            division: None,
+            date: None,
+            header_lines: Vec::new(),
+            sequence,
+            features,
+        }
+    }
 }
 
-/// What a LOCUS line states: the length in bp, the record's name, and the
-/// topology the sequence carries (§4.3).
+/// What a LOCUS line states: the length in bp, the record's name, the
+/// topology the sequence carries, and, for the writer (M9-7, M9-15), the
+/// line itself with its molecule type, division and date tokens (§4.3, 9c1).
 struct Locus {
     length: u64,
     name: String,
     topology: SequenceTopology,
+    line: String,
+    molecule_type: Option<String>,
+    division: Option<String>,
+    date: Option<String>,
 }
 
 /// What the qualifier the last FEATURES line touched left behind, and so
@@ -200,6 +307,9 @@ struct FeaturesRead {
     done: Vec<GenBankFeature>,
     key: String,
     location: String,
+    /// The lines of the feature in progress, its key line first, each verbatim
+    /// (§4.5, M9-7).
+    lines: Vec<String>,
     line: u64,
     qualifiers: Vec<GenBankQualifier>,
     qualifier_name: String,
@@ -388,6 +498,7 @@ fn new_features_read() -> FeaturesRead {
         done: Vec::new(),
         key: "".to_string(),
         location: "".to_string(),
+        lines: Vec::new(),
         line: 0,
         qualifiers: Vec::new(),
         qualifier_name: "".to_string(),
@@ -398,15 +509,17 @@ fn new_features_read() -> FeaturesRead {
 }
 
 /// The feature a key line starts: its key, the location text the key line
-/// gives after it, and the line the key sits on (§4.5).
+/// gives after it, the line as read and the line the key sits on (§4.5).
 fn new_feature(
     mut state: FeaturesRead,
     key: String,
     location: String,
+    line: String,
     number: u64,
 ) -> FeaturesRead {
     state.key = key;
     state.location = location;
+    state.lines = vec![line];
     state.line = number;
     state
 }
@@ -450,6 +563,7 @@ fn end_feature(sequence: &str, state: FeaturesRead) -> Result<FeaturesRead, Doma
             key: state.key,
             location: state.location,
             qualifiers: state.qualifiers,
+            lines: state.lines,
             line: state.line,
         });
     }
@@ -457,6 +571,7 @@ fn end_feature(sequence: &str, state: FeaturesRead) -> Result<FeaturesRead, Doma
     state.location = "".to_string();
     state.line = 0;
     state.qualifiers = Vec::new();
+    state.lines = Vec::new();
     Ok(state)
 }
 
@@ -620,12 +735,13 @@ fn qualifier_area(
 
 /// One continuation line of the FEATURES section (§4.5): a key line at
 /// exactly 5 spaces, the qualifier area at 21 or more, and any other
-/// indentation as `LineLayout`.
+/// indentation as `LineLayout`. Every line that belongs to the feature in
+/// progress is kept in it, verbatim (§4.5, M9-7).
 fn read_features_line(
     sequence: &str,
     number: u64,
     line: &str,
-    state: FeaturesRead,
+    mut state: FeaturesRead,
 ) -> Result<FeaturesRead, DomainError> {
     let indent: usize = space_indent(line);
     if indent == 5 {
@@ -637,12 +753,15 @@ fn read_features_line(
         if location.is_empty() {
             return Err(refusal(sequence, GenBankRule::LineLayout, Some(number)));
         }
-        Ok(new_feature(closed, key, location, number))
+        Ok(new_feature(closed, key, location, line.to_string(), number))
     } else if indent >= 21 {
         if state.key.is_empty() {
             // A qualifier-area line before the first key line (§4.5).
             return Err(refusal(sequence, GenBankRule::LineLayout, Some(number)));
         }
+        // The line belongs to the feature, verbatim, whatever it does to the
+        // qualifiers (§4.5, kept for the writer, M9-7).
+        state.lines.push(line.to_string());
         qualifier_area(sequence, number, trim_spaces(line.to_string()), state)
     } else {
         Err(refusal(sequence, GenBankRule::LineLayout, Some(number)))
@@ -699,14 +818,42 @@ fn read_origin_line(
     Ok(tokens[1..tokens.len()].join(""))
 }
 
-/// The LOCUS line's length in bp, the record's name and the sequence's
-/// topology (§4.3, amended in review): the length is a digits token before a
-/// `bp` token at index 2 or later, the topology exactly one of `linear` or
-/// `circular` among the tokens after that `bp` token, matched lower case, and
-/// the name is the token after `LOCUS` unless the length token is that token.
-/// A `linear` or `circular` name states no topology, so zero matches is
-/// `TopologyMissing` and more than one is `TopologyConflict`. Every refusal
-/// carries the LOCUS line's `number`.
+/// True for a date token of a LOCUS line as the LOCUS line writes one: two
+/// digits, three ASCII upper-case letters and four digits, each run separated
+/// by a `-` (9c1, M9-15). A date token is never a division token.
+fn locus_date(token: &str) -> bool {
+    let chars: Vec<char> = token.chars().collect();
+    if chars.len() != 11 || chars[2] != '-' || chars[6] != '-' {
+        return false;
+    }
+    let month: Vec<char> = chars[3..6].to_vec();
+    let month_upper: bool = month.iter().all(|ch| ch.is_ascii_uppercase());
+    let day: String = chars[0..2].iter().collect();
+    let year: String = chars[7..11].iter().collect();
+    month_upper && ascii_digits(&day) && ascii_digits(&year)
+}
+
+/// True for a topology token: the token that states the sequence's topology
+/// (§4.3).
+fn topology_token(token: &str) -> bool {
+    token == "linear" || token == "circular"
+}
+
+/// The LOCUS line's length in bp, the record's name, the sequence's topology
+/// and, for the writer, the LOCUS line as read with its molecule type,
+/// division and date tokens (§4.3, amended in review, 9c1, M9-15): the length
+/// is a digits token before a `bp` token at index 2 or later, the topology
+/// exactly one of `linear` or `circular` among the tokens after that `bp`
+/// token, matched lower case, and the name is the token after `LOCUS` unless
+/// the length token is that token. A `linear` or `circular` name states no
+/// topology, so zero matches is `TopologyMissing` and more than one is
+/// `TopologyConflict`. Every refusal carries the LOCUS line's `number`.
+///
+/// The molecule type token is the one after the `bp` token unless it states
+/// the topology, the division token is the one after the topology token
+/// unless it is a date, and the date is the first such token after the `bp`
+/// token; any of the three is `None` when the line holds no such token (§4.3,
+/// 9c1).
 fn read_locus(sequence: &str, line: &str, number: u64) -> Result<Locus, DomainError> {
     let tokens: Vec<String> = space_tokens(line);
     let mut at: usize = 2;
@@ -730,7 +877,7 @@ fn read_locus(sequence: &str, line: &str, number: u64) -> Result<Locus, DomainEr
     let topology_tokens: Vec<String> = tokens[at + 1..tokens.len()].to_vec();
     let mut topologies: usize = 0;
     for token in &topology_tokens {
-        if token == "linear" || token == "circular" {
+        if topology_token(token) {
             topologies += 1
         }
     }
@@ -760,10 +907,39 @@ fn read_locus(sequence: &str, line: &str, number: u64) -> Result<Locus, DomainEr
     } else {
         tokens[1].to_string()
     };
+    // The tokens the writer needs (M9-15): the molecule type is the token
+    // after `bp` unless it states the topology, the division is the token
+    // after the topology token unless it is a date, and the date is the first
+    // date token after `bp` (9c1).
+    let molecule_type: Option<String> = match topology_tokens.first() {
+        Some(token) if !topology_token(token) => Some(token.to_string()),
+        _ => None,
+    };
+    // `read_locus` has refused a line that does not state exactly one
+    // topology, so the index below is always found.
+    let topology_at: usize = match topology_tokens
+        .iter()
+        .position(|token| topology_token(token))
+    {
+        Some(index) => index,
+        None => topology_tokens.len(),
+    };
+    let division: Option<String> = match topology_tokens.get(topology_at + 1) {
+        Some(token) if !locus_date(token) => Some(token.to_string()),
+        _ => None,
+    };
+    let date: Option<String> = topology_tokens
+        .iter()
+        .find(|token| locus_date(token))
+        .map(|token| token.to_string());
     Ok(Locus {
         length,
         name,
         topology,
+        line: line.to_string(),
+        molecule_type,
+        division,
+        date,
     })
 }
 
@@ -812,8 +988,10 @@ pub fn read_genbank(name: Identifier, text: String) -> Result<GenBankRecord, Dom
     let mut seen_origin: bool = false;
     let mut in_features: bool = false;
     let mut in_origin: bool = false;
+    let mut in_header: bool = true;
     let mut end_line: Option<u64> = None;
     let mut features: FeaturesRead = new_features_read();
+    let mut header: Vec<String> = Vec::new();
     let mut origin_lines: Vec<String> = Vec::new();
     let mut origin_length: u64 = 0;
 
@@ -860,6 +1038,10 @@ pub fn read_genbank(name: Identifier, text: String) -> Result<GenBankRecord, Dom
                 let added: u64 = bases.chars().count() as u64;
                 origin_lines.push(bases);
                 origin_length += added;
+            } else if in_header {
+                // A continuation line of a header section, kept verbatim for
+                // the writer (§4.4, M9-7, 9c1).
+                header.push(line.to_string());
             }
             continue;
         }
@@ -896,6 +1078,11 @@ pub fn read_genbank(name: Identifier, text: String) -> Result<GenBankRecord, Dom
                 Some(number),
             ));
         }
+        // §4.4, 9c1: every section line but FEATURES and ORIGIN is a header
+        // line the writer keeps as the file had it (M9-7, M9-15).
+        if in_header && keyword != "FEATURES" && keyword != "ORIGIN" {
+            header.push(line.to_string());
+        }
         if keyword == "ACCESSION" {
             seen_accession = true;
             accession = keyword_value(line);
@@ -906,10 +1093,12 @@ pub fn read_genbank(name: Identifier, text: String) -> Result<GenBankRecord, Dom
             seen_features = true;
             in_features = true;
             in_origin = false;
+            in_header = false;
         } else if keyword == "ORIGIN" {
             seen_origin = true;
             in_origin = true;
             in_features = false;
+            in_header = false;
         } else {
             // Any other keyword, and its continuation lines, are skipped. A
             // line in ORIGIN never reaches here (§4.7 refused it above).
@@ -942,6 +1131,11 @@ pub fn read_genbank(name: Identifier, text: String) -> Result<GenBankRecord, Dom
         locus_name: locus.name,
         accession,
         version,
+        locus_line: locus.line,
+        molecule_type: locus.molecule_type,
+        division: locus.division,
+        date: locus.date,
+        header_lines: header,
         sequence,
         features: features.done,
     })
@@ -1471,6 +1665,143 @@ mod tests {
         let mut lines = sample();
         lines.insert(20, q("ar\"ound"));
         assert_eq!(refusal(read(&lines)), (QualifierSyntax, Some(21)));
+    }
+
+    // Added in 9c1 (contract 9c1 §4 edge cases and §5 test 3): the LOCUS
+    // line's molecule type, division and date tokens, and the header lines of
+    // a record with no FEATURES section. `read_locus` is read here, not
+    // through a whole record, so each line names its own tokens.
+    fn locus_of(line: &'static str) -> Locus {
+        read_locus("tmpl", line, 1).unwrap()
+    }
+
+    #[test]
+    fn locus_tokens() {
+        // A line that states none of the three: only length and topology.
+        let bare = locus_of("LOCUS       x 12 bp linear");
+        assert_eq!(bare.length, 12);
+        assert_eq!(bare.name, "x");
+        assert_eq!(bare.topology, SequenceTopology::Linear);
+        assert_eq!(bare.molecule_type, None::<String>);
+        assert_eq!(bare.division, None::<String>);
+        assert_eq!(bare.date, None::<String>);
+
+        // The line the contract names: all three.
+        let puc = locus_of("LOCUS       pUC19   2686 bp ds-DNA     circular SYN 12-OCT-2020");
+        assert_eq!(puc.molecule_type, some("ds-DNA"));
+        assert_eq!(puc.division, some("SYN"));
+        assert_eq!(puc.date, some("12-OCT-2020"));
+        assert_eq!(puc.length, 2686);
+        assert_eq!(puc.topology, SequenceTopology::Circular);
+
+        // The date with no division: the token after the topology is a date,
+        // so it states no division.
+        let no_div = locus_of("LOCUS       pUC19   2686 bp ds-DNA     circular 12-OCT-2020");
+        assert_eq!(no_div.molecule_type, some("ds-DNA"));
+        assert_eq!(no_div.division, None::<String>);
+        assert_eq!(no_div.date, some("12-OCT-2020"));
+
+        // A division that is not a date, and no date at all.
+        let no_date = locus_of("LOCUS       pUC19   2686 bp ds-DNA     circular SYN");
+        assert_eq!(no_date.molecule_type, some("ds-DNA"));
+        assert_eq!(no_date.division, some("SYN"));
+        assert_eq!(no_date.date, None::<String>);
+
+        // A molecule type that is not a topology token, and nothing after it.
+        let mrna = locus_of("LOCUS       x 12 bp mRNA      linear");
+        assert_eq!(mrna.molecule_type, some("mRNA"));
+        assert_eq!(mrna.division, None::<String>);
+        assert_eq!(mrna.date, None::<String>);
+
+        // pBR322's LOCUS line, as the fixture writes it (line 1 of
+        // `tests/fixtures/genbank/raw/J01749.1.gb`), kept as read.
+        let pbr = "LOCUS       SYNPBR322               4361 bp    DNA     circular SYN 30-SEP-2008";
+        assert_eq!(locus_of(pbr).line, pbr);
+        let pbr = locus_of(pbr);
+        assert_eq!(pbr.name, "SYNPBR322");
+        assert_eq!(pbr.length, 4361);
+        assert_eq!(pbr.topology, SequenceTopology::Circular);
+        assert_eq!(pbr.molecule_type, some("DNA"));
+        assert_eq!(pbr.division, some("SYN"));
+        assert_eq!(pbr.date, some("30-SEP-2008"));
+    }
+
+    // Added in 9c1 (contract 9c1 §4): a record whose FEATURES section is
+    // empty, and one whose text has no FEATURES section at all, keep the
+    // header lines they have.
+    #[test]
+    fn a_record_without_a_features_section_keeps_its_header_lines() {
+        let header: Vec<String> = vec![
+            s("DEFINITION  A synthetic test record."),
+            s("ACCESSION   TEST0001"),
+            s("VERSION     TEST0001.1"),
+            s("KEYWORDS    ."),
+            s("SOURCE      synthetic"),
+            s("  ORGANISM  synthetic"),
+        ];
+
+        // The FEATURES line and the feature lines, from sample(): indices
+        // 7..=20.
+        let mut no_section: Vec<String> = sample();
+        no_section.drain(7..21);
+        let no_section: GenBankRecord = read(&no_section).unwrap();
+        assert!(no_section.features().is_empty());
+        assert_eq!(no_section.header_lines(), header);
+
+        // The FEATURES line on its own, with no feature line (indices
+        // 8..=20 of sample() gone).
+        let mut empty_section: Vec<String> = sample();
+        empty_section.drain(8..21);
+        let empty_section: GenBankRecord = read(&empty_section).unwrap();
+        assert!(empty_section.features().is_empty());
+        assert_eq!(empty_section.header_lines(), header);
+    }
+
+    // Added in 9c1 (contract 9c1 §4, §5 test 4): the constructors 9e builds a
+    // record with, and what they leave behind.
+    #[test]
+    fn parts_build_a_record() {
+        let sequence: Sequence =
+            normalize(name(), "atggcttgga".to_string(), SequenceTopology::Linear).unwrap();
+        let named: GenBankQualifier = GenBankQualifier::new("gene".to_string(), some("bla"));
+        let flag: GenBankQualifier = GenBankQualifier::new("pseudo".to_string(), None);
+        assert_eq!(named.name(), "gene");
+        assert_eq!(named.value(), some("bla"));
+        assert_eq!(flag.name(), "pseudo");
+        assert_eq!(flag.value(), None::<String>);
+
+        let feature: GenBankFeature =
+            GenBankFeature::new("CDS".to_string(), "1..10".to_string(), vec![named, flag], 7);
+        let record: GenBankRecord = GenBankRecord::from_parts(
+            "pBR322x".to_string(),
+            some("J01749"),
+            some("J01749.1"),
+            sequence.clone(),
+            vec![feature.clone()],
+        );
+
+        assert_eq!(record.locus_name(), "pBR322x");
+        assert_eq!(record.accession(), some("J01749"));
+        assert_eq!(record.version(), some("J01749.1"));
+        assert_eq!(record.sequence(), sequence);
+        assert_eq!(record.features(), vec![feature]);
+        assert_eq!(record.features()[0].key(), "CDS");
+        assert_eq!(record.features()[0].location(), "1..10");
+        assert_eq!(record.features()[0].line(), 7);
+        assert_eq!(
+            pairs(&record.features()[0]),
+            vec![(s("gene"), some("bla")), (s("pseudo"), None)]
+        );
+
+        // What no part gives: no LOCUS line, no tokens of it, no header, and
+        // for a `new` feature no lines of its own.
+        assert_eq!(record.locus_line(), "");
+        assert_eq!(record.molecule_type(), None::<String>);
+        assert_eq!(record.division(), None::<String>);
+        assert_eq!(record.date(), None::<String>);
+        assert!(record.header_lines().is_empty());
+        assert!(record.features()[0].lines().is_empty());
+        assert_eq!(record.features()[0].lines(), Vec::<String>::new());
     }
 
     #[test]

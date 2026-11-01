@@ -364,6 +364,49 @@ pub fn normalize(
 }
 
 impl Sequence {
+    /// A sequence whose `letters` are already canonical: every one an
+    /// upper-case letter of `DNA_ALPHABET`, with no line breaks, blanks,
+    /// record headers or lowercase to take care of. A debug build checks that
+    /// precondition; a release build trusts it.
+    ///
+    /// This is `normalize` without the second pass over the letters: no
+    /// per-character folding, no alphabet check, no reallocation of the `Vec`
+    /// it copies out of. The canonical text is built once into a buffer of the
+    /// exact size and hashed from there, and `letters` moves into the artifact,
+    /// so the result is what `normalize` gives for the same letters. It exists
+    /// for callers holding letters that only ever came out of a normalized
+    /// record — `EditBuffer::to_sequence` (M9-4) — where re-checking 10 000 000
+    /// bases costs more than the hash it is protecting.
+    pub(crate) fn from_canonical(
+        name: Identifier,
+        letters: Vec<char>,
+        topology: SequenceTopology,
+    ) -> Result<Sequence, DomainError> {
+        debug_assert!(
+            letters.iter().all(|ch| is_dna_letter(*ch)),
+            "from_canonical is only for letters normalize would accept unchanged"
+        );
+        if letters.is_empty() {
+            return Err(DomainError::EmptySequenceContent(EmptySequenceProblem {
+                sequence: name.value().to_string(),
+            }));
+        }
+        // Every letter is an ASCII upper-case letter, so one byte per letter is
+        // the exact capacity.
+        let length: u64 = letters.len() as u64;
+        let mut canonical: String = String::with_capacity(letters.len());
+        for ch in letters.iter() {
+            canonical.push(*ch);
+        }
+        Ok(Sequence {
+            name,
+            content_hash: ContentHash::create(sha256_hex(canonical.as_bytes())),
+            letters,
+            length,
+            topology,
+        })
+    }
+
     pub fn name(&self) -> Identifier {
         self.name.clone()
     }
@@ -430,6 +473,7 @@ impl Sequence {
 mod tests {
     use super::*;
     use crate::error::DomainError;
+    use crate::genbank::read_genbank;
 
     #[test]
     fn fasta_noise_does_not_change_content() {
@@ -955,5 +999,107 @@ mod tests {
             }
             other => panic!("expected CoordinateOutOfBounds, got {:?}", other),
         }
+    }
+
+    /// The four letter sets of 9p2 §5 test 1, with the name and topology each
+    /// is stored under. pBR322's bases come from the fixture the way the GenBank
+    /// reader hands them to `normalize` (`genbank.rs:1121` joins its ORIGIN lines
+    /// and calls `normalize`), so the letters are canonical by construction.
+    fn letter_sets() -> Vec<(String, Vec<char>, SequenceTopology)> {
+        let path: &str = "../../tests/fixtures/genbank/raw/J01749.1.gb";
+        let text: String = std::fs::read_to_string(path)
+            .unwrap_or_else(|error| panic!("cannot read {}: {}", path, error));
+        let name: Identifier = Identifier::create("J01749.1".to_string())
+            .unwrap_or_else(|error| panic!("cannot name pBR322: {:?}", error));
+        let record = read_genbank(name, text)
+            .unwrap_or_else(|error| panic!("read_genbank refused {}: {:?}", path, error.code()));
+        let pbr: Sequence = record.sequence();
+        assert!(pbr.length() == 4361, "the fixture is pBR322 at 4361 bp");
+
+        let mut run: String = String::new();
+        while run.len() < 1000 {
+            run.push_str(DNA_ALPHABET);
+        }
+        run.truncate(1000);
+
+        vec![
+            (
+                "pbr322".to_string(),
+                pbr.letters(),
+                SequenceTopology::Circular,
+            ),
+            (
+                "iupac".to_string(),
+                DNA_ALPHABET.chars().collect(),
+                SequenceTopology::Linear,
+            ),
+            ("one".to_string(), vec!['A'], SequenceTopology::Linear),
+            (
+                "run".to_string(),
+                run.chars().collect(),
+                SequenceTopology::Circular,
+            ),
+        ]
+    }
+
+    // 9p2 §5 test 1: `from_canonical` is `normalize` with the second pass over
+    // the letters left out, so the artifact it builds is the same one — same
+    // name, same letters, same length, same digest, same topology.
+    #[test]
+    fn from_canonical_equals_normalize() {
+        for (label, letters, topology) in letter_sets() {
+            let name: Identifier = Identifier::create(label.clone())
+                .unwrap_or_else(|error| panic!("cannot name {label}: {:?}", error));
+            let text: String = canonical_text(letters.clone());
+            let direct: Sequence =
+                Sequence::from_canonical(name.clone(), letters.clone(), topology.clone())
+                    .unwrap_or_else(|error| {
+                        panic!(
+                            "{label}: from_canonical refused its own letters: {:?}",
+                            error.code()
+                        )
+                    });
+            let checked: Sequence = normalize(name.clone(), text.clone(), topology.clone())
+                .unwrap_or_else(|error| {
+                    panic!(
+                        "{label}: normalize refused its own letters: {:?}",
+                        error.code()
+                    )
+                });
+            assert_eq!(direct, checked, "{label}: the two constructors disagree");
+            assert_eq!(direct.name(), checked.name(), "{label}: the name differs");
+            assert_eq!(
+                direct.topology(),
+                checked.topology(),
+                "{label}: the topology differs"
+            );
+            assert_eq!(
+                direct.content_hash(),
+                checked.content_hash(),
+                "{label}: the content digest differs"
+            );
+            assert_eq!(
+                direct.length(),
+                letters.len() as u64,
+                "{label}: the length differs"
+            );
+            assert_eq!(direct.canonical_text(), text, "{label}: the text differs");
+        }
+    }
+
+    // 9p2 §5 test 2: the empty content `normalize` refuses is refused here the
+    // same way, before the letters are looked at.
+    #[test]
+    fn from_canonical_refuses_empty() {
+        let name: Identifier = Identifier::create("seq-a".to_string())
+            .unwrap_or_else(|error| panic!("a name is created: {:?}", error));
+        let direct: DomainError =
+            Sequence::from_canonical(name.clone(), Vec::new(), SequenceTopology::Linear)
+                .unwrap_err();
+        let checked: DomainError =
+            normalize(name, String::new(), SequenceTopology::Linear).unwrap_err();
+        assert_eq!(direct.code(), checked.code());
+        assert_eq!(direct.message(), checked.message());
+        assert!(matches!(direct, DomainError::EmptySequenceContent(_)));
     }
 }

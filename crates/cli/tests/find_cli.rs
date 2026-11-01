@@ -332,7 +332,7 @@ fn a_range_is_refused_for_now() {
         assert!(output.stdout.is_empty(), "{value}");
         let stderr: String = text(&output.stderr);
         assert!(
-            stderr.starts_with("luria: searching a range of bases comes in milestone 9"),
+            stderr.starts_with("luria: searching a range of bases is not supported yet"),
             "{value}: {stderr}"
         );
         assert!(stderr.contains(USAGE), "{value}: the usage text follows");
